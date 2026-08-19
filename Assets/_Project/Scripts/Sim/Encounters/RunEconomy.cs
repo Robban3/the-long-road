@@ -95,18 +95,28 @@ namespace Arna.Sim
             return true;
         }
 
-        /// <summary>Cost of raising a track from <paramref name="currentLevel"/> to the next.</summary>
-        public static int UpgradeCost(int currentLevel)
+        /// <summary>
+        /// Cost of raising a track from <paramref name="currentLevel"/> to the next.
+        /// <paramref name="costMultiplier"/> lets a premium track — attack range above
+        /// all — be priced above the standard curve.
+        /// </summary>
+        public static int UpgradeCost(int currentLevel, float costMultiplier = 1f)
         {
             if (currentLevel < 0) currentLevel = 0;
-            return currentLevel >= MaxTrackLevel ? int.MaxValue : TrackCosts[currentLevel];
+            if (currentLevel >= MaxTrackLevel) return int.MaxValue;
+
+            float multiplier = costMultiplier <= 0f ? 1f : costMultiplier;
+            return (int)(TrackCosts[currentLevel] * multiplier);
         }
 
-        public bool CanAfford(int currentLevel) => Silver >= UpgradeCost(currentLevel);
+        public bool CanAfford(int currentLevel, float costMultiplier = 1f)
+            => Silver >= UpgradeCost(currentLevel, costMultiplier);
 
-        public bool TryUpgrade(int currentLevel, out int cost)
+        public bool TryUpgrade(int currentLevel, out int cost) => TryUpgrade(currentLevel, 1f, out cost);
+
+        public bool TryUpgrade(int currentLevel, float costMultiplier, out int cost)
         {
-            cost = UpgradeCost(currentLevel);
+            cost = UpgradeCost(currentLevel, costMultiplier);
             if (currentLevel >= MaxTrackLevel || Silver < cost) return false;
 
             Silver -= cost;
