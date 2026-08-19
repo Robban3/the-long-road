@@ -65,13 +65,29 @@ Generatorn identifierar **minst tre distinkt olika rutter** från start till må
 
 Klarar en bana inte detta test förkastas den och seedet inkrementeras. **Det här steget är kvalitetsgrinden.** Utan det producerar generatorn banor där vägvalet inte spelar någon roll — och då finns inget spel kvar, bara en armévalsskärm.
 
-**5. Fiendeplacering**
-`enemyBudget` fördelas över korridorerna i **omvänd proportion mot restid**. Snabb rutt får flest fiender, långsam rutt får färre. Det är exakt den avvägning användaren beskrev, uttryckt som en formel:
+**5. Fiendeplacering** *(implementerad)*
+`enemyBudget` fördelas över korridorerna i **omvänd proportion mot restid**. Snabb rutt får flest fiender, långsam rutt får färre:
 
 ```
 korridorAndel = (1 / restid) / Σ(1 / restid)
-fiendepoäng   = enemyBudget × korridorAndel × terrängBakhållsvikt
+fiendepoäng   = enemyBudget × korridorAndel
 ```
+
+Inom en korridor placeras grupperna på rutor viktade efter terrängens bakhållsvikt, med minst fem rutors mellanrum så att striderna kommer en i taget, och med de sex första och sista rutorna fredade.
+
+Uppmätt över 30 banor: **den snabba rutten är farligare i 30 fall av 30**, med 0,22 hotpoäng per ruta mot den långa ruttens 0,08.
+
+**Balansgränsen som inte var uppenbar.** `enemyBudget` fungerar bara inom ett band, och båda ändarna slår sönder designen:
+
+| Budget | Vad som händer |
+|---|---|
+| Under ~80 | Silvergolvet binder på flera korridorer och jämnar ut inkomsten. Belöningen för att ta risken försvinner. |
+| 80–140 | Fungerar. Vid 100 ger snabb rutt 99 silver mot långa ruttens 65 — **52 % mer** — och golvet triggar på 0,3 korridorer per bana. |
+| Över ~140 | Den snabba korridoren **mättas** — den är kort och gruppavståndet begränsar hur många möten som får plats. Överskottet hamnar på de längre rutterna, och den långsamma vägen blir den rikaste. Vid budget 200 är den snabba rutten rikare i bara 37 % av banorna. |
+
+**Silvergolvet ska sitta lågt.** Det sattes först till 105 ("tre uppgraderingsnivåer") och band då på nästan varje korridor, vilket toppade upp allihop till exakt samma summa. Effekten blev att alla rutter gav lika mycket och hela skälet att ta den farliga vägen försvann. Vid 55 triggar det bara i det verkligt trasiga fallet, och skillnaden mellan rutterna får stå kvar.
+
+Konsekvensen för progressionen: **senare kapitel kan inte bli svårare genom fler fiender.** Bortom ungefär 140 poäng måste svårigheten komma från tåligare fiendetyper, inte från fler av samma.
 
 **6. Fällplacering**
 `trapDensity × TerrainTypeDef.trapDensity` per tile. Kärr blir automatiskt fällrikt, slätt nästan fritt. Fällpoäng dras av från korridorens fiendepoäng — en fällrik sträcka får färre fiender, precis som avsett.

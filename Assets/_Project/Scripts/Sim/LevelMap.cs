@@ -33,10 +33,14 @@ namespace Arna.Sim
         /// <summary>How many seeds were tried. High values point at a bad recipe.</summary>
         public readonly int Attempts;
 
+        /// <summary>Enemies, traps and silver placed across the corridors.</summary>
+        public readonly EncounterLayout Encounters;
+
         public LevelMap(TileGrid grid, int seed, int startX, int startY, int goalX, int goalY,
                         float fastestRouteCost, IReadOnlyList<Corridor> corridors,
-                        bool choiceValidated, int attempts)
+                        bool choiceValidated, int attempts, EncounterLayout encounters = null)
         {
+            Encounters = encounters ?? new EncounterLayout();
             Grid = grid;
             Seed = seed;
             StartX = startX;

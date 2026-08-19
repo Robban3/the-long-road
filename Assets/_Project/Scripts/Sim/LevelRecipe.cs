@@ -74,9 +74,51 @@ namespace Arna.Sim
         /// </summary>
         public int MaxGenerationAttempts = 12;
 
-        public int EnemyBudget = 40;
+        /// <summary>
+        /// Threat points spread across the corridors.
+        ///
+        /// Measured behaviour on a 64x64 map: usable from about 80, ideal between 100
+        /// and 120. Above roughly 140 the fast corridor saturates — it is short, and
+        /// group spacing caps how many encounters fit — so the surplus lands on the
+        /// longer routes and the slow way round ends up the richer one, exactly
+        /// backwards. At 200 the fast route is the better payday on only 37 % of
+        /// levels.
+        ///
+        /// The consequence for progression: later chapters cannot get harder by
+        /// adding enemies. Past the ceiling, difficulty has to come from tougher
+        /// enemy types and tighter encounter spacing instead.
+        /// </summary>
+        public int EnemyBudget = 100;
+
         public int SquadBudget = 12;
         public float TrapDensity = 1f;
         public float SilverMultiplier = 1f;
+
+        /// <summary>
+        /// Multiplier on enemy health and damage. Threat points count enemies; this
+        /// scales how dangerous each one is, which is how difficulty keeps rising
+        /// after the map runs out of room for more groups.
+        /// </summary>
+        public float EnemyStrength = 1f;
+
+        /// <summary>
+        /// Which enemy types may appear. Restricting early levels to wolves and
+        /// introducing archers later is a difficulty lever in its own right — the
+        /// archer is not a stronger wolf, it is a problem melee cannot solve.
+        /// </summary>
+        public EnemyKind[] EnemyPool = EnemyTable.All;
+
+        /// <summary>
+        /// Silver each corridor must be able to yield — two upgrade levels for one
+        /// troop (20+32). Below that the player reaches the level's last fight with an
+        /// army they had no way to improve at all, which is broken rather than hard.
+        ///
+        /// Deliberately low. An earlier value of 105 was set to "three upgrades" and
+        /// turned out to bind on almost every corridor, topping them all up to exactly
+        /// the same figure — which erased the reward for taking the dangerous route,
+        /// the very thing the silver economy exists to create. The floor is a safety
+        /// net for the broken case, not a guarantee of a comfortable income.
+        /// </summary>
+        public int MinSilverPerCorridor = 55;
     }
 }
