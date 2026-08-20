@@ -17,15 +17,50 @@ namespace Arna.View
         public VisualLibrary Library = new VisualLibrary();
 
         readonly Transform _root;
+        readonly TileGrid _grid;
+        readonly float _heightScale;
         readonly List<Transform> _wagons = new List<Transform>();
         readonly Dictionary<TroopGroup, Transform> _troops = new Dictionary<TroopGroup, Transform>();
         readonly Dictionary<TrackedEnemy, Transform> _enemies = new Dictionary<TrackedEnemy, Transform>();
         readonly Dictionary<TrackedTrap, Transform> _traps = new Dictionary<TrackedTrap, Transform>();
         readonly Dictionary<Color, Material> _materials = new Dictionary<Color, Material>();
+        readonly Dictionary<Transform, Animator> _animators = new Dictionary<Transform, Animator>();
 
-        public RunVisuals(Transform root)
+        static readonly int SpeedParam = Animator.StringToHash("Speed");
+        static readonly int AttackParam = Animator.StringToHash("Attack");
+        static readonly int DeadParam = Animator.StringToHash("Dead");
+
+        /// <summary>
+        /// Drives one actor's animator from what the simulation says it is doing.
+        /// Speed comes from the simulation rather than from measured movement, so it
+        /// is correct in a headless capture where there are no frames to measure with.
+        /// </summary>
+        void Animate(Transform marker, float speed, bool attacking, bool dead)
+        {
+            if (marker == null || !_animators.TryGetValue(marker, out var animator)) return;
+            if (animator == null) return;
+
+            animator.SetFloat(SpeedParam, speed);
+            animator.SetBool(AttackParam, attacking);
+            animator.SetBool(DeadParam, dead);
+        }
+
+        public RunVisuals(Transform root, TileGrid grid = null, float heightScale = 0f)
         {
             _root = root;
+            _grid = grid;
+            _heightScale = heightScale;
+        }
+
+        /// <summary>
+        /// Ground height under a world position. Everything that moves is placed on
+        /// the terrain rather than on the plane it used to be flat on, or the caravan
+        /// drives through the hills instead of over them.
+        /// </summary>
+        float GroundAt(Vec2 position)
+        {
+            if (_grid == null || _heightScale <= 0f) return 0f;
+            return _grid.SurfaceElevation(position.X, position.Y) * _heightScale;
         }
 
         static readonly Color SupplyColor = new Color(0.85f, 0.72f, 0.42f);
@@ -48,7 +83,7 @@ namespace Arna.View
             {
                 if (group == null) continue;
 
-                var marker = Spawn(Library.For(group.Kind), PrimitiveType.Capsule,
+                var marker = SpawnActor(Library.For(group.Kind), PrimitiveType.Capsule,
                     $"Troop_{group.Slot}_{group.Kind}", TroopColor, VisualLibrary.TroopHeight);
                 _troops[group] = marker;
             }
@@ -70,13 +105,26 @@ namespace Arna.View
             var wagon = new GameObject($"Wagon_{kind}").transform;
             wagon.SetParent(_root, false);
 
-            var body = Spawn(Library.WagonBody, PrimitiveType.Cube, "Body", color, 2.6f, wagon);
-            body.localPosition = new Vector3(0f, 1.4f, 0f);
+            // A purpose-built cart needs none of the improvised parts: no separate
+            // wheels, no barrel standing in for a load. The composed version below is
+            // the fallback for when the model is missing.
+            var model = Library.WagonFor(kind);
+            if (model != null)
+            {
+                var cart = Spawn(model, PrimitiveType.Cube, "Cart", color, VisualLibrary.WagonHeight, wagon);
+                cart.localPosition = Vector3.zero;
+                return wagon;
+            }
+
+            var body = Spawn(Library.WagonBody, PrimitiveType.Cube, "Body", color, 2.2f, wagon);
+            body.localPosition = new Vector3(0f, 1.2f, 0f);
 
             if (Library.WagonCargo != null)
             {
-                var cargo = Spawn(Library.WagonCargo, PrimitiveType.Cube, "Cargo", color, 1.6f, wagon);
-                cargo.localPosition = new Vector3(0f, 2.8f, -0.6f);
+                // Cargo rides on the wagon, so it has to read as a load rather than as
+                // a second vehicle: barely a third of the body's height.
+                var cargo = Spawn(Library.WagonCargo, PrimitiveType.Cube, "Cargo", color, 0.9f, wagon);
+                cargo.localPosition = new Vector3(0f, 2.4f, -0.4f);
             }
 
             for (int i = 0; i < 4; i++)
@@ -107,8 +155,14 @@ namespace Arna.View
                 if (wagon.Destroyed) continue;
 
                 var position = run.Caravan.WagonPosition(i);
-                _wagons[i].SetPositionAndRotation(new Vector3(position.X, 0f, position.Y), facing);
+                _wagons[i].SetPositionAndRotation(
+                    new Vector3(position.X, GroundAt(position), position.Y), facing);
             }
+
+            // Troops march at the caravan's pace, so the column animates as one: when
+            // the fen slows the wagons the escort trudges too.
+            float pace = run.Caravan.CurrentSpeed;
+            bool fighting = run.Combat != null && run.Combat.InContact;
 
             foreach (var pair in _troops)
             {
@@ -117,7 +171,9 @@ namespace Arna.View
                 if (!group.Alive) continue;
 
                 pair.Value.SetPositionAndRotation(
-                    new Vector3(group.Position.X, 0f, group.Position.Y), facing);
+                    new Vector3(group.Position.X, GroundAt(group.Position), group.Position.Y), facing);
+
+                Animate(pair.Value, fighting ? 0f : pace, fighting, false);
             }
 
             SyncEnemies(run);
@@ -142,13 +198,17 @@ namespace Arna.View
 
                 if (!_enemies.TryGetValue(enemy, out var marker))
                 {
-                    marker = Spawn(Library.For(enemy.Kind), PrimitiveType.Sphere,
-                        $"Enemy_{enemy.Kind}", EnemyAwakeColor, VisualLibrary.EnemyHeight);
+                    float height = enemy.Kind == EnemyKind.Wolf
+                        ? VisualLibrary.WolfHeight
+                        : VisualLibrary.EnemyHeight;
+
+                    marker = SpawnActor(Library.For(enemy.Kind), PrimitiveType.Sphere,
+                        $"Enemy_{enemy.Kind}", EnemyAwakeColor, height);
                     _enemies[enemy] = marker;
                 }
 
                 marker.gameObject.SetActive(true);
-                marker.position = new Vector3(enemy.Position.X, 0f, enemy.Position.Y);
+                marker.position = new Vector3(enemy.Position.X, GroundAt(enemy.Position), enemy.Position.Y);
 
                 // Face the caravan, which is what the group is coming for.
                 var toCaravan = run.Caravan.LeadPosition - enemy.Position;
@@ -156,8 +216,18 @@ namespace Arna.View
                     marker.rotation = Quaternion.LookRotation(
                         new Vector3(toCaravan.X, 0f, toCaravan.Y), Vector3.up);
 
+                // A group that has closed on the caravan is fighting; one that has woken
+                // but is still crossing the ground is running at it.
+                float rangeToCaravan = Vec2.Distance(enemy.Position, run.Caravan.LeadPosition);
+                bool striking = enemy.Awake && rangeToCaravan < EnemyTable.AttackRange(enemy.Kind) + 6f;
+                float speed = enemy.Awake && !striking
+                    ? EnemyTable.Speed(enemy.Kind) * TileGrid.TileSize
+                    : 0f;
+
+                Animate(marker, speed, striking, false);
+
                 // Colour only survives on primitives; a model keeps its own materials.
-                if (Library.For(enemy.Kind) == null)
+                if (!Library.For(enemy.Kind).HasModel)
                     Tint(marker, enemy.Awake ? EnemyAwakeColor : EnemyAsleepColor);
             }
         }
@@ -178,12 +248,25 @@ namespace Arna.View
                 {
                     marker = Spawn(Library.TrapMarker, PrimitiveType.Cylinder,
                         $"Trap_{trap.Kind}", TrapColor, 1.4f);
-                    marker.position = new Vector3(trap.Position.X, 0f, trap.Position.Y);
+                    marker.position = new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y);
                     _traps[trap] = marker;
                 }
 
                 marker.gameObject.SetActive(true);
             }
+        }
+
+        /// <summary>
+        /// Advances every animator by hand.
+        ///
+        /// Unity drives animators itself during play, but not in an editor session, so
+        /// a headless capture would otherwise render everything in bind pose — which
+        /// looks exactly like the animation setup being broken.
+        /// </summary>
+        public void AdvanceAnimators(float deltaTime)
+        {
+            foreach (var animator in _animators.Values)
+                if (animator != null) animator.Update(deltaTime);
         }
 
         /// <summary>Places the silver caches, which never move once the level begins.</summary>
@@ -193,7 +276,7 @@ namespace Arna.View
             {
                 var position = Vec2.FromTile(grid, cache.Tile);
                 var marker = Spawn(Library.SilverCache, PrimitiveType.Cube, "SilverCache", CacheColor, 1.8f);
-                marker.position = new Vector3(position.X, 0f, position.Y);
+                marker.position = new Vector3(position.X, GroundAt(position), position.Y);
             }
         }
 
@@ -205,6 +288,90 @@ namespace Arna.View
         /// crate do not arrive in the same units — so everything is measured and
         /// rescaled on the way in rather than tuned prefab by prefab.
         /// </summary>
+        /// <summary>
+        /// Spawns something that moves and fights, wiring up its animator.
+        ///
+        /// The controller belongs to the model rather than to the role, because every
+        /// rig in the packs is Generic: clips are bound to one skeleton and cannot be
+        /// shared across models.
+        /// </summary>
+        Transform SpawnActor(ActorModel model, PrimitiveType fallback, string name, Color color,
+                             float targetHeight)
+        {
+            var marker = Spawn(model.Prefab, fallback, name, color, targetHeight);
+
+            if (model.Prefab == null || model.Animator == null) return marker;
+
+            // Explicit == rather than ?? on purpose. Unity overloads equality to report
+            // missing and destroyed objects as null, but null-coalescing bypasses that
+            // overload and hands back an object that throws the moment it is used.
+            var animator = marker.GetComponentInChildren<Animator>();
+            if (animator == null) animator = marker.gameObject.AddComponent<Animator>();
+
+            animator.runtimeAnimatorController = model.Animator;
+
+            // Culling would freeze actors the camera is not looking at, and the
+            // simulation keeps moving them regardless.
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            animator.applyRootMotion = false;
+
+            _animators[marker] = animator;
+            Arm(marker, model);
+            return marker;
+        }
+
+        /// <summary>
+        /// Puts a weapon in the actor's right hand.
+        ///
+        /// Parented to the hand bone rather than to the model, so it follows the
+        /// animation instead of hovering beside a swinging arm. The bone is found by
+        /// name because the rigs are Generic — there is no humanoid avatar to ask.
+        /// </summary>
+        void Arm(Transform marker, ActorModel model)
+        {
+            if (model.Weapon == null) return;
+
+            var hand = FindHandBone(marker);
+            if (hand == null)
+            {
+                // Silent failure here looks identical to a model that simply has no
+                // weapon, which is exactly the confusion this reports away.
+                Debug.LogWarning($"[Arna] No hand bone on {marker.name}; {model.Weapon.name} not fitted.");
+                return;
+            }
+
+            Debug.Log($"[Arna] {marker.name}: {model.Weapon.name} fitted to bone '{hand.name}'.");
+
+            var weapon = Object.Instantiate(model.Weapon, hand);
+            weapon.name = "Weapon";
+            weapon.transform.localPosition = Vector3.zero;
+            weapon.transform.localRotation = Quaternion.Euler(model.WeaponRotation);
+
+            float length = model.WeaponLength > 0f ? model.WeaponLength : 0.8f;
+            var bounds = ModelScaling.Measure(weapon);
+            float longest = Mathf.Max(bounds.size.x, Mathf.Max(bounds.size.y, bounds.size.z));
+            if (longest > 0.0001f) weapon.transform.localScale *= length / longest;
+        }
+
+        static Transform FindHandBone(Transform root)
+        {
+            Transform best = null;
+
+            foreach (var bone in root.GetComponentsInChildren<Transform>())
+            {
+                string name = bone.name.ToLowerInvariant();
+                if (!name.Contains("hand")) continue;
+
+                // Prefer the right hand; fall back to any hand rather than nothing.
+                bool right = name.Contains("right") || name.EndsWith("_r") ||
+                             name.EndsWith(".r") || name.Contains("_r_");
+                if (right) return bone;
+                best ??= bone;
+            }
+
+            return best;
+        }
+
         Transform Spawn(GameObject prefab, PrimitiveType fallback, string name, Color color,
                         float targetHeight, Transform parent = null)
         {
@@ -223,30 +390,8 @@ namespace Arna.View
 
             var instance = Object.Instantiate(prefab, host);
             instance.name = name;
-
-            var bounds = MeasureBounds(instance);
-            if (bounds.size.y > 0.001f)
-            {
-                float scale = targetHeight / bounds.size.y;
-                instance.transform.localScale = Vector3.one * scale;
-            }
-
-            // Drop it so its feet, not its origin, rest on the ground.
-            var scaled = MeasureBounds(instance);
-            float lift = instance.transform.position.y - scaled.min.y;
-            instance.transform.localPosition += new Vector3(0f, lift, 0f);
-
+            ModelScaling.Fit(instance, targetHeight, instance.transform.position.y);
             return instance.transform;
-        }
-
-        static Bounds MeasureBounds(GameObject instance)
-        {
-            var renderers = instance.GetComponentsInChildren<Renderer>();
-            if (renderers.Length == 0) return new Bounds(instance.transform.position, Vector3.zero);
-
-            var bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
-            return bounds;
         }
 
         void Tint(Transform target, Color color)

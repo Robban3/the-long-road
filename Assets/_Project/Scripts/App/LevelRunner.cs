@@ -32,7 +32,28 @@ namespace Arna.App
 
         [Header("Playback")]
         [Range(0.25f, 8f)] public float TimeScale = 1f;
-        public bool FollowCaravan;
+
+        [Header("World")]
+        /// <summary>Metres between the lowest and highest ground. Zero gives the flat planning map.</summary>
+        [Range(0f, 40f)] public float HeightScale = 14f;
+
+        [Range(200, 4000)] public int MaxProps = 2200;
+
+        [Header("Camera")]
+        public bool FollowCaravan = true;
+
+        /// <summary>
+        /// Close enough that a knight reads as a knight. At ninety metres the column
+        /// was a few grey specks against nine-metre trees — technically correct and
+        /// useless for judging anything.
+        /// </summary>
+        [Range(15f, 400f)] public float FollowDistance = 46f;
+
+        /// <summary>
+        /// High enough to see over the canopy. At twenty-two metres the camera sat
+        /// inside the forest and half the frame was the back of a tree.
+        /// </summary>
+        [Range(8f, 300f)] public float FollowHeight = 32f;
 
         [Header("Models")]
         public VisualLibrary Models = new VisualLibrary();
@@ -52,6 +73,7 @@ namespace Arna.App
         };
 
         LevelRun _run;
+        TileGrid _levelGrid;
         RunVisuals _visuals;
         Transform _markerRoot;
         Camera _camera;
@@ -78,27 +100,52 @@ namespace Arna.App
                 if (Formation[i].Occupied) squad.TryPlace((FormationSlot)i, Formation[i].Kind);
 
             _run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
+            _levelGrid = map.Grid;
 
+            // No route overlay in the play view: the drawn line belongs to the planning
+            // map, and painting it across the ground here would read as a road that is
+            // not there.
             _mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize,
-                new[] { new TerrainMeshBuilder.RouteOverlay(corridor.Tiles, TerrainPalette.RouteFast) },
-                map.StartIndex, map.GoalIndex);
+                null, map.StartIndex, map.GoalIndex, HeightScale);
             GetComponent<MeshFilter>().sharedMesh = _mesh;
 
             _markerRoot = new GameObject("Markers").transform;
             _markerRoot.SetParent(transform, false);
 
-            // The route is left bare so the player can still read the line they drew
-            // through whatever the forest is doing around it.
-            TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor, corridor.Tiles);
+            // Nothing is kept clear here — there is no line to bury, and a forest
+            // should look like a forest.
+            TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
+                keepClear: null, heightScale: HeightScale, maxProps: MaxProps);
 
-            _visuals = new RunVisuals(_markerRoot) { Library = Models };
+            _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
             _visuals.Build(_run);
             _visuals.BuildCaches(map.Encounters.SilverCaches, map.Grid);
             _visuals.Sync(_run);
 
             _camera = Camera.main;
-            if (_camera != null)
-                _cameraOffset = _camera.transform.position - CaravanWorldPosition();
+            AimCamera();
+        }
+
+        /// <summary>
+        /// Places the camera behind and above the column.
+        ///
+        /// The planning map frames the whole 256-metre board, which is right for
+        /// comparing routes and hopeless for looking at anything: a knight is ten
+        /// pixels tall from up there. The play view trades that overview away for a
+        /// distance where models and trees actually read.
+        /// </summary>
+        public void AimCamera()
+        {
+            if (_camera == null) _camera = Camera.main;
+            if (_camera == null || !FollowCaravan) return;
+
+            var heading = _run.Caravan.Heading;
+            _cameraOffset = new Vector3(-heading.X, 0f, -heading.Y) * FollowDistance
+                            + Vector3.up * FollowHeight;
+
+            _camera.orthographic = false;
+            _camera.transform.position = CaravanWorldPosition() + _cameraOffset;
+            _camera.transform.LookAt(CaravanWorldPosition() + Vector3.up * 4f);
         }
 
         void Update()
@@ -109,22 +156,51 @@ namespace Arna.App
                 _run.Advance(Time.deltaTime * TimeScale);
 
             _visuals.Sync(_run);
-
-            if (FollowCaravan && _camera != null)
-                _camera.transform.position = CaravanWorldPosition() + _cameraOffset;
+            AimCamera();
         }
 
         Vector3 CaravanWorldPosition()
         {
             var position = _run.Caravan.LeadPosition;
-            return new Vector3(position.X, 0f, position.Y);
+            float ground = _levelGrid != null && HeightScale > 0f
+                ? _levelGrid.SurfaceElevation(position.X, position.Y) * HeightScale
+                : 0f;
+
+            return new Vector3(position.X, ground, position.Y);
         }
 
+        /// <summary>
+        /// Also runs outside play mode, so a level can be built and rendered from a
+        /// headless editor session. Destroy is play-mode only, hence the split.
+        /// </summary>
         void Cleanup()
         {
-            if (_markerRoot != null) Destroy(_markerRoot.gameObject);
-            if (_mesh != null) Destroy(_mesh);
+            if (_markerRoot != null)
+            {
+                if (Application.isPlaying) Destroy(_markerRoot.gameObject);
+                else DestroyImmediate(_markerRoot.gameObject);
+            }
+
+            if (_mesh != null)
+            {
+                if (Application.isPlaying) Destroy(_mesh);
+                else DestroyImmediate(_mesh);
+            }
+
             _run = null;
+        }
+
+        /// <summary>Advances the simulation by whole steps. Used by the headless capture.</summary>
+        public void StepTimes(int steps)
+        {
+            if (_run == null) return;
+
+            for (int i = 0; i < steps && _run.Outcome == RunOutcome.InProgress; i++) _run.Step();
+            _visuals.Sync(_run);
+
+            // Animators do not tick outside play mode, so a capture would show bind
+            // pose. Advancing a little lands the actors mid-stride instead.
+            _visuals.AdvanceAnimators(0.4f);
         }
 
         void OnDestroy() => Cleanup();

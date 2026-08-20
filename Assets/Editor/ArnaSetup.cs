@@ -65,11 +65,15 @@ namespace Arna.Editor
             var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
             cameraGo.transform.SetPositionAndRotation(centre - rotation * Vector3.forward * 400f, rotation);
             var camera = cameraGo.AddComponent<Camera>();
+
+            // Sky rather than void. The world ends at the map edge and something has
+            // to be behind it; a flat horizon colour reads as distance, black reads as
+            // a bug.
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.06f, 0.07f, 0.09f);
-            camera.orthographic = true;
-            camera.orthographicSize = mapExtent * Mathf.Sin(pitchDegrees * Mathf.Deg2Rad) * 0.5f * 1.08f;
-            camera.nearClipPlane = 1f;
+            camera.backgroundColor = new Color(0.60f, 0.76f, 0.88f);
+            camera.orthographic = false;
+            camera.fieldOfView = 50f;
+            camera.nearClipPlane = 0.5f;
             camera.farClipPlane = 900f;
 
             var lightGo = new GameObject("Directional Light");
@@ -112,20 +116,52 @@ namespace Arna.Editor
         {
             return new VisualLibrary
             {
-                Melee = One("Assets/Quaternius/Knight/Knight.fbx"),
-                Ranged = One("Assets/Quaternius/ModularMen/Adventurer.fbx"),
-                Support = One("Assets/Quaternius/ModularMen/Farmer.fbx"),
-                Mounted = One("Assets/Quaternius/Animals/Horse.fbx"),
+                Melee = Actor("Assets/Quaternius/Knight/Knight.fbx",
+                              "Assets/Quaternius/RPGItems/Sword.fbx", 0.95f),
+                Ranged = Actor("Assets/Quaternius/ModularMen/Adventurer.fbx",
+                               "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f),
+                Support = Actor("Assets/Quaternius/ModularMen/Farmer.fbx",
+                                "Assets/Quaternius/RPGItems/Axe_small.fbx", 0.6f),
+                Mounted = Actor("Assets/Quaternius/Animals/Horse.fbx"),
 
-                Wolf = One("Assets/Quaternius/Animals/Wolf.fbx"),
-                Bandit = One("Assets/Quaternius/PiratePack/Characters_Captain_Barbarossa.fbx"),
-                BanditArcher = One("Assets/Quaternius/PiratePack/Characters_Henry.fbx"),
+                Wolf = Actor("Assets/Quaternius/Animals/Wolf.fbx"),
+                Bandit = Actor("Assets/Quaternius/PiratePack/Characters_Captain_Barbarossa.fbx",
+                               "Assets/Quaternius/PiratePack/Weapon_Cutlass.fbx", 0.8f),
+                BanditArcher = Actor("Assets/Quaternius/PiratePack/Characters_Henry.fbx",
+                                     "Assets/Quaternius/PiratePack/Weapon_Dagger.fbx", 0.45f),
 
+                Wagon = One("Assets/_Project/Models/Wagon.fbx"),
+                WagonTreasure = One("Assets/_Project/Models/WagonTreasure.fbx"),
                 WagonBody = One($"{QuaterniusDir}/Crate.fbx"),
                 WagonCargo = One("Assets/Quaternius/PiratePack/Prop_Barrel.fbx"),
 
                 SilverCache = One("Assets/Quaternius/PiratePack/Prop_Chest_Gold.fbx"),
                 TrapMarker = One("Assets/Quaternius/RPGItems/Bone.fbx")
+            };
+        }
+
+        /// <summary>Pairs a model with the controller generated for it, matched by filename.</summary>
+        static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f)
+        {
+            var prefab = One(path);
+            if (prefab == null) return default;
+
+            string controllerPath = $"Assets/_Project/Animation/{Path.GetFileNameWithoutExtension(path)}.controller";
+            var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(controllerPath);
+            if (controller == null)
+                Debug.LogWarning($"[Arna] No animator for {Path.GetFileName(path)} — run Arna > Build Animator Controllers.");
+
+            return new ActorModel
+            {
+                Prefab = prefab,
+                Animator = controller,
+                Weapon = weaponPath == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(weaponPath),
+                WeaponLength = weaponLength,
+
+                // Laid along the hand rather than sticking out of the back of it. The
+                // packs disagree on which axis a blade runs down, so this is a fixed
+                // correction found by looking rather than a value from the files.
+                WeaponRotation = new Vector3(-90f, 0f, 0f)
             };
         }
 
@@ -145,12 +181,15 @@ namespace Arna.Editor
         /// </summary>
         static BiomeDecor LoadForestDecor()
         {
+            // Single models only. The "_Group" variants are several trees side by side,
+            // so their bounding box is wide and short — normalising that by height
+            // stretches them sideways into horizontal logs across the ground.
             return new BiomeDecor
             {
-                Trees = Load("Resource_Tree1", "Resource_Tree2", "Resource_Tree_Group"),
-                Pines = Load("Resource_PineTree", "Resource_PineTree_Group"),
-                Rocks = Load("Rock", "Resource_Rock_1", "Resource_Rock_2", "Resource_Rock_3", "Rock_Group"),
-                Mountains = Load("Mountain_Single", "Mountain_Group_1", "MountainLarge_Single")
+                Trees = Load("Resource_Tree1", "Resource_Tree2"),
+                Pines = Load("Resource_PineTree"),
+                Rocks = Load("Rock", "Resource_Rock_1", "Resource_Rock_2", "Resource_Rock_3"),
+                Mountains = Load("Mountain_Single", "MountainLarge_Single")
             };
         }
 
@@ -318,6 +357,157 @@ namespace Arna.Editor
                 RenderTexture.active = previousActive;
                 target.Release();
                 UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        /// <summary>
+        /// Builds a level in the play scene and renders it, without entering play mode.
+        ///
+        /// -executeMethod Arna.Editor.ArnaSetup.CapturePlayScene -arnaOutput &lt;path&gt;
+        /// [-arnaChapter N] [-arnaLevel N] [-arnaSteps N]
+        ///
+        /// The steps argument advances the simulation before the shot, so the caravan
+        /// can be caught mid-journey rather than sitting at the start line.
+        /// </summary>
+        public static void CapturePlayScene()
+        {
+            string output = ArgValue("-arnaOutput") ?? "Logs/play.png";
+            int chapter = int.TryParse(ArgValue("-arnaChapter"), out var c) ? c : 1;
+            int level = int.TryParse(ArgValue("-arnaLevel"), out var l) ? l : 1;
+            int steps = int.TryParse(ArgValue("-arnaSteps"), out var s) ? s : 0;
+            int width = int.TryParse(ArgValue("-arnaWidth"), out var w) ? w : 1400;
+            int height = int.TryParse(ArgValue("-arnaHeight"), out var h) ? h : 1000;
+
+            EditorSceneManager.OpenScene(PlayScenePath, OpenSceneMode.Single);
+
+            var runner = UnityEngine.Object.FindFirstObjectByType<LevelRunner>();
+            var camera = UnityEngine.Object.FindFirstObjectByType<Camera>();
+            if (runner == null || camera == null)
+                throw new InvalidOperationException("Play scene is missing its camera or LevelRunner.");
+
+            runner.Chapter = chapter;
+            runner.Level = level;
+            runner.FollowCaravan = true;
+
+            // Lets a capture move in close enough to check whether the actors are
+            // actually posed rather than standing in bind pose.
+            if (float.TryParse(ArgValue("-arnaCamDistance"), out float distance)) runner.FollowDistance = distance;
+            if (float.TryParse(ArgValue("-arnaCamHeight"), out float camHeight)) runner.FollowHeight = camHeight;
+            runner.Restart();
+            runner.StepTimes(steps);
+
+            // Update() never runs in a headless editor session, so the camera has to be
+            // pointed at the column explicitly after the simulation has moved it.
+            runner.AimCamera();
+
+            var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 2 };
+            var previous = RenderTexture.active;
+
+            try
+            {
+                camera.targetTexture = target;
+                camera.Render();
+
+                RenderTexture.active = target;
+                var texture = new Texture2D(width, height, TextureFormat.RGB24, false);
+                texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                texture.Apply();
+
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)));
+                File.WriteAllBytes(output, texture.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(texture);
+
+                var run = runner.Run;
+                Debug.Log($"[Arna] Captured {chapter}-{level} after {steps} steps: " +
+                          $"{run.ElapsedSeconds:F1}s, {run.Caravan.Progress:P0} along, " +
+                          $"{run.Detection.RevealedCount} revealed, {run.Economy.Silver} silver -> {output}");
+            }
+            finally
+            {
+                camera.targetTexture = null;
+                RenderTexture.active = previous;
+                target.Release();
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        /// <summary>
+        /// Prints the real dimensions and pivot of the scenery models.
+        ///
+        /// Worth having permanently: a model that arrives lying down, or with its
+        /// pivot in the middle rather than at its base, cannot be told apart from a
+        /// placement bug by looking at the game. Measuring settles it.
+        /// </summary>
+        [MenuItem("Arna/Report Model Dimensions")]
+        public static void ReportModelDimensions()
+        {
+            string[] names =
+            {
+                $"{QuaterniusDir}/Resource_Tree1.fbx",
+                $"{QuaterniusDir}/Resource_Tree2.fbx",
+                $"{QuaterniusDir}/Resource_PineTree.fbx",
+                $"{QuaterniusDir}/Rock.fbx",
+                $"{QuaterniusDir}/Mountain_Single.fbx",
+                $"{QuaterniusDir}/Crate.fbx",
+                "Assets/Quaternius/Knight/Knight.fbx",
+                "Assets/Quaternius/Animals/Wolf.fbx",
+                "Assets/Quaternius/PiratePack/Prop_Barrel.fbx",
+                "Assets/Quaternius/PiratePack/Prop_Chest_Gold.fbx",
+                "Assets/Quaternius/RPGItems/Bone.fbx"
+            };
+
+            foreach (var path in names)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) { Debug.LogWarning($"[Arna] missing {path}"); continue; }
+
+                var instance = UnityEngine.Object.Instantiate(prefab);
+                instance.transform.position = Vector3.zero;
+                instance.transform.rotation = Quaternion.identity;
+
+                var bounds = ModelScaling.Measure(instance);
+                Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path),-22} " +
+                          $"size {bounds.size.x,7:F2} x {bounds.size.y,7:F2} x {bounds.size.z,7:F2}   " +
+                          $"min.y {bounds.min.y,7:F2}   centre.y {bounds.center.y,7:F2}");
+
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>
+        /// Lists the animation clips inside each character and creature model.
+        ///
+        /// Clip names decide the whole animator setup, and they are not consistent
+        /// between packs from different years. Reading them beats assuming them.
+        /// </summary>
+        [MenuItem("Arna/Report Animation Clips")]
+        public static void ReportAnimationClips()
+        {
+            string[] models =
+            {
+                "Assets/Quaternius/Knight/Knight.fbx",
+                "Assets/Quaternius/Animals/Wolf.fbx",
+                "Assets/Quaternius/Animals/Horse.fbx",
+                "Assets/Quaternius/ModularMen/Adventurer.fbx",
+                "Assets/Quaternius/ModularMen/Farmer.fbx",
+                "Assets/Quaternius/PiratePack/Characters_Captain_Barbarossa.fbx",
+                "Assets/Quaternius/PiratePack/Characters_Henry.fbx"
+            };
+
+            foreach (var path in models)
+            {
+                var assets = AssetDatabase.LoadAllAssetsAtPath(path);
+                var clips = new System.Collections.Generic.List<string>();
+
+                foreach (var asset in assets)
+                    if (asset is AnimationClip clip && !clip.name.StartsWith("__preview"))
+                        clips.Add($"{clip.name} ({clip.length:F2}s)");
+
+                var importer = AssetImporter.GetAtPath(path) as ModelImporter;
+                string rig = importer == null ? "?" : importer.animationType.ToString();
+
+                Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)}  rig={rig}  " +
+                          $"clips={clips.Count}: {string.Join(", ", clips)}");
             }
         }
 

@@ -131,6 +131,11 @@ namespace Arna.Gen
 
             Blur(field, w, h, recipe.SmoothingPasses);
             ApplyMixByQuantile(grid, field, recipe.TerrainMix);
+
+            // Keep the height field rather than discarding it once terrain types are
+            // assigned: the play view needs it to stand the world up.
+            for (int i = 0; i < field.Length; i++) grid.SetElevation(i, field[i]);
+
             return grid;
         }
 

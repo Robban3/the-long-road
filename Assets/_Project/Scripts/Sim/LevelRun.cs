@@ -39,8 +39,13 @@ namespace Arna.Sim
             Traps = new TrapField(map.Grid, map.Encounters.Traps);
             Economy = new RunEconomy();
 
-            if (squad != null)
-                Combat = new CombatSystem(map.Grid, Caravan, squad, Detection, enemyStrength);
+            // Combat runs whether or not anyone came along to fight it.
+            //
+            // Making it conditional on a squad meant an unescorted caravan was never
+            // attacked at all — enemies woke, ran up and did nothing — so travelling
+            // alone was strictly safer than bringing troops. That inverted the entire
+            // premise: the escort exists because the road is dangerous without one.
+            Combat = new CombatSystem(map.Grid, Caravan, squad ?? new Squad(0), Detection, enemyStrength);
 
             ParSeconds = map.FastestRouteCost / Caravan.BaseTilesPerSecond * ParTimeFactor;
         }
@@ -51,7 +56,6 @@ namespace Arna.Sim
         public TrapField Traps { get; }
         public RunEconomy Economy { get; }
 
-        /// <summary>Null when the level is run without troops, as the travel tests do.</summary>
         public CombatSystem Combat { get; }
 
         public float ElapsedSeconds { get; private set; }

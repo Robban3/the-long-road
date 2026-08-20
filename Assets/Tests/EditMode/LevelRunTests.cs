@@ -11,10 +11,38 @@ namespace Arna.Tests
             => TerrainGenerator.Generate(new ChapterRecipe().ForLevel(level),
                                          DeterministicRandom.SeedFor(chapter, level));
 
+        /// <summary>
+        /// An escort that spends its budget, as a player would. An earlier version left
+        /// a third of the points unspent and then failed levels the design had every
+        /// right to expect it to survive.
+        /// </summary>
+        static Squad Escort(int budget = 18)
+        {
+            var squad = new Squad(budget);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
+            squad.TryPlace(FormationSlot.LeftRear, TroopKind.Priest);
+            return squad;
+        }
+
+        /// <summary>The same escort with the scout left behind, for tests about sight.</summary>
+        static Squad EscortWithoutScout()
+        {
+            var squad = new Squad(18);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
+            squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
+            return squad;
+        }
+
         static LevelRun Run(int chapter, int level, CorridorKind kind = CorridorKind.Fast)
         {
             var map = Map(chapter, level);
-            return new LevelRun(map, map.CorridorOf(kind).Tiles);
+            return new LevelRun(map, map.CorridorOf(kind).Tiles, Escort());
         }
 
         [Test]
@@ -44,8 +72,10 @@ namespace Arna.Tests
             var blindMap = Map(1, 6);
             var sharpMap = Map(1, 6);
 
-            var blind = new LevelRun(blindMap, blindMap.CorridorOf(CorridorKind.Fast).Tiles);
-            var sharp = new LevelRun(sharpMap, sharpMap.CorridorOf(CorridorKind.Fast).Tiles)
+            // No scout in either escort: with one along, both columns see equally far
+            // and the comparison measures nothing.
+            var blind = new LevelRun(blindMap, blindMap.CorridorOf(CorridorKind.Fast).Tiles, EscortWithoutScout());
+            var sharp = new LevelRun(sharpMap, sharpMap.CorridorOf(CorridorKind.Fast).Tiles, EscortWithoutScout())
             {
                 LookoutSight = 34f
             };
@@ -60,20 +90,34 @@ namespace Arna.Tests
         }
 
         [Test]
-        public void TrapsGoOffAndHurt()
+        public void TrapsStrikeTheTroopOnPointRatherThanTheWagons()
         {
+            // Putting a shieldbearer in the van is the answer to a trapped route
+            // (docs/GDD.md §7.2). With one there the wagons should come through clean
+            // and the trap damage should land on the troop instead.
             var run = Run(1, 8);
-            float before = 0f;
-            foreach (var wagon in run.Caravan.Wagons) before += wagon.Hp;
-
             run.RunToCompletion();
 
             if (run.Traps.Traps.Count == 0) Assert.Ignore("this seed placed no traps on the fast route");
 
-            float after = 0f;
-            foreach (var wagon in run.Caravan.Wagons) after += wagon.Hp;
+            var point = run.Squad[FormationSlot.Van];
+            Assert.IsNotNull(point);
+            Assert.Greater(run.Traps.RevealedCount, 0, "no trap was ever spotted");
+            Assert.Less(point.Hp, point.MaxHp, "the troop on point walked a trapped route untouched");
+        }
 
-            Assert.Less(after, before, "the caravan walked a trapped route without a scratch");
+        [Test]
+        public void WithNobodyOnPointTheTrapsHitTheWagons()
+        {
+            var map = Map(1, 8);
+            var run = new LevelRun(map, map.CorridorOf(CorridorKind.Fast).Tiles);
+            run.RunToCompletion();
+
+            if (run.Traps.Traps.Count == 0) Assert.Ignore("this seed placed no traps on the fast route");
+
+            float lost = 0f;
+            foreach (var wagon in run.Caravan.Wagons) lost += wagon.MaxHp - wagon.Hp;
+            Assert.Greater(lost, 0f, "an unguarded caravan crossed a trapped route unharmed");
         }
 
         [Test]
@@ -198,23 +242,52 @@ namespace Arna.Tests
         }
 
         [Test]
-        public void EveryCorridorOfEveryEarlyLevelIsSurvivable()
+        public void EveryLevelOffersAWayThroughForAnEscortedCaravan()
         {
-            // Traps currently strike the wagons directly because troops are not
-            // simulated yet, which makes them harsher than designed. Even so, no route
-            // should be lethal on its own.
+            // The guarantee is that a level is always winnable, not that every route
+            // is. A corridor that kills a particular army is the route choice doing its
+            // job — what would be broken is a level with no way through at all.
+            var chapter = new ChapterRecipe();
+
             for (int level = 1; level <= 10; level++)
             {
-                var map = Map(1, level);
+                var recipe = chapter.ForLevel(level);
+                var map = TerrainGenerator.Generate(recipe, DeterministicRandom.SeedFor(1, level));
+
+                int survivable = 0;
                 foreach (var corridor in map.Corridors)
                 {
-                    var run = new LevelRun(map, corridor.Tiles);
-                    var outcome = run.RunToCompletion();
-
-                    Assert.AreEqual(RunOutcome.Arrived, outcome,
-                        $"level 1-{level}: the {corridor.Kind} route destroyed the caravan through traps alone");
+                    var run = new LevelRun(map, corridor.Tiles,
+                                           Escort(recipe.SquadBudget), recipe.EnemyStrength);
+                    if (run.RunToCompletion() == RunOutcome.Arrived) survivable++;
                 }
+
+                Assert.GreaterOrEqual(survivable, 2,
+                    $"level 1-{level}: only {survivable} of 3 routes could be survived");
             }
+        }
+
+        [Test]
+        public void TravellingUnescortedIsDangerous()
+        {
+            // The premise of the whole game: the road punishes a caravan with nobody
+            // guarding it. If this ever passes trivially, the escort is decoration.
+            int mauled = 0, levels = 0;
+
+            for (int level = 3; level <= 10; level++)
+            {
+                var map = Map(1, level);
+                var run = new LevelRun(map, map.CorridorOf(CorridorKind.Fast).Tiles);
+                run.RunToCompletion();
+                levels++;
+
+                float lost = 0f;
+                foreach (var wagon in run.Caravan.Wagons) lost += wagon.MaxHp - wagon.Hp;
+                if (lost > 0f) mauled++;
+            }
+
+            Assert.Greater(mauled, levels / 2,
+                $"an unguarded caravan came through unharmed on {levels - mauled} of {levels} levels");
         }
     }
 }

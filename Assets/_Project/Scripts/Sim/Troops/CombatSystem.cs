@@ -107,6 +107,19 @@ namespace Arna.Sim
                     continue;
                 }
 
+                // Attackers close on the escort, not on the wagons.
+                //
+                // Making them run at the caravan's centre meant they slipped straight
+                // between the six posts — the troops have barely two metres of reach and
+                // stand six metres out — so an escorted caravan was mauled exactly as
+                // hard as an unescorted one and the whole formation layer did nothing.
+                var guard = NearestLivingTroop(enemy);
+                if (guard != null)
+                {
+                    Advance(enemy, guard.Position, deltaTime, terrain);
+                    continue;
+                }
+
                 float reachToCaravan = EnemyTable.AttackRange(enemy.Kind) + EngagementSlack;
                 if (Vec2.DistanceSquared(enemy.Position, _caravan.LeadPosition) <= reachToCaravan * reachToCaravan)
                 {
@@ -116,13 +129,32 @@ namespace Arna.Sim
                     continue;
                 }
 
-                Advance(enemy, deltaTime, terrain);
+                Advance(enemy, _caravan.LeadPosition, deltaTime, terrain);
             }
         }
 
-        void Advance(TrackedEnemy enemy, float deltaTime, TerrainType terrain)
+        /// <summary>Nearest living troop, at any distance. Null when the escort is gone.</summary>
+        TroopGroup NearestLivingTroop(TrackedEnemy enemy)
         {
-            var toCaravan = _caravan.LeadPosition - enemy.Position;
+            TroopGroup found = null;
+            float best = float.MaxValue;
+
+            foreach (var group in _squad.Slots)
+            {
+                if (group == null || !group.Alive) continue;
+
+                float distance = Vec2.DistanceSquared(enemy.Position, group.Position);
+                if (distance >= best) continue;
+
+                best = distance;
+                found = group;
+            }
+            return found;
+        }
+
+        void Advance(TrackedEnemy enemy, Vec2 goal, float deltaTime, TerrainType terrain)
+        {
+            var toCaravan = goal - enemy.Position;
             float distance = Vec2.Distance(Vec2.Zero, toCaravan);
             if (distance < 0.0001f) return;
 
@@ -169,7 +201,13 @@ namespace Arna.Sim
                 float dps = group.DamageAgainst(EnemyKind.Wolf, terrain);
                 if (dps <= 0f) continue;
 
-                float reach = TroopUpgrades.UsableRange(group.AttackRange(terrain), squadSight);
+                // The same slack the enemy closes to. Without it an attacker halting at
+                // its own reach plus slack stood 3.5 metres away while a swordsman with
+                // 1.8 metres of reach swung at nothing — the escort died without ever
+                // landing a blow, which read as combat being far too lethal rather than
+                // as the melee ranges simply not meeting.
+                float reach = TroopUpgrades.UsableRange(group.AttackRange(terrain), squadSight)
+                              + EngagementSlack;
                 var target = NearestEnemyInReach(group, reach);
                 if (target == null) continue;
 
@@ -190,8 +228,25 @@ namespace Arna.Sim
             }
         }
 
+        /// <summary>Healing the supply wagon provides to the whole escort between fights.</summary>
+        public const float SupplyHealPerSecond = 8f;
+
         void Heal(float deltaTime)
         {
+            // The supply wagon patches the escort up between fights (docs/GDD.md §5).
+            //
+            // Without this, damage to troops was permanent for the length of a level and
+            // simply accumulated: the escort held comfortably through 1-4, was down to a
+            // fifth by 1-5 and was wiped outright from 1-7 on. It also meant losing the
+            // supply wagon cost the player nothing whatsoever, which is not what a wagon
+            // whose entire purpose is healing ought to be worth.
+            var supply = _caravan[WagonKind.Supply];
+            if (!InContact && supply != null && !supply.Destroyed)
+            {
+                foreach (var group in _squad.Slots)
+                    group?.Heal(SupplyHealPerSecond * deltaTime);
+            }
+
             foreach (var healer in _squad.Slots)
             {
                 if (healer == null || !healer.Alive) continue;
