@@ -114,6 +114,25 @@ namespace Arna.Sim
 
         public Vec2 LeadPosition => PositionAt(_distance);
 
+        /// <summary>
+        /// Unit vector along the route. The formation rotates with it, so the van is
+        /// always the front whichever way the road happens to run.
+        /// </summary>
+        public Vec2 Heading
+        {
+            get
+            {
+                if (_points.Length < 2) return new Vec2(1f, 0f);
+
+                var ahead = PositionAt(_distance + 1f);
+                var behind = PositionAt(_distance - 1f > 0f ? _distance - 1f : 0f);
+                var delta = ahead - behind;
+
+                float length = Vec2.Distance(Vec2.Zero, delta);
+                return length < 0.0001f ? new Vec2(1f, 0f) : new Vec2(delta.X / length, delta.Y / length);
+            }
+        }
+
         /// <summary>All three wagons destroyed. The one true failure state.</summary>
         public bool Destroyed
         {

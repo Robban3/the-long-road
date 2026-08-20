@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Arna.App;
+using Arna.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -27,6 +28,7 @@ namespace Arna.Editor
         const string PipelinePath = SettingsDir + "/ArnaUniversalRenderPipeline.asset";
         const string MaterialPath = MaterialsDir + "/TerrainOverview.mat";
         const string ScenePath = ScenesDir + "/LevelPreview.unity";
+        const string PlayScenePath = ScenesDir + "/PlayLevel.unity";
 
         [MenuItem("Arna/Set Up Project")]
         public static void SetupProject()
@@ -39,6 +41,129 @@ namespace Arna.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log($"[Arna] Setup complete. Pipeline: {pipeline.name}, scene: {ScenePath}");
+        }
+
+        /// <summary>
+        /// Builds the scene you press Play in. Separate from the preview scene, which
+        /// is for judging generator output rather than watching a level unfold.
+        /// </summary>
+        [MenuItem("Arna/Set Up Play Scene")]
+        public static void SetUpPlayScene()
+        {
+            EnsureFolders();
+            EnsureRenderPipeline();
+            var material = EnsureMaterial();
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            const float mapExtent = 64 * 4f;
+            const float pitchDegrees = 55f;
+
+            var centre = new Vector3(mapExtent * 0.5f, 0f, mapExtent * 0.5f);
+            var rotation = Quaternion.Euler(pitchDegrees, 0f, 0f);
+
+            var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
+            cameraGo.transform.SetPositionAndRotation(centre - rotation * Vector3.forward * 400f, rotation);
+            var camera = cameraGo.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.06f, 0.07f, 0.09f);
+            camera.orthographic = true;
+            camera.orthographicSize = mapExtent * Mathf.Sin(pitchDegrees * Mathf.Deg2Rad) * 0.5f * 1.08f;
+            camera.nearClipPlane = 1f;
+            camera.farClipPlane = 900f;
+
+            var lightGo = new GameObject("Directional Light");
+            lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+            var light = lightGo.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.1f;
+
+            var runnerGo = new GameObject("LevelRunner");
+            runnerGo.AddComponent<MeshFilter>();
+            runnerGo.AddComponent<MeshRenderer>().sharedMaterial = material;
+
+            var runner = runnerGo.AddComponent<LevelRunner>();
+            runner.Decor = LoadForestDecor();
+            runner.Models = LoadModels();
+
+            EditorSceneManager.SaveScene(scene, PlayScenePath);
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(PlayScenePath, true),
+                new EditorBuildSettingsScene(ScenePath, true)
+            };
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Arna] Play scene ready at {PlayScenePath}. Open it and press Play.");
+        }
+
+        const string QuaterniusDir = "Assets/Quaternius/UltimateFantasyRTS";
+
+        /// <summary>
+        /// Casts the models against the simulation's roles.
+        ///
+        /// The packs were not made for this game, so the mapping is by silhouette
+        /// rather than by name: an armoured figure reads as the troops who hold the
+        /// line, a hooded traveller as the ones who scout and shoot, and a pirate
+        /// captain as somebody you would rather not meet on the road. At the camera
+        /// distance this game uses, silhouette and colour are all that carry.
+        /// </summary>
+        static VisualLibrary LoadModels()
+        {
+            return new VisualLibrary
+            {
+                Melee = One("Assets/Quaternius/Knight/Knight.fbx"),
+                Ranged = One("Assets/Quaternius/ModularMen/Adventurer.fbx"),
+                Support = One("Assets/Quaternius/ModularMen/Farmer.fbx"),
+                Mounted = One("Assets/Quaternius/Animals/Horse.fbx"),
+
+                Wolf = One("Assets/Quaternius/Animals/Wolf.fbx"),
+                Bandit = One("Assets/Quaternius/PiratePack/Characters_Captain_Barbarossa.fbx"),
+                BanditArcher = One("Assets/Quaternius/PiratePack/Characters_Henry.fbx"),
+
+                WagonBody = One($"{QuaterniusDir}/Crate.fbx"),
+                WagonCargo = One("Assets/Quaternius/PiratePack/Prop_Barrel.fbx"),
+
+                SilverCache = One("Assets/Quaternius/PiratePack/Prop_Chest_Gold.fbx"),
+                TrapMarker = One("Assets/Quaternius/RPGItems/Bone.fbx")
+            };
+        }
+
+        static GameObject One(string path)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (asset == null) Debug.LogWarning($"[Arna] Model not found, falling back to a primitive: {path}");
+            return asset;
+        }
+
+        /// <summary>
+        /// Collects the scenery models for the forest chapter.
+        ///
+        /// Wired up by path rather than dragged into the inspector so the scene can be
+        /// rebuilt from scratch on any machine. Missing models are skipped silently —
+        /// the level still runs, it just runs on bare ground.
+        /// </summary>
+        static BiomeDecor LoadForestDecor()
+        {
+            return new BiomeDecor
+            {
+                Trees = Load("Resource_Tree1", "Resource_Tree2", "Resource_Tree_Group"),
+                Pines = Load("Resource_PineTree", "Resource_PineTree_Group"),
+                Rocks = Load("Rock", "Resource_Rock_1", "Resource_Rock_2", "Resource_Rock_3", "Rock_Group"),
+                Mountains = Load("Mountain_Single", "Mountain_Group_1", "MountainLarge_Single")
+            };
+        }
+
+        static GameObject[] Load(params string[] names)
+        {
+            var found = new System.Collections.Generic.List<GameObject>();
+            foreach (var name in names)
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{QuaterniusDir}/{name}.fbx");
+                if (asset != null) found.Add(asset);
+                else Debug.LogWarning($"[Arna] Scenery model not found: {name}.fbx");
+            }
+            return found.ToArray();
         }
 
         static void EnsureFolders()

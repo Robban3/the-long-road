@@ -11,7 +11,7 @@ namespace Arna.Sim
 
     /// <summary>
     /// One playthrough of one level: the caravan moving, threats being noticed, traps
-    /// going off, silver accumulating.
+    /// going off, troops fighting, silver accumulating.
     ///
     /// Runs on a fixed 20 Hz step with no UnityEngine anywhere in reach. That is what
     /// makes the whole thing deterministic, replayable from a seed and a list of
@@ -22,43 +22,66 @@ namespace Arna.Sim
     {
         public const float StepSeconds = 0.05f;
 
-        /// <summary>Sight of the caravan's own lookout, before any scout is added.</summary>
+        /// <summary>Sight of the caravan's own driver, with no scout along.</summary>
         public const float CaravanSight = 12f;
 
         /// <summary>Multiplier on par time for the third star (docs/GDD.md §8.4).</summary>
         public const float ParTimeFactor = 1.35f;
 
-        readonly LevelMap _map;
         readonly List<Watcher> _watchers = new List<Watcher>();
-
         float _accumulator;
 
-        public LevelRun(LevelMap map, IReadOnlyList<int> route)
+        public LevelRun(LevelMap map, IReadOnlyList<int> route, Squad squad = null, float enemyStrength = 1f)
         {
-            _map = map;
             Caravan = new Caravan(map.Grid, route);
+            Squad = squad;
             Detection = new DetectionSystem(map.Grid, map.Encounters.Enemies);
             Traps = new TrapField(map.Grid, map.Encounters.Traps);
             Economy = new RunEconomy();
+
+            if (squad != null)
+                Combat = new CombatSystem(map.Grid, Caravan, squad, Detection, enemyStrength);
 
             ParSeconds = map.FastestRouteCost / Caravan.BaseTilesPerSecond * ParTimeFactor;
         }
 
         public Caravan Caravan { get; }
+        public Squad Squad { get; }
         public DetectionSystem Detection { get; }
         public TrapField Traps { get; }
         public RunEconomy Economy { get; }
 
+        /// <summary>Null when the level is run without troops, as the travel tests do.</summary>
+        public CombatSystem Combat { get; }
+
         public float ElapsedSeconds { get; private set; }
         public float ParSeconds { get; }
 
-        /// <summary>Extra trap-spotting range from a scout or engineer in the column.</summary>
+        /// <summary>Extra trap-spotting range, on top of whatever the squad provides.</summary>
         public float TrapSight { get; set; }
 
-        /// <summary>Sight radius of the caravan's best lookout. Raised by taking a scout.</summary>
+        /// <summary>Sight floor. The squad's best scout is used when it sees further.</summary>
         public float LookoutSight { get; set; } = CaravanSight;
 
         public RunOutcome Outcome { get; private set; } = RunOutcome.InProgress;
+
+        public float EffectiveSight
+        {
+            get
+            {
+                float squadSight = Squad?.BestSight ?? 0f;
+                return squadSight > LookoutSight ? squadSight : LookoutSight;
+            }
+        }
+
+        public float EffectiveTrapSight
+        {
+            get
+            {
+                float squadSight = Squad?.BestTrapSight ?? 0f;
+                return squadSight > TrapSight ? squadSight : TrapSight;
+            }
+        }
 
         /// <summary>Advances real time, running whole simulation steps as they come due.</summary>
         public void Advance(float deltaTime)
@@ -81,20 +104,28 @@ namespace Arna.Sim
             ElapsedSeconds += StepSeconds;
             Caravan.Tick(StepSeconds);
 
+            Squad?.UpdatePositions(Caravan.LeadPosition, Caravan.Heading);
             RefreshWatchers();
 
             if (Detection.Tick(StepSeconds, Caravan.LeadPosition, _watchers))
                 PayForSpotting();
 
-            Traps.Update(Caravan.LeadPosition, _watchers, TrapSight);
+            if (Combat != null)
+            {
+                Combat.Step(StepSeconds);
+                PayForKills();
+            }
+
+            Traps.Update(Caravan.LeadPosition, _watchers, EffectiveTrapSight);
             ApplyTrapDamage();
+            WorkTheEngineer();
 
             if (Caravan.Destroyed) Outcome = RunOutcome.CaravanLost;
             else if (Caravan.HasArrived) Outcome = RunOutcome.Arrived;
         }
 
         /// <summary>Runs to completion. Used by tests and by headless balancing.</summary>
-        public RunOutcome RunToCompletion(float timeoutSeconds = 600f)
+        public RunOutcome RunToCompletion(float timeoutSeconds = 900f)
         {
             while (Outcome == RunOutcome.InProgress && ElapsedSeconds < timeoutSeconds) Step();
             return Outcome;
@@ -103,6 +134,14 @@ namespace Arna.Sim
         void RefreshWatchers()
         {
             _watchers.Clear();
+
+            if (Squad != null)
+            {
+                foreach (var group in Squad.Slots)
+                    if (group != null && group.Alive)
+                        _watchers.Add(new Watcher(group.Position, group.SightRadius));
+            }
+
             _watchers.Add(new Watcher(Caravan.LeadPosition, LookoutSight));
         }
 
@@ -112,25 +151,54 @@ namespace Arna.Sim
                 if (enemy.SpottedEarly) Economy.AwardScouting();
         }
 
+        void PayForKills()
+        {
+            foreach (var defeat in Combat.DefeatedThisStep)
+                Economy.AwardGroupKill(defeat.Kind, defeat.Flawless);
+        }
+
         /// <summary>
-        /// Traps currently strike the lead wagon.
-        ///
-        /// Placeholder: the design has them hitting the troop walking point, with the
-        /// shieldbearer soaking the blow (docs/GDD.md §7.2). Troops are not simulated
-        /// yet, so the damage lands on the caravan instead — which makes traps rather
-        /// more punishing than they will be.
+        /// Traps strike the troop holding the van if there is one, and the lead wagon
+        /// otherwise. The shieldbearer's damage reduction applies, which is what makes
+        /// putting one on point a real answer to a trapped route (docs/GDD.md §7.2).
         /// </summary>
         void ApplyTrapDamage()
         {
             foreach (var trap in Traps.TriggeredThisTick)
             {
                 float damage = TrapTable.Damage(trap.Kind);
+
+                var point = Squad?[FormationSlot.Van];
+                if (point != null && point.Alive)
+                {
+                    point.TakeDamage(damage);
+                    continue;
+                }
+
                 foreach (var wagon in Caravan.Wagons)
                 {
                     if (wagon.Destroyed) continue;
                     wagon.ApplyDamage(damage);
                     break;
                 }
+            }
+        }
+
+        /// <summary>
+        /// An engineer defuses revealed traps within reach as the column passes, and is
+        /// paid for it — which is how a troop that kills almost nothing stays
+        /// affordable in an economy driven by kills.
+        /// </summary>
+        void WorkTheEngineer()
+        {
+            if (Squad == null || !Squad.HasEngineer) return;
+
+            foreach (var group in Squad.Slots)
+            {
+                if (group == null || !group.Alive || !TroopTable.CanDisarmTraps(group.Kind)) continue;
+
+                var disarmed = Traps.TryDisarmNearest(group.Position);
+                if (disarmed != null) Economy.AwardTrapDisarm(disarmed.Kind);
             }
         }
 
