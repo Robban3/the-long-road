@@ -235,11 +235,16 @@ namespace Arna.Editor
                 // single image, picked by each model's own UVs — so the showier plants
                 // come out genuinely violet. A few are a woodland floor; the big
                 // variants at equal weight turned the forest into a flowerbed.
+                // Plant_1 and Plant_7 are gone. They are the pack's violet rosettes —
+                // the leaf atlas it shares between every plant carries green, blue,
+                // orange, purple and pink, and those two models point their UVs at the
+                // purple — and at any weight they took over the middle distance. A
+                // temperate forest floor is green with flowers in it, not the reverse.
                 GroundCover = Nature("Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short",
                                      "Grass_Wispy_Tall", "Grass_Common_Short", "Grass_Common_Tall",
                                      "Grass_Wispy_Short", "Grass_Wispy_Tall",
-                                     "Clover_1", "Clover_2", "Fern_1", "Fern_1",
-                                     "Plant_1", "Plant_7", "Bush_Common",
+                                     "Clover_1", "Clover_2", "Fern_1", "Fern_1", "Fern_1",
+                                     "Bush_Common", "Bush_Common",
                                      "Flower_3_Single", "Flower_4_Single", "Mushroom_Common"),
 
                 // Mountains stay with the RTS pack: the nature kit has rocks but no
