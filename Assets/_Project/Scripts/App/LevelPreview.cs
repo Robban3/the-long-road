@@ -158,7 +158,8 @@ namespace Arna.App
 
             int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
-                maxProps: MaxProps, densityScale: DensityScale);
+                maxProps: MaxProps, densityScale: DensityScale,
+                ruinSites: RuinSites(map));
 
             // Worth printing: a prop that is placed but too small and a prop that was
             // never placed look identical on a map read from seventy metres up.
@@ -210,6 +211,57 @@ namespace Arna.App
             // A drawn line neither casts nor catches shadow. It is not in the world.
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+        }
+
+        /// <summary>Trap fields are grouped into neighbourhoods this many tiles across.</summary>
+        const int RuinClusterTiles = 6;
+
+        /// <summary>
+        /// Picks the ground that shows a caravan came to grief here.
+        ///
+        /// This is the soft signal the design asks for (docs/GDD.md §2): the player is
+        /// meant to learn to read the country rather than be told what is in it. So a
+        /// ruin is placed near a trap field, never on one — one per neighbourhood, and
+        /// offset by a few tiles. Marking the trap itself would hand over the position
+        /// of something the whole detection system exists to keep hidden, and a risk
+        /// the player can see exactly is no longer a risk.
+        ///
+        /// Placed near enough to be worth noticing, far enough that noticing it tells
+        /// you to be careful rather than where to step.
+        /// </summary>
+        List<int> RuinSites(LevelMap map)
+        {
+            var traps = map.Encounters?.Traps;
+            if (traps == null || traps.Count == 0) return null;
+
+            var rng = new DeterministicRandom(map.Seed ^ 0x2117);
+            var neighbourhoods = new HashSet<int>();
+            var sites = new List<int>();
+
+            foreach (var trap in traps)
+            {
+                map.Grid.ToCoords(trap.Tile, out int x, out int y);
+
+                // One ruin per neighbourhood. A field of six traps is one thing that
+                // happened, not six.
+                int cell = (y / RuinClusterTiles) * map.Grid.Width + x / RuinClusterTiles;
+                if (!neighbourhoods.Add(cell)) continue;
+
+                for (int attempt = 0; attempt < 10; attempt++)
+                {
+                    int nx = x + rng.Range(-3, 4);
+                    int ny = y + rng.Range(-3, 4);
+                    if (!map.Grid.InBounds(nx, ny)) continue;
+
+                    var terrain = map.Grid[nx, ny];
+                    if (terrain == TerrainType.Water || terrain == TerrainType.Cliff) continue;
+
+                    sites.Add(map.Grid.ToIndex(nx, ny));
+                    break;
+                }
+            }
+
+            return sites;
         }
 
         HashSet<int> CorridorTiles(LevelMap map)
