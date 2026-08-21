@@ -4,7 +4,7 @@ Working notes, kept current so that picking the work up on another machine does 
 mean rediscovering what was already settled. The design documents next to this one
 say what the game is meant to be; this one says what it currently is.
 
-Last updated when the two asset packs were chosen and the swap was planned; §8 holds
+Last updated when the three asset packs were settled and the swap planned; §8 holds
 it. The landscape pass on chapter 1 is what came before.
 
 ---
