@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Arna.App;
+using Arna.Sim;
 using Arna.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -143,8 +144,12 @@ namespace Arna.Editor
         {
             return new VisualLibrary
             {
+                // The knight arrives holding a two-hander, so nothing is fitted to
+                // him — but its point hangs past his boots, and a model is scaled by
+                // the height of everything in it. Measured with the sword he came out
+                // a head shorter than the troops beside him and stood on its tip.
                 Melee = Actor("Assets/Quaternius/Knight/Knight.fbx",
-                              "Assets/Quaternius/RPGItems/Sword.fbx", 0.95f),
+                              unsized: new[] { "Sword" }),
                 Ranged = Actor("Assets/Quaternius/ModularMen/Adventurer.fbx",
                                "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f),
                 Support = Actor("Assets/Quaternius/ModularMen/Farmer.fbx",
@@ -152,23 +157,38 @@ namespace Arna.Editor
                 Mounted = Actor("Assets/Quaternius/Animals/Horse.fbx"),
 
                 Wolf = Actor("Assets/Quaternius/Animals/Wolf.fbx"),
+
+                // Barbarossa already carries his cutlass in the rig, so nothing is
+                // fitted to him — but his file also carries a second man, Ernest, who
+                // was standing beside every bandit in the game.
                 Bandit = Actor("Assets/Quaternius/PiratePack/Characters_Captain_Barbarossa.fbx",
-                               "Assets/Quaternius/PiratePack/Weapon_Cutlass.fbx", 0.8f),
+                               hide: new[] { "Ernest" }),
+
+                // Henry ships holding a lute. An archer holding a lute is a joke the
+                // player has to work out, so it goes and a bow takes its place — which
+                // also matches how the player's own archers read at a distance.
                 BanditArcher = Actor("Assets/Quaternius/PiratePack/Characters_Henry.fbx",
-                                     "Assets/Quaternius/PiratePack/Weapon_Dagger.fbx", 0.45f),
+                                     "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f,
+                                     hide: new[] { "Weapon_Lute" }),
 
                 Wagon = One("Assets/_Project/Models/Wagon.fbx"),
                 WagonTreasure = One("Assets/_Project/Models/WagonTreasure.fbx"),
                 WagonBody = One($"{QuaterniusDir}/Crate.fbx"),
-                WagonCargo = One("Assets/Quaternius/PiratePack/Prop_Barrel.fbx"),
+                WagonCargo = One($"{QuaterniusDir}/Barrel.fbx"),
 
-                SilverCache = One("Assets/Quaternius/PiratePack/Prop_Chest_Gold.fbx"),
+                // Off the pirate pack and onto the RPG one. Every pirate model shares
+                // a single atlas material per asset, and that atlas is not in this
+                // project — so the chest holding the level's silver was rendering as a
+                // white box. The RPG chest carries its colours in its materials, the
+                // way the swords and bows already do, and reads as gold from the air.
+                SilverCache = One("Assets/Quaternius/RPGItems/Chest_Ingots.fbx"),
                 TrapMarker = One("Assets/Quaternius/RPGItems/Bone.fbx")
             };
         }
 
         /// <summary>Pairs a model with the controller generated for it, matched by filename.</summary>
-        static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f)
+        static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f,
+                                string[] hide = null, string[] unsized = null)
         {
             var prefab = One(path);
             if (prefab == null) return default;
@@ -188,7 +208,10 @@ namespace Arna.Editor
                 // Laid along the hand rather than sticking out of the back of it. The
                 // packs disagree on which axis a blade runs down, so this is a fixed
                 // correction found by looking rather than a value from the files.
-                WeaponRotation = new Vector3(-90f, 0f, 0f)
+                WeaponRotation = new Vector3(-90f, 0f, 0f),
+
+                Hide = hide,
+                Unsized = unsized
             };
         }
 
@@ -711,8 +734,12 @@ namespace Arna.Editor
         public static void CaptureCharacters()
         {
             string output = ArgValue("-arnaOutput") ?? "Logs/characters.png";
-            int width = int.TryParse(ArgValue("-arnaWidth"), out var w) ? w : 1600;
-            int height = int.TryParse(ArgValue("-arnaHeight"), out var h) ? h : 900;
+
+            // Wide and short by default. Seven figures side by side span twelve metres
+            // and stand under two, so a conventional frame spends most of itself on
+            // empty sky and shrinks the thing being looked at to fit.
+            int width = int.TryParse(ArgValue("-arnaWidth"), out var w) ? w : 1800;
+            int height = int.TryParse(ArgValue("-arnaHeight"), out var h) ? h : 700;
 
             // Same reason as the play capture: a shot taken while variants are still
             // compiling shows a shader that is not the one under test.
@@ -739,21 +766,42 @@ namespace Arna.Editor
             light.shadowBias = 0.03f;
             light.shadowNormalBias = 0.15f;
 
-            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            ground.name = "Ground";
-            ground.transform.localScale = new Vector3(8f, 1f, 8f);
-            UnityEngine.Object.DestroyImmediate(ground.GetComponent<Collider>());
+            // The game's own ground, not a stand-in. Its shader takes its colour from
+            // vertex colours the terrain generator writes, so the plane is built by
+            // hand with those colours on it rather than taken from Unity's primitives,
+            // which carry none — a stock Plane comes out white under this material.
+            // Worth the dozen lines: a cast lit and shaded by a different material
+            // than the game uses is a picture of some other game.
+            var mesh = new Mesh { name = "CastGround" };
+            const float extent = 40f;
+            var grass = TerrainPalette.OfGround(TerrainType.Plains);
 
-            // Plain lit ground rather than the terrain shader. That one takes its
-            // colour from vertex colours the generator writes, and a Unity primitive
-            // carries none — the cast would be standing on white.
-            var groundMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+            mesh.vertices = new[]
             {
-                name = "CastGround"
+                new Vector3(-extent, 0f, -extent), new Vector3(-extent, 0f, extent),
+                new Vector3(extent, 0f, extent), new Vector3(extent, 0f, -extent)
             };
-            groundMaterial.SetColor("_BaseColor", new Color(0.32f, 0.36f, 0.25f));
-            groundMaterial.SetFloat("_Smoothness", 0f);
-            ground.GetComponent<MeshRenderer>().sharedMaterial = groundMaterial;
+            mesh.normals = new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up };
+            // UVs in metres, not in 0..1. The ground shader divides them by a tiling
+            // figure expressed as metres per repeat, so a quad with unit UVs would
+            // stretch one repeat of the forest floor across the whole eighty metres.
+            mesh.uv = new[]
+            {
+                new Vector2(-extent, -extent), new Vector2(-extent, extent),
+                new Vector2(extent, extent), new Vector2(extent, -extent)
+            };
+            mesh.colors = new[] { grass, grass, grass, grass };
+            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
+            mesh.RecalculateBounds();
+
+            var ground = new GameObject("Ground");
+            ground.AddComponent<MeshFilter>().sharedMesh = mesh;
+            ground.AddComponent<MeshRenderer>().sharedMaterial = EnsureGroundMaterial();
+
+            // -arnaNoGround takes the floor away. A model standing too low and a model
+            // missing its legs look identical from above the ground and nothing else
+            // tells them apart; with the floor gone the question answers itself.
+            ground.SetActive(ArgValue("-arnaNoGround") == null);
 
             var models = LoadModels();
             var visuals = new RunVisuals(new GameObject("Cast").transform) { Library = models };
@@ -761,20 +809,26 @@ namespace Arna.Editor
             const float spacing = 2.8f;
             const float rowDepth = 3.6f;
 
-            var troops = new (string Name, ActorModel Model, float Height)[]
-            {
-                ("Melee_Knight", models.Melee, VisualLibrary.TroopHeight),
-                ("Ranged_Adventurer", models.Ranged, VisualLibrary.TroopHeight),
-                ("Support_Farmer", models.Support, VisualLibrary.TroopHeight),
-                ("Mounted_Horse", models.Mounted, VisualLibrary.TroopHeight)
-            };
+            // -arnaOnly narrows the line-up to whoever matches, so one model can be
+            // looked at close instead of at one seventh of the frame. -arnaBindPose
+            // leaves the animators alone, which is how a pose that comes from the clip
+            // is told apart from one that comes from the model.
+            string only = ArgValue("-arnaOnly");
+            var troops = Pick(Troops(models), only);
+            var enemies = Pick(Enemies(models), only);
 
-            var enemies = new (string Name, ActorModel Model, float Height)[]
+            static (string Name, ActorModel Model, float Height)[] Pick(
+                (string Name, ActorModel Model, float Height)[] row, string filter)
             {
-                ("Wolf", models.Wolf, VisualLibrary.WolfHeight),
-                ("Bandit", models.Bandit, VisualLibrary.EnemyHeight),
-                ("BanditArcher", models.BanditArcher, VisualLibrary.EnemyHeight)
-            };
+                if (string.IsNullOrEmpty(filter)) return row;
+                return System.Array.FindAll(row, entry =>
+                    entry.Name.IndexOf(filter, System.StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            // -arnaBindPose spawns the models with no animator at all, so what shows
+            // is the shape the file ships with. It is the difference between a model
+            // that is wrong in the box and a model our own setup is bending.
+            bool still = ArgValue("-arnaBindPose") != null;
 
             // Troops in front, enemies behind and staggered into the gaps. Squared up
             // in two straight rows, the wolf — the shortest thing in the game — stood
@@ -787,7 +841,10 @@ namespace Arna.Editor
                 float start = -(row.Length - 1) * spacing * 0.5f;
                 for (int i = 0; i < row.Length; i++)
                 {
-                    var actor = visuals.ShowActor(row[i].Model, row[i].Name, row[i].Height,
+                    var model = row[i].Model;
+                    if (still) model.Animator = null;
+
+                    var actor = visuals.ShowActor(model, row[i].Name, row[i].Height,
                                                   new Vector3(start + i * spacing, 0f, z));
 
                     // Turned a few degrees off square. Dead-on, an arm hides the weapon
@@ -811,15 +868,29 @@ namespace Arna.Editor
             camera.farClipPlane = 200f;
 
             // Framed by arithmetic rather than by eye, because the resolution is an
-            // argument: a distance tuned by hand for 16:9 crops the ends off the row
-            // the moment somebody asks for a wider picture.
-            float span = (Mathf.Max(troops.Length, enemies.Length) - 1) * spacing + 3.2f;
+            // argument: a distance tuned by hand for one shape of picture crops the
+            // ends off the row the moment somebody asks for a wider one.
+            //
+            // Fitted to the front row, not to the group's centre. The rows are three
+            // and a half metres apart, and a camera placed to fit the average is too
+            // close for the row nearest it — the first attempt put the knight's
+            // shoulder outside the frame while leaving room to spare behind him.
+            float halfSpan = (Mathf.Max(troops.Length, enemies.Length) - 1) * spacing * 0.5f + 1.9f;
             float halfVertical = camera.fieldOfView * 0.5f * Mathf.Deg2Rad;
             float halfHorizontal = Mathf.Atan(Mathf.Tan(halfVertical) * ((float)width / height));
-            float distance = span * 0.5f / Mathf.Tan(halfHorizontal);
 
-            var focus = new Vector3(0f, 1.0f, rowDepth * 0.5f);
-            cameraGo.transform.position = focus + new Vector3(0f, 1.6f, -distance);
+            // Both dimensions, not just the wide one. Narrowed to a single model by
+            // -arnaOnly, a distance chosen from the width alone stands two metres away
+            // from a person and cuts them off at the chest.
+            const float halfFrameHeight = 1.5f;
+            float distance = Mathf.Max(halfSpan / Mathf.Tan(halfHorizontal),
+                                       halfFrameHeight / Mathf.Tan(halfVertical));
+
+            // Eye level, near enough. Looked down on from above, everybody reads as a
+            // game piece; met at their own height, they read as people the size the
+            // game means them to be.
+            var focus = new Vector3(0f, 1.05f, rowDepth * 0.35f);
+            cameraGo.transform.position = new Vector3(0f, 1.9f, -distance);
             cameraGo.transform.LookAt(focus);
 
             var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32)
@@ -936,6 +1007,68 @@ namespace Arna.Editor
             }
         }
 
+        /// <summary>The escort, at the height the game gives them.</summary>
+        static (string Name, ActorModel Model, float Height)[] Troops(VisualLibrary models) =>
+            new (string, ActorModel, float)[]
+            {
+                ("Melee_Knight", models.Melee, VisualLibrary.TroopHeight),
+                ("Ranged_Adventurer", models.Ranged, VisualLibrary.TroopHeight),
+                ("Support_Farmer", models.Support, VisualLibrary.TroopHeight),
+                ("Mounted_Horse", models.Mounted, VisualLibrary.TroopHeight)
+            };
+
+        /// <summary>What is waiting on the road, at the height the game gives them.</summary>
+        static (string Name, ActorModel Model, float Height)[] Enemies(VisualLibrary models) =>
+            new (string, ActorModel, float)[]
+            {
+                ("Wolf", models.Wolf, VisualLibrary.WolfHeight),
+                ("Bandit", models.Bandit, VisualLibrary.EnemyHeight),
+                ("BanditArcher", models.BanditArcher, VisualLibrary.EnemyHeight)
+            };
+
+        /// <summary>
+        /// Measures every actor where it lands, before and after it is posed.
+        ///
+        /// A model is scaled and stood on the ground from its bind-pose bounds,
+        /// because that is all there is to measure at the moment it is spawned. If a
+        /// rig's bind pose does not describe the shape the game will actually draw,
+        /// the model ends up buried or hovering, and from the game's own camera —
+        /// forty metres up and pitched over — neither is visible. Printing both sets
+        /// of numbers turns "the knight looks wrong" into a figure in metres.
+        /// </summary>
+        [MenuItem("Arna/Report Actor Fit")]
+        public static void ReportActorFit()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var models = LoadModels();
+            var visuals = new RunVisuals(new GameObject("Cast").transform) { Library = models };
+
+            var cast = new System.Collections.Generic.List<(string Name, Transform Actor)>();
+            foreach (var entry in Troops(models))
+                cast.Add((entry.Name, visuals.ShowActor(entry.Model, entry.Name, entry.Height, Vector3.zero)));
+            foreach (var entry in Enemies(models))
+                cast.Add((entry.Name, visuals.ShowActor(entry.Model, entry.Name, entry.Height, Vector3.zero)));
+
+            // Posed before measured. An actor spawned in an editor session stands in
+            // whatever pose the file was saved in until something drives its animator,
+            // and the pose is what the numbers below are about.
+            for (int i = 0; i < 30; i++) visuals.AdvanceAnimators(1f / 30f);
+
+            foreach (var (name, actor) in cast)
+            {
+                var box = ModelScaling.Measure(actor.gameObject);
+                Debug.Log($"[Arna] {name,-20} {box.size.x,5:F2} wide x {box.size.y,5:F2} tall   " +
+                          $"stands at {box.min.y,6:F2}   " +
+                          $"{actor.GetComponentsInChildren<Renderer>().Length} meshes");
+
+                foreach (var renderer in actor.GetComponentsInChildren<Renderer>())
+                    Debug.Log($"[Arna]     {name}/{renderer.name,-24} " +
+                              $"y {renderer.bounds.min.y,6:F2} .. {renderer.bounds.max.y,5:F2}   " +
+                              $"width {renderer.bounds.size.x,5:F2}");
+            }
+        }
+
         /// <summary>
         /// Lists the animation clips inside each character and creature model.
         ///
@@ -1012,6 +1145,57 @@ namespace Arna.Editor
         /// externally, so neither the meta files nor the project folder say what a
         /// tree's surface is. Asking the renderer does.
         /// </summary>
+
+        /// <summary>
+        /// Gives a colour to the materials whose texture this project does not have.
+        ///
+        /// The pirate pack paints each model from one shared atlas image, and that
+        /// image is not here — the pack arrived as meshes and materials with nothing
+        /// for the materials to point at, and <see cref="RestyleModelMaterials"/>
+        /// cannot extract what was never embedded. Left alone the two bandits render
+        /// at 0.8 grey, which on a sunlit field is white: two ghosts on the road.
+        ///
+        /// A flat colour is not the texture and does not pretend to be. It is enough
+        /// for a figure the player meets at forty metres, where silhouette and tone
+        /// are what carry, and it is the whole fix that is available without the
+        /// missing file. Scripted rather than clicked so it survives a reimport, which
+        /// resets a material edited by hand.
+        /// </summary>
+        [MenuItem("Arna/Colour Untextured Materials")]
+        public static void ColourUntexturedMaterials()
+        {
+            // Chosen to separate the two on sight, the same way the troops are
+            // separated: the captain in dark leather, the archer in a duller red.
+            var colours = new (string Path, Color Colour)[]
+            {
+                ("Assets/Quaternius/PiratePack/Materials/Characters_Captain_Barbarossa_Atlas.mat",
+                 new Color(0.24f, 0.19f, 0.16f)),
+                ("Assets/Quaternius/PiratePack/Materials/Characters_Henry_Atlas.mat",
+                 new Color(0.42f, 0.26f, 0.22f))
+            };
+
+            int painted = 0;
+            foreach (var (path, colour) in colours)
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material == null) { Debug.LogWarning($"[Arna] Material not found: {path}"); continue; }
+
+                if (material.HasProperty("_BaseMap") && material.GetTexture("_BaseMap") != null)
+                {
+                    Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)} has its texture back; left alone.");
+                    continue;
+                }
+
+                if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", colour);
+                material.color = colour;
+                EditorUtility.SetDirty(material);
+                painted++;
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Arna] Coloured {painted} materials that have no texture to draw.");
+        }
+
         /// <summary>
         /// Prints which texture every material in a folder ended up with:
         /// -arnaModelDir &lt;path under Assets&gt;.
