@@ -4,7 +4,8 @@ Working notes, kept current so that picking the work up on another machine does 
 mean rediscovering what was already settled. The design documents next to this one
 say what the game is meant to be; this one says what it currently is.
 
-Last updated after the landscape pass on chapter 1.
+Last updated when the two asset packs were chosen and the swap was planned; §8 holds
+it. The landscape pass on chapter 1 is what came before.
 
 ---
 
@@ -50,6 +51,27 @@ Tests:
 
     Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testResults <xml>
 
+### Without Unity at all
+
+`Tools/arna_level.py` is `Arna.Sim` and `Arna.Gen` transcribed to Python, and
+`Tools/render_screens.py` draws both views from it with its own rasteriser, z-buffer
+and shadow map. That is what a machine with no engine on it — a cloud session, a
+laptop without the project installed — can still look at:
+
+    cd Tools && python3 render_screens.py --chapter 1 --level 5 --out ../docs/screenshots
+
+It reproduces both numbers this document records for 1-5 — 59 % corridor overlap in
+§4 and a fastest route of 94.4 in §6 — which is the check that it is generating the
+same levels. Getting there needed its pathfinder to round to single
+precision the way C# float does; in double precision 1-5 came out at 67 % overlap
+instead of 59 %, because the cautious route is searched over ground thick with
+equal-cost tiles and the rounding decides which of two identical paths A* keeps.
+
+What it cannot show is the art: every FBX and texture in the repository is a Git LFS
+pointer, so scenery is drawn as procedural stand-ins at the sizes `TerrainDecorator`
+gives them. The country is right, the dressing is a sketch. See
+`docs/screenshots/README.md`.
+
 ---
 
 ## 3. What works
@@ -80,11 +102,13 @@ routes. The whole level rests on the routes being meaningfully different.
 
 **The wagons are poor.** Hand-built and they look it. The treasure wagon is a
 different colour on purpose — the player is meant to see which cart holds the loot —
-but the green is placeholder work.
+but the green is placeholder work. Whether the pack swap in §8 fixes this depends on
+whether the army pack contains a cart; if it does not, `Tools/wagon.py` stays.
 
 **Mountains and buildings are untextured.** They come from the flat-coloured RTS
 pack and sit beside textured trees. The stylized nature pack has no landforms and no
-buildings, so replacing them needs another pack.
+buildings, so replacing them needs another pack. This is the problem the pack swap
+in §8 is meant to end.
 
 **No camp, no shop, no UI.** The economy is implemented and has nowhere to be spent.
 
@@ -94,14 +118,17 @@ buildings, so replacing them needs another pack.
 
 ## 5. What to do next, in order
 
-1. **Replace the wagons.** They are the thing the whole game is about and they are
-   the weakest models on screen.
-2. **The enemy budget, then roads.** Roads cannot land until the budget is fixed;
+1. **Swap the asset packs**, and measure before wiring — see §8. It settles the
+   untextured landforms, the missing buildings and the character roster in one move,
+   and it decides what is left of the wagon problem.
+2. **Replace the wagons**, unless step 1 brought a cart with it. They are the thing
+   the whole game is about and they are the weakest models on screen.
+3. **The enemy budget, then roads.** Roads cannot land until the budget is fixed;
    see §6.
-3. **The planning map's frame** — border, compass, title. Cheap, and it is much of
+4. **The planning map's frame** — border, compass, title. Cheap, and it is much of
    what makes a picture read as a map.
-4. **The camp between levels**, so silver and upgrades have somewhere to happen.
-5. **Android and iOS build support**, and a build on a real device. The frame rate
+5. **The camp between levels**, so silver and upgrades have somewhere to happen.
+6. **Android and iOS build support**, and a build on a real device. The frame rate
    target has never been measured on hardware.
 
 ---
@@ -181,3 +208,71 @@ Two packages offered earlier were repackaged from a piracy site and were not
 installed. Assets for tabletop mapmaking are also worth checking carefully: the
 largest libraries licence for print and virtual tabletops but explicitly exclude
 integration into software.
+
+The swap in §8 changes what this section can promise. Two purchased Asset Store packs
+cannot be committed, so the repository stops being a thing that runs after a clone: it
+becomes code plus a shopping list. That is a fair trade for art that carries the game,
+but it is a decision rather than a side effect, and the consequence is worth stating
+plainly — the code can stay public, the game it renders cannot be assembled from the
+repository alone.
+
+---
+
+## 8. Swapping the asset packs
+
+The plan is to replace everything under `Assets/Quaternius` with two purchased packs:
+a stylized medieval army pack for the whole cast, and Synty's POLYGON Nature Pack for
+the country. One decision, most of §4's art problems.
+
+**Measure before wiring anything.** The report methods in §2 exist because guessing
+cost hours last time, and a new pack pair is exactly when they pay:
+
+- `ReportFolderDimensions` on each pack folder. It gives the up axis and whether the
+  models arrive in metres. Do not assume Synty is Y-up because Synty is usually Y-up —
+  the last pair of packs came from one author and disagreed with itself.
+- `ReportMaterialTextures` on a handful of models. Synty ships one shared atlas per
+  pack; if that holds, the word-matching in `RestyleModelMaterials` has nothing left
+  to match and the whole restyle step may reduce to a no-op.
+- `ReportRigBones` on one soldier, to find whether the right-hand bone the weapon
+  fitting hangs off exists and what it is called here.
+
+**What the swap touches**, nearly all of it in `Assets/Editor/ArnaSetup.cs`:
+
+- The directory constants `QuaterniusDir`, `NatureDir`, `VillageDir` — three become
+  two.
+- `LoadForestDecor()`: every `Nature(...)`, `Rts(...)` and `Village(...)` name list,
+  and the `PropSet` up-axis flag that travels with each one.
+- `LoadModels()`: the cast against `VisualLibrary` — melee, ranged, support, mounted,
+  wolf, bandit, bandit archer — plus weapon paths and lengths. The army pack is the
+  first source that was actually built for these roles, so the mapping stops being by
+  silhouette and starts being by name.
+- `Assets/_Project/Animation/*.controller`. `AnimatorBuilder` matches a controller to
+  a model by filename, and `RunVisuals` drives `Speed`, `Attack` and `Dead`. Every new
+  character needs a controller built for it, and if the pack ships no clips at all
+  that is its own work item — the models will stand in bind pose, which in a headless
+  capture looks exactly like a broken animator.
+- The height constants in `TerrainDecorator`. Fitting is by height, so nothing breaks
+  mechanically, but the density numbers were tuned against a canopy of a particular
+  shape and will want another pass once the new trees are on the map.
+
+**What stops being true.** Three entries in §6 belong to the packs being removed, not
+to the project, and should go with them once the swap is proven: the packs disagreeing
+about which way is up; texture names not matching material names; and the shared leaf
+atlas that made some plants genuinely violet. Everything else in §6 survives — the
+widest-axis rule, `SurfaceElevation`, the ambient equator, synchronous shader
+compilation in headless captures — because none of it is about a particular pack.
+
+**What it does not solve.** Roads and the enemy budget are untouched; no pack lays a
+road. So are the camp, the shop and the UI, and so are the phone builds. And the
+wagons only if a cart ships with the army pack.
+
+**Order of operations.** Import and measure, wire `ArnaSetup`, run
+`CaptureLevelPreview` and `CapturePlayScene`, and only then delete the Quaternius
+folders — in one commit, so no revision of the project exists with neither set of art.
+Add the imported folders to `.gitignore` as soon as their names are known, before the
+first commit that could sweep them in; see §7 for why they cannot be committed and
+what that costs.
+
+Last: `Tools/render_screens.py` draws stand-ins shaped like the old packs. If the
+pictures it makes are still meant to resemble the game, its prop geometry wants
+retuning to the new silhouettes at the same time.
