@@ -957,8 +957,15 @@ def _draw_routes(image: np.ndarray, level: A.LevelMap, camera: Camera,
 
 def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
                 width: int = 1400, height: int = 1000, height_scale: float = 14.0,
-                max_props: int = 2200):
-    """The play view: behind and above the column, at the distance models actually read."""
+                max_props: int = 2200, follow_distance: float = 46.0,
+                follow_height: float = 32.0, fov: float = 50.0):
+    """The play view: behind and above the column, at the distance models actually read.
+
+    The three camera numbers are the ones on `LevelRunner`, and they are worth trying
+    from here before touching the scene: distance and height together decide how far
+    the camera looks down, and that angle decides whether the world reads as landscape
+    or as a map with trees on it.
+    """
     grid = level.grid
 
     caravan = A.Caravan(grid, corridor.tiles)
@@ -1009,8 +1016,9 @@ def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
     vertices, triangles, colors, normals, material = mesh.finish()
 
     target = np.array([lead[0], ground(lead), lead[1]])
-    position = target + np.array([-heading[0] * 46.0, 32.0, -heading[1] * 46.0])
-    camera = Camera.perspective(position, target + np.array([0.0, 4.0, 0.0]), 50.0,
+    position = target + np.array([-heading[0] * follow_distance, follow_height,
+                                 -heading[1] * follow_distance])
+    camera = Camera.perspective(position, target + np.array([0.0, 4.0, 0.0]), fov,
                                 width, height)
 
     frame = Frame(width, height)
@@ -1047,6 +1055,14 @@ def main() -> None:
     parser.add_argument("--progress", type=float, default=0.45,
                         help="How far along the route the caravan has come, 0 to 1.")
     parser.add_argument("--width", type=int, default=1400)
+    parser.add_argument("--follow-distance", type=float, default=46.0,
+                        help="Metres behind the column, as on LevelRunner.")
+    parser.add_argument("--follow-height", type=float, default=32.0,
+                        help="Metres above it. With distance, this sets the look-down angle.")
+    parser.add_argument("--fov", type=float, default=50.0,
+                        help="Vertical field of view. Lower is a longer lens.")
+    parser.add_argument("--suffix", default="",
+                        help="Appended to the play view's filename, for comparisons.")
     parser.add_argument("--supersample", type=int, default=2,
                         help="Render at this multiple and scale down, for clean edges.")
     args = parser.parse_args()
@@ -1077,13 +1093,18 @@ def main() -> None:
         corridor = level.corridor_of(kind) or level.corridors[0]
         width = args.width * scale
         height = int(width * (1000 / 1400))
-        image, caravan = render_play(level, corridor, args.progress, width, height)
+        image, caravan = render_play(level, corridor, args.progress, width, height,
+                                     follow_distance=args.follow_distance,
+                                     follow_height=args.follow_height, fov=args.fov)
         if scale > 1:
             image = image.resize((args.width, int(args.width * (1000 / 1400))), Image.LANCZOS)
-        path = os.path.join(args.out, f"play-{args.chapter}-{args.level}-{args.route}.png")
+        path = os.path.join(args.out,
+                            f"play-{args.chapter}-{args.level}-{args.route}{args.suffix}.png")
         image.save(path)
+        angle = math.degrees(math.atan2(args.follow_height, args.follow_distance))
         print(f"[Arna] wrote {path} — {caravan.progress:.0%} along the {args.route} route, "
-              f"in {A.TERRAIN_NAMES[caravan.current_terrain]}")
+              f"in {A.TERRAIN_NAMES[caravan.current_terrain]}, "
+              f"camera {angle:.0f}° down at {args.fov:.0f}° fov")
 
 
 if __name__ == "__main__":
