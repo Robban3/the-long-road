@@ -550,8 +550,15 @@ def corner_normal(grid: A.TileGrid, cx: int, cy: int, height_scale: float) -> np
 
 
 def build_terrain(mesh: Mesh, level: A.LevelMap, height_scale: float,
-                  as_ground: bool, mark_endpoints: bool) -> None:
-    """One quad per tile: colours per tile corner, heights and normals shared."""
+                  as_ground: bool, mark_endpoints: bool, faceted: bool = False) -> None:
+    """One quad per tile: colours per tile corner, heights and normals shared.
+
+    `faceted` gives each triangle its own normal instead, so the ground breaks into
+    hard-edged planes. The engine's mesh does not do this — TerrainMeshBuilder samples
+    normals at the corners precisely so light runs smoothly across the tile seams —
+    but it is the single largest difference between our picture and the faceted
+    low-poly landscapes this game is being compared to, and it costs one flag to see.
+    """
     grid = level.grid
     w, h = grid.width, grid.height
 
@@ -601,6 +608,21 @@ def build_terrain(mesh: Mesh, level: A.LevelMap, height_scale: float,
             t = i * 2
             triangles[t] = (v + 0, v + 1, v + 2)
             triangles[t + 1] = (v + 0, v + 2, v + 3)
+
+    if faceted:
+        # One normal per triangle, so every plane shades on its own.
+        corners = vertices[triangles]
+        face = np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0])
+        lengths = np.linalg.norm(face, axis=1, keepdims=True)
+        lengths[lengths == 0] = 1.0
+        face /= lengths
+
+        flat_vertices = corners.reshape(-1, 3)
+        flat_colors = vcolors[triangles].reshape(-1, 3)
+        flat_normals = np.repeat(face, 3, axis=0)
+        flat_triangles = np.arange(len(flat_vertices)).reshape(-1, 3)
+        mesh.add(flat_vertices, flat_triangles, flat_colors, flat_normals, material=0.0)
+        return
 
     mesh.add(vertices, triangles, vcolors, vnormals, material=0.0)
 
@@ -958,7 +980,7 @@ def _draw_routes(image: np.ndarray, level: A.LevelMap, camera: Camera,
 def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
                 width: int = 1400, height: int = 1000, height_scale: float = 14.0,
                 max_props: int = 2200, follow_distance: float = 46.0,
-                follow_height: float = 32.0, fov: float = 50.0):
+                follow_height: float = 32.0, fov: float = 50.0, faceted: bool = False):
     """The play view: behind and above the column, at the distance models actually read.
 
     The three camera numbers are the ones on `LevelRunner`, and they are worth trying
@@ -974,7 +996,8 @@ def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
     heading = caravan.heading
 
     mesh = Mesh()
-    build_terrain(mesh, level, height_scale, as_ground=True, mark_endpoints=False)
+    build_terrain(mesh, level, height_scale, as_ground=True, mark_endpoints=False,
+                  faceted=faceted)
 
     for prop in A.decorate(grid, level.seed, keep_clear=None, height_scale=height_scale,
                            max_props=max_props):
@@ -1061,6 +1084,10 @@ def main() -> None:
                         help="Metres above it. With distance, this sets the look-down angle.")
     parser.add_argument("--fov", type=float, default=50.0,
                         help="Vertical field of view. Lower is a longer lens.")
+    parser.add_argument("--faceted", action="store_true",
+                        help="Flat-shade the ground, one normal per triangle.")
+    parser.add_argument("--height-scale", type=float, default=14.0,
+                        help="Metres between the lowest and highest ground in the play view.")
     parser.add_argument("--suffix", default="",
                         help="Appended to the play view's filename, for comparisons.")
     parser.add_argument("--supersample", type=int, default=2,
@@ -1094,8 +1121,10 @@ def main() -> None:
         width = args.width * scale
         height = int(width * (1000 / 1400))
         image, caravan = render_play(level, corridor, args.progress, width, height,
+                                     height_scale=args.height_scale,
                                      follow_distance=args.follow_distance,
-                                     follow_height=args.follow_height, fov=args.fov)
+                                     follow_height=args.follow_height, fov=args.fov,
+                                     faceted=args.faceted)
         if scale > 1:
             image = image.resize((args.width, int(args.width * (1000 / 1400))), Image.LANCZOS)
         path = os.path.join(args.out,
