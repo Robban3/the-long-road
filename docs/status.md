@@ -100,10 +100,23 @@ obvious fix does not work on its own.
 **Corridor overlap runs high.** Level 1-5 shares 59% of its tiles between the three
 routes. The whole level rests on the routes being meaningfully different.
 
-**The wagons are poor.** Hand-built and they look it. The treasure wagon is a
-different colour on purpose — the player is meant to see which cart holds the loot —
-but the green is placeholder work. Whether the pack swap in §8 fixes this depends on
-whether the army pack contains a cart; if it does not, `Tools/wagon.py` stays.
+**The wagons are poor — and most of it was one line.** `box()` in both wagon scripts
+set `obj.scale` to half the requested size, because the base cube it scales is already
+one metre on a side. Every board, plank and beam therefore came out at half its stated
+dimension while the wheels, built from radii, stayed correct: a full-sized wheel
+against a half-sized body, which is exactly what "hand-built and they look it" was
+describing. Fixed, with the proportions retuned around it, and the treasure wagon's
+placeholder green replaced by brass over the same timber as the supply wagon, so the
+two read as one caravan.
+
+The scripts are fixed; the models in `Assets/_Project/Models` are not. They are
+exported FBX and have to be rebuilt on a machine with Blender:
+
+    blender --background --python Tools/wagon.py -- --out Assets/_Project/Models/Wagon.fbx
+    blender --background --python Tools/treasure_wagon.py -- --out Assets/_Project/Models/WagonTreasure.fbx
+
+Whether a bought cart still beats a built one is worth re-judging after that, not
+before: the comparison everyone was making was against a wagon with half-scale timber.
 
 **Mountains and buildings are untextured.** They come from the flat-coloured RTS
 pack and sit beside textured trees. The stylized nature pack has no landforms and no
@@ -121,8 +134,10 @@ in §8 is meant to end.
 1. **Swap the asset packs**, and measure before wiring — see §8. It settles the
    untextured landforms, the missing buildings and the character roster in one move,
    and it decides what is left of the wagon problem.
-2. **Replace the wagons**, unless step 1 brought a cart with it. They are the thing
-   the whole game is about and they are the weakest models on screen.
+2. **Re-export the wagons** and look at them again. The scripts that build them were
+   shrinking every board to half size against correctly sized wheels; that is fixed,
+   but the FBX in the repository still comes from the old script. Replace them with a
+   bought cart only if they still look wrong once rebuilt.
 3. **The enemy budget, then roads.** Roads cannot land until the budget is fixed;
    see §6.
 4. **The planning map's frame** — border, compass, title. Cheap, and it is much of

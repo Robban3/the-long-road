@@ -17,27 +17,37 @@ import math
 import sys
 import os
 
-WOOD = (0.46, 0.30, 0.17, 1.0)
-WOOD_LIGHT = (0.56, 0.38, 0.22, 1.0)
-WOOD_DARK = (0.30, 0.19, 0.11, 1.0)
-CANVAS = (0.84, 0.80, 0.70, 1.0)
-CANVAS_SHADE = (0.62, 0.58, 0.50, 1.0)
-INTERIOR = (0.13, 0.10, 0.08, 1.0)
-IRON = (0.20, 0.20, 0.22, 1.0)
+# Four values far enough apart to survive a 46 metre camera. The first version used
+# three browns within a tenth of each other, and at distance the wagon read as one
+# tan lump: body, wheels, hoops and seat all the same. Contrast is what gives a
+# silhouette its parts back.
+WOOD = (0.34, 0.22, 0.13, 1.0)          # body boards
+WOOD_LIGHT = (0.52, 0.36, 0.21, 1.0)    # floor and wheels, the parts that catch light
+WOOD_DARK = (0.22, 0.15, 0.10, 1.0)     # frame, rails, running gear
+CANVAS = (0.86, 0.82, 0.72, 1.0)
+CANVAS_SHADE = (0.64, 0.60, 0.52, 1.0)
+INTERIOR = (0.10, 0.08, 0.07, 1.0)
+IRON = (0.17, 0.17, 0.19, 1.0)
 
 # Running gear. The rear wheels are markedly larger than the front, which is both
 # how these carts were built and what stops the silhouette reading as a box on four
 # identical discs.
-REAR_RADIUS = 0.60
-FRONT_RADIUS = 0.42
-REAR_AXLE_Y = 0.86
-FRONT_AXLE_Y = -1.02
-TRACK = 0.62          # half the distance between the wheels
-BED_TOP = 0.96
-BED_LENGTH = 2.80
-BED_HALF_WIDTH = 0.60
-SIDE_HEIGHT = 0.44
-HOOP_RADIUS = 0.54
+REAR_RADIUS = 0.62
+FRONT_RADIUS = 0.46
+REAR_AXLE_Y = 0.82
+FRONT_AXLE_Y = -0.95
+TRACK = 0.64          # half the distance between the wheels
+BED_TOP = 0.98        # top of the floor
+BED_LENGTH = 2.70
+BED_HALF_WIDTH = 0.58
+SIDE_HEIGHT = 0.46
+HOOP_RADIUS = 0.60
+
+# How far the arch is squashed. A half circle as wide as the wagon puts more canvas
+# above the rail than there is body below it, and the whole thing reads as a barrel
+# on wheels — which is exactly what the first two attempts looked like. Flattened to
+# 0.58 the arch is lower than the body is tall, and the wood keeps the silhouette.
+HOOP_FLATTEN = 0.72
 
 
 def clear_scene():
@@ -64,10 +74,14 @@ def material(name, colour):
 
 
 def box(name, size, location, mat, rotation=(0, 0, 0)):
+    # The base cube is one metre on a side, so the scale is the size, not half of it.
+    # Halving it — as this did — shrank every board, plank and beam to half its stated
+    # dimension while the wheels, built from radii, stayed correct. That is most of why
+    # the wagons read as stubby: a full-sized wheel against a half-sized body.
     bpy.ops.mesh.primitive_cube_add(size=1, location=location, rotation=rotation)
     obj = bpy.context.active_object
     obj.name = name
-    obj.scale = (size[0] / 2, size[1] / 2, size[2] / 2)
+    obj.scale = size
     obj.data.materials.append(mat)
     return obj
 
@@ -121,6 +135,13 @@ def wheel(prefix, y, radius, wood, dark, iron, spokes=10):
 
 
 def build_wagon():
+    """A covered cart: body, canvas over hoops, seat, running gear, draught.
+
+    Built from the outside in, because that is the order the eye reads it at the
+    distance this game is played at. The silhouette is a long dark body with a pale
+    arch over it and two pairs of wheels; everything else is detail that only pays off
+    when the camera comes closer.
+    """
     wood = material("Wood", WOOD)
     light = material("WoodLight", WOOD_LIGHT)
     dark = material("WoodDark", WOOD_DARK)
@@ -131,107 +152,128 @@ def build_wagon():
 
     parts = []
 
-    # --- bed --------------------------------------------------------------------
-    parts.append(box("Bed", (BED_HALF_WIDTH * 2, BED_LENGTH, 0.09), (0, 0, BED_TOP), wood))
+    # --- body -------------------------------------------------------------------
+    # Solid boards, not a rail with daylight behind it. The first version built the
+    # sides from two thin plank courses with a gap between them, and from any angle
+    # you looked straight through the wagon at the floor — which made the canvas look
+    # like a barrel balanced on an open frame rather than the roof of a body.
+    parts.append(box("Floor", (BED_HALF_WIDTH * 2, BED_LENGTH, 0.08),
+                     (0, 0, BED_TOP - 0.04), light))
 
-    # Floor boards, so the bed is planking rather than a slab.
-    for i in range(5):
-        x = -0.45 + i * 0.225
-        parts.append(box("Floorboard", (0.17, BED_LENGTH - 0.04, 0.03),
-                         (x, 0, BED_TOP + 0.05), light))
+    for x in (-BED_HALF_WIDTH + 0.09, BED_HALF_WIDTH - 0.09):
+        parts.append(box("Sill", (0.12, BED_LENGTH + 0.05, 0.13), (x, 0, BED_TOP - 0.13), dark))
 
-    # --- sides ------------------------------------------------------------------
-    side_mid = BED_TOP + 0.05 + SIDE_HEIGHT / 2
+    side_mid = BED_TOP + SIDE_HEIGHT / 2
+    rail_top = BED_TOP + SIDE_HEIGHT + 0.08
+
     for x in (-BED_HALF_WIDTH, BED_HALF_WIDTH):
-        outward = 0.03 if x > 0 else -0.03
+        outward = 0.045 if x > 0 else -0.045
 
-        # Two plank courses with a gap between them: one flat face reads as a crate.
-        for dz in (-SIDE_HEIGHT / 4 - 0.01, SIDE_HEIGHT / 4 + 0.01):
-            parts.append(box("SidePlank", (0.06, BED_LENGTH - 0.06, SIDE_HEIGHT / 2 - 0.03),
-                             (x, 0, side_mid + dz), wood))
+        parts.append(box("SideBoard", (0.07, BED_LENGTH, SIDE_HEIGHT), (x, 0, side_mid), wood))
+        parts.append(box("Rail", (0.13, BED_LENGTH + 0.04, 0.09),
+                         (x, 0, BED_TOP + SIDE_HEIGHT + 0.045), dark))
 
-        # Uprights and iron straps.
-        for y in (-1.16, -0.58, 0.0, 0.58, 1.16):
-            parts.append(box("Stake", (0.05, 0.07, SIDE_HEIGHT + 0.06),
-                             (x + outward, y, side_mid), dark))
-        for y in (-0.87, 0.29, 1.16):
-            parts.append(box("Strap", (0.03, 0.05, SIDE_HEIGHT + 0.02),
-                             (x + outward * 1.8, y, side_mid), iron))
+        # A shadow line along the middle of the boards: one plain face reads as a crate.
+        parts.append(box("Seam", (0.02, BED_LENGTH - 0.02, 0.035), (x + outward * 0.6, 0, side_mid),
+                         dark))
 
-    parts.append(box("Tailboard", (BED_HALF_WIDTH * 2, 0.06, SIDE_HEIGHT),
-                     (0, BED_LENGTH / 2 - 0.03, side_mid), wood))
-    parts.append(box("Headboard", (BED_HALF_WIDTH * 2, 0.06, SIDE_HEIGHT + 0.16),
-                     (0, -BED_LENGTH / 2 + 0.03, side_mid + 0.08), wood))
+        for y in (-1.12, -0.56, 0.0, 0.56, 1.12):
+            parts.append(box("Stake", (0.06, 0.08, SIDE_HEIGHT + 0.05), (x + outward, y, side_mid),
+                             dark))
+        for y in (-0.84, 0.28, 1.12):
+            parts.append(box("Strap", (0.035, 0.055, SIDE_HEIGHT + 0.01),
+                             (x + outward * 1.7, y, side_mid), iron))
 
-    # --- hood -------------------------------------------------------------------
-    # A shallow arch, wider than it is tall, and narrower than the bed so the plank
-    # sides stay in the silhouette. A full half-circle as wide as the wagon makes the
-    # hood the whole shape and the result reads as a barrel on a frame.
-    hood_top = side_mid + SIDE_HEIGHT / 2 - 0.02
-    hood_flatten = 0.60
+    parts.append(box("Tailboard", (BED_HALF_WIDTH * 2, 0.07, SIDE_HEIGHT),
+                     (0, BED_LENGTH / 2 - 0.035, side_mid), wood))
+    parts.append(box("Headboard", (BED_HALF_WIDTH * 2, 0.07, SIDE_HEIGHT + 0.10),
+                     (0, -BED_LENGTH / 2 + 0.035, side_mid + 0.05), wood))
 
+    # --- canvas over hoops --------------------------------------------------------
+    # The canvas fills the hoops instead of sitting inside a cage of them. Drawn a
+    # sixth smaller, as it was, the bows stood out around it like ribs around a
+    # sausage and both ends showed a dark disc the size of the whole opening.
     def flattened(obj):
-        obj.scale[1] *= hood_flatten
+        obj.scale[1] *= HOOP_FLATTEN
         return obj
 
-    for y in (-0.52, -0.08, 0.36, 0.80, 1.24):
-        parts.append(flattened(ring("Hoop", HOOP_RADIUS, (0, y, hood_top), dark, thickness=0.032)))
+    hoop_ys = (-1.02, -0.51, 0.0, 0.51, 1.02)
+    canvas_length = hoop_ys[-1] - hoop_ys[0] + 0.16
 
-    # The canvas spans the middle hoops only, leaving the bow open at both ends.
-    # Capped, each end presented a flat white disc the size of the whole opening and
-    # the wagon read as a barrel however well the rest was built.
     parts.append(flattened(
-        cylinder("Canvas", HOOP_RADIUS - 0.02, 1.20, (0, 0.36, hood_top), canvas,
+        cylinder("Canvas", HOOP_RADIUS - 0.045, canvas_length, (0, 0, rail_top), canvas,
+                 rotation=(math.pi / 2, 0, 0), sides=18)))
+
+    for y in hoop_ys:
+        parts.append(flattened(ring("Hoop", HOOP_RADIUS, (0, y, rail_top), dark, thickness=0.034)))
+
+    # A rope along each side where the canvas is lashed to the rail.
+    for x in (-HOOP_RADIUS + 0.10, HOOP_RADIUS - 0.10):
+        parts.append(box("Lashing", (0.05, canvas_length - 0.05, 0.05),
+                         (x, 0, rail_top + 0.06), shade))
+
+    # The back is open; the front is not. One opening is a door, two is a tunnel, and
+    # a tunnel through a wagon shows the ground on the far side.
+    parts.append(flattened(
+        cylinder("Opening", HOOP_RADIUS - 0.16, 0.05,
+                 (0, hoop_ys[-1] + 0.09, rail_top), inside,
                  rotation=(math.pi / 2, 0, 0), sides=16)))
 
-    # Dark discs behind each opening, so you look into shade rather than at nothing.
-    for y in (-0.30, 1.02):
-        parts.append(flattened(
-            cylinder("Interior", HOOP_RADIUS - 0.06, 0.03, (0, y, hood_top), inside,
-                     rotation=(math.pi / 2, 0, 0), sides=16)))
+    # --- driver's seat ------------------------------------------------------------
+    seat_z = BED_TOP + SIDE_HEIGHT + 0.16
+    parts.append(box("Seat", (1.06, 0.40, 0.11), (0, -BED_LENGTH / 2 + 0.24, seat_z), dark))
+    parts.append(box("SeatBack", (1.06, 0.08, 0.28),
+                     (0, -BED_LENGTH / 2 + 0.43, seat_z + 0.19), dark))
+    parts.append(box("Footboard", (0.96, 0.22, 0.07),
+                     (0, -BED_LENGTH / 2 - 0.08, BED_TOP + 0.14), dark))
 
-    # --- driver's seat ----------------------------------------------------------
-    # The seat sits on the headboard rather than hovering ahead of it.
-    seat_z = side_mid + SIDE_HEIGHT / 2 + 0.14
-    parts.append(box("Seat", (1.02, 0.38, 0.10), (0, -BED_LENGTH / 2 + 0.22, seat_z), dark))
-    parts.append(box("SeatBack", (1.02, 0.07, 0.26),
-                     (0, -BED_LENGTH / 2 + 0.40, seat_z + 0.18), dark))
-    parts.append(box("Footboard", (0.94, 0.20, 0.06),
-                     (0, -BED_LENGTH / 2 - 0.06, BED_TOP + 0.16), dark))
+    # --- running gear -------------------------------------------------------------
+    parts.append(box("BolsterRear", (TRACK * 2 + 0.18, 0.18, 0.12),
+                     (0, REAR_AXLE_Y, REAR_RADIUS + 0.11), dark))
+    parts.append(box("BolsterFront", (TRACK * 2 + 0.14, 0.18, 0.12),
+                     (0, FRONT_AXLE_Y, FRONT_RADIUS + 0.11), dark))
 
-    # --- running gear -----------------------------------------------------------
-    parts.append(box("BolsterRear", (TRACK * 2 + 0.16, 0.16, 0.11),
-                     (0, REAR_AXLE_Y, REAR_RADIUS + 0.10), dark))
-    parts.append(box("BolsterFront", (TRACK * 2 + 0.12, 0.16, 0.11),
-                     (0, FRONT_AXLE_Y, FRONT_RADIUS + 0.10), dark))
-
-    parts.append(cylinder("AxleRear", 0.05, TRACK * 2 + 0.08, (0, REAR_AXLE_Y, REAR_RADIUS),
+    parts.append(cylinder("AxleRear", 0.055, TRACK * 2 + 0.06, (0, REAR_AXLE_Y, REAR_RADIUS),
                           iron, rotation=(0, math.pi / 2, 0), sides=8))
-    parts.append(cylinder("AxleFront", 0.05, TRACK * 2 + 0.04, (0, FRONT_AXLE_Y, FRONT_RADIUS),
+    parts.append(cylinder("AxleFront", 0.055, TRACK * 2 + 0.02, (0, FRONT_AXLE_Y, FRONT_RADIUS),
                           iron, rotation=(0, math.pi / 2, 0), sides=8))
 
-    # The reach ties the two axles together and slopes with them.
+    # Pillars from each bolster up to the sills, so the body stands on the gear
+    # instead of hovering over it. Their absence is what made the wheels look like
+    # they had been parked next to the wagon rather than under it.
+    for y, radius in ((REAR_AXLE_Y, REAR_RADIUS), (FRONT_AXLE_Y, FRONT_RADIUS)):
+        top = BED_TOP - 0.19
+        height = top - (radius + 0.17)
+        for x in (-0.42, 0.42):
+            parts.append(box("Pillar", (0.11, 0.13, max(height, 0.06)),
+                             (x, y, radius + 0.17 + max(height, 0.06) / 2), dark))
+
     reach_length = REAR_AXLE_Y - FRONT_AXLE_Y
     reach_tilt = math.atan2(REAR_RADIUS - FRONT_RADIUS, reach_length)
-    parts.append(box("Reach", (0.13, reach_length + 0.2, 0.09),
+    parts.append(box("Reach", (0.14, reach_length + 0.24, 0.10),
                      (0, (REAR_AXLE_Y + FRONT_AXLE_Y) / 2,
-                      (REAR_RADIUS + FRONT_RADIUS) / 2 + 0.10),
+                      (REAR_RADIUS + FRONT_RADIUS) / 2 + 0.11),
                      dark, rotation=(-reach_tilt, 0, 0)))
 
-    # Braces from the front bolster up to the bed.
-    for x in (-0.30, 0.30):
-        parts.append(box("Hound", (0.07, 0.60, 0.07),
-                         (x, FRONT_AXLE_Y + 0.28, FRONT_RADIUS + 0.30), dark,
-                         rotation=(math.radians(38), 0, 0)))
+    parts += wheel("Rear", REAR_AXLE_Y, REAR_RADIUS, light, dark, iron)
+    parts += wheel("Front", FRONT_AXLE_Y, FRONT_RADIUS, light, dark, iron)
 
-    parts += wheel("Rear", REAR_AXLE_Y, REAR_RADIUS, wood, dark, iron)
-    parts += wheel("Front", FRONT_AXLE_Y, FRONT_RADIUS, wood, dark, iron)
+    # --- draught ------------------------------------------------------------------
+    # The pole starts at the front bolster and the hounds brace it from there. Drawn
+    # floating ahead of the wagon with nothing joining the two, as it was, it read as
+    # a plank lying on the ground.
+    pole_z = FRONT_RADIUS + 0.05
+    parts.append(box("Pole", (0.11, 1.30, 0.10), (0, FRONT_AXLE_Y - 0.62, pole_z), dark))
 
-    # --- draught ----------------------------------------------------------------
-    parts.append(box("Pole", (0.10, 1.05, 0.09),
-                     (0, FRONT_AXLE_Y - 0.55, FRONT_RADIUS + 0.02), dark))
-    parts.append(box("Swingletree", (0.72, 0.08, 0.08),
-                     (0, FRONT_AXLE_Y - 1.02, FRONT_RADIUS + 0.02), dark))
+    for x in (-0.26, 0.26):
+        parts.append(box("Hound", (0.08, 0.72, 0.08),
+                         (x * 0.6, FRONT_AXLE_Y - 0.26, pole_z + 0.05), dark,
+                         rotation=(0, 0, math.radians(11) * (1 if x > 0 else -1))))
+
+    parts.append(box("Swingletree", (0.78, 0.09, 0.09),
+                     (0, FRONT_AXLE_Y - 1.22, pole_z), dark))
+    parts.append(cylinder("Ferrule", 0.065, 0.10, (0, FRONT_AXLE_Y - 1.22, pole_z), iron,
+                          rotation=(math.pi / 2, 0, 0), sides=8))
 
     for obj in parts:
         obj.select_set(True)

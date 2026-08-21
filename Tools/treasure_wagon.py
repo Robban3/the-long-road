@@ -14,10 +14,16 @@ import math
 import sys
 import os
 
-WOOD = (0.78, 0.62, 0.24, 1.0)
-WOOD_DARK = (0.52, 0.39, 0.14, 1.0)
-LID = (0.33, 0.62, 0.28, 1.0)
-IRON = (0.30, 0.28, 0.22, 1.0)
+# The loot has to be visible from the caravan's camera without shouting. The first
+# version was pale yellow timber under a green lid, which read as a garden shed —
+# green because it was a placeholder, and the placeholder outlived its purpose. Now
+# the frame is the same timber as the supply wagon, so the two read as one caravan,
+# and only the strongbox lids and their ironwork carry the colour: dark iron bands
+# over brass. Wealth is what is bolted shut, not what is painted.
+WOOD = (0.42, 0.29, 0.17, 1.0)
+WOOD_DARK = (0.24, 0.16, 0.10, 1.0)
+LID = (0.72, 0.55, 0.20, 1.0)          # brass, dulled
+IRON = (0.19, 0.18, 0.19, 1.0)
 
 
 def clear_scene():
@@ -41,10 +47,14 @@ def material(name, colour):
 
 
 def box(name, size, location, mat, rotation=(0, 0, 0)):
+    # The base cube is one metre on a side, so the scale is the size, not half of it.
+    # Halving it — as this did — shrank every board, plank and beam to half its stated
+    # dimension while the wheels, built from radii, stayed correct. That is most of why
+    # the wagons read as stubby: a full-sized wheel against a half-sized body.
     bpy.ops.mesh.primitive_cube_add(size=1, location=location, rotation=rotation)
     obj = bpy.context.active_object
     obj.name = name
-    obj.scale = (size[0] / 2, size[1] / 2, size[2] / 2)
+    obj.scale = size
     obj.data.materials.append(mat)
     return obj
 
