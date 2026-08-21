@@ -30,6 +30,15 @@ namespace Arna.View
         /// <summary>
         /// Scales an instance to the given height in metres and stands it on
         /// <paramref name="groundY"/> so its feet, not its origin, meet the ground.
+        ///
+        /// Measured from renderer bounds, which for a rigged character is a box drawn
+        /// to hold every clip in the file rather than the figure standing in front of
+        /// you. That is close enough for a model whose meshes are all body — and it is
+        /// not close enough for one carrying a prop that reaches past its boots, which
+        /// is why the knight's own sword mesh is switched off and a scaled one put in
+        /// his hand instead. The alternative, baking every skinned mesh at spawn to
+        /// measure it exactly, costs a vertex walk per actor to correct a model the
+        /// casting can simply describe properly.
         /// </summary>
         public static void Fit(GameObject instance, float targetHeight, float groundY = 0f)
         {

@@ -27,6 +27,27 @@ namespace Arna.View
         public float WeaponLength;
         public Vector3 WeaponRotation;
 
+        /// <summary>
+        /// Meshes inside the file that are not this character, switched off on spawn.
+        ///
+        /// Some of the packs ship more than one figure per file — the pirate
+        /// captain's carries a second man called Ernest, who stood beside every
+        /// bandit in the game — and some hand their character a prop we do not want,
+        /// like the lute the archer was holding instead of a bow. Named here rather
+        /// than guessed at, because no rule tells a stowaway from a sword.
+        /// </summary>
+        public string[] Hide;
+
+        /// <summary>
+        /// Meshes that belong to the character but must not decide how big it is.
+        ///
+        /// A model is scaled by the height of everything in it, and the knight ships
+        /// holding a two-hander whose point hangs past his boots. Measured with it he
+        /// came out a head shorter than the troops he stands beside — the sword was
+        /// eating a tenth of him. Drawn, not counted.
+        /// </summary>
+        public string[] Unsized;
+
         public bool HasModel => Prefab != null;
     }
 

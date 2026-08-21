@@ -26,6 +26,9 @@ namespace Arna.View
         readonly Dictionary<Color, Material> _materials = new Dictionary<Color, Material>();
         readonly Dictionary<Transform, Animator> _animators = new Dictionary<Transform, Animator>();
 
+        /// <summary>How far each model's origin sits above its own feet, after scaling.</summary>
+        readonly Dictionary<Transform, float> _standing = new Dictionary<Transform, float>();
+
         static readonly int SpeedParam = Animator.StringToHash("Speed");
         static readonly int AttackParam = Animator.StringToHash("Attack");
         static readonly int DeadParam = Animator.StringToHash("Dead");
@@ -112,7 +115,11 @@ namespace Arna.View
             if (model != null)
             {
                 var cart = Spawn(model, PrimitiveType.Cube, "Cart", color, VisualLibrary.WagonHeight, wagon);
-                cart.localPosition = Vector3.zero;
+
+                // Zero would throw away the lift that stood the cart on its wheels
+                // rather than on its axle. The wagon itself is what gets moved about,
+                // so the correction has to live in the cart underneath it.
+                cart.localPosition = new Vector3(0f, Standing(cart, Vector3.zero).y, 0f);
                 return wagon;
             }
 
@@ -155,8 +162,7 @@ namespace Arna.View
                 if (wagon.Destroyed) continue;
 
                 var position = run.Caravan.WagonPosition(i);
-                _wagons[i].SetPositionAndRotation(
-                    new Vector3(position.X, GroundAt(position), position.Y), facing);
+                Place(_wagons[i], new Vector3(position.X, GroundAt(position), position.Y), facing);
             }
 
             // Troops march at the caravan's pace, so the column animates as one: when
@@ -170,8 +176,7 @@ namespace Arna.View
                 pair.Value.gameObject.SetActive(group.Alive);
                 if (!group.Alive) continue;
 
-                pair.Value.SetPositionAndRotation(
-                    new Vector3(group.Position.X, GroundAt(group.Position), group.Position.Y), facing);
+                Place(pair.Value, new Vector3(group.Position.X, GroundAt(group.Position), group.Position.Y), facing);
 
                 Animate(pair.Value, fighting ? 0f : pace, fighting, false);
             }
@@ -208,7 +213,7 @@ namespace Arna.View
                 }
 
                 marker.gameObject.SetActive(true);
-                marker.position = new Vector3(enemy.Position.X, GroundAt(enemy.Position), enemy.Position.Y);
+                Place(marker, new Vector3(enemy.Position.X, GroundAt(enemy.Position), enemy.Position.Y));
 
                 // Face the caravan, which is what the group is coming for.
                 var toCaravan = run.Caravan.LeadPosition - enemy.Position;
@@ -248,7 +253,7 @@ namespace Arna.View
                 {
                     marker = Spawn(Library.TrapMarker, PrimitiveType.Cylinder,
                         $"Trap_{trap.Kind}", TrapColor, 1.4f);
-                    marker.position = new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y);
+                    Place(marker, new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y));
                     _traps[trap] = marker;
                 }
 
@@ -267,7 +272,7 @@ namespace Arna.View
                                    Vector3 position, float speed = 0f)
         {
             var marker = SpawnActor(model, PrimitiveType.Capsule, name, TroopColor, targetHeight);
-            marker.position = position;
+            Place(marker, position);
             Animate(marker, speed, false, false);
             return marker;
         }
@@ -292,7 +297,7 @@ namespace Arna.View
             {
                 var position = Vec2.FromTile(grid, cache.Tile);
                 var marker = Spawn(Library.SilverCache, PrimitiveType.Cube, "SilverCache", CacheColor, 1.8f);
-                marker.position = new Vector3(position.X, GroundAt(position), position.Y);
+                Place(marker, new Vector3(position.X, GroundAt(position), position.Y));
             }
         }
 
@@ -314,7 +319,8 @@ namespace Arna.View
         Transform SpawnActor(ActorModel model, PrimitiveType fallback, string name, Color color,
                              float targetHeight)
         {
-            var marker = Spawn(model.Prefab, fallback, name, color, targetHeight);
+            var marker = Spawn(model.Prefab, fallback, name, color, targetHeight, null,
+                               model.Hide, model.Unsized);
 
             if (model.Prefab == null || model.Animator == null) return marker;
 
@@ -330,6 +336,14 @@ namespace Arna.View
             // simulation keeps moving them regardless.
             animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             animator.applyRootMotion = false;
+
+            // Bound and stepped once here, because an animator that has never been
+            // bound evaluates nothing outside play mode: a headless capture came back
+            // showing every model in the rest pose its file was saved in, which is a
+            // picture of the art rather than of the game. Play mode does this itself,
+            // so this costs one evaluation at spawn and changes nothing there.
+            animator.Rebind();
+            animator.Update(0f);
 
             _animators[marker] = animator;
             Arm(marker, model);
@@ -366,13 +380,33 @@ namespace Arna.View
 
             var weapon = Object.Instantiate(model.Weapon, hand);
             weapon.name = "Weapon";
-            weapon.transform.localPosition = Vector3.zero;
+            weapon.transform.position = Grip(hand);
             weapon.transform.localRotation = Quaternion.Euler(model.WeaponRotation);
 
             float length = model.WeaponLength > 0f ? model.WeaponLength : 0.8f;
             var bounds = ModelScaling.Measure(weapon);
             float longest = Mathf.Max(bounds.size.x, Mathf.Max(bounds.size.y, bounds.size.z));
             if (longest > 0.0001f) weapon.transform.localScale *= length / longest;
+        }
+
+        /// <summary>
+        /// Where a hand actually holds something: the middle of its knuckles.
+        ///
+        /// Half of these rigs put a wrist between the forearm and the fingers and half
+        /// hang the fingers straight off the forearm, so the bone a weapon is parented
+        /// to is sometimes a wrist and sometimes an elbow. At the bone's own origin
+        /// that is the difference between a bow in the hand and a bow inside the
+        /// archer's ribs. The knuckles are in the same place on both.
+        /// </summary>
+        static Vector3 Grip(Transform hand)
+        {
+            var sum = Vector3.zero;
+            int count = 0;
+
+            foreach (Transform child in hand)
+                if (IsKnuckle(child.name)) { sum += child.position; count++; }
+
+            return count > 0 ? sum / count : hand.position;
         }
 
         /// <summary>
@@ -440,7 +474,8 @@ namespace Arna.View
         }
 
         Transform Spawn(GameObject prefab, PrimitiveType fallback, string name, Color color,
-                        float targetHeight, Transform parent = null)
+                        float targetHeight, Transform parent = null, string[] hide = null,
+                        string[] unsized = null)
         {
             var host = parent != null ? parent : _root;
 
@@ -452,14 +487,87 @@ namespace Arna.View
                 primitive.transform.SetParent(host, false);
                 primitive.transform.localScale = Vector3.one * (targetHeight * 0.5f);
                 Tint(primitive.transform, color);
+
+                // A primitive's origin is its middle, so half of it is the ground.
+                _standing[primitive.transform] = targetHeight * 0.5f;
                 return primitive.transform;
             }
 
             var instance = Object.Instantiate(prefab, host);
             instance.name = name;
-            ModelScaling.Fit(instance, targetHeight, instance.transform.position.y);
+
+            // Before measuring, not after. A stowaway mesh lying thirty units below
+            // the character drags the bounds down with it, and the figure gets scaled
+            // and stood on the ground by a body that is not going to be drawn.
+            Hide(instance.transform, hide);
+
+            // Switched off across the measurement and back on after it, so a held
+            // weapon is drawn at the size the character gives it rather than being
+            // what decides that size.
+            var held = Switch(instance.transform, unsized, false);
+
+            float ground = instance.transform.position.y;
+            ModelScaling.Fit(instance, targetHeight, ground);
+            _standing[instance.transform] = instance.transform.position.y - ground;
+
+            foreach (var mesh in held) mesh.SetActive(true);
+
             return instance.transform;
         }
+
+        /// <summary>
+        /// Stands a marker at a place on the ground, feet first rather than origin
+        /// first.
+        ///
+        /// Nothing says a model's origin is at the sole of its boot, and the packs
+        /// disagree: most are within a few centimetres, the knight's sits a third of a
+        /// metre up. <see cref="ModelScaling.Fit"/> works that offset out when the
+        /// model is spawned, and every place that moved a marker afterwards threw it
+        /// away by assigning a position outright. Keeping it here is what makes the
+        /// correction survive the first frame.
+        /// </summary>
+        void Place(Transform marker, Vector3 groundPosition)
+        {
+            marker.position = Standing(marker, groundPosition);
+        }
+
+        void Place(Transform marker, Vector3 groundPosition, Quaternion facing)
+        {
+            marker.SetPositionAndRotation(Standing(marker, groundPosition), facing);
+        }
+
+        Vector3 Standing(Transform marker, Vector3 groundPosition)
+        {
+            if (_standing.TryGetValue(marker, out float lift)) groundPosition.y += lift;
+            return groundPosition;
+        }
+
+        /// <summary>
+        /// Switches the named meshes on or off and reports which ones it touched.
+        ///
+        /// Matched from the start of the name so "Henry.002" is still Henry: the
+        /// importer appends a suffix when a name collides, and a rule that missed
+        /// because of one would fail silently.
+        /// </summary>
+        static List<GameObject> Switch(Transform root, string[] names, bool on)
+        {
+            var touched = new List<GameObject>();
+            if (names == null || names.Length == 0) return touched;
+
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+                foreach (var name in names)
+                    if (renderer.name.StartsWith(name, System.StringComparison.OrdinalIgnoreCase) &&
+                        renderer.gameObject.activeSelf != on)
+                    {
+                        renderer.gameObject.SetActive(on);
+                        touched.Add(renderer.gameObject);
+                    }
+
+            return touched;
+        }
+
+        /// <summary>Switches off the meshes a file carries that are not this character.</summary>
+        static void Hide(Transform root, string[] names) => Switch(root, names, false);
 
         void Tint(Transform target, Color color)
         {
