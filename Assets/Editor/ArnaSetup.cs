@@ -698,6 +698,163 @@ namespace Arna.Editor
         }
 
         /// <summary>
+        /// Renders the cast standing together:
+        /// -executeMethod Arna.Editor.ArnaSetup.CaptureCharacters -arnaOutput &lt;path&gt;
+        ///
+        /// The play capture answers whether a level reads. It cannot answer whether a
+        /// knight is holding his sword or wearing it through his forearm, because at
+        /// the distance the game watches from he is forty pixels tall. This stands
+        /// everybody up close enough to see, through the same spawn path a level uses
+        /// — same height fitting, same animator, same hand bone — so a fault visible
+        /// here is a fault the player would eventually meet.
+        /// </summary>
+        public static void CaptureCharacters()
+        {
+            string output = ArgValue("-arnaOutput") ?? "Logs/characters.png";
+            int width = int.TryParse(ArgValue("-arnaWidth"), out var w) ? w : 1600;
+            int height = int.TryParse(ArgValue("-arnaHeight"), out var h) ? h : 900;
+
+            // Same reason as the play capture: a shot taken while variants are still
+            // compiling shows a shader that is not the one under test.
+            ShaderUtil.allowAsyncCompilation = false;
+
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            ApplyOutdoorLighting();
+
+            // No fog. It is tuned for a landscape three hundred metres deep and this
+            // scene is twelve — all it would do here is grey the cast.
+            RenderSettings.fog = false;
+
+            var lightGo = new GameObject("Directional Light");
+
+            // The play view's sun, unchanged. A line-up lit for its own convenience
+            // would flatter models that look worse in the game.
+            lightGo.transform.rotation = Quaternion.Euler(38f, -52f, 0f);
+            var light = lightGo.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.0f;
+            light.color = new Color(1f, 0.96f, 0.88f);
+            light.shadows = LightShadows.Soft;
+            light.shadowStrength = 0.7f;
+            light.shadowBias = 0.03f;
+            light.shadowNormalBias = 0.15f;
+
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            ground.name = "Ground";
+            ground.transform.localScale = new Vector3(8f, 1f, 8f);
+            UnityEngine.Object.DestroyImmediate(ground.GetComponent<Collider>());
+
+            // Plain lit ground rather than the terrain shader. That one takes its
+            // colour from vertex colours the generator writes, and a Unity primitive
+            // carries none — the cast would be standing on white.
+            var groundMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+            {
+                name = "CastGround"
+            };
+            groundMaterial.SetColor("_BaseColor", new Color(0.32f, 0.36f, 0.25f));
+            groundMaterial.SetFloat("_Smoothness", 0f);
+            ground.GetComponent<MeshRenderer>().sharedMaterial = groundMaterial;
+
+            var models = LoadModels();
+            var visuals = new RunVisuals(new GameObject("Cast").transform) { Library = models };
+
+            const float spacing = 2.8f;
+            const float rowDepth = 3.6f;
+
+            var troops = new (string Name, ActorModel Model, float Height)[]
+            {
+                ("Melee_Knight", models.Melee, VisualLibrary.TroopHeight),
+                ("Ranged_Adventurer", models.Ranged, VisualLibrary.TroopHeight),
+                ("Support_Farmer", models.Support, VisualLibrary.TroopHeight),
+                ("Mounted_Horse", models.Mounted, VisualLibrary.TroopHeight)
+            };
+
+            var enemies = new (string Name, ActorModel Model, float Height)[]
+            {
+                ("Wolf", models.Wolf, VisualLibrary.WolfHeight),
+                ("Bandit", models.Bandit, VisualLibrary.EnemyHeight),
+                ("BanditArcher", models.BanditArcher, VisualLibrary.EnemyHeight)
+            };
+
+            // Troops in front, enemies behind and staggered into the gaps. Squared up
+            // in two straight rows, the wolf — the shortest thing in the game — stood
+            // entirely behind a knight.
+            PlaceRow(troops, 0f);
+            PlaceRow(enemies, rowDepth);
+
+            void PlaceRow((string Name, ActorModel Model, float Height)[] row, float z)
+            {
+                float start = -(row.Length - 1) * spacing * 0.5f;
+                for (int i = 0; i < row.Length; i++)
+                {
+                    var actor = visuals.ShowActor(row[i].Model, row[i].Name, row[i].Height,
+                                                  new Vector3(start + i * spacing, 0f, z));
+
+                    // Turned a few degrees off square. Dead-on, an arm hides the weapon
+                    // against the body, and the weapon is half of what this picture is
+                    // for.
+                    actor.rotation = Quaternion.Euler(0f, 195f, 0f);
+                }
+            }
+
+            // Animators do not run in an editor session, so without this the cast
+            // stands in bind pose with its arms out — which looks like a broken rig
+            // rather than like nobody having pressed play.
+            for (int i = 0; i < 30; i++) visuals.AdvanceAnimators(1f / 30f);
+
+            var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
+            var camera = cameraGo.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = SkyColor;
+            camera.fieldOfView = 34f;
+            camera.nearClipPlane = 0.1f;
+            camera.farClipPlane = 200f;
+
+            // Framed by arithmetic rather than by eye, because the resolution is an
+            // argument: a distance tuned by hand for 16:9 crops the ends off the row
+            // the moment somebody asks for a wider picture.
+            float span = (Mathf.Max(troops.Length, enemies.Length) - 1) * spacing + 3.2f;
+            float halfVertical = camera.fieldOfView * 0.5f * Mathf.Deg2Rad;
+            float halfHorizontal = Mathf.Atan(Mathf.Tan(halfVertical) * ((float)width / height));
+            float distance = span * 0.5f / Mathf.Tan(halfHorizontal);
+
+            var focus = new Vector3(0f, 1.0f, rowDepth * 0.5f);
+            cameraGo.transform.position = focus + new Vector3(0f, 1.6f, -distance);
+            cameraGo.transform.LookAt(focus);
+
+            var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32)
+            {
+                antiAliasing = 2
+            };
+            var previous = RenderTexture.active;
+
+            try
+            {
+                camera.targetTexture = target;
+                camera.Render();
+
+                RenderTexture.active = target;
+                var texture = new Texture2D(width, height, TextureFormat.RGB24, false);
+                texture.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                texture.Apply();
+
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)));
+                File.WriteAllBytes(output, texture.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(texture);
+
+                Debug.Log($"[Arna] Captured {troops.Length + enemies.Length} characters " +
+                          $"from {distance:F1} m -> {output}");
+            }
+            finally
+            {
+                camera.targetTexture = null;
+                RenderTexture.active = previous;
+                target.Release();
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        /// <summary>
         /// Prints the real dimensions and pivot of the scenery models.
         ///
         /// Worth having permanently: a model that arrives lying down, or with its

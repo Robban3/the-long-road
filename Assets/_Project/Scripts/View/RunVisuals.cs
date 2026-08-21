@@ -257,6 +257,22 @@ namespace Arna.View
         }
 
         /// <summary>
+        /// Stands one actor up outside a run, for a reference shot of the cast.
+        ///
+        /// Goes through the same spawn path the level does — same height fitting, same
+        /// animator, same weapon in the same hand — so the line-up is evidence about
+        /// the game rather than a separate picture that happens to use the same models.
+        /// </summary>
+        public Transform ShowActor(ActorModel model, string name, float targetHeight,
+                                   Vector3 position, float speed = 0f)
+        {
+            var marker = SpawnActor(model, PrimitiveType.Capsule, name, TroopColor, targetHeight);
+            marker.position = position;
+            Animate(marker, speed, false, false);
+            return marker;
+        }
+
+        /// <summary>
         /// Advances every animator by hand.
         ///
         /// Unity drives animators itself during play, but not in an editor session, so
