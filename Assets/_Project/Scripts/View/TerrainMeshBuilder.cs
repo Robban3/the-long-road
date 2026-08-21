@@ -215,6 +215,7 @@ namespace Arna.View
         {
             float r = 0f, g = 0f, b = 0f;
             int tiles = 0, water = 0;
+            bool road = false;
 
             for (int dy = -1; dy <= 0; dy++)
             {
@@ -225,14 +226,25 @@ namespace Arna.View
                     if (!grid.InBounds(x, y)) continue;
 
                     tiles++;
-                    if (grid[x, y] == TerrainType.Water) { water++; continue; }
 
-                    var c = TerrainPalette.OfGround(grid[x, y]);
+                    var terrain = grid[x, y];
+                    if (terrain == TerrainType.Water) { water++; continue; }
+                    if (terrain == TerrainType.Road) road = true;
+
+                    var c = TerrainPalette.OfGround(terrain);
                     r += c.r; g += c.g; b += c.b;
                 }
             }
 
             if (tiles == 0) return Color.black;
+
+            // A road wins its corners outright, unlike water, which needs a majority.
+            // Roads are one tile wide, so no corner is ever surrounded by four of them
+            // and the averaging diluted every road to half grass — a road that vanishes
+            // into the meadow it crosses. Claiming the corner widens it by half a tile
+            // each side, which is exactly what a track needs to stay continuous. Water
+            // cannot have the same rule: there it swallowed the fords.
+            if (road) return TerrainPalette.OfGround(TerrainType.Road);
             if (water * 2 > tiles) return TerrainPalette.OfGround(TerrainType.Water);
 
             int land = tiles - water;

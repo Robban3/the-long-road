@@ -65,6 +65,19 @@ namespace Arna.Sim
         public int Rivers = 1;
         public int FordsPerRiver = 3;
 
+        // No roads yet, and their absence is load-bearing rather than an oversight.
+        // Road is the fastest terrain in the game (docs/GDD.md §3.1) and settlements
+        // are placed on and beside roads, so without them the speed-against-safety
+        // trade-off is missing a pole and no house or field has ever appeared on a map.
+        //
+        // Laying them is easy — the pathfinder's cheapest line across the country is
+        // what a trade road is — but it cannot land on its own. The enemy budget is
+        // shared out in inverse proportion to a corridor's travel cost, so a faster
+        // corridor is given more enemies; a road makes the fast corridor both quicker
+        // and shorter, and that same budget lands denser. Level 1-6 went from winnable
+        // to unsurvivable on all three routes. Roads need the budget formula revisited
+        // first, which is a balance change and not a scenery one.
+
         /// <summary>Minimum tiles along the fastest route from start to goal.</summary>
         public int MinRouteTiles = 40;
 
