@@ -211,7 +211,8 @@ integration into software.
 
 The swap in §8 changes what this section can promise. Two purchased Asset Store packs
 cannot be committed, so the repository stops being a thing that runs after a clone: it
-becomes code plus a shopping list. That is a fair trade for art that carries the game,
+becomes code plus a shopping list. What stays committed stays CC0 — the medieval
+village pack is kept for exactly the props §8 lists, and nothing about it changes here. That is a fair trade for art that carries the game,
 but it is a decision rather than a side effect, and the consequence is worth stating
 plainly — the code can stay public, the game it renders cannot be assembled from the
 repository alone.
@@ -223,6 +224,21 @@ repository alone.
 The plan is to replace everything under `Assets/Quaternius` with two purchased packs:
 a stylized medieval army pack for the whole cast, and Synty's POLYGON Nature Pack for
 the country. One decision, most of §4's art problems.
+
+With one exception, decided in advance: **the medieval village pack stays until the
+new packs are shown to cover what it does.** It is the only source of built things in
+the project — the abandoned cart that marks a trap field, the houses, the farms — and
+losing them silently is worse than carrying a pack that costs nothing. What it costs
+is nothing in two senses: it is CC0, so §7 does not apply to it and it can stay
+committed, and the props it supplies are rare by design. Once the new packs are
+imported, check them for a cart, a ruin and a building; whatever they cover, drop from
+`Village(...)`, and whatever they do not, leave where it is.
+
+The cart matters more than its size suggests. `LevelPreview.RuinSites` places it near
+a trap field and never on one, which is the soft signal the design asks for in
+GDD §2 — ground where a caravan came to grief before. It is the only thing in the
+game that tells the player about danger without showing them where it is, and it is
+one model.
 
 **Measure before wiring anything.** The report methods in §2 exist because guessing
 cost hours last time, and a new pack pair is exactly when they pay:
@@ -238,8 +254,8 @@ cost hours last time, and a new pack pair is exactly when they pay:
 
 **What the swap touches**, nearly all of it in `Assets/Editor/ArnaSetup.cs`:
 
-- The directory constants `QuaterniusDir`, `NatureDir`, `VillageDir` — three become
-  two.
+- The directory constants `QuaterniusDir`, `NatureDir`, `VillageDir`. Two are
+  replaced; `VillageDir` stays for as long as the village pack does.
 - `LoadForestDecor()`: every `Nature(...)`, `Rts(...)` and `Village(...)` name list,
   and the `PropSet` up-axis flag that travels with each one.
 - `LoadModels()`: the cast against `VisualLibrary` — melee, ranged, support, mounted,
@@ -255,23 +271,42 @@ cost hours last time, and a new pack pair is exactly when they pay:
   mechanically, but the density numbers were tuned against a canopy of a particular
   shape and will want another pass once the new trees are on the map.
 
-**What stops being true.** Three entries in §6 belong to the packs being removed, not
-to the project, and should go with them once the swap is proven: the packs disagreeing
-about which way is up; texture names not matching material names; and the shared leaf
-atlas that made some plants genuinely violet. Everything else in §6 survives — the
-widest-axis rule, `SurfaceElevation`, the ambient equator, synchronous shader
-compilation in headless captures — because none of it is about a particular pack.
+**What stops being true.** Two entries in §6 belong to the packs being removed rather
+than to the project, and should go with them once the swap is proven: texture names
+not matching material names, and the shared leaf atlas that made some plants genuinely
+violet. Both are facts about the Quaternius stylized nature pack alone.
+
+The third — the packs disagreeing about which way is up — only narrows. The Z-up RTS
+scenery is what made the two answers collide, and it leaves; if everything remaining
+is Y-up the disagreement is not live. But `PropSet.ZUp` stays where it is. It exists
+because the up axis is a property of a pack rather than of a biome, and that is true
+whether or not today's packs happen to agree. Rip it out and the next pack imported
+sideways costs the same hours again.
+
+Everything else in §6 survives — the widest-axis rule, `SurfaceElevation`, the ambient
+equator, synchronous shader compilation in headless captures — because none of it is
+about a particular pack.
 
 **What it does not solve.** Roads and the enemy budget are untouched; no pack lays a
 road. So are the camp, the shop and the UI, and so are the phone builds. And the
-wagons only if a cart ships with the army pack.
+wagons only if a cart ships with the army pack — the caravan's own carts come from
+`Tools/wagon.py` and are a separate thing from the village pack's abandoned one.
 
 **Order of operations.** Import and measure, wire `ArnaSetup`, run
-`CaptureLevelPreview` and `CapturePlayScene`, and only then delete the Quaternius
-folders — in one commit, so no revision of the project exists with neither set of art.
-Add the imported folders to `.gitignore` as soon as their names are known, before the
-first commit that could sweep them in; see §7 for why they cannot be committed and
-what that costs.
+`CaptureLevelPreview` and `CapturePlayScene`, and only then delete the two Quaternius
+folders being replaced — in one commit, so no revision of the project exists with
+neither set of art. `Assets/Quaternius/MedievalVillage` is not part of that deletion
+unless the check above found its work already done elsewhere. Add the imported folders
+to `.gitignore` as soon as their names are known, before the first commit that could
+sweep them in; see §7 for why they cannot be committed and what that costs.
+
+**One cost worth naming.** Keeping the village pack means two art sources on one map,
+and the packs were not drawn to match. A Quaternius house beside a Synty tree is a
+visible seam, where the same house beside a Quaternius tree was not. The props
+concerned are rare — landmarks are capped at eighteen a map and houses need roads,
+which the generator does not lay yet — so the seam is small today and grows the moment
+roads land. That is the point at which to decide whether to buy a building pack rather
+than to keep patching this one.
 
 Last: `Tools/render_screens.py` draws stand-ins shaped like the old packs. If the
 pictures it makes are still meant to resemble the game, its prop geometry wants
