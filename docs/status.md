@@ -14,9 +14,10 @@ The simulation is complete and tested: terrain generation, three-corridor route
 choice, caravan movement, detection, traps, combat, silver and upgrades, all
 deterministic from a seed and all covered by 147 tests. The presentation has just
 been through a full pass — the ground is lit and textured, the scenery is textured,
-and the planning map is a top-down render of the real world rather than a grid of
-coloured squares. What is missing is everything between levels: no camp, no shop,
-no UI beyond a debug readout, and no build for either phone.
+the cast stands on the ground at the right size, and the planning map is a top-down
+render of the real world rather than a grid of coloured squares. What is missing is
+everything between levels: no camp, no shop, no UI beyond a debug readout, and no
+build for either phone.
 
 ---
 
@@ -42,6 +43,9 @@ Useful methods, all on `Arna.Editor.ArnaSetup`:
 | `ReportFolderDimensions` | Measures every model in `-arnaModelDir`: size and which axis is up |
 | `ReportMaterialTextures` | Prints which texture each material ended up with |
 | `ReportRigBones` | Dumps a character's bone hierarchy |
+| `CaptureCharacters` | Stands the whole cast in two rows and photographs it |
+| `ReportActorFit` | Prints how tall each actor came out and where it stands |
+| `ColourUntexturedMaterials` | Paints the materials whose texture this project does not have |
 
 The report methods exist because every one of them settled a question that had
 already cost hours of guessing. They are cheap to run and worth running first.
@@ -82,6 +86,15 @@ routes. The whole level rests on the routes being meaningfully different.
 different colour on purpose — the player is meant to see which cart holds the loot —
 but the green is placeholder work.
 
+**The pirate pack has no texture in this project.** Every model in it draws from one
+shared atlas image and that image was never here — the pack arrived as meshes and
+materials pointing at nothing, and `RestyleModelMaterials` cannot extract what was
+never embedded. The props that used it have moved to packs that carry their colours
+in their materials. The two bandits cannot move: they are the only medieval figures
+in reach, so they are painted a flat colour each by `ColourUntexturedMaterials`. A
+flat figure is legible at the distance this game is played and plainly unfinished up
+close. Finding the atlas, or replacing both models, is the real fix.
+
 **Mountains and buildings are untextured.** They come from the flat-coloured RTS
 pack and sit beside textured trees. The stylized nature pack has no landforms and no
 buildings, so replacing them needs another pack.
@@ -115,6 +128,40 @@ disproportionately deadlier. Laying roads was tried: corridor overlap on 1-5 fel
 from 59% to 42% and the fastest route from 94.4 to 86.6 — both improvements — but
 level 1-6 went from winnable to unsurvivable on all three routes, because the larger
 budget landed on less ground. The budget formula has to be settled first.
+
+**A model's origin is not its feet, and placing it by its origin buries it.** The
+fitting pass at spawn works out how far a model's origin sits above its own lowest
+point and stands it on the ground; anything that assigns a position afterwards
+throws that away. Most packs are within a few centimetres and it never shows. The
+knight is a third of a metre out and walked the road buried to the knee. `Place` in
+`RunVisuals` reapplies the offset, and everything that moves a marker goes through
+it.
+
+**A model is scaled by everything in its file, props included.** The knight arrives
+holding a two-hander whose point hangs past his boots, so measuring him with it
+made him a head shorter than the troops beside him. `ActorModel.Unsized` names
+meshes that are drawn but not counted. `ActorModel.Hide` is the other half of the
+same problem: some files carry a second character (Ernest, in the pirate captain's)
+or a prop the game does not want (Henry's lute), and no rule distinguishes a
+stowaway from a sword — so they are named.
+
+**A skinned mesh's renderer bounds are an animation-sized box, not the figure.**
+The knight's report 1.97 m across for a figure two thirds that wide. Baking the
+posed mesh gives the truth, but the baked vertices land in a bone-relative space
+that is not the renderer's — measuring through `renderer.transform` reported him as
+fifty metres tall and scaled him to a speck. Naming the offending mesh in the
+casting is cheaper and clearer than getting that transform right.
+
+**Outside play mode an animator that has never been bound evaluates nothing.** A
+headless capture was photographing the pose each file happens to be saved in.
+`Rebind()` and one `Update(0)` at spawn fixes it; `AdvanceAnimators` alone does not,
+because there is nothing bound for it to advance.
+
+**Unity's first batch run after a script edit compiles and quits without running
+the method.** The log ends after the assembly reload with no output and the exit
+code is 1. Run the same command again — the second pass is the one that works —
+and wait for `Unity.exe` to leave the process list between runs, or the next
+invocation finds the project locked and writes no log at all.
 
 **The packs disagree about which way is up.** The RTS scenery is Z-up and miniature
 — a whole tree is 0.72 × 0.45 × 0.93. The stylized nature pack and the medieval
