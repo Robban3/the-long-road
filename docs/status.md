@@ -221,24 +221,31 @@ repository alone.
 
 ## 8. Swapping the asset packs
 
-The plan is to replace everything under `Assets/Quaternius` with two purchased packs:
-a stylized medieval army pack for the whole cast, and Synty's POLYGON Nature Pack for
-the country. One decision, most of §4's art problems.
+Everything under `Assets/Quaternius` is being replaced by three purchased packs:
 
-With one exception, decided in advance: **the medieval village pack stays until the
-new packs are shown to cover what it does.** It is the only source of built things in
-the project — the abandoned cart that marks a trap field, the houses, the farms — and
-losing them silently is worse than carrying a pack that costs nothing. What it costs
-is nothing in two senses: it is CC0, so §7 does not apply to it and it can stay
-committed, and the props it supplies are rare by design. Once the new packs are
-imported, check them for a cart, a ruin and a building; whatever they cover, drop from
-`Village(...)`, and whatever they do not, leave where it is.
+| Pack | What it supplies |
+|---|---|
+| Stylized Medieval Army Pack | The cast — every troop and enemy in `VisualLibrary`, and the camp: tents, palisade, banners |
+| POLYGON Nature Pack (Synty) | The country — trees, plants, rocks, terrain, dead trees for the marsh |
+| POLYGON Knights (Synty) | The built things — castle, houses, church, mountains, cliff, bridge, well, road pieces, an empty hay cart |
 
-The cart matters more than its size suggests. `LevelPreview.RuinSites` places it near
-a trap field and never on one, which is the soft signal the design asks for in
-GDD §2 — ground where a caravan came to grief before. It is the only thing in the
-game that tells the player about danger without showing them where it is, and it is
-one model.
+Two of the three are from the same POLYGON series, which is the reason for choosing
+Knights over cheaper castle packs: the nature pack sets the art direction, and a pack
+from the same series matches it by construction rather than by hope. Every alternative
+was a bet that two artists' idea of stylized low-poly is the same idea, and that bet is
+visible in every frame if it loses.
+
+**The village pack goes too, once one thing is checked.** The earlier plan kept
+`Assets/Quaternius/MedievalVillage` because it was the only source of the abandoned
+cart that marks a trap field. Knights ships an empty hay cart, which does that job at
+least as well — a farm cart left in a field reads as abandoned. Import, put it through
+`LevelPreview.RuinSites`, look at it on a map, and only then delete the folder. If it
+does not read, keep the village pack and drop this paragraph.
+
+The cart matters more than its size suggests. `RuinSites` places it near a trap field
+and never on one, which is the soft signal the design asks for in GDD §2 — ground where
+a caravan came to grief before. It is the only thing in the game that warns the player
+about danger without giving away its position, and it is one model.
 
 **Measure before wiring anything.** The report methods in §2 exist because guessing
 cost hours last time, and a new pack pair is exactly when they pay:
@@ -254,8 +261,8 @@ cost hours last time, and a new pack pair is exactly when they pay:
 
 **What the swap touches**, nearly all of it in `Assets/Editor/ArnaSetup.cs`:
 
-- The directory constants `QuaterniusDir`, `NatureDir`, `VillageDir`. Two are
-  replaced; `VillageDir` stays for as long as the village pack does.
+- The directory constants `QuaterniusDir`, `NatureDir`, `VillageDir`. All three are
+  replaced, by one for the army pack and one each for the two POLYGON packs.
 - `LoadForestDecor()`: every `Nature(...)`, `Rts(...)` and `Village(...)` name list,
   and the `PropSet` up-axis flag that travels with each one.
 - `LoadModels()`: the cast against `VisualLibrary` — melee, ranged, support, mounted,
@@ -288,25 +295,30 @@ equator, synchronous shader compilation in headless captures — because none of
 about a particular pack.
 
 **What it does not solve.** Roads and the enemy budget are untouched; no pack lays a
-road. So are the camp, the shop and the UI, and so are the phone builds. And the
-wagons only if a cart ships with the army pack — the caravan's own carts come from
-`Tools/wagon.py` and are a separate thing from the village pack's abandoned one.
+road — though Knights brings modular cobble and stone path pieces, so the art will be
+waiting when the budget question is finally settled. The camp, the shop and the UI are
+untouched, and so are the phone builds.
+
+The caravan's wagons are their own question. Knights' hay cart is a farm cart, and the
+treasure wagon has to read as a treasure wagon, so `Tools/wagon.py` stays unless the
+army pack ships a covered cart. Check that at import: it is the difference between §5
+step 2 being a day's work and being deleted.
 
 **Order of operations.** Import and measure, wire `ArnaSetup`, run
-`CaptureLevelPreview` and `CapturePlayScene`, and only then delete the two Quaternius
-folders being replaced — in one commit, so no revision of the project exists with
-neither set of art. `Assets/Quaternius/MedievalVillage` is not part of that deletion
-unless the check above found its work already done elsewhere. Add the imported folders
-to `.gitignore` as soon as their names are known, before the first commit that could
-sweep them in; see §7 for why they cannot be committed and what that costs.
+`CaptureLevelPreview` and `CapturePlayScene`, and only then delete the Quaternius
+folders — in one commit, so no revision of the project exists with neither set of art.
+`MedievalVillage` leaves with them only if the hay cart passed the check above. Add the
+imported folders to `.gitignore` as soon as their names are known, before the first
+commit that could sweep them in; see §7 for why they cannot be committed and what that
+costs.
 
-**One cost worth naming.** Keeping the village pack means two art sources on one map,
-and the packs were not drawn to match. A Quaternius house beside a Synty tree is a
-visible seam, where the same house beside a Quaternius tree was not. The props
-concerned are rare — landmarks are capped at eighteen a map and houses need roads,
-which the generator does not lay yet — so the seam is small today and grows the moment
-roads land. That is the point at which to decide whether to buy a building pack rather
-than to keep patching this one.
+**One seam remains, and it is the one to watch.** The army pack is not from the
+POLYGON series, so the characters come from a different hand than the country they walk
+through. That is the easier of the two seams to live with — a soldier is looked at, a
+landscape is looked through, and the two rarely share a silhouette — but it is worth a
+deliberate look at the first play capture rather than a discovery six months in. The
+seam that would have been harder, a differently drawn building standing in a Synty
+forest, is what buying Knights instead of a cheaper castle pack avoids.
 
 Last: `Tools/render_screens.py` draws stand-ins shaped like the old packs. If the
 pictures it makes are still meant to resemble the game, its prop geometry wants
