@@ -129,6 +129,10 @@ namespace Arna.View
         /// </summary>
         public const int MaxGroundCover = 4000;
 
+        /// <summary>Stones along the water's edge, measured across rather than up.</summary>
+        public const float ShoreStoneSize = 2.2f;
+        public const int MaxShoreStones = 1600;
+
         /// <summary>
         /// Tufts per tile — a rate, not a probability, because more than one belongs on
         /// a four-metre square. Forest floor and marsh are thick with it; a road is
@@ -205,8 +209,57 @@ namespace Arna.View
 
             placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
                                        heightScale, densityScale);
+            placed += PlaceShoreline(parent, grid, rng, decor, occupied, heightScale, densityScale);
             return placed;
         }
+
+        /// <summary>
+        /// Strews stones along the water's edge.
+        ///
+        /// A river drawn as a band of blue between two banks of grass is a shape on a
+        /// map. What makes it read as a river is the debris it leaves at its margins —
+        /// the water has been moving stones about for a long time, and the ground says
+        /// so. It costs a few hundred pebbles and no new models.
+        /// </summary>
+        static int PlaceShoreline(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                  BiomeDecor decor, HashSet<int> occupied,
+                                  float heightScale, float densityScale)
+        {
+            if (!decor.Rocks.Any) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && placed < MaxShoreStones; i++)
+            {
+                if (grid[i] == TerrainType.Water) continue;
+                if (occupied.Contains(i)) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+                if (!NextToWater(grid, x, y)) continue;
+
+                int stones = 3 + rng.Range(0, 4);
+                for (int s = 0; s < stones && placed < MaxShoreStones; s++)
+                {
+                    var choice = new Choice(decor.Rocks, Any(decor.Rocks, rng), ShoreStoneSize,
+                                            byWidth: true);
+
+                    Scatter(parent, grid, rng, choice, i, heightScale, spread: 2.0f);
+                    placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>Whether any of the four neighbouring tiles is water.</summary>
+        static bool NextToWater(TileGrid grid, int x, int y)
+        {
+            return IsWater(grid, x - 1, y) || IsWater(grid, x + 1, y)
+                || IsWater(grid, x, y - 1) || IsWater(grid, x, y + 1);
+        }
+
+        static bool IsWater(TileGrid grid, int x, int y) =>
+            grid.InBounds(x, y) && grid[x, y] == TerrainType.Water;
 
         /// <summary>
         /// Scatters the small stuff — grass, ferns, flowers, pebbles.

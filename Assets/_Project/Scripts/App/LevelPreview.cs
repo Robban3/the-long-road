@@ -49,6 +49,24 @@ namespace Arna.App
 
         public BiomeDecor Decor = new BiomeDecor();
 
+        [Header("Routes")]
+        /// <summary>Flat unlit vertex colour. A drawn line is not lit by the sun.</summary>
+        public Material RouteMaterial;
+
+        /// <summary>
+        /// Metres across. Narrow enough that the ground shows either side of it —
+        /// a route the player cannot see the terrain under is not a route they can
+        /// judge.
+        /// </summary>
+        public float RouteWidth = 2.2f;
+
+        /// <summary>
+        /// How solid the drawn routes are. Opaque, three of them crossing the whole map
+        /// read as a transit diagram and the country underneath stops mattering — but
+        /// the country underneath is what the player is choosing between.
+        /// </summary>
+        [Range(0f, 1f)] public float RouteOpacity = 0.72f;
+
         [Header("Generated (read-only)")]
         [SerializeField] int _seed;
         [SerializeField] int _attempts;
@@ -63,6 +81,7 @@ namespace Arna.App
         bool _dirty = true;
         Mesh _mesh;
         Transform _props;
+        Transform _routes;
 
         public int Seed => _seed;
         public int Attempts => _attempts;
@@ -96,14 +115,16 @@ namespace Arna.App
             _oddCost = map.CorridorOf(CorridorKind.Odd)?.TravelCost ?? 0f;
             _maxOverlap = WorstOverlap(map.Corridors);
 
-            var overlays = BuildOverlays(map);
-
+            // No painted corridors any more — they are drawn as ribbons over the
+            // ground instead. Start and goal stay painted: those are two single tiles,
+            // and a marker is meant to be a patch.
             var mesh = TerrainMeshBuilder.Build(
-                map.Grid, TileGrid.TileSize, overlays, map.StartIndex, map.GoalIndex, HeightScale);
+                map.Grid, TileGrid.TileSize, null, map.StartIndex, map.GoalIndex, HeightScale);
 
             GetComponent<MeshFilter>().sharedMesh = mesh;
 
             BuildProps(map);
+            BuildRoutes(map);
 
             // ExecuteAlways rebuilds on every inspector change, so the previous mesh
             // has to go or the editor leaks one per keystroke.
@@ -135,9 +156,60 @@ namespace Arna.App
             _props = new GameObject("Props").transform;
             _props.SetParent(transform, false);
 
-            TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
+            int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
                 maxProps: MaxProps, densityScale: DensityScale);
+
+            // Worth printing: a prop that is placed but too small and a prop that was
+            // never placed look identical on a map read from seventy metres up.
+            Debug.Log($"[Arna] Plan {Chapter}-{Level}: {placed} props on {map.Grid.TileCount} tiles.");
+        }
+
+        /// <summary>
+        /// Lays the three corridors over the ground as ribbons.
+        ///
+        /// Drawn worst-alternative first so the fastest route stays on top wherever
+        /// they coincide — where two routes share ground, the fact worth showing is
+        /// that the alternative is not an alternative there.
+        /// </summary>
+        void BuildRoutes(LevelMap map)
+        {
+            if (_routes != null)
+            {
+                if (Application.isPlaying) Destroy(_routes.gameObject);
+                else DestroyImmediate(_routes.gameObject);
+                _routes = null;
+            }
+
+            if (!ShowCorridors || map.Corridors == null || RouteMaterial == null) return;
+
+            _routes = new GameObject("Routes").transform;
+            _routes.SetParent(transform, false);
+
+            AddRoute(map.CorridorOf(CorridorKind.Odd), TerrainPalette.RouteOdd, map.Grid);
+            AddRoute(map.CorridorOf(CorridorKind.Safe), TerrainPalette.RouteSafe, map.Grid);
+            AddRoute(map.CorridorOf(CorridorKind.Fast), TerrainPalette.RouteFast, map.Grid);
+        }
+
+        void AddRoute(Corridor corridor, Color color, TileGrid grid)
+        {
+            if (corridor == null) return;
+
+            color.a = RouteOpacity;
+
+            var mesh = RouteRibbonBuilder.Build(grid, corridor.Tiles, color, HeightScale, RouteWidth);
+            if (mesh == null) return;
+
+            var go = new GameObject($"Route_{corridor.Kind}");
+            go.transform.SetParent(_routes, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = RouteMaterial;
+
+            // A drawn line neither casts nor catches shadow. It is not in the world.
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
         }
 
         HashSet<int> CorridorTiles(LevelMap map)
@@ -154,25 +226,6 @@ namespace Arna.App
             return tiles;
         }
 
-        List<TerrainMeshBuilder.RouteOverlay> BuildOverlays(LevelMap map)
-        {
-            if (!ShowCorridors || map.Corridors == null) return null;
-
-            var overlays = new List<TerrainMeshBuilder.RouteOverlay>(3);
-
-            // Painted worst-alternative first so the fastest route stays readable on
-            // top wherever the corridors coincide.
-            Add(overlays, map.CorridorOf(CorridorKind.Odd), TerrainPalette.RouteOdd);
-            Add(overlays, map.CorridorOf(CorridorKind.Safe), TerrainPalette.RouteSafe);
-            Add(overlays, map.CorridorOf(CorridorKind.Fast), TerrainPalette.RouteFast);
-            return overlays;
-        }
-
-        static void Add(List<TerrainMeshBuilder.RouteOverlay> into, Corridor corridor, Color color)
-        {
-            if (corridor != null) into.Add(new TerrainMeshBuilder.RouteOverlay(corridor.Tiles, color));
-        }
-
         static float WorstOverlap(IReadOnlyList<Corridor> corridors)
         {
             if (corridors == null || corridors.Count < 2) return 0f;
@@ -186,6 +239,13 @@ namespace Arna.App
 
         void OnDisable()
         {
+            if (_routes != null)
+            {
+                if (Application.isPlaying) Destroy(_routes.gameObject);
+                else DestroyImmediate(_routes.gameObject);
+                _routes = null;
+            }
+
             if (_props != null)
             {
                 if (Application.isPlaying) Destroy(_props.gameObject);

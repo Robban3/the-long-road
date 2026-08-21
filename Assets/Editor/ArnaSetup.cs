@@ -30,6 +30,9 @@ namespace Arna.Editor
 
         /// <summary>The play view's ground. Lit, unlike the planning map's flat colour.</summary>
         const string GroundMaterialPath = MaterialsDir + "/TerrainGround.mat";
+
+        /// <summary>The corridors drawn on the plan. Always on top, never lit.</summary>
+        const string RouteMaterialPath = MaterialsDir + "/RouteOverlay.mat";
         const string ScenePath = ScenesDir + "/LevelPreview.unity";
         const string PlayScenePath = ScenesDir + "/PlayLevel.unity";
 
@@ -373,6 +376,20 @@ namespace Arna.Editor
             RenderSettings.skybox = null;
         }
 
+        static Material EnsureRouteMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(RouteMaterialPath);
+            if (material != null) return material;
+
+            var shader = Shader.Find("Arna/RouteOverlay");
+            if (shader == null)
+                throw new InvalidOperationException("Shader 'Arna/RouteOverlay' not found.");
+
+            material = new Material(shader) { name = "RouteOverlay" };
+            AssetDatabase.CreateAsset(material, RouteMaterialPath);
+            return material;
+        }
+
         static Material EnsureGroundMaterial()
         {
             var material = AssetDatabase.LoadAssetAtPath<Material>(GroundMaterialPath);
@@ -493,6 +510,8 @@ namespace Arna.Editor
 
             var preview = terrainGo.AddComponent<LevelPreview>();
             preview.Decor = LoadForestDecor();
+
+            preview.RouteMaterial = EnsureRouteMaterial();
             preview.Rebuild();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
