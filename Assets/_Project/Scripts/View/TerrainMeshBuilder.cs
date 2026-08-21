@@ -13,6 +13,11 @@ namespace Arna.View
     /// and reading those boundaries is exactly the skill the fog-of-war design asks
     /// of the player (docs/GDD.md §3.4).
     ///
+    /// Shading is not bound by that. Normals are sampled from the height field at the
+    /// corners, which neighbouring tiles agree on, so light runs smoothly over the
+    /// ground while the colours stay crisp. That separation is the point: the player
+    /// should see one continuous landscape whose terrain types are still legible.
+    ///
     /// A 64x64 grid yields 16 384 vertices, comfortably inside one mesh. The chunked
     /// layout described in docs/technical-design.md §5 only starts paying off once
     /// parts of the map can be culled, which is not the case for an overview that is
@@ -38,9 +43,6 @@ namespace Arna.View
         /// fastest corridor last: where it coincides with another, the interesting
         /// fact is that the alternative is not actually an alternative there.
         /// </param>
-        /// <summary>Direction the baked relief shading comes from.</summary>
-        static readonly Vector3 LightDirection = new Vector3(0.35f, 0.85f, -0.4f).normalized;
-
         /// <param name="heightScale">
         /// Metres between the lowest and highest ground. Zero gives the flat map the
         /// planning view wants; the play view stands the same data up in three
@@ -51,6 +53,7 @@ namespace Arna.View
         {
             int tiles = grid.TileCount;
             var vertices = new Vector3[tiles * 4];
+            var normals = new Vector3[tiles * 4];
             var colors = new Color[tiles * 4];
             var triangles = new int[tiles * 6];
 
@@ -70,17 +73,10 @@ namespace Arna.View
                 {
                     // Corner heights are averaged from the tiles meeting there, so the
                     // ground is continuous while the colours stay per-tile and crisp.
-                    h00 = grid.CornerElevation(x, y) * heightScale;
-                    h10 = grid.CornerElevation(x + 1, y) * heightScale;
-                    h11 = grid.CornerElevation(x + 1, y + 1) * heightScale;
-                    h01 = grid.CornerElevation(x, y + 1) * heightScale;
-
-                    // Water sits in its bed rather than on top of the ground.
-                    if (grid[i] == TerrainType.Water)
-                    {
-                        float sink = heightScale * 0.12f;
-                        h00 -= sink; h10 -= sink; h11 -= sink; h01 -= sink;
-                    }
+                    h00 = CornerHeight(grid, x, y, heightScale);
+                    h10 = CornerHeight(grid, x + 1, y, heightScale);
+                    h11 = CornerHeight(grid, x + 1, y + 1, heightScale);
+                    h01 = CornerHeight(grid, x, y + 1, heightScale);
                 }
 
                 int v = i * 4;
@@ -89,28 +85,61 @@ namespace Arna.View
                 vertices[v + 2] = new Vector3(x1, h11, z1);
                 vertices[v + 3] = new Vector3(x0, h01, z1);
 
-                Color c = TerrainPalette.Of(grid[i]);
-                if (painted != null && painted.TryGetValue(i, out Color overlay))
-                    c = Color.Lerp(c, overlay, 0.78f);
-                if (i == startIndex) c = TerrainPalette.Start;
-                else if (i == goalIndex) c = TerrainPalette.Goal;
-
-                // Relief shading baked into the vertex colours. The terrain shader is
-                // unlit — deliberately, because the planning map must not be shaded —
-                // so the play view gets its sense of slope from the geometry here
-                // instead, at no runtime cost.
+                // Normals are sampled at the corners from the same height field the
+                // vertices came from, so the surface shades smoothly even though no
+                // vertex is shared. One normal per tile — the obvious version — steps
+                // in brightness at every tile edge and renders the ground as a
+                // chequerboard, which is what it looked like before.
                 if (heightScale > 0f)
                 {
-                    var across = new Vector3(tileSize, h10 - h00, 0f);
-                    var along = new Vector3(0f, h01 - h00, tileSize);
-                    var normal = Vector3.Cross(along, across).normalized;
-
-                    float lambert = Mathf.Clamp01(Vector3.Dot(normal, LightDirection));
-                    float shade = 0.72f + 0.28f * lambert;
-                    c = new Color(c.r * shade, c.g * shade, c.b * shade, c.a);
+                    normals[v + 0] = CornerNormal(grid, x, y, tileSize, heightScale);
+                    normals[v + 1] = CornerNormal(grid, x + 1, y, tileSize, heightScale);
+                    normals[v + 2] = CornerNormal(grid, x + 1, y + 1, tileSize, heightScale);
+                    normals[v + 3] = CornerNormal(grid, x, y + 1, tileSize, heightScale);
+                }
+                else
+                {
+                    normals[v + 0] = normals[v + 1] = normals[v + 2] = normals[v + 3] = Vector3.up;
                 }
 
-                colors[v + 0] = colors[v + 1] = colors[v + 2] = colors[v + 3] = c;
+                // Standing the map up in three dimensions turns it into ground, and
+                // ground is not drawn the way a map is.
+                bool asGround = heightScale > 0f;
+
+                Color c = asGround ? TerrainPalette.OfGround(grid[i]) : TerrainPalette.Of(grid[i]);
+                if (painted != null && painted.TryGetValue(i, out Color overlay))
+                    c = Color.Lerp(c, overlay, 0.78f);
+
+                // Start and goal are markings on a map. Painted on the ground they read
+                // as a coloured patch of grass the caravan happens to be standing on,
+                // which is the same mistake as painting the route across the world.
+                if (!asGround)
+                {
+                    if (i == startIndex) c = TerrainPalette.Start;
+                    else if (i == goalIndex) c = TerrainPalette.Goal;
+                }
+
+                if (asGround)
+                {
+                    // Corner colours are averaged across the tiles that meet there, the
+                    // same trick the heights use. Two quads sharing an edge compute the
+                    // same two corner values, so the colour runs continuously between
+                    // them and the ground stops looking tiled — while a wide stretch of
+                    // one terrain type still comes out its own colour, because all four
+                    // tiles in the average agree.
+                    //
+                    // Grass does not change to forest floor along a straight line four
+                    // metres from where the trees start. On the map it must, because
+                    // there the line is the information.
+                    colors[v + 0] = Tint(CornerColor(grid, x, y), x, y);
+                    colors[v + 1] = Tint(CornerColor(grid, x + 1, y), x + 1, y);
+                    colors[v + 2] = Tint(CornerColor(grid, x + 1, y + 1), x + 1, y + 1);
+                    colors[v + 3] = Tint(CornerColor(grid, x, y + 1), x, y + 1);
+                }
+                else
+                {
+                    colors[v + 0] = colors[v + 1] = colors[v + 2] = colors[v + 3] = c;
+                }
 
                 // Clockwise seen from above, which is front-facing in Unity's
                 // left-handed space.
@@ -129,10 +158,126 @@ namespace Arna.View
                 indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
             };
             mesh.SetVertices(vertices);
+            mesh.SetNormals(normals);
             mesh.SetColors(colors);
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        /// <summary>
+        /// Ground normal at a tile corner, from the slope of the height field either
+        /// side of it. Central differences rather than the quad's own face normal:
+        /// the face normal is constant across a tile and therefore visible as an edge.
+        /// </summary>
+        static Vector3 CornerNormal(TileGrid grid, int cornerX, int cornerY,
+                                    float tileSize, float heightScale)
+        {
+            float west = CornerHeight(grid, cornerX - 1, cornerY, heightScale);
+            float east = CornerHeight(grid, cornerX + 1, cornerY, heightScale);
+            float south = CornerHeight(grid, cornerX, cornerY - 1, heightScale);
+            float north = CornerHeight(grid, cornerX, cornerY + 1, heightScale);
+
+            return new Vector3((west - east) * 0.5f, tileSize, (south - north) * 0.5f).normalized;
+        }
+
+        /// <summary>
+        /// Ground colour at a tile corner, averaged over the tiles meeting there —
+        /// except at water, which keeps its own colour.
+        ///
+        /// Blending is what stops the ground looking tiled, and grass really does fade
+        /// into forest floor. A shoreline does not: it is a line, in the world and on
+        /// the player's plan. Averaged with the grass either side of it a river came
+        /// out as a vague darker smear that could as easily have been the shadow of a
+        /// hill, and water is impassable — a route drawn across one is not a route.
+        ///
+        /// Water takes a corner only on a majority, never on a tie. Letting a single
+        /// water tile claim the corner widened every river by half a tile in each
+        /// direction, which swallowed the fords — and a ford is the one tile of a river
+        /// the caravan may cross, so painting it as river hides the crossing and leaves
+        /// the wagons apparently driving through the water.
+        /// </summary>
+        static Color CornerColor(TileGrid grid, int cornerX, int cornerY)
+        {
+            float r = 0f, g = 0f, b = 0f;
+            int tiles = 0, water = 0;
+
+            for (int dy = -1; dy <= 0; dy++)
+            {
+                for (int dx = -1; dx <= 0; dx++)
+                {
+                    int x = cornerX + dx;
+                    int y = cornerY + dy;
+                    if (!grid.InBounds(x, y)) continue;
+
+                    tiles++;
+                    if (grid[x, y] == TerrainType.Water) { water++; continue; }
+
+                    var c = TerrainPalette.OfGround(grid[x, y]);
+                    r += c.r; g += c.g; b += c.b;
+                }
+            }
+
+            if (tiles == 0) return Color.black;
+            if (water * 2 > tiles) return TerrainPalette.OfGround(TerrainType.Water);
+
+            int land = tiles - water;
+            return new Color(r / land, g / land, b / land, 1f);
+        }
+
+        /// <summary>How deep a riverbed sits below the ground around it.</summary>
+        const float WaterDepth = 0.2f;
+
+        /// <summary>
+        /// Ground height at a tile corner, with any riverbed dug into it.
+        ///
+        /// The depth is spread over the corners in proportion to how much water meets
+        /// there, which matters more than it sounds: dropping all four corners of a
+        /// water tile by a fixed amount leaves its neighbours where they were, and the
+        /// two quads no longer share an edge. The gap between them is a hole, and what
+        /// shows through a hole in the ground is the sky — which is exactly what those
+        /// pale blue bands along every river turned out to be. Sharing the corner
+        /// makes the bank a slope instead of a cliff with a gap in it.
+        /// </summary>
+        static float CornerHeight(TileGrid grid, int cornerX, int cornerY, float heightScale)
+        {
+            float elevation = grid.CornerElevation(cornerX, cornerY) * heightScale;
+
+            int water = 0, tiles = 0;
+            for (int dy = -1; dy <= 0; dy++)
+            {
+                for (int dx = -1; dx <= 0; dx++)
+                {
+                    int x = cornerX + dx;
+                    int y = cornerY + dy;
+                    if (!grid.InBounds(x, y)) continue;
+
+                    tiles++;
+                    if (grid[x, y] == TerrainType.Water) water++;
+                }
+            }
+
+            if (tiles == 0 || water == 0) return elevation;
+            return elevation - heightScale * WaterDepth * water / tiles;
+        }
+
+        /// <summary>
+        /// A small brightness shift keyed to a grid corner. Deterministic, because a
+        /// map that mottled itself differently on each run would break the promise
+        /// that a seed is a level.
+        /// </summary>
+        static Color Tint(Color c, int cornerX, int cornerY)
+        {
+            unchecked
+            {
+                int h = cornerX * 73856093 ^ cornerY * 19349663;
+                h ^= h >> 13;
+                h *= 1274126177;
+                h ^= h >> 16;
+
+                float shade = 1f + ((h & 0xFFFF) / 65535f - 0.5f) * 0.11f;
+                return new Color(c.r * shade, c.g * shade, c.b * shade, c.a);
+            }
         }
 
         static Dictionary<int, Color> BuildOverlayLookup(IReadOnlyList<RouteOverlay> overlays)

@@ -23,6 +23,32 @@ namespace Arna.View
             new Color(0.28f, 0.26f, 0.26f)  // Cliff         — impassable stone
         };
 
+        /// <summary>
+        /// Colours for the ground in the play view, which is a different job.
+        ///
+        /// The map palette separates types as far as it can, because on a map colour
+        /// is the only thing carrying the information. On the ground that same
+        /// separation renders every four-metre tile as a distinct slab and the
+        /// landscape comes out tiled. Here the terrain announces itself by what stands
+        /// on it — you know it is forest because there are trees — so the ground only
+        /// has to be plausible earth, and these values sit close together on purpose.
+        /// </summary>
+        static readonly Color[] GroundColors =
+        {
+            new Color(0.50f, 0.43f, 0.33f), // Road          — packed earth
+            new Color(0.42f, 0.50f, 0.29f), // Plains        — open grass
+            new Color(0.30f, 0.38f, 0.24f), // Forest        — shaded floor
+            new Color(0.34f, 0.37f, 0.27f), // Marsh         — wet ground
+            new Color(0.40f, 0.46f, 0.42f), // Ford          — wet gravel
+            new Color(0.46f, 0.44f, 0.40f), // MountainPass  — bare rock
+            // Darker and bluer than the rest by a wide margin. Everything else on the
+            // ground is allowed to blend into its neighbours, but water is impassable:
+            // a player who cannot see where the river runs cannot plan a route around
+            // it. Averaged against grass at the shore it has to survive the average.
+            new Color(0.13f, 0.24f, 0.34f), // Water         — deep, and must read as deep
+            new Color(0.33f, 0.31f, 0.29f)  // Cliff         — stone
+        };
+
         public static readonly Color Start = new Color(0.35f, 0.95f, 0.45f);
         public static readonly Color Goal = new Color(0.98f, 0.82f, 0.25f);
 
@@ -32,5 +58,7 @@ namespace Arna.View
         public static readonly Color RouteOdd = new Color(0.98f, 0.72f, 0.24f);
 
         public static Color Of(TerrainType t) => Colors[(int)t];
+
+        public static Color OfGround(TerrainType t) => GroundColors[(int)t];
     }
 }

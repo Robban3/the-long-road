@@ -27,6 +27,9 @@ namespace Arna.Editor
         const string RendererPath = SettingsDir + "/ArnaUniversalRenderer.asset";
         const string PipelinePath = SettingsDir + "/ArnaUniversalRenderPipeline.asset";
         const string MaterialPath = MaterialsDir + "/TerrainOverview.mat";
+
+        /// <summary>The play view's ground. Lit, unlike the planning map's flat colour.</summary>
+        const string GroundMaterialPath = MaterialsDir + "/TerrainGround.mat";
         const string ScenePath = ScenesDir + "/LevelPreview.unity";
         const string PlayScenePath = ScenesDir + "/PlayLevel.unity";
 
@@ -52,7 +55,8 @@ namespace Arna.Editor
         {
             EnsureFolders();
             EnsureRenderPipeline();
-            var material = EnsureMaterial();
+            EnsureMaterial();
+            var material = EnsureGroundMaterial();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -70,17 +74,33 @@ namespace Arna.Editor
             // to be behind it; a flat horizon colour reads as distance, black reads as
             // a bug.
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.60f, 0.76f, 0.88f);
+            camera.backgroundColor = SkyColor;
             camera.orthographic = false;
             camera.fieldOfView = 50f;
             camera.nearClipPlane = 0.5f;
             camera.farClipPlane = 900f;
 
+            ApplyOutdoorLighting();
+
             var lightGo = new GameObject("Directional Light");
-            lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+            // Lower and further round than the map view's light. A sun near the zenith
+            // puts every shadow directly under the thing casting it, where it cannot
+            // be seen, and a landscape whose shadows are invisible looks like a
+            // diagram. At 38 degrees the trees lay shadows across the ground.
+            lightGo.transform.rotation = Quaternion.Euler(38f, -52f, 0f);
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 1.1f;
+            light.intensity = 1.0f;
+            light.color = new Color(1f, 0.96f, 0.88f);
+            light.shadows = LightShadows.Soft;
+            light.shadowStrength = 0.7f;
+
+            // The default bias leaves props hovering on their own shadows; the default
+            // normal bias eats the contact point where a trunk meets the ground, which
+            // is the one part of the shadow that does the grounding.
+            light.shadowBias = 0.03f;
+            light.shadowNormalBias = 0.15f;
 
             var runnerGo = new GameObject("LevelRunner");
             runnerGo.AddComponent<MeshFilter>();
@@ -245,6 +265,80 @@ namespace Arna.Editor
             return existing;
         }
 
+        /// <summary>Horizon colour. Camera background, fog and sky ambient all use it,
+        /// so distant ground dissolves into the sky instead of ending at a hard line.</summary>
+        static readonly Color SkyColor = new Color(0.62f, 0.75f, 0.85f);
+
+        /// <summary>
+        /// Scene lighting for the play view.
+        ///
+        /// Unity's defaults give a scene flat white ambient from every direction and no
+        /// fog at all. The result is a picture with no air in it: a hill two hundred
+        /// metres off is drawn as crisply as the wagon in front of the camera, so the
+        /// eye reads the whole thing as one flat plane. These four settings are most of
+        /// the difference between "assets placed on a mesh" and "a landscape".
+        /// </summary>
+        static void ApplyOutdoorLighting()
+        {
+            // Sky above, bounced green from below. Ambient is what fills the shadows,
+            // and shadows filled with grey light look like dust while shadows filled
+            // with sky and grass look like shade.
+            // Kept deliberately dim. Ambient plus sunlight multiply the ground's own
+            // colour, and the first attempt summed to 1.37 — every surface rendered at
+            // 137 % of its albedo, which turned a muted olive into neon and left no
+            // headroom for a shadow to darken anything into. Lit ground should land
+            // near 1.0 so the palette is the colour you actually see.
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.36f, 0.42f, 0.50f);
+            RenderSettings.ambientEquatorColor = new Color(0.28f, 0.31f, 0.29f);
+            RenderSettings.ambientGroundColor = new Color(0.17f, 0.19f, 0.14f);
+            RenderSettings.ambientIntensity = 1f;
+
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = SkyColor;
+
+            // Starts well beyond the caravan so the thing the player is watching is
+            // never washed out, and ends short of the far clip so the map edge is
+            // gone before it can be seen.
+            RenderSettings.fogStartDistance = 70f;
+            RenderSettings.fogEndDistance = 320f;
+
+            RenderSettings.skybox = null;
+        }
+
+        static Material EnsureGroundMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(GroundMaterialPath);
+
+            if (material == null)
+            {
+                var shader = Shader.Find("Arna/TerrainGround");
+                if (shader == null)
+                    throw new InvalidOperationException("Shader 'Arna/TerrainGround' not found.");
+
+                material = new Material(shader) { name = "TerrainGround" };
+                AssetDatabase.CreateAsset(material, GroundMaterialPath);
+            }
+
+            // Set every time rather than only on creation. A material asset keeps the
+            // values it was born with, so changing a default in the shader silently
+            // fails to reach a project that already has the file — which is every
+            // project except a brand new one.
+            material.SetFloat("_ShadowStrength", 0.85f);
+            material.SetFloat("_AmbientBoost", 1f);
+            material.SetFloat("_DebugShadow", 0f);
+
+            // Left behind by an earlier [Toggle] on the diagnostic property, which was
+            // the wrong attribute for something with five modes. The keyword does
+            // nothing, but a stale keyword in a committed asset invites the next person
+            // to go looking for what turns it on.
+            material.DisableKeyword("_DEBUGSHADOW_ON");
+            EditorUtility.SetDirty(material);
+
+            return material;
+        }
+
         static Material EnsureMaterial()
         {
             var material = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
@@ -378,6 +472,13 @@ namespace Arna.Editor
             int width = int.TryParse(ArgValue("-arnaWidth"), out var w) ? w : 1400;
             int height = int.TryParse(ArgValue("-arnaHeight"), out var h) ? h : 1000;
 
+            // Without this the editor compiles shader variants in the background and
+            // renders whatever is ready, which for a freshly edited shader is a variant
+            // with none of its keywords. That produced a capture showing no shadows at
+            // all and sent a morning into diagnosing a shader that was working — the
+            // picture was simply taken before the shader was.
+            ShaderUtil.allowAsyncCompilation = false;
+
             EditorSceneManager.OpenScene(PlayScenePath, OpenSceneMode.Single);
 
             var runner = UnityEngine.Object.FindFirstObjectByType<LevelRunner>();
@@ -399,6 +500,33 @@ namespace Arna.Editor
             // Update() never runs in a headless editor session, so the camera has to be
             // pointed at the column explicitly after the simulation has moved it.
             runner.AimCamera();
+            ReportShadowState(runner.GetComponent<MeshRenderer>().sharedMaterial);
+
+            // -arnaLitGround swaps the ground onto Unity's own Lit shader. It settles
+            // the one question a picture with no shadows in it cannot answer on its
+            // own: whether the fault is in our shader or in the scene around it.
+            if (ArgValue("-arnaLitGround") != null)
+            {
+                var stock = Shader.Find("Universal Render Pipeline/Lit");
+                var probe = new Material(stock) { name = "ShadowProbe" };
+                probe.SetFloat("_Smoothness", 0f);
+                probe.SetColor("_BaseColor", new Color(0.45f, 0.50f, 0.35f));
+                runner.GetComponent<MeshRenderer>().sharedMaterial = probe;
+                Debug.Log("[Arna] Ground swapped to stock URP Lit for this capture.");
+            }
+
+            // Always written, never only when asked. Setting a property on a shared
+            // material edits the asset, and Unity saves it on quit — so one diagnostic
+            // capture left every later capture drawing its debug output, and the mode
+            // silently carried across runs.
+            {
+                if (!float.TryParse(ArgValue("-arnaDebugShadow"), out float debugShadow)) debugShadow = 0f;
+
+                var ground = runner.GetComponent<MeshRenderer>().sharedMaterial;
+                if (ground.HasProperty("_DebugShadow")) ground.SetFloat("_DebugShadow", debugShadow);
+                if (debugShadow > 0f)
+                    Debug.Log($"[Arna] Ground material {ground.name} drawing debug mode {debugShadow}.");
+            }
 
             var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 2 };
             var previous = RenderTexture.active;
@@ -508,6 +636,229 @@ namespace Arna.Editor
 
                 Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)}  rig={rig}  " +
                           $"clips={clips.Count}: {string.Join(", ", clips)}");
+            }
+        }
+
+        /// <summary>
+        /// Dumps a model's transform hierarchy.
+        ///
+        /// Needed because attaching anything to a rig means finding a bone by name, and
+        /// Generic rigs carry no avatar to ask. Guessing at the naming convention cost
+        /// a round trip; reading it costs one run.
+        /// </summary>
+        [MenuItem("Arna/Report Rig Bones")]
+        public static void ReportRigBones()
+        {
+            string[] models =
+            {
+                "Assets/Quaternius/Knight/Knight.fbx",
+                "Assets/Quaternius/ModularMen/Adventurer.fbx"
+            };
+
+            foreach (var path in models)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+
+                var instance = UnityEngine.Object.Instantiate(prefab);
+                var names = new System.Collections.Generic.List<string>();
+                foreach (var bone in instance.GetComponentsInChildren<Transform>()) names.Add(bone.name);
+
+                Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)}: {names.Count} transforms");
+                Debug.Log($"[Arna]   {string.Join(" | ", names)}");
+
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>
+        /// Dumps what the imported models are actually rendered with.
+        ///
+        /// The packs ship no material assets and the importer claims to place them
+        /// externally, so neither the meta files nor the project folder say what a
+        /// tree's surface is. Asking the renderer does.
+        /// </summary>
+        [MenuItem("Arna/Report Materials")]
+        public static void ReportMaterials()
+        {
+            string[] models =
+            {
+                $"{QuaterniusDir}/Resource_PineTree.fbx",
+                $"{QuaterniusDir}/Resource_Tree1.fbx",
+                $"{QuaterniusDir}/Mountain_Single.fbx",
+                "Assets/Quaternius/Knight/Knight.fbx"
+            };
+
+            foreach (var path in models)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) { Debug.Log($"[Arna] missing {path}"); continue; }
+
+                foreach (var renderer in prefab.GetComponentsInChildren<Renderer>())
+                {
+                    var mesh = renderer.GetComponent<MeshFilter>();
+                    string verts = mesh != null && mesh.sharedMesh != null
+                        ? $"{mesh.sharedMesh.vertexCount}v/{mesh.sharedMesh.triangles.Length / 3}t" +
+                          $" colors={mesh.sharedMesh.colors.Length}"
+                        : "-";
+
+                    foreach (var material in renderer.sharedMaterials)
+                    {
+                        if (material == null) { Debug.Log("[Arna]   (null material)"); continue; }
+
+                        string smooth = material.HasProperty("_Smoothness")
+                            ? material.GetFloat("_Smoothness").ToString("0.00")
+                            : material.HasProperty("_Glossiness")
+                                ? material.GetFloat("_Glossiness").ToString("0.00") + "*"
+                                : "n/a";
+                        string metal = material.HasProperty("_Metallic")
+                            ? material.GetFloat("_Metallic").ToString("0.00") : "n/a";
+                        string tex = material.HasProperty("_BaseMap") && material.GetTexture("_BaseMap") != null
+                            ? material.GetTexture("_BaseMap").name : "none";
+
+                        Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)} :: {material.name} " +
+                                  $"shader={material.shader.name} smooth={smooth} metal={metal} " +
+                                  $"tex={tex} mesh={verts}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Extracts the packs' embedded materials into asset files and takes the gloss
+        /// off them.
+        ///
+        /// Every model arrives at smoothness 0.5 — trees, rock, dirt alike — which puts
+        /// a broad specular sheen down the side of a pine and is the whole reason the
+        /// forest read as plastic. Bark is not half-glossy. Nothing outdoors is.
+        ///
+        /// The materials have to be extracted before they can be changed: they ship
+        /// inside the FBX as sub-assets, where they are read-only. Extracting also
+        /// leaves us a real palette to tune per biome later, which is the harder
+        /// reason to do it this way rather than overriding at runtime.
+        /// </summary>
+        [MenuItem("Arna/Restyle Model Materials")]
+        public static void RestyleModelMaterials()
+        {
+            const float outdoorSmoothness = 0.04f;
+
+            var modelPaths = new System.Collections.Generic.List<string>();
+            foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { "Assets/Quaternius" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (AssetImporter.GetAtPath(path) is ModelImporter) modelPaths.Add(path);
+            }
+
+            // One folder per pack, one file per model-and-slot. Sharing a folder across
+            // packs would collide on the names they all use — "Wood", "Green", "Stone" —
+            // and quietly repaint one pack with another's palette.
+            foreach (var folder in MaterialFolders(modelPaths))
+            {
+                if (AssetDatabase.IsValidFolder(folder)) continue;
+                AssetDatabase.CreateFolder(Path.GetDirectoryName(folder).Replace('\\', '/'), "Materials");
+            }
+
+            int extracted = 0, adjusted = 0;
+
+            try
+            {
+                AssetDatabase.StartAssetEditing();
+
+                foreach (var modelPath in modelPaths)
+                {
+                    string folder = MaterialFolderFor(modelPath);
+                    string model = Path.GetFileNameWithoutExtension(modelPath);
+
+                    foreach (var sub in AssetDatabase.LoadAllAssetsAtPath(modelPath))
+                    {
+                        if (!(sub is Material embedded)) continue;
+
+                        string target = $"{folder}/{model}_{embedded.name}.mat";
+                        if (AssetDatabase.LoadAssetAtPath<Material>(target) != null) continue;
+
+                        string error = AssetDatabase.ExtractAsset(embedded, target);
+                        if (string.IsNullOrEmpty(error)) extracted++;
+                        else Debug.LogWarning($"[Arna] {model}/{embedded.name}: {error}");
+                    }
+                }
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
+
+            // The extraction only rewrites the importers' material references once the
+            // batch is closed. Reimporting inside it silently undoes the work.
+            foreach (var modelPath in modelPaths)
+                AssetDatabase.WriteImportSettingsIfDirty(modelPath);
+
+            AssetDatabase.Refresh();
+
+            foreach (var guid in AssetDatabase.FindAssets("t:Material", new[] { "Assets/Quaternius" }))
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
+                if (material == null) continue;
+
+                if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", outdoorSmoothness);
+                if (material.HasProperty("_Glossiness")) material.SetFloat("_Glossiness", outdoorSmoothness);
+                if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", 0f);
+
+                EditorUtility.SetDirty(material);
+                adjusted++;
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Arna] Restyled materials: {extracted} extracted, {adjusted} set to " +
+                      $"smoothness {outdoorSmoothness}.");
+        }
+
+        /// <summary>
+        /// Prints every setting a shadow has to pass through.
+        ///
+        /// A missing shadow can come from the pipeline asset, the light, the caster or
+        /// the receiving shader, and all four failures look identical in the picture:
+        /// no shadow. Printing the chain says which link is open.
+        /// </summary>
+        static void ReportShadowState(Material ground)
+        {
+            if (ground != null)
+            {
+                string values = "";
+                foreach (var name in new[] { "_ShadowStrength", "_AmbientBoost", "_DebugShadow" })
+                    values += ground.HasProperty(name) ? $"{name}={ground.GetFloat(name):0.00} " : $"{name}=absent ";
+
+                Debug.Log($"[Arna] ground material: {ground.name} shader={ground.shader.name} {values}");
+            }
+
+            var pipeline = GraphicsSettings.defaultRenderPipeline as UniversalRenderPipelineAsset;
+            var sun = UnityEngine.Object.FindFirstObjectByType<Light>();
+
+            int casters = 0, total = 0;
+            foreach (var renderer in UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            {
+                total++;
+                if (renderer.shadowCastingMode != ShadowCastingMode.Off) casters++;
+            }
+
+            Debug.Log($"[Arna] shadow chain: pipeline={(pipeline == null ? "none" : pipeline.name)} " +
+                      $"mainLightShadows={pipeline?.supportsMainLightShadows} " +
+                      $"distance={pipeline?.shadowDistance} cascades={pipeline?.shadowCascadeCount} " +
+                      $"soft={pipeline?.supportsSoftShadows} | " +
+                      $"sun={sun?.type} shadows={sun?.shadows} strength={sun?.shadowStrength} | " +
+                      $"casters={casters}/{total} renderers");
+        }
+
+        static string MaterialFolderFor(string modelPath) =>
+            Path.GetDirectoryName(modelPath).Replace('\\', '/') + "/Materials";
+
+        static System.Collections.Generic.IEnumerable<string> MaterialFolders(
+            System.Collections.Generic.IEnumerable<string> modelPaths)
+        {
+            var seen = new System.Collections.Generic.HashSet<string>();
+            foreach (var path in modelPaths)
+            {
+                string folder = MaterialFolderFor(path);
+                if (seen.Add(folder)) yield return folder;
             }
         }
 

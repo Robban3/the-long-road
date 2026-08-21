@@ -331,6 +331,12 @@ namespace Arna.View
         {
             if (model.Weapon == null) return;
 
+            if (AlreadyArmed(marker))
+            {
+                Debug.Log($"[Arna] {marker.name} carries a weapon in its own rig; {model.Weapon.name} skipped.");
+                return;
+            }
+
             var hand = FindHandBone(marker);
             if (hand == null)
             {
@@ -353,23 +359,68 @@ namespace Arna.View
             if (longest > 0.0001f) weapon.transform.localScale *= length / longest;
         }
 
+        /// <summary>
+        /// The bone a weapon belongs on: whichever one the fingers grow from.
+        ///
+        /// Looking for a bone named "hand" found nothing, because these rigs have none.
+        /// A knight runs Shoulder.R → UpperArm.R → LowerArm.R → Index1.R, with the
+        /// fingers hanging straight off the forearm; the modular men add a Wrist.R in
+        /// between. Naming differs, anatomy does not, so the rule is anatomical. It is
+        /// also where the pack's own artists hung the knight's sword.
+        /// </summary>
         static Transform FindHandBone(Transform root)
         {
             Transform best = null;
 
             foreach (var bone in root.GetComponentsInChildren<Transform>())
             {
-                string name = bone.name.ToLowerInvariant();
-                if (!name.Contains("hand")) continue;
+                if (!IsKnuckle(bone.name) || bone.parent == null) continue;
 
-                // Prefer the right hand; fall back to any hand rather than nothing.
-                bool right = name.Contains("right") || name.EndsWith("_r") ||
-                             name.EndsWith(".r") || name.Contains("_r_");
-                if (right) return bone;
-                best ??= bone;
+                // Prefer the right hand; fall back to the left rather than nothing.
+                if (IsRightSide(bone.name)) return bone.parent;
+                best ??= bone.parent;
             }
 
             return best;
+        }
+
+        /// <summary>
+        /// Whether the rig already holds something — the knight ships with a sword
+        /// modelled into his left hand, and giving him a second one would show.
+        /// </summary>
+        static bool AlreadyArmed(Transform root)
+        {
+            // Body meshes hang off the model root, not off a bone, so only a held
+            // object can have an arm bone above it.
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>())
+                for (var bone = renderer.transform.parent; bone != null && bone != root; bone = bone.parent)
+                    if (IsArmBone(bone.name)) return true;
+
+            return false;
+        }
+
+        static bool IsKnuckle(string name)
+        {
+            string n = name.ToLowerInvariant();
+            return n.StartsWith("index1") || n.StartsWith("middle1") || n.StartsWith("ring1") ||
+                   n.StartsWith("pinky1") || n.StartsWith("thumb1");
+        }
+
+        /// <summary>
+        /// Matched from the start of the name, not anywhere in it: every bone in these
+        /// rigs sits under "CharacterArmature", which contains "arm".
+        /// </summary>
+        static bool IsArmBone(string name)
+        {
+            string n = name.ToLowerInvariant();
+            return n.StartsWith("wrist") || n.StartsWith("hand") ||
+                   n.StartsWith("lowerarm") || n.StartsWith("forearm");
+        }
+
+        static bool IsRightSide(string name)
+        {
+            string n = name.ToLowerInvariant();
+            return n.EndsWith(".r") || n.EndsWith("_r") || n.Contains("right") || n.Contains("_r_");
         }
 
         Transform Spawn(GameObject prefab, PrimitiveType fallback, string name, Color color,
