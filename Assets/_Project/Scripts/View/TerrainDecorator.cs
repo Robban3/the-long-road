@@ -110,7 +110,7 @@ namespace Arna.View
         public const float WatchtowerHeight = 11f;
         public const float FarmWidth = 9f;
         public const float TimberWidth = 3f;
-        public const float RuinWidth = 7f;
+        public const float RuinWidth = 5f;
 
         /// <summary>
         /// How many landmarks a map may carry. A hard cap rather than density alone,
@@ -360,6 +360,21 @@ namespace Arna.View
                           new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth, byWidth: true),
                           heightScale);
                     placed++;
+
+                    // Dead trees around it. A cart alone is small enough to miss from
+                    // map height, and the signal is worthless if it is not noticed;
+                    // bare trunks are tall, they read from above, and they say the same
+                    // thing the cart does about this piece of ground.
+                    if (!decor.DeadTrees.Any) continue;
+
+                    for (int t = 0; t < 2; t++)
+                    {
+                        var dead = new Choice(decor.DeadTrees, Any(decor.DeadTrees, rng),
+                                              DeadTreeHeight, byWidth: false);
+
+                        Scatter(parent, grid, rng, dead, tile, heightScale, spread: 2.6f);
+                        placed++;
+                    }
                 }
             }
 

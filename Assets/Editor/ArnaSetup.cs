@@ -257,20 +257,32 @@ namespace Arna.Editor
                 Watchtowers = Rts("WatchTower_FirstAge_Level1", "WatchTower_FirstAge_Level2"),
                 Timber = Rts("Logs", "Crate_Stack1", "Crate_Stack2", "Barrel"),
 
-                // Loaded but unplaced until traps supply the sites. A length of wall
-                // standing alone in open country is the ruin; the towers give it a
-                // silhouette worth noticing from a distance.
-                Ruins = Rts("Wall_FirstAge", "WallTowers_FirstAge", "WallTowers_Door_FirstAge")
+                // What is left where a caravan came to grief. A wall segment was the
+                // first attempt and said the wrong thing entirely — a ruin is masonry,
+                // and masonry means somebody built here, not that somebody died here.
+                // An abandoned cart is unmistakable, and it is the same kind of cart
+                // the player is escorting.
+                Ruins = Village("Cart")
             };
         }
 
         const string NatureDir = "Assets/Quaternius/StylizedNature";
+        const string VillageDir = "Assets/Quaternius/MedievalVillage";
 
         /// <summary>Models from the Z-up RTS scenery pack.</summary>
         static PropSet Rts(params string[] names) => new PropSet(true, Load(QuaterniusDir, names));
 
         /// <summary>Models from the Y-up stylized nature pack.</summary>
         static PropSet Nature(params string[] names) => new PropSet(false, Load(NatureDir, names));
+
+        /// <summary>
+        /// Models from the medieval village pack, which is Y-up — measured, not assumed.
+        /// It comes from the same author as the Z-up RTS scenery, and House_1 arrives
+        /// 2.14 x 3.39 x 2.66 with its height along Y. Guessing from the author would
+        /// have laid every building on its side.
+        /// </summary>
+        static PropSet Village(params string[] names) =>
+            new PropSet(false, Load(VillageDir, names));
 
         static GameObject[] Load(string folder, string[] names)
         {
