@@ -38,8 +38,12 @@ namespace Arna.Editor
         {
             EnsureFolders();
             var pipeline = EnsureRenderPipeline();
-            var material = EnsureMaterial();
-            BuildPreviewScene(material);
+            EnsureMaterial();
+
+            // The plan uses the lit ground material now, the same one the play view
+            // stands on. The flat unlit material is kept for anything that still wants
+            // a diagram rather than a picture.
+            BuildPreviewScene(EnsureGroundMaterial());
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -201,26 +205,78 @@ namespace Arna.Editor
         /// </summary>
         static BiomeDecor LoadForestDecor()
         {
-            // Single models only. The "_Group" variants are several trees side by side,
-            // so their bounding box is wide and short — normalising that by height
-            // stretches them sideways into horizontal logs across the ground.
+            // Two packs, two up axes, measured rather than assumed. The stylized nature
+            // models arrive Y-up and already in metres — a pine is 7.3 m tall as
+            // exported — while the RTS scenery is Z-up and miniature, at 0.72 x 0.45 x
+            // 0.93 for a whole tree. Getting either wrong lays the models on their side
+            // and then scales them by their width, which looks like two separate bugs.
             return new BiomeDecor
             {
-                Trees = Load("Resource_Tree1", "Resource_Tree2"),
-                Pines = Load("Resource_PineTree"),
-                Rocks = Load("Rock", "Resource_Rock_1", "Resource_Rock_2", "Resource_Rock_3"),
-                Mountains = Load("Mountain_Single", "MountainLarge_Single")
+                // Textured, from the Stylized Nature MegaKit. These replace the flat
+                // untextured RTS trees, whose materials measured tex=none across the
+                // board — which is what made the forest read as plastic long before
+                // anything about its shape was at fault.
+                // No twisted trees here. Their leaf texture is authored deep red — an
+                // autumn or blood tree — and scattered through a temperate forest at
+                // one in two they read as a bug rather than as a species. They belong
+                // to a chapter that wants them.
+                Trees = Nature("CommonTree_1", "CommonTree_2", "CommonTree_3", "CommonTree_4",
+                               "CommonTree_5"),
+                Pines = Nature("Pine_1", "Pine_2", "Pine_3", "Pine_4", "Pine_5"),
+                DeadTrees = Nature("DeadTree_1", "DeadTree_2", "DeadTree_3", "DeadTree_4", "DeadTree_5"),
+                Rocks = Nature("Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3",
+                               "Pebble_Round_1", "Pebble_Round_3", "Pebble_Square_1", "Pebble_Square_4"),
+
+                // Grass first and by a wide margin. The pack shares one leaf atlas
+                // across its plants — green, blue, orange, purple and pink leaves in a
+                // single image, picked by each model's own UVs — so the showier plants
+                // come out genuinely violet. A few are a woodland floor; the big
+                // variants at equal weight turned the forest into a flowerbed.
+                GroundCover = Nature("Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short",
+                                     "Grass_Wispy_Tall", "Grass_Common_Short", "Grass_Common_Tall",
+                                     "Grass_Wispy_Short", "Grass_Wispy_Tall",
+                                     "Clover_1", "Clover_2", "Fern_1", "Fern_1",
+                                     "Plant_1", "Plant_7", "Bush_Common",
+                                     "Flower_3_Single", "Flower_4_Single", "Mushroom_Common"),
+
+                // Mountains stay with the RTS pack: the nature kit has rocks but no
+                // landforms, and a ridge on the skyline is a different job from a
+                // boulder on the ground.
+                Mountains = Rts("Mountain_Single", "MountainLarge_Single"),
+
+                // The pack's buildings come in three levels of development. First age,
+                // level one: this is a road through the provinces, not a capital.
+                Houses = Rts("Houses_FirstAge_1_Level1", "Houses_FirstAge_2_Level1",
+                             "Houses_FirstAge_3_Level1", "TowerHouse_FirstAge",
+                             "Windmill_FirstAge"),
+                Farms = Rts("Farm_FirstAge_Level1_Wheat", "Farm_FirstAge_Level2_Wheat",
+                            "Farm_Dirt_Level1"),
+                Watchtowers = Rts("WatchTower_FirstAge_Level1", "WatchTower_FirstAge_Level2"),
+                Timber = Rts("Logs", "Crate_Stack1", "Crate_Stack2", "Barrel"),
+
+                // Loaded but unplaced until traps supply the sites. A length of wall
+                // standing alone in open country is the ruin; the towers give it a
+                // silhouette worth noticing from a distance.
+                Ruins = Rts("Wall_FirstAge", "WallTowers_FirstAge", "WallTowers_Door_FirstAge")
             };
         }
 
-        static GameObject[] Load(params string[] names)
+        const string NatureDir = "Assets/Quaternius/StylizedNature";
+
+        /// <summary>Models from the Z-up RTS scenery pack.</summary>
+        static PropSet Rts(params string[] names) => new PropSet(true, Load(QuaterniusDir, names));
+
+        /// <summary>Models from the Y-up stylized nature pack.</summary>
+        static PropSet Nature(params string[] names) => new PropSet(false, Load(NatureDir, names));
+
+        static GameObject[] Load(string folder, string[] names)
         {
             var found = new System.Collections.Generic.List<GameObject>();
             foreach (var name in names)
             {
-                var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{QuaterniusDir}/{name}.fbx");
+                var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{folder}/{name}.fbx");
                 if (asset != null) found.Add(asset);
-                else Debug.LogWarning($"[Arna] Scenery model not found: {name}.fbx");
+                else Debug.LogWarning($"[Arna] Scenery model not found: {folder}/{name}.fbx");
             }
             return found.ToArray();
         }
@@ -257,7 +313,10 @@ namespace Arna.Editor
             // HDR off. See docs/technical-design.md §1 for the budget these serve.
             existing.supportsHDR = false;
             existing.msaaSampleCount = 2;
-            existing.shadowDistance = 60f;
+            // Far enough to cover the plan view, which looks down from seventy metres
+            // and needs the whole canopy to cast. The play view never sees past about
+            // thirty, so nothing is lost there.
+            existing.shadowDistance = 90f;
             existing.shadowCascadeCount = 1;
 
             GraphicsSettings.defaultRenderPipeline = existing;
@@ -290,8 +349,15 @@ namespace Arna.Editor
             // near 1.0 so the palette is the colour you actually see.
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = new Color(0.36f, 0.42f, 0.50f);
-            RenderSettings.ambientEquatorColor = new Color(0.28f, 0.31f, 0.29f);
-            RenderSettings.ambientGroundColor = new Color(0.17f, 0.19f, 0.14f);
+
+            // The equator band lights vertical surfaces, which is every cliff face and
+            // every tree trunk in the scene. Set it well below the sky — as the first
+            // attempt did — and a mountain turned away from the sun goes to near black,
+            // because ambient is the only light reaching it. It sits close to the sky
+            // colour for the same reason a real cliff in shade is grey, not black: most
+            // of what it can see is sky.
+            RenderSettings.ambientEquatorColor = new Color(0.33f, 0.36f, 0.36f);
+            RenderSettings.ambientGroundColor = new Color(0.21f, 0.22f, 0.17f);
             RenderSettings.ambientIntensity = 1f;
 
             RenderSettings.fog = true;
@@ -327,6 +393,19 @@ namespace Arna.Editor
             // project except a brand new one.
             material.SetFloat("_ShadowStrength", 0.85f);
             material.SetFloat("_AmbientBoost", 1f);
+
+            // Forest floor: leaf litter, twigs and soil. Used as grain rather than as
+            // colour, so one texture serves every terrain type — the green of grass and
+            // the grey of rock still come from the vertex colours underneath.
+            var detail = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/_Project/Textures/Terrain/forest_floor_Diffuse.jpg");
+            if (detail != null) material.SetTexture("_DetailMap", detail);
+            else Debug.LogWarning("[Arna] Ground detail texture missing; the ground will be flat colour.");
+
+            material.SetFloat("_DetailTiling", 6f);
+            material.SetFloat("_DetailStrength", 0.55f);
+            material.SetFloat("_MacroTiling", 41f);
+            material.SetFloat("_MacroStrength", 0.35f);
             material.SetFloat("_DebugShadow", 0f);
 
             // Left behind by an earlier [Toggle] on the diagnostic property, which was
@@ -359,39 +438,62 @@ namespace Arna.Editor
 
             // The map is 64 tiles of 4 m, so 256 m square centred on (128, 0, 128).
             const float mapExtent = 64 * 4f;
-            const float pitchDegrees = 55f;
 
             var centre = new Vector3(mapExtent * 0.5f, 0f, mapExtent * 0.5f);
-            var rotation = Quaternion.Euler(pitchDegrees, 0f, 0f);
-            var cameraPosition = centre - rotation * Vector3.forward * 400f;
+
+            // Straight down. The old view was pitched 55 degrees, which is a landscape
+            // photograph of a map rather than a map: the far half of the country is
+            // squashed and the near half is not, so two routes of equal length do not
+            // look equal. Read from directly above, distance on screen is distance on
+            // the ground everywhere.
+            var rotation = Quaternion.Euler(90f, 0f, 0f);
 
             var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
-            cameraGo.transform.SetPositionAndRotation(cameraPosition, rotation);
+            // Low, despite looking straight down. An orthographic camera frames by its
+            // size, not its distance, so height is free to choose — and URP measures
+            // shadow range from the camera. Parked at four hundred metres the whole map
+            // fell outside the shadow distance and nothing cast at all. Raising that
+            // distance instead would have spread the same shadow map over five times
+            // the ground and coarsened the play view along with it.
+            cameraGo.transform.SetPositionAndRotation(centre + Vector3.up * 70f, rotation);
             var camera = cameraGo.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.06f, 0.07f, 0.09f);
+            camera.backgroundColor = new Color(0.10f, 0.11f, 0.10f);
 
-            // Orthographic for the planning overview. Perspective made the near edge
-            // of the map overflow the frame while the far edge shrank away, which is
-            // exactly wrong for a view whose job is letting the player compare two
-            // routes across the whole map. Orthographic also frames it exactly:
-            // a plane of depth D pitched by θ occupies D·sin(θ) vertically.
+            // Orthographic, so the map has no vanishing point and its edges stay
+            // parallel. Perspective made the far edge shrink away, which is exactly
+            // wrong for a view whose whole job is comparing routes across the map.
             camera.orthographic = true;
-            camera.orthographicSize =
-                mapExtent * Mathf.Sin(pitchDegrees * Mathf.Deg2Rad) * 0.5f * 1.08f;
+            camera.orthographicSize = mapExtent * 0.5f * 1.02f;
             camera.nearClipPlane = 1f;
-            camera.farClipPlane = 900f;
+            camera.farClipPlane = 200f;
+
+            ApplyOutdoorLighting();
+
+            // No fog on the plan. Fog reads as distance, and from straight above there
+            // is no distance to read — it would only grey out the middle of the map.
+            RenderSettings.fog = false;
 
             var lightGo = new GameObject("Directional Light");
-            lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+            // Steeper than the play view's sun. Shadows here are there to give the
+            // canopy and the cliffs relief, not to stretch across the ground; long
+            // shadows seen from above hide as much terrain as they describe.
+            lightGo.transform.rotation = Quaternion.Euler(58f, -40f, 0f);
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.intensity = 1f;
+            light.intensity = 1.05f;
+            light.color = new Color(1f, 0.97f, 0.91f);
+            light.shadows = LightShadows.Soft;
+            light.shadowStrength = 0.55f;
 
             var terrainGo = new GameObject("LevelPreview");
             terrainGo.AddComponent<MeshFilter>();
             terrainGo.AddComponent<MeshRenderer>().sharedMaterial = terrainMaterial;
-            terrainGo.AddComponent<LevelPreview>().Rebuild();
+
+            var preview = terrainGo.AddComponent<LevelPreview>();
+            preview.Decor = LoadForestDecor();
+            preview.Rebuild();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -566,6 +668,45 @@ namespace Arna.Editor
         /// pivot in the middle rather than at its base, cannot be told apart from a
         /// placement bug by looking at the game. Measuring settles it.
         /// </summary>
+        /// <summary>
+        /// Measures every model in a folder: -arnaModelDir &lt;path under Assets&gt;.
+        ///
+        /// A new pack has to be measured before it can be used. Nothing in an FBX says
+        /// which way is up or how big the thing is meant to be, and the two failures
+        /// compound — a model imported lying down is also normalised by its width,
+        /// so it comes out the wrong size as well as the wrong way round, and the
+        /// second symptom hides the first.
+        /// </summary>
+        [MenuItem("Arna/Report Folder Dimensions")]
+        public static void ReportFolderDimensions()
+        {
+            string folder = ArgValue("-arnaModelDir") ?? "Assets/Quaternius/StylizedNature";
+
+            var guids = AssetDatabase.FindAssets("t:Model", new[] { folder });
+            Debug.Log($"[Arna] {folder}: {guids.Length} models");
+
+            foreach (var guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+
+                var instance = UnityEngine.Object.Instantiate(prefab);
+                var bounds = ModelScaling.Measure(instance);
+
+                // "tallest axis" is the whole point: if it is not Y, the pack was
+                // exported Z-up and everything placed from it will lie on its side.
+                string tallest = bounds.size.y >= bounds.size.x && bounds.size.y >= bounds.size.z ? "Y"
+                               : bounds.size.z >= bounds.size.x ? "Z" : "X";
+
+                Debug.Log($"[Arna]   {Path.GetFileNameWithoutExtension(path)}: " +
+                          $"{bounds.size.x:F2} x {bounds.size.y:F2} x {bounds.size.z:F2} " +
+                          $"tallest={tallest} baseY={bounds.min.y:F2}");
+
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
         [MenuItem("Arna/Report Model Dimensions")]
         public static void ReportModelDimensions()
         {
@@ -678,6 +819,40 @@ namespace Arna.Editor
         /// externally, so neither the meta files nor the project folder say what a
         /// tree's surface is. Asking the renderer does.
         /// </summary>
+        /// <summary>
+        /// Prints which texture every material in a folder ended up with:
+        /// -arnaModelDir &lt;path under Assets&gt;.
+        ///
+        /// Two different failures look alike from a distance — a material with no
+        /// texture renders white, and one holding its own normal map renders violet —
+        /// and both are invisible in a material list. The pairing has to be read.
+        /// </summary>
+        [MenuItem("Arna/Report Material Textures")]
+        public static void ReportMaterialTextures()
+        {
+            string folder = ArgValue("-arnaModelDir") ?? "Assets/Quaternius/StylizedNature";
+
+            var guids = AssetDatabase.FindAssets("t:Material", new[] { folder });
+            int missing = 0;
+
+            Debug.Log($"[Arna] {folder}: {guids.Length} materials");
+
+            foreach (var guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material == null) continue;
+
+                var baseMap = material.HasProperty("_BaseMap") ? material.GetTexture("_BaseMap") : null;
+                if (baseMap == null) missing++;
+
+                Debug.Log($"[Arna]   {Path.GetFileNameWithoutExtension(path)} -> " +
+                          $"{(baseMap == null ? "NONE" : baseMap.name)}");
+            }
+
+            Debug.Log($"[Arna] {missing} of {guids.Length} materials have no base map.");
+        }
+
         [MenuItem("Arna/Report Materials")]
         public static void ReportMaterials()
         {
@@ -758,7 +933,51 @@ namespace Arna.Editor
                 AssetDatabase.CreateFolder(Path.GetDirectoryName(folder).Replace('\\', '/'), "Materials");
             }
 
-            int extracted = 0, adjusted = 0;
+            int extracted = 0, adjusted = 0, textured = 0;
+
+            // Textures first, and outside the batch. A material extracted from a model
+            // whose textures are still embedded points at nothing once it is a file of
+            // its own, and the model renders pure white — which is exactly what
+            // happened to the whole stylized nature pack the first time this ran. The
+            // flat-coloured RTS models survived only because they had no textures to
+            // lose.
+            foreach (var modelPath in modelPaths)
+            {
+                if (!(AssetImporter.GetAtPath(modelPath) is ModelImporter importer)) continue;
+
+                string folder = MaterialFolderFor(modelPath) + "/Textures";
+                if (!AssetDatabase.IsValidFolder(folder))
+                    AssetDatabase.CreateFolder(MaterialFolderFor(modelPath), "Textures");
+
+                if (importer.ExtractTextures(folder)) textured++;
+            }
+
+            AssetDatabase.Refresh();
+
+            // Repair models whose remap points at a material file that is gone. An
+            // importer keeps pointing at an extracted material by GUID, so deleting the
+            // file leaves the model with a reference to nothing and Unity draws it in
+            // magenta. Clearing the remap brings the embedded material back, which is
+            // what the extraction below needs to find.
+            int repaired = 0, linked = 0;
+            foreach (var modelPath in modelPaths)
+            {
+                if (!(AssetImporter.GetAtPath(modelPath) is ModelImporter importer)) continue;
+
+                var broken = new System.Collections.Generic.List<AssetImporter.SourceAssetIdentifier>();
+                foreach (var entry in importer.GetExternalObjectMap())
+                    if (entry.Value == null) broken.Add(entry.Key);
+
+                if (broken.Count == 0) continue;
+
+                foreach (var key in broken) importer.RemoveRemap(key);
+                importer.SaveAndReimport();
+                repaired++;
+            }
+
+            if (repaired > 0) Debug.Log($"[Arna] Cleared broken material remaps on {repaired} models.");
+
+            int remapped = 0;
 
             try
             {
@@ -768,13 +987,28 @@ namespace Arna.Editor
                 {
                     string folder = MaterialFolderFor(modelPath);
                     string model = Path.GetFileNameWithoutExtension(modelPath);
+                    var importer = AssetImporter.GetAtPath(modelPath) as ModelImporter;
 
                     foreach (var sub in AssetDatabase.LoadAllAssetsAtPath(modelPath))
                     {
                         if (!(sub is Material embedded)) continue;
 
                         string target = $"{folder}/{model}_{embedded.name}.mat";
-                        if (AssetDatabase.LoadAssetAtPath<Material>(target) != null) continue;
+                        var existing = AssetDatabase.LoadAssetAtPath<Material>(target);
+
+                        // Point the model at the file we already have instead of
+                        // skipping. Skipping was the bug: the material existed, the
+                        // model was never told, and it kept rendering magenta.
+                        if (existing != null)
+                        {
+                            if (importer == null) continue;
+
+                            importer.AddRemap(
+                                new AssetImporter.SourceAssetIdentifier(typeof(Material), embedded.name),
+                                existing);
+                            remapped++;
+                            continue;
+                        }
 
                         string error = AssetDatabase.ExtractAsset(embedded, target);
                         if (string.IsNullOrEmpty(error)) extracted++;
@@ -799,17 +1033,25 @@ namespace Arna.Editor
                 var material = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
                 if (material == null) continue;
 
+                if (LinkBaseMap(material, AssetDatabase.GUIDToAssetPath(guid))) linked++;
+
                 if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", outdoorSmoothness);
                 if (material.HasProperty("_Glossiness")) material.SetFloat("_Glossiness", outdoorSmoothness);
                 if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", 0f);
+
+                // Ground cover arrives by the thousand — several grass tufts per tile
+                // across a 4096-tile map. Without instancing that is a draw call each,
+                // and the phone this is meant to run on has a budget of about 150.
+                material.enableInstancing = true;
 
                 EditorUtility.SetDirty(material);
                 adjusted++;
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log($"[Arna] Restyled materials: {extracted} extracted, {adjusted} set to " +
-                      $"smoothness {outdoorSmoothness}.");
+            Debug.Log($"[Arna] Restyled materials: {textured} models had textures extracted, " +
+                      $"{extracted} materials extracted, {remapped} re-linked, " +
+                      $"{linked} given a base map, {adjusted} set to smoothness {outdoorSmoothness}.");
         }
 
         /// <summary>
@@ -846,6 +1088,104 @@ namespace Arna.Editor
                       $"soft={pipeline?.supportsSoftShadows} | " +
                       $"sun={sun?.type} shadows={sun?.shadows} strength={sun?.shadowStrength} | " +
                       $"casters={casters}/{total} renderers");
+        }
+
+        /// <summary>
+        /// Gives an extracted material its texture back.
+        ///
+        /// Extracting textures out of an FBX does not tell the extracted materials
+        /// where they went: the importer records material remaps and nothing else, and
+        /// the meta file confirms it — externalObjects lists Materials only. The result
+        /// is a material with a null base map, which renders pure white and looks for
+        /// all the world like a model with no texture at all.
+        ///
+        /// The link is recoverable because the words survive, even though the spelling
+        /// does not. Matching on a shared tail was not enough: the material named
+        /// "Leaves_NormalTree" belongs to the texture "Leaves_NormalTree_C", and
+        /// "Leaves_Pine" belongs to "Leaf_Pine_C" — singular where the material is
+        /// plural. Every leaf in the pack failed on one of those two, which is why the
+        /// trunks came out brown and the canopies stayed white.
+        ///
+        /// So the words are compared rather than the string. A texture matches when
+        /// every word in its name appears in the material's, and the texture with the
+        /// most words wins — otherwise the bare "Leaves" would claim a pine.
+        /// </summary>
+        static bool LinkBaseMap(Material material, string materialPath)
+        {
+            if (!material.HasProperty("_BaseMap")) return false;
+            if (material.GetTexture("_BaseMap") != null) return false;
+
+            string folder = Path.GetDirectoryName(materialPath).Replace('\\', '/') + "/Textures";
+            if (!AssetDatabase.IsValidFolder(folder)) return false;
+
+            var wanted = Words(Path.GetFileNameWithoutExtension(materialPath));
+            Texture2D best = null;
+            int bestScore = 0;
+
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { folder }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                string name = Path.GetFileNameWithoutExtension(path);
+
+                // A normal map holds directions, not colour. Used as albedo it renders
+                // the flat violet that a normal map looks like when you look at it.
+                if (name.EndsWith("_Normal", StringComparison.OrdinalIgnoreCase)) continue;
+
+                var offered = Words(name);
+                if (offered.Count == 0 || offered.Count <= bestScore) continue;
+
+                bool complete = true;
+                foreach (var word in offered)
+                    if (!wanted.Contains(word)) { complete = false; break; }
+
+                if (!complete) continue;
+
+                best = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                bestScore = offered.Count;
+            }
+
+            if (best == null) return false;
+
+            material.SetTexture("_BaseMap", best);
+            if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", best);
+
+            // A textured material tinted by a colour from the untextured original comes
+            // out muddy; white lets the texture speak.
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", Color.white);
+
+            var normal = AssetDatabase.LoadAssetAtPath<Texture2D>($"{folder}/{best.name}_Normal.png");
+            if (normal != null && material.HasProperty("_BumpMap"))
+            {
+                material.SetTexture("_BumpMap", normal);
+                material.EnableKeyword("_NORMALMAP");
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Splits an asset name into comparable words.
+        ///
+        /// "_C" marks a colour map and says nothing about which model it belongs to, so
+        /// it is dropped; "Leaf" and "Leaves" are the same word as far as this pack is
+        /// concerned, and the difference between them is the entire reason the pines
+        /// went untextured.
+        /// </summary>
+        static System.Collections.Generic.HashSet<string> Words(string name)
+        {
+            var words = new System.Collections.Generic.HashSet<string>();
+
+            foreach (var raw in name.Split('_'))
+            {
+                string word = raw.ToLowerInvariant();
+                if (word.Length == 0) continue;
+                if (word == "c" || word == "diffuse" || word == "basecolor") continue;
+                if (word == "leaf") word = "leaves";
+
+                words.Add(word);
+            }
+
+            return words;
         }
 
         static string MaterialFolderFor(string modelPath) =>

@@ -25,6 +25,30 @@ namespace Arna.App
         [Min(1)] public int Level = 1;
         public bool ShowCorridors = true;
 
+        [Header("World")]
+        /// <summary>
+        /// Metres between the lowest and highest ground, as in the play view.
+        ///
+        /// The map used to be drawn flat, on the argument that a plan is a diagram and
+        /// shading would muddy the boundaries between terrain types. Read from directly
+        /// above, a flat grid of colours is exactly as informative as it sounds and
+        /// looks nothing like the country the player is about to cross. Relief, light
+        /// and the same trees, rocks and buildings turn the plan into a picture of the
+        /// level — which is the only way it can honestly promise what the level is.
+        /// </summary>
+        public float HeightScale = 22f;
+
+        /// <summary>
+        /// Denser than the play view. A map is read at a glance from far above, where
+        /// scattered individual trees disappear; a forest has to look like a forest at
+        /// map scale or the player cannot tell it from a meadow.
+        /// </summary>
+        public float DensityScale = 2.2f;
+
+        [Min(0)] public int MaxProps = 2600;
+
+        public BiomeDecor Decor = new BiomeDecor();
+
         [Header("Generated (read-only)")]
         [SerializeField] int _seed;
         [SerializeField] int _attempts;
@@ -38,6 +62,7 @@ namespace Arna.App
 
         bool _dirty = true;
         Mesh _mesh;
+        Transform _props;
 
         public int Seed => _seed;
         public int Attempts => _attempts;
@@ -74,9 +99,11 @@ namespace Arna.App
             var overlays = BuildOverlays(map);
 
             var mesh = TerrainMeshBuilder.Build(
-                map.Grid, TileGrid.TileSize, overlays, map.StartIndex, map.GoalIndex);
+                map.Grid, TileGrid.TileSize, overlays, map.StartIndex, map.GoalIndex, HeightScale);
 
             GetComponent<MeshFilter>().sharedMesh = mesh;
+
+            BuildProps(map);
 
             // ExecuteAlways rebuilds on every inspector change, so the previous mesh
             // has to go or the editor leaks one per keystroke.
@@ -86,6 +113,45 @@ namespace Arna.App
                 else DestroyImmediate(_mesh);
             }
             _mesh = mesh;
+        }
+
+        /// <summary>
+        /// Dresses the map with the same models the level is built from.
+        ///
+        /// The corridors are kept clear of props. That is what makes the plan legible:
+        /// three routes drawn on the ground disappear under a closed canopy, and the
+        /// one thing the player came to this view to do is compare them.
+        /// </summary>
+        void BuildProps(LevelMap map)
+        {
+            if (_props != null)
+            {
+                if (Application.isPlaying) Destroy(_props.gameObject);
+                else DestroyImmediate(_props.gameObject);
+            }
+
+            if (Decor == null || Decor.IsEmpty) return;
+
+            _props = new GameObject("Props").transform;
+            _props.SetParent(transform, false);
+
+            TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
+                keepClear: CorridorTiles(map), heightScale: HeightScale,
+                maxProps: MaxProps, densityScale: DensityScale);
+        }
+
+        HashSet<int> CorridorTiles(LevelMap map)
+        {
+            var tiles = new HashSet<int>();
+            if (!ShowCorridors || map.Corridors == null) return tiles;
+
+            foreach (var corridor in map.Corridors)
+            {
+                if (corridor?.Tiles == null) continue;
+                foreach (int tile in corridor.Tiles) tiles.Add(tile);
+            }
+
+            return tiles;
         }
 
         List<TerrainMeshBuilder.RouteOverlay> BuildOverlays(LevelMap map)
@@ -120,6 +186,13 @@ namespace Arna.App
 
         void OnDisable()
         {
+            if (_props != null)
+            {
+                if (Application.isPlaying) Destroy(_props.gameObject);
+                else DestroyImmediate(_props.gameObject);
+                _props = null;
+            }
+
             if (_mesh == null) return;
             if (Application.isPlaying) Destroy(_mesh);
             else DestroyImmediate(_mesh);

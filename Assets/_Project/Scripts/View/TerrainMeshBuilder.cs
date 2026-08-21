@@ -55,6 +55,13 @@ namespace Arna.View
             var vertices = new Vector3[tiles * 4];
             var normals = new Vector3[tiles * 4];
             var colors = new Color[tiles * 4];
+
+            // Metres, not a 0..1 unwrap. The ground has no natural seam and no reason
+            // to be unwrapped, so the coordinate is simply where you are standing; the
+            // shader decides how often the detail repeats. Without any UV at all — as
+            // this mesh had until now — no texture can be put on the ground however
+            // good the texture is.
+            var uvs = new Vector2[tiles * 4];
             var triangles = new int[tiles * 6];
 
             var painted = BuildOverlayLookup(overlays);
@@ -85,6 +92,11 @@ namespace Arna.View
                 vertices[v + 2] = new Vector3(x1, h11, z1);
                 vertices[v + 3] = new Vector3(x0, h01, z1);
 
+                uvs[v + 0] = new Vector2(x0, z0);
+                uvs[v + 1] = new Vector2(x1, z0);
+                uvs[v + 2] = new Vector2(x1, z1);
+                uvs[v + 3] = new Vector2(x0, z1);
+
                 // Normals are sampled at the corners from the same height field the
                 // vertices came from, so the surface shades smoothly even though no
                 // vertex is shared. One normal per tile — the obvious version — steps
@@ -102,22 +114,9 @@ namespace Arna.View
                     normals[v + 0] = normals[v + 1] = normals[v + 2] = normals[v + 3] = Vector3.up;
                 }
 
-                // Standing the map up in three dimensions turns it into ground, and
-                // ground is not drawn the way a map is.
+                // Relief means this is being drawn as ground rather than as a diagram,
+                // whether it ends up under the caravan or under a planning map.
                 bool asGround = heightScale > 0f;
-
-                Color c = asGround ? TerrainPalette.OfGround(grid[i]) : TerrainPalette.Of(grid[i]);
-                if (painted != null && painted.TryGetValue(i, out Color overlay))
-                    c = Color.Lerp(c, overlay, 0.78f);
-
-                // Start and goal are markings on a map. Painted on the ground they read
-                // as a coloured patch of grass the caravan happens to be standing on,
-                // which is the same mistake as painting the route across the world.
-                if (!asGround)
-                {
-                    if (i == startIndex) c = TerrainPalette.Start;
-                    else if (i == goalIndex) c = TerrainPalette.Goal;
-                }
 
                 if (asGround)
                 {
@@ -138,8 +137,22 @@ namespace Arna.View
                 }
                 else
                 {
-                    colors[v + 0] = colors[v + 1] = colors[v + 2] = colors[v + 3] = c;
+                    Color flat = TerrainPalette.Of(grid[i]);
+                    colors[v + 0] = colors[v + 1] = colors[v + 2] = colors[v + 3] = flat;
                 }
+
+                // Markings last, over whatever ground was drawn underneath. A route is
+                // a line the player traced, not a kind of terrain, so it keeps its hard
+                // edge even where the ground beneath it blends — and the caller decides
+                // whether there are any, which is how the play view gets a world with
+                // no map furniture painted across it.
+                if (painted != null && painted.TryGetValue(i, out Color route))
+                    for (int k = 0; k < 4; k++) colors[v + k] = Color.Lerp(colors[v + k], route, 0.78f);
+
+                if (i == startIndex)
+                    colors[v + 0] = colors[v + 1] = colors[v + 2] = colors[v + 3] = TerrainPalette.Start;
+                else if (i == goalIndex)
+                    colors[v + 0] = colors[v + 1] = colors[v + 2] = colors[v + 3] = TerrainPalette.Goal;
 
                 // Clockwise seen from above, which is front-facing in Unity's
                 // left-handed space.
@@ -159,6 +172,7 @@ namespace Arna.View
             };
             mesh.SetVertices(vertices);
             mesh.SetNormals(normals);
+            mesh.SetUVs(0, uvs);
             mesh.SetColors(colors);
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateBounds();

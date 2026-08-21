@@ -18,6 +18,20 @@ Shader "Arna/TerrainGround"
         _ShadowStrength ("Shadow strength", Range(0, 1)) = 0.7
         _AmbientBoost   ("Ambient boost",   Range(0, 2)) = 1.0
 
+        // Grain over the whole map, tinted by the terrain colour underneath rather
+        // than replacing it. A single flat colour per square metre is what makes a
+        // stylised landscape read as a diagram; ground in the real world is never one
+        // value twice.
+        _DetailMap      ("Ground detail", 2D) = "grey" {}
+        _DetailTiling   ("Detail tiling (metres per repeat)", Float) = 6
+        _DetailStrength ("Detail strength", Range(0, 1)) = 0.55
+
+        // The same texture again at a much larger repeat. One tiling scale alone
+        // reappears as a visible grid from a distance, because the eye finds the
+        // period; two coprime scales multiplied together do not.
+        _MacroTiling    ("Macro tiling (metres per repeat)", Float) = 41
+        _MacroStrength  ("Macro strength", Range(0, 1)) = 0.35
+
         // Diagnostic, driven by -arnaDebugShadow on a headless capture.
         //   1  raw shadow attenuation, or solid red if this shader was compiled without
         //      URP's main-light shadow keyword and so could never sample a shadow
@@ -60,6 +74,7 @@ Shader "Arna/TerrainGround"
             {
                 float4 positionOS : POSITION;
                 float3 normalOS   : NORMAL;
+                float2 uv         : TEXCOORD0;
                 half4  color      : COLOR;
             };
 
@@ -69,6 +84,7 @@ Shader "Arna/TerrainGround"
                 float3 positionWS  : TEXCOORD0;
                 float3 normalWS    : TEXCOORD1;
                 float  fogFactor   : TEXCOORD2;
+                float2 uv          : TEXCOORD3;
                 half4  color       : COLOR;
             };
 
@@ -76,7 +92,15 @@ Shader "Arna/TerrainGround"
                 float _ShadowStrength;
                 float _AmbientBoost;
                 float _DebugShadow;
+                float4 _DetailMap_ST;
+                float _DetailTiling;
+                float _DetailStrength;
+                float _MacroTiling;
+                float _MacroStrength;
             CBUFFER_END
+
+            TEXTURE2D(_DetailMap);
+            SAMPLER(sampler_DetailMap);
 
             Varyings vert(Attributes IN)
             {
@@ -87,6 +111,7 @@ Shader "Arna/TerrainGround"
                 OUT.positionWS  = positions.positionWS;
                 OUT.normalWS    = TransformObjectToWorldNormal(IN.normalOS);
                 OUT.fogFactor   = ComputeFogFactor(positions.positionCS.z);
+                OUT.uv          = IN.uv;
                 OUT.color       = IN.color;
 
                 return OUT;
@@ -128,8 +153,20 @@ Shader "Arna/TerrainGround"
                 // the sun still has to show which terrain it is.
                 half diffuse = ndotl * 0.75h + 0.25h;
 
+                // Detail modulates brightness around 1 rather than replacing colour, so
+                // grass stays green and rock stays grey while both gain grain. Sampling
+                // it as albedo instead would drag every terrain type towards whatever
+                // colour the photograph happened to be.
+                half fine  = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap,
+                                              IN.uv / max(_DetailTiling, 0.01)).g;
+                half macro = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap,
+                                              IN.uv / max(_MacroTiling, 0.01)).g;
+
+                half detail = 1.0h + (fine - 0.5h) * _DetailStrength * 2.0h
+                                   + (macro - 0.5h) * _MacroStrength * 2.0h;
+
                 half3 ambient = SampleSH(normalWS) * _AmbientBoost;
-                half3 lit = IN.color.rgb * (ambient + mainLight.color * diffuse * shadow);
+                half3 lit = IN.color.rgb * detail * (ambient + mainLight.color * diffuse * shadow);
 
                 lit = MixFog(lit, IN.fogFactor);
                 return half4(lit, 1.0h);

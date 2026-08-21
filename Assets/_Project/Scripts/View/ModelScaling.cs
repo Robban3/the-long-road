@@ -41,5 +41,28 @@ namespace Arna.View
             float lift = groundY - scaled.min.y;
             instance.transform.position += new Vector3(0f, lift, 0f);
         }
+
+        /// <summary>
+        /// Scales an instance so its widest horizontal dimension is
+        /// <paramref name="targetWidth"/> metres, and stands it on the ground.
+        ///
+        /// For anything wider than it is tall — a ploughed field, a length of wall, a
+        /// stack of logs — height is the wrong handle. Fitting a field two metres high
+        /// scales it up by whatever factor its thin profile demands and lays a farm
+        /// across a quarter of the map. The trees taught this once already: the grouped
+        /// models had to be dropped from the scatter because normalising them by height
+        /// stretched them sideways.
+        /// </summary>
+        public static void FitToFootprint(GameObject instance, float targetWidth, float groundY = 0f)
+        {
+            var bounds = Measure(instance);
+            float widest = Mathf.Max(bounds.size.x, bounds.size.z);
+            if (widest > 0.0001f)
+                instance.transform.localScale *= targetWidth / widest;
+
+            var scaled = Measure(instance);
+            float lift = groundY - scaled.min.y;
+            instance.transform.position += new Vector3(0f, lift, 0f);
+        }
     }
 }

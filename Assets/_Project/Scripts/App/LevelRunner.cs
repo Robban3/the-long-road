@@ -102,11 +102,12 @@ namespace Arna.App
             _run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
             _levelGrid = map.Grid;
 
-            // No route overlay in the play view: the drawn line belongs to the planning
-            // map, and painting it across the ground here would read as a road that is
-            // not there.
+            // No map furniture in the play view. The drawn line belongs to the planning
+            // map and painting it across the ground here would read as a road that is
+            // not there; the start and goal markers likewise came out as coloured
+            // patches of grass the caravan happened to be standing on.
             _mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize,
-                null, map.StartIndex, map.GoalIndex, HeightScale);
+                null, -1, -1, HeightScale);
             GetComponent<MeshFilter>().sharedMesh = _mesh;
 
             _markerRoot = new GameObject("Markers").transform;

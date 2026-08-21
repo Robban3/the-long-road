@@ -4,32 +4,85 @@ using UnityEngine;
 
 namespace Arna.View
 {
+    /// <summary>
+    /// A set of interchangeable models, and how the pack they came from was exported.
+    ///
+    /// The up axis belongs here rather than on the biome, because it is a fact about
+    /// the pack and a biome now draws from several. Held on the biome as a single flag
+    /// it was right for every model or wrong for every model, and mixing a Y-up nature
+    /// pack with a Z-up scenery pack made both answers wrong at once.
+    ///
+    /// It cannot be detected from the model either. A fern measures 9.05 x 2.69 x 8.49
+    /// and a pebble 0.50 x 0.10 x 0.37 — both are widest across, and both are the right
+    /// way up. Only the pack knows.
+    /// </summary>
+    [System.Serializable]
+    public sealed class PropSet
+    {
+        public GameObject[] Models;
+
+        /// <summary>True when the pack was exported with Z up, as Blender does by default.</summary>
+        public bool ZUp;
+
+        public bool Any => Models != null && Models.Length > 0;
+
+        public PropSet() { }
+
+        public PropSet(bool zUp, GameObject[] models)
+        {
+            ZUp = zUp;
+            Models = models;
+        }
+    }
+
     /// <summary>Models used to dress one biome's terrain.</summary>
     [System.Serializable]
     public sealed class BiomeDecor
     {
-        public GameObject[] Trees;
-        public GameObject[] Pines;
-        public GameObject[] Rocks;
-        public GameObject[] Mountains;
+        public PropSet Trees = new PropSet();
+        public PropSet Pines = new PropSet();
+        public PropSet DeadTrees = new PropSet();
+        public PropSet Rocks = new PropSet();
+        public PropSet Mountains = new PropSet();
 
         /// <summary>
-        /// True when the pack was exported with Z as the up axis, as Blender does by
-        /// default. The scenery pack is; the character and animal packs are not, even
-        /// though they come from the same author.
+        /// Grass, ferns, flowers, mushrooms, pebbles — the small stuff, scattered by
+        /// the thousand rather than the dozen.
         ///
-        /// Measured rather than assumed: Resource_Tree1 arrives 0.72 x 0.45 x 0.93,
-        /// so its tallest dimension is Z. Left uncorrected the trees lie on their
-        /// sides, and — worse, because it looks like a different bug — the height
-        /// normalisation measures their width and scales them wrongly too.
+        /// It is what separates a landscape from a diagram of one. Bare ground between
+        /// the trees reads as unfinished however good the trees are, because real
+        /// ground is never bare.
         /// </summary>
-        public bool ZUp = true;
+        public PropSet GroundCover = new PropSet();
+
+        /// <summary>
+        /// Landmarks. Unlike the scatter above, these are placed where they make sense
+        /// rather than where the dice fall: people build beside roads, watchtowers go
+        /// where there is something to watch, timber is cut where the trees are.
+        ///
+        /// They are also deliberately rare. The design asks the player to learn to read
+        /// the world (docs/GDD.md §3.4), and anything scattered everywhere teaches the
+        /// eye to skip it — which would blunt the signals that are meant to matter.
+        /// </summary>
+        public PropSet Houses = new PropSet();
+        public PropSet Farms = new PropSet();
+        public PropSet Watchtowers = new PropSet();
+        public PropSet Timber = new PropSet();
+
+        /// <summary>
+        /// Reserved for the trap-field signal in docs/GDD.md §2: a ruin marks ground
+        /// where something went wrong before. Nothing places these yet — the caller
+        /// supplies the sites, and until traps are wired in there are none. Kept here
+        /// so the models are loaded and sized alongside everything else rather than
+        /// bolted on later.
+        /// </summary>
+        public PropSet Ruins = new PropSet();
 
         public bool IsEmpty =>
-            (Trees == null || Trees.Length == 0) &&
-            (Pines == null || Pines.Length == 0) &&
-            (Rocks == null || Rocks.Length == 0) &&
-            (Mountains == null || Mountains.Length == 0);
+            !Has(Trees) && !Has(Pines) && !Has(DeadTrees) && !Has(Rocks) && !Has(Mountains) &&
+            !Has(GroundCover) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) && !Has(Timber);
+
+        static bool Has(PropSet set) => set != null && set.Any;
     }
 
     /// <summary>
@@ -50,6 +103,45 @@ namespace Arna.View
         public const float PineHeight = 8.5f;
         public const float RockHeight = 2.2f;
         public const float MountainHeight = 20f;
+        public const float DeadTreeHeight = 9f;
+
+        /// <summary>Landmark sizes. Buildings are measured by height, ground works by width.</summary>
+        public const float HouseHeight = 6f;
+        public const float WatchtowerHeight = 11f;
+        public const float FarmWidth = 9f;
+        public const float TimberWidth = 3f;
+        public const float RuinWidth = 7f;
+
+        /// <summary>
+        /// How many landmarks a map may carry. A hard cap rather than density alone,
+        /// because density on a road that happens to run the length of the map produces
+        /// a ribbon development, and the point of a landmark is that there are few.
+        /// </summary>
+        public const int MaxLandmarks = 18;
+
+        /// <summary>Height of a grass tuft or a fern, in metres.</summary>
+        public const float CoverHeight = 0.7f;
+
+        /// <summary>
+        /// Ground cover is capped separately and much higher. These are a few hundred
+        /// triangles each against a tree's few thousand, so the budget that keeps trees
+        /// affordable is the wrong budget for grass.
+        /// </summary>
+        public const int MaxGroundCover = 4000;
+
+        /// <summary>
+        /// Tufts per tile — a rate, not a probability, because more than one belongs on
+        /// a four-metre square. Forest floor and marsh are thick with it; a road is
+        /// worn bare and mountain rock has nothing to grow in.
+        /// </summary>
+        static readonly Dictionary<TerrainType, float> CoverDensity = new Dictionary<TerrainType, float>
+        {
+            { TerrainType.Forest, 2.4f },
+            { TerrainType.Plains, 1.7f },
+            { TerrainType.Marsh, 2.0f },
+            { TerrainType.MountainPass, 0.5f },
+            { TerrainType.Road, 0.15f }
+        };
 
         /// <summary>
         /// Props per tile. Tuned down from a first attempt at 0.55 in forest, which put
@@ -70,10 +162,18 @@ namespace Arna.View
         /// stays readable through the trees; the play view passes nothing, because
         /// there is no line to bury and a forest should look like one.
         /// </param>
+        /// <param name="ruinSites">
+        /// Tiles that should carry a ruin. This is the hook for the trap-field signal
+        /// in docs/GDD.md §2 — ground where a previous caravan came to grief. Left null
+        /// until traps are wired to it, and note when they are that the ruin belongs
+        /// near the field rather than on it: a signal is meant to suggest danger, not
+        /// mark its exact extent.
+        /// </param>
         public static int Decorate(Transform parent, TileGrid grid, int seed, BiomeDecor decor,
                                    IReadOnlyCollection<int> keepClear = null,
                                    float heightScale = 0f, int maxProps = 600,
-                                   float densityScale = 1f)
+                                   float densityScale = 1f,
+                                   IReadOnlyCollection<int> ruinSites = null)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
@@ -81,85 +181,279 @@ namespace Arna.View
             var clear = keepClear == null ? null : new HashSet<int>(keepClear);
             int placed = 0;
 
+            // Landmarks first, and the tiles they take are then off limits to the
+            // scatter. Done the other way round a pine grows through the roof of the
+            // farmhouse, and the building — the thing the eye was meant to find — is
+            // the one that loses.
+            var occupied = new HashSet<int>();
+            placed += PlaceLandmarks(parent, grid, rng, decor, clear, occupied, heightScale, ruinSites);
+
             for (int i = 0; i < grid.TileCount && placed < maxProps; i++)
             {
                 var terrain = grid[i];
                 if (!Density.TryGetValue(terrain, out float density)) continue;
                 if (clear != null && clear.Contains(i)) continue;
+                if (occupied.Contains(i)) continue;
                 if (!rng.Chance(density * densityScale)) continue;
 
-                var prefab = Pick(decor, terrain, rng, out float targetHeight);
-                if (prefab == null) continue;
+                var choice = Pick(decor, terrain, rng);
+                if (choice.Prefab == null) continue;
 
-                var position = Vec2.FromTile(grid, i);
-                float x = position.X + rng.Range(-1.4f, 1.4f);
-                float z = position.Y + rng.Range(-1.4f, 1.4f);
+                Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.4f);
+                placed++;
+            }
 
-                // Sampled the way the mesh is built, at the prop's own position. Using
-                // the tile's own elevation instead leaves trees hovering above the
-                // ground or buried in it, because the rendered surface is interpolated
-                // between corners and a tile centre is a different number entirely.
-                float groundY = grid.SurfaceElevation(x, z) * heightScale;
+            placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
+                                       heightScale, densityScale);
+            return placed;
+        }
 
-                var instance = Object.Instantiate(prefab, parent);
-                instance.transform.position = new Vector3(x, groundY, z);
+        /// <summary>
+        /// Scatters the small stuff — grass, ferns, flowers, pebbles.
+        ///
+        /// Its own pass with its own budget, because it is numerous in a way nothing
+        /// else is: several per tile rather than one per twenty. Sharing the scatter's
+        /// prop cap would have let a few thousand grass tufts crowd out every tree on
+        /// the map, and the cap exists to protect the frame rate, not to ration grass.
+        ///
+        /// It also ignores the cleared corridors. Grass does not hide a route the way a
+        /// nine-metre pine does, and a route swept bare of even grass looks like a road.
+        /// </summary>
+        static int PlaceGroundCover(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                    BiomeDecor decor, HashSet<int> clear, HashSet<int> occupied,
+                                    float heightScale, float densityScale)
+        {
+            if (!decor.GroundCover.Any) return 0;
 
-                // Stand it up before measuring. Fitting to height only means anything
-                // once the model's height is actually along Y.
-                instance.transform.rotation = decor.ZUp
-                    ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
-                    : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+            int placed = 0;
 
-                ModelScaling.Fit(instance, targetHeight * rng.Range(0.8f, 1.25f), groundY);
+            for (int i = 0; i < grid.TileCount && placed < MaxGroundCover; i++)
+            {
+                if (!CoverDensity.TryGetValue(grid[i], out float density)) continue;
+                if (occupied.Contains(i)) continue;
+
+                // Thinned rather than cleared on a corridor: enough to keep the drawn
+                // line legible from above without the line looking swept.
+                float scale = clear != null && clear.Contains(i) ? 0.3f : 1f;
+
+                int tufts = Mathf.FloorToInt(density * densityScale * scale);
+                if (rng.Chance(density * densityScale * scale - tufts)) tufts++;
+
+                for (int t = 0; t < tufts && placed < MaxGroundCover; t++)
+                {
+                    var choice = new Choice(decor.GroundCover, Any(decor.GroundCover, rng),
+                                            CoverHeight, byWidth: false);
+
+                    Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.9f);
+                    placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>Drops one model somewhere inside a tile, turned at random.</summary>
+        static void Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
+                            Choice choice, int tile, float heightScale, float spread)
+        {
+            var position = Vec2.FromTile(grid, tile);
+            float x = position.X + rng.Range(-spread, spread);
+            float z = position.Y + rng.Range(-spread, spread);
+
+            // Sampled the way the mesh is built, at the prop's own position. Using the
+            // tile's own elevation instead leaves trees hovering above the ground or
+            // buried in it, because the rendered surface is interpolated between corners
+            // and a tile centre is a different number entirely.
+            float groundY = grid.SurfaceElevation(x, z) * heightScale;
+
+            var instance = Object.Instantiate(choice.Prefab, parent);
+            instance.transform.position = new Vector3(x, groundY, z);
+
+            // Stand it up before measuring. Fitting to height only means anything once
+            // the model's height is actually along Y.
+            instance.transform.rotation = choice.ZUp
+                ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
+                : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+
+            float size = choice.Size * rng.Range(0.8f, 1.25f);
+            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
+            else ModelScaling.Fit(instance, size, groundY);
+        }
+
+        /// <summary>
+        /// Places the things that were built rather than grown.
+        ///
+        /// Each kind goes where it would actually stand: houses on roads, fields on the
+        /// open ground beside them, watchtowers in the passes, cut timber in the
+        /// forest. That costs nothing over scattering them at random and it earns the
+        /// player something — a house means a road is near, a watchtower means the pass
+        /// is worth guarding. Scenery that can be read is worth more than scenery.
+        /// </summary>
+        static int PlaceLandmarks(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                  BiomeDecor decor, HashSet<int> clear, HashSet<int> occupied,
+                                  float heightScale, IReadOnlyCollection<int> ruinSites)
+        {
+            int placed = 0;
+
+            if (ruinSites != null && decor.Ruins.Any)
+            {
+                foreach (int tile in ruinSites)
+                {
+                    if (placed >= MaxLandmarks) break;
+                    if (clear != null && clear.Contains(tile)) continue;
+                    if (!occupied.Add(tile)) continue;
+
+                    Place(parent, grid, tile, rng,
+                          new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth, byWidth: true),
+                          heightScale);
+                    placed++;
+                }
+            }
+
+            for (int i = 0; i < grid.TileCount && placed < MaxLandmarks; i++)
+            {
+                if (clear != null && clear.Contains(i)) continue;
+                if (occupied.Contains(i)) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+
+                Choice choice = default;
+
+                switch (grid[i])
+                {
+                    case TerrainType.Road when decor.Houses.Any && rng.Chance(0.035f):
+                        choice = new Choice(decor.Houses, Any(decor.Houses, rng), HouseHeight, false);
+                        break;
+
+                    // Fields belong to a farm, and a farm belongs to a road. Scattered
+                    // across open country they read as abandoned, which is a signal we
+                    // have not earned the right to send yet.
+                    case TerrainType.Plains when decor.Farms.Any && NearRoad(grid, x, y, 2) && rng.Chance(0.16f):
+                        choice = new Choice(decor.Farms, Any(decor.Farms, rng), FarmWidth, true);
+                        break;
+
+                    case TerrainType.MountainPass when decor.Watchtowers.Any && rng.Chance(0.012f):
+                        choice = new Choice(decor.Watchtowers, Any(decor.Watchtowers, rng),
+                                            WatchtowerHeight, false);
+                        break;
+
+                    case TerrainType.Forest when decor.Timber.Any && rng.Chance(0.006f):
+                        choice = new Choice(decor.Timber, Any(decor.Timber, rng), TimberWidth, true);
+                        break;
+                }
+
+                if (choice.Prefab == null) continue;
+
+                occupied.Add(i);
+                Place(parent, grid, i, rng, choice, heightScale);
                 placed++;
             }
 
             return placed;
         }
 
-        static GameObject Pick(BiomeDecor decor, TerrainType terrain, DeterministicRandom rng,
-                               out float targetHeight)
+        /// <summary>
+        /// One model picked for one spot, carrying everything placement needs.
+        ///
+        /// The up axis travels with the choice rather than being read from the biome,
+        /// which is what lets a single map mix a Y-up nature pack with a Z-up scenery
+        /// pack without either lying on its side.
+        /// </summary>
+        readonly struct Choice
+        {
+            public readonly GameObject Prefab;
+            public readonly bool ZUp;
+            public readonly float Size;
+            public readonly bool ByWidth;
+
+            public Choice(PropSet set, GameObject prefab, float size, bool byWidth)
+            {
+                Prefab = prefab;
+                ZUp = set != null && set.ZUp;
+                Size = size;
+                ByWidth = byWidth;
+            }
+        }
+
+        /// <summary>Whether a road runs within <paramref name="radius"/> tiles.</summary>
+        static bool NearRoad(TileGrid grid, int x, int y, int radius)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    if (grid.InBounds(nx, ny) && grid[nx, ny] == TerrainType.Road) return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Stands one landmark on the centre of a tile, sized and seated.</summary>
+        static void Place(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,
+                          Choice choice, float heightScale)
+        {
+            var position = Vec2.FromTile(grid, tile);
+            float groundY = grid.SurfaceElevation(position.X, position.Y) * heightScale;
+
+            var instance = Object.Instantiate(choice.Prefab, parent);
+            instance.transform.position = new Vector3(position.X, groundY, position.Y);
+
+            // Buildings are square to the world in a way trees are not, so they turn in
+            // quarters. A house at eleven degrees reads as subsidence.
+            float yaw = rng.Range(0, 4) * 90f;
+            instance.transform.rotation = choice.ZUp
+                ? Quaternion.Euler(-90f, yaw, 0f)
+                : Quaternion.Euler(0f, yaw, 0f);
+
+            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, choice.Size, groundY);
+            else ModelScaling.Fit(instance, choice.Size, groundY);
+        }
+
+        static Choice Pick(BiomeDecor decor, TerrainType terrain, DeterministicRandom rng)
         {
             switch (terrain)
             {
                 case TerrainType.Forest:
                     // Pines dominate, broadleaf mixed in so the canopy is not uniform.
-                    if (Has(decor.Pines) && (rng.Chance(0.7f) || !Has(decor.Trees)))
-                    {
-                        targetHeight = PineHeight;
-                        return Any(decor.Pines, rng);
-                    }
-                    targetHeight = TreeHeight;
-                    return Has(decor.Trees) ? Any(decor.Trees, rng) : null;
+                    if (decor.Pines.Any && (rng.Chance(0.62f) || !decor.Trees.Any))
+                        return From(decor.Pines, rng, PineHeight);
+
+                    return From(decor.Trees, rng, TreeHeight);
 
                 case TerrainType.MountainPass:
-                    if (Has(decor.Mountains) && rng.Chance(0.30f))
-                    {
-                        targetHeight = MountainHeight;
-                        return Any(decor.Mountains, rng);
-                    }
-                    targetHeight = RockHeight;
-                    return Has(decor.Rocks) ? Any(decor.Rocks, rng) : null;
+                    if (decor.Mountains.Any && rng.Chance(0.30f))
+                        return From(decor.Mountains, rng, MountainHeight);
 
+                    return From(decor.Rocks, rng, RockHeight);
+
+                // Dead trees belong to the marsh. They are the pack's most legible
+                // model at a glance from above, and standing water killing the trees
+                // is the thing a marsh looks like.
                 case TerrainType.Marsh:
+                    if (decor.DeadTrees.Any && rng.Chance(0.55f))
+                        return From(decor.DeadTrees, rng, DeadTreeHeight);
+
+                    return From(decor.Rocks, rng, RockHeight);
+
                 case TerrainType.Plains:
                 case TerrainType.Road:
-                    if (Has(decor.Rocks) && rng.Chance(0.6f))
-                    {
-                        targetHeight = RockHeight;
-                        return Any(decor.Rocks, rng);
-                    }
-                    targetHeight = TreeHeight;
-                    return Has(decor.Trees) ? Any(decor.Trees, rng) : null;
+                    if (decor.Rocks.Any && rng.Chance(0.6f))
+                        return From(decor.Rocks, rng, RockHeight);
+
+                    return From(decor.Trees, rng, TreeHeight);
 
                 default:
-                    targetHeight = TreeHeight;
-                    return null;
+                    return default;
             }
         }
 
-        static bool Has(GameObject[] set) => set != null && set.Length > 0;
+        static Choice From(PropSet set, DeterministicRandom rng, float size) =>
+            set != null && set.Any ? new Choice(set, Any(set, rng), size, false) : default;
 
-        static GameObject Any(GameObject[] set, DeterministicRandom rng) => set[rng.Range(0, set.Length)];
+        static GameObject Any(PropSet set, DeterministicRandom rng) =>
+            set.Models[rng.Range(0, set.Models.Length)];
     }
 }
