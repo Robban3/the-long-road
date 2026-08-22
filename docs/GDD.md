@@ -64,10 +64,18 @@ Karavanens grundhastighet: **2.0 tiles/sekund**. På väg 2.5, i kärr 0.9.
 
 ### 3.3 Vägritning
 
-- Spelaren trycker ut 5–6 waypoints. En spline dras genom dem och projiceras på terrängen.
-- Rutten valideras: den får inte korsa ofarbar terräng. Ogiltiga segment visas röda och går inte att starta med.
+Rutten är spelarens, inte generatorns. Kartan visar ingen färdig väg och inga alternativ att välja mellan — den visar landet, och spelaren drar sin egen linje genom det. Det är banans aktiva beslut.
+
+- Spelaren trycker ut upp till 6 waypoints. Varje etapp löses med terrängviktad A*, så en grovt dragen linje blir en väg en karavanförare faktiskt hade tagit: den kramar snabb mark och skyr kärr i stället för att skära rakt igenom.
+- Rutten valideras: den får inte korsa ofarbar terräng. Ogiltiga etapper visas röda och går inte att starta med.
 - **Ruttförhandsvisning** uppdateras live och visar: total sträcka, uppskattad restid, andel per terrängtyp, och en risk-indikator baserad på bakhållsvikt. Detta är spelarens enda hårda beslutsunderlag — det måste vara tydligt.
 - Vissa waypoints kan sättas som **specialpunkter**: `Rasta` (läker trupper, kostar 15 s), `Spana` (avslöjar 25 m radie, kostar 8 s).
+
+**Passagerna måste synas.** Floden går tvärs färdriktningen och kan bara korsas vid sina vadställen, så vadställena är kartans viktigaste information. De markeras som byggda saker — en bro, ett märke — inte som en ljusare ruta vatten. Den etapp som korsar floden lyfter fram vilket vadställe den använder, för det är där beslutet ligger.
+
+**Omvägar ska inte komma som en överraskning.** Ritar spelaren tvärs en flod utan vadställe stannar ingenting — A* går runt — men karavanen tar en omväg spelaren aldrig menade. En etapp som blir mer än 40 % längre än fågelvägen ritas därför avvikande: *detta blev inte vad du trodde*.
+
+Generatorn räknar fortfarande fram tre korridorer — snabb, säker och udda — men de visas aldrig. De är mätinstrument: kvalitetsgrinden som förkastar frön där ingen korsning skiljer sig från någon annan, och partiden som tredje stjärnan mäts mot.
 
 ### 3.4 Dold information — de två radierna
 
@@ -77,6 +85,8 @@ Systemet vilar på att två radier hålls isär:
 - **Spelarens `sightRadius`** — högsta värdet bland trupperna, mätt från respektive truppposition. Innanför denna ritas fienden ut.
 
 När `sightRadius > detectRadius` ser du fienden innan den vaknar och hinner omgruppera. Det är hela existensberättigandet för spejartruppen — och skälet till att spaning konkurrerar med rå stridskraft om dina 6 platser.
+
+**Varje grupp bevakar en sträcka, inte en ruta.** `detectRadius` i tabellen är golvet; den faktiska väckningsradien är gruppens *revir* — halva avståndet till närmaste grannagrupp, mellan 24 och 52 meter. Det är vad som gör att tolv grupper täcker en karta spelaren får korsa var som helst: de håller landet mellan sig, och korsar du någons sträcka kommer de. Utan revir hade en fritt ritad linje behövt ungefär tjugoåtta grupper för att garantera fyra möten, och budgeten räcker till tolv. Det är också den sannare fiktionen — rövarband håller en vägsträcka, de köar inte på en ruta.
 
 Första gången en ny fiendegrupp upptäcks körs **0,4 sekunder slow motion** med en markör. Det är spelarens signal att reagera.
 
@@ -93,6 +103,20 @@ Synliga i terrängöversikten redan under planeringen. De antyder fara utan att 
 | Övergiven lägerplats | Säker tile, bra rastplats | 0 % |
 
 Falska positiva är avsiktliga: signaler ska vara *information*, inte *facit*.
+
+### 3.6 Spaning att köpa
+
+Information är en resurs, och spejartruppen är bara ett av sätten att betala för den. Före banan går det att köpa spaning i guld — metavalutan, inte silvret som dör med banan — så att den konkurrerar med truppuppbyggnad över tid.
+
+| Köp | Vad den ger | Varför den är begränsad |
+|---|---|---|
+| **Örnen** | Flyger en bana spelaren väljer i 5–10 s före ritandet. Det den såg står kvar på planeringskartan medan rutten dras. | Räcker till ungefär en tredjedel av bandet. *Var* du tittar blir därmed ett eget beslut som matar vägvalet. |
+| **Rykten** | En grov varning per landsdel: "skogen i norr är tjock av vargar". Inga positioner. | Billigare och grövre. Pekar ut en riktning, inte en ruta. |
+| **Vägvisaren** | Avslöjar vakten vid exakt ett vadställe. | Ett vadställe av tre. Valet av vilket är hela köpet. |
+
+Örnen flyger **före** ritandet, inte under färden. Köpt till körningen vore den bara en avslöjningsbuff; köpt till planeringen är den information som blir ett beslut.
+
+Regeln som håller dem ärliga: köpt information får minska *överraskningen*, inte ta bort *beslutet*. Örnen visar var något står — aldrig hur starkt det är. Blir spaning billig nog att köpas varje bana är dimman borta, och terrängläsningen som §3.4 och §3.5 bygger upp slutar spela roll.
 
 ---
 
@@ -196,7 +220,7 @@ Det här är tilläggets viktigaste konsekvens:
 
 **Den farliga rutten betalar.** Fler fiender betyder mer silver, vilket betyder starkare trupper när det verkligen gäller. Den säkra rutten tar dig fram med intakta vagnar men med en outvecklad armé. Ekonomin förstärker alltså den avvägning som redan fanns i vägritningen i stället för att konkurrera med den — och den fasta budgeten före bana får ett rörligt motstycke under bana.
 
-Konsekvens för generatorn: **silverbudgeten per korridor måste valideras**, inte bara fiendebudgeten. En säker rutt som ger så lite silver att slutstriden blir omöjlig är en trasig bana. Se `content-pipeline.md` §3.
+Konsekvens för generatorn: **silverbudgeten per rutt måste valideras**, inte bara fiendebudgeten. En försiktig linje som ger så lite silver att slutstriden blir omöjlig är en trasig bana. Eftersom rutten är spelarens mäts det mot ett urval av rutter en spelare kan tänkas rita, inte mot tre korridorer. Se `content-pipeline.md` §3.
 
 ### 6.3 Gränssnittet
 

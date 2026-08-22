@@ -56,7 +56,7 @@ Placeras i motsatta kantband (3 tiles breda), minst `MinRouteTiles` isär mätt 
 **3. Vägnät**
 En huvudväg dras mellan start och mål och genar delvis. Den är den snabba rutten — och därför den farliga.
 
-**4. Ruttkorridorer**
+**4. Ruttkorridorer** *(kvalitetsgrind, visas aldrig)*
 Generatorn identifierar **minst tre distinkt olika rutter** från start till mål och verifierar att de skiljer sig meningsfullt i tid och risk:
 
 - en **snabb** (kort, mycket väg/slätt, hög bakhållsvikt)
@@ -65,17 +65,26 @@ Generatorn identifierar **minst tre distinkt olika rutter** från start till må
 
 Klarar en bana inte detta test förkastas den och seedet inkrementeras. **Det här steget är kvalitetsgrinden.** Utan det producerar generatorn banor där vägvalet inte spelar någon roll — och då finns inget spel kvar, bara en armévalsskärm.
 
-**5. Fiendeplacering** *(implementerad)*
-`enemyBudget` fördelas över korridorerna i **omvänd proportion mot restid**. Snabb rutt får flest fiender, långsam rutt får färre:
+Korridorerna är sedan vägritningen infördes (`GDD.md` §3.3) enbart mätinstrument: de bevisar att kartan *erbjuder* olika korsningar, och den snabbaste sätter partiden. Spelaren får aldrig se dem — hen ritar sin egen linje.
+
+**5. Fiendeplacering** *(implementerad, omgjord för fritt vägval)*
+
+Regeln var förut *per korridor*: budgeten fördelades i omvänd proportion mot restid, så den snabba rutten fick flest fiender. Den regeln föll när spelaren fick rita själv — en linje dragen mellan korridorerna mötte ingenting alls. Samma affär gäller fortfarande, uttryckt **per ruta**:
 
 ```
-korridorAndel = (1 / restid) / Σ(1 / restid)
-fiendepoäng   = enemyBudget × korridorAndel
+bandet     = { ruta : avstånd(start) + avstånd(mål) ≤ snabbaste × 1,6 }
+vikt(ruta) = terrängens fart × bakhållsvikt
 ```
 
-Inom en korridor placeras grupperna på rutor viktade efter terrängens bakhållsvikt, med minst fem rutors mellanrum så att striderna kommer en i taget, och med de sex första och sista rutorna fredade.
+Snabb mark bär mest hot, kärret minst. Bandet räknas ut med två Dijkstra-svep, ett från start och ett från mål, så placeringen resonerar om varje möjlig korsning i stället för om tre.
 
-Uppmätt över 30 banor: **den snabba rutten är farligare i 30 fall av 30**, med 0,22 hotpoäng per ruta mot den långa ruttens 0,08.
+Att spelaren *alltid möter något* kommer inte ur vikterna utan ur tre andra saker:
+
+- **Vadställena bevakas.** Floden går tvärs färdriktningen och kan bara korsas vid sina vadställen, så en grupp på vart och ett är en strid ingen ritad linje går runt.
+- **Varje grupp bevakar ett revir** — halva avståndet till närmaste granne, 6–13 rutor. Tolv grupper kan inte täcka femtio rutors bredd stående på tolv rutor; med revir mellan sig kan de. Se `GDD.md` §3.4.
+- **Placeraren kontrollerar sitt eget arbete.** Den samplar 32 rutter en spelare kan tänkas rita och *flyttar* — aldrig lägger till — en grupp till varje rutt som mötte för lite. Att lägga till var första försöket och sprängde budgettaket: kapitel 1 kom ut 13–71 % över, vilket är precis det taket som §5 nedan säger inte får spränga.
+
+Uppmätt över kapitel 1 mot fyrtio rutter placeraren aldrig sett: **ingen rutt mötte färre än tre grupper**, snittet låg på fem till sex, och varje bana höll sig inom budgeten.
 
 **Balansgränsen som inte var uppenbar.** `enemyBudget` fungerar bara inom ett band, och båda ändarna slår sönder designen:
 
@@ -90,9 +99,11 @@ Uppmätt över 30 banor: **den snabba rutten är farligare i 30 fall av 30**, me
 Konsekvensen för progressionen: **senare kapitel kan inte bli svårare genom fler fiender.** Bortom ungefär 140 poäng måste svårigheten komma från tåligare fiendetyper, inte från fler av samma.
 
 **6. Fällplacering**
-`trapDensity × TerrainTypeDef.trapDensity` per tile. Kärr blir automatiskt fällrikt, slätt nästan fritt. Fällpoäng dras av från korridorens fiendepoäng — en fällrik sträcka får färre fiender, precis som avsett.
+Fällor tar **en andel av budgeten** (25 % × receptets `trapDensity`) och placeras på bandets rutor viktade med `TerrainTypeDef.trapDensity`. Kärr blir automatiskt fällrikt, slätt nästan fritt, och poängen dras från samma budget som fienderna — en fällrik trakt får färre bakhåll, precis som avsett.
 
-**6b. Silverbudget per korridor**
+Andelen ersatte en sannolikhet per ruta. Den var satt för en korridor på sjuttio rutor, och bandet är tre tusen: oförändrad lade den trettiofem fällor och lämnade fienderna utan poäng. Banan blev ett minfält med fyra vakter i.
+
+**6b. Silverbudget per rutt**
 Eftersom fiender släpper silver som spelaren uppgraderar med under banan (`GDD.md` §6) blir fiendefördelningen automatiskt också en fördelning av *spelarens styrka*. Den snabba rutten ger mer silver och därmed en starkare armé mot slutet; den säkra rutten ger mindre. Det är önskvärt — men det måste valideras:
 
 ```

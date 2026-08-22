@@ -21,6 +21,18 @@ namespace Arna.Sim
         public EnemyKind Kind;
         public Vec2 Position;
 
+        /// <summary>
+        /// Metres of country this group watches, from <see cref="EnemySpawn.Territory"/>.
+        /// Zero falls back to the table's detect radius.
+        ///
+        /// A group wakes when the caravan enters its territory rather than when it comes
+        /// within a fixed sixteen metres. That is what lets twelve groups cover a map a
+        /// player may cross anywhere: they hold a stretch of country between them, and
+        /// crossing anyone's stretch is a fight. See EncounterPlacer for why placement
+        /// alone could not make that promise.
+        /// </summary>
+        public float Territory;
+
         /// <summary>The group has noticed the caravan and is attacking.</summary>
         public bool Awake;
 
@@ -80,7 +92,8 @@ namespace Arna.Sim
                 {
                     Tile = spawn.Tile,
                     Kind = spawn.Kind,
-                    Position = Vec2.FromTile(grid, spawn.Tile)
+                    Position = Vec2.FromTile(grid, spawn.Tile),
+                    Territory = spawn.Territory * TileGrid.TileSize
                 });
                 AddToCell(i, _enemies[i].Position);
             }
@@ -157,19 +170,28 @@ namespace Arna.Sim
             }
         }
 
+        /// <summary>Range at which a group notices the caravan: its territory, or the table's.</summary>
+        public static float WakeRadius(TrackedEnemy enemy)
+        {
+            float table = EnemyTable.DetectRadius(enemy.Kind);
+            return enemy.Territory > table ? enemy.Territory : table;
+        }
+
         void WakeAroundCaravan(Vec2 caravanPosition)
         {
-            // The largest detect radius in the table bounds how far we need to look.
+            // The widest wake radius on the map bounds how far we need to look. It is a
+            // property of the placed groups now rather than of the table, because a
+            // group's territory can reach further than its eyes.
             float widest = 0f;
-            foreach (var kind in EnemyTable.All)
-                if (EnemyTable.DetectRadius(kind) > widest) widest = EnemyTable.DetectRadius(kind);
+            foreach (var enemy in _enemies)
+                if (WakeRadius(enemy) > widest) widest = WakeRadius(enemy);
 
             foreach (int index in Query(caravanPosition, widest))
             {
                 var enemy = _enemies[index];
                 if (enemy.Awake) continue;
 
-                float radius = EnemyTable.DetectRadius(enemy.Kind);
+                float radius = WakeRadius(enemy);
                 if (Vec2.DistanceSquared(caravanPosition, enemy.Position) > radius * radius) continue;
 
                 enemy.Awake = true;

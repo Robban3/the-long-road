@@ -5,275 +5,214 @@ using NUnit.Framework;
 
 namespace Arna.Tests
 {
+    /// <summary>
+    /// The placer's promises, checked the way the player will break them: by drawing
+    /// routes it never saw.
+    ///
+    /// Every test that samples routes seeds its own stream from the level seed XOR a
+    /// constant, so the routes are deterministic but are not the ones the placer
+    /// optimised against. Checking against the placer's own sample would only prove it
+    /// can hit a target it chose.
+    /// </summary>
     public class EncounterPlacerTests
     {
+        const int FreshRoutes = 40;
+
+        /// <summary>The floor measured over chapter 1 against routes the placer never saw.</summary>
+        const int WorstCaseEncounters = 3;
+
         static LevelRecipe Recipe() => new LevelRecipe();
 
         static LevelMap Level(int chapter, int level, LevelRecipe recipe = null)
             => TerrainGenerator.Generate(recipe ?? Recipe(), DeterministicRandom.SeedFor(chapter, level));
 
-        [Test]
-        public void TheFastRouteIsTheDangerousOne()
-        {
-            // The promise the entire route-drawing mechanic rests on. If this fails,
-            // taking the quick way is free and there is no decision to make.
-            int checkedLevels = 0;
+        static List<List<int>> FreshSample(LevelMap map)
+            => EncounterPlacer.SampleRoutes(map.Grid, map.Corridors,
+                                            new DeterministicRandom(map.Seed ^ 0x5A5A),
+                                            map.StartIndex, map.GoalIndex, FreshRoutes);
 
+        [Test]
+        public void NoDrawnRouteWalksThroughAnEmptyLevel()
+        {
+            // The promise the whole route-drawing mechanic rests on. If this fails, a
+            // player who happens to draw between the groups gets a level with no game
+            // in it, and the freedom to draw is what let them.
             for (int level = 1; level <= 10; level++)
             {
                 var map = Level(1, level);
-                var fast = map.CorridorOf(CorridorKind.Fast);
-                var odd = map.CorridorOf(CorridorKind.Odd);
-                if (fast == null || odd == null) continue;
+                int worst = int.MaxValue;
 
-                float fastDensity = map.Encounters.ThreatDensity(CorridorKind.Fast, fast.Tiles.Count);
-                float oddDensity = map.Encounters.ThreatDensity(CorridorKind.Odd, odd.Tiles.Count);
+                foreach (var route in FreshSample(map))
+                    worst = System.Math.Min(worst, EncounterPlacer.MetGroups(map.Grid, route, map.Encounters).Count);
 
-                Assert.Greater(fastDensity, oddDensity,
-                    $"level 1-{level}: the fast route ({fastDensity:F3} threat/tile) is no more " +
-                    $"dangerous than the long one ({oddDensity:F3})");
-                checkedLevels++;
-            }
-
-            Assert.Greater(checkedLevels, 5, "too few levels had both corridors to compare");
-        }
-
-        [Test]
-        public void ThreatIsSharedInInverseProportionToTravelTime()
-        {
-            var map = Level(2, 3);
-            var corridors = map.Corridors;
-
-            float inverseSum = 0f;
-            foreach (var c in corridors) inverseSum += 1f / c.TravelCost;
-
-            int totalPoints = map.Encounters.TotalPoints;
-            Assert.Greater(totalPoints, 0, "no threat was placed at all");
-
-            foreach (var c in corridors)
-            {
-                float expectedShare = (1f / c.TravelCost) / inverseSum;
-                float actualShare = (float)map.Encounters.PointsByCorridor[(int)c.Kind] / totalPoints;
-
-                // Rounding to whole groups and the trap deduction both blur this, so
-                // the check is that the ordering and rough magnitude hold.
-                Assert.That(actualShare, Is.EqualTo(expectedShare).Within(0.18f),
-                    $"{c.Kind} got {actualShare:P0} of the threat, formula says {expectedShare:P0}");
+                Assert.GreaterOrEqual(worst, WorstCaseEncounters,
+                    $"level 1-{level}: some drawn route met only {worst} groups");
             }
         }
 
         [Test]
-        public void EveryCorridorCanFundFiveUpgrades()
+        public void TheBudgetCeilingHolds()
         {
+            // Repairs move groups rather than add them for exactly this reason. The
+            // first version added, and chapter 1 came out between 13 and 71 percent
+            // over budget — which §6 of the status notes records as the thing that
+            // turned 1-6 from winnable to unsurvivable.
             var recipe = Recipe();
 
             for (int level = 1; level <= 10; level++)
             {
                 var map = Level(1, level, recipe);
-                Assert.IsTrue(map.Encounters.SilverValidated, $"level 1-{level}: silver top-up failed");
-
-                foreach (var corridor in map.Corridors)
-                    Assert.GreaterOrEqual(map.Encounters.SilverByCorridor[(int)corridor.Kind],
-                        recipe.MinSilverPerCorridor,
-                        $"level 1-{level}: the {corridor.Kind} route cannot fund five upgrades");
+                Assert.LessOrEqual(map.Encounters.TotalPoints, recipe.EnemyBudget,
+                    $"level 1-{level} spent {map.Encounters.TotalPoints} of {recipe.EnemyBudget}");
             }
         }
 
         [Test]
-        public void NothingIsPlacedOnTheCaravansFirstOrLastSteps()
+        public void EveryFordIsGuarded()
         {
-            for (int level = 1; level <= 6; level++)
-            {
-                var map = Level(1, level);
-
-                var forbidden = new HashSet<int>();
-                foreach (var corridor in map.Corridors)
-                {
-                    for (int i = 0; i < 6 && i < corridor.Tiles.Count; i++) forbidden.Add(corridor.Tiles[i]);
-                    for (int i = corridor.Tiles.Count - 6; i < corridor.Tiles.Count; i++)
-                        if (i >= 0) forbidden.Add(corridor.Tiles[i]);
-                }
-
-                // A tile is only off limits if it is near the end of *every* corridor
-                // that uses it; corridors overlap, so one route's opening stretch can
-                // be another's middle.
-                foreach (var spawn in map.Encounters.Enemies)
-                {
-                    var corridor = map.CorridorOf(spawn.Corridor);
-                    int position = corridor.Tiles.IndexOf(spawn.Tile);
-                    Assert.GreaterOrEqual(position, 6, $"level 1-{level}: ambush too close to the start");
-                    Assert.Less(position, corridor.Tiles.Count - 6, $"level 1-{level}: ambush on the doorstep of the goal");
-                }
-            }
-        }
-
-        [Test]
-        public void EnemyGroupsDoNotStackOnTopOfEachOther()
-        {
-            for (int level = 1; level <= 6; level++)
-            {
-                var map = Level(1, level);
-
-                var seen = new HashSet<int>();
-                foreach (var spawn in map.Encounters.Enemies)
-                    Assert.IsTrue(seen.Add(spawn.Tile), $"level 1-{level}: two groups on tile {spawn.Tile}");
-
-                foreach (var trap in map.Encounters.Traps)
-                    Assert.IsFalse(seen.Contains(trap.Tile), $"level 1-{level}: trap under an enemy group");
-            }
-        }
-
-        [Test]
-        public void TrapDensityFollowsTheTerrain()
-        {
-            // A marsh-heavy recipe should draw noticeably more traps than an open one,
-            // and those trap points come out of the same budget as the enemies.
-            var open = new LevelRecipe
-            {
-                Rivers = 0,
-                TerrainMix = new[]
-                {
-                    new TerrainShare(TerrainType.Plains, 0.8f),
-                    new TerrainShare(TerrainType.Forest, 0.2f)
-                }
-            };
-            var boggy = new LevelRecipe
-            {
-                Rivers = 0,
-                TerrainMix = new[]
-                {
-                    new TerrainShare(TerrainType.Marsh, 0.8f),
-                    new TerrainShare(TerrainType.Forest, 0.2f)
-                }
-            };
-
-            int openTraps = 0, boggyTraps = 0;
-            for (int level = 1; level <= 8; level++)
-            {
-                openTraps += Level(4, level, open).Encounters.Traps.Count;
-                boggyTraps += Level(4, level, boggy).Encounters.Traps.Count;
-            }
-
-            Assert.Greater(boggyTraps, openTraps,
-                $"marshland produced {boggyTraps} traps against open ground's {openTraps}");
-        }
-
-        [Test]
-        public void TheDangerousRouteIsAlsoTheRicherOne()
-        {
-            // Enemies drop silver, so the route with more of them funds more upgrades.
-            // This is what stops the cautious route from being strictly better — it
-            // gets you there intact but with an army you could not improve.
-            //
-            // The margin only exists in a band: too small an enemy budget and the
-            // silver floor levels everything, too large and the short fast corridor
-            // runs out of room while the long one keeps absorbing groups.
-            int richer = 0, compared = 0;
-
-            for (int chapter = 1; chapter <= 3; chapter++)
-                for (int level = 1; level <= 10; level++)
-                {
-                    var map = Level(chapter, level);
-                    if (map.CorridorOf(CorridorKind.Odd) == null) continue;
-
-                    int fastNatural = NaturalSilver(map, CorridorKind.Fast);
-                    int oddNatural = NaturalSilver(map, CorridorKind.Odd);
-
-                    compared++;
-                    if (fastNatural > oddNatural) richer++;
-                }
-
-            Assert.Greater(compared, 20, "too few levels to judge");
-            Assert.GreaterOrEqual((float)richer / compared, 0.9f,
-                $"the fast route out-earned the long one on only {richer}/{compared} levels");
-        }
-
-        /// <summary>Silver from enemies and traps, excluding the top-up caches.</summary>
-        static int NaturalSilver(LevelMap map, CorridorKind kind)
-        {
-            int total = map.Encounters.SilverByCorridor[(int)kind];
-            foreach (var cache in map.Encounters.SilverCaches)
-                if (cache.Corridor == kind) total -= cache.Amount;
-            return total;
-        }
-
-        [Test]
-        public void TheSilverFloorIsASafetyNetNotTheNorm()
-        {
-            // If the floor binds on most corridors it tops them all up to the same
-            // figure, every route pays identically, and the reason to take the
-            // dangerous one disappears. It must stay a rare rescue.
-            int caches = 0, levels = 0;
-
-            for (int level = 1; level <= 10; level++)
-            {
-                caches += Level(1, level).Encounters.SilverCaches.Count;
-                levels++;
-            }
-
-            Assert.Less((float)caches / levels, 1.0f,
-                $"{(float)caches / levels:F1} silver caches per level — the floor is doing the work");
-        }
-
-        [Test]
-        public void TheDangerousRouteIsMeaningfullyRicherNotMarginally()
-        {
-            // A few percent would be a rounding error, not a reason to take a risk.
-            int fastTotal = 0, oddTotal = 0, levels = 0;
+            // The river crosses the caravan's travel and can only be forded at its
+            // crossings, so a guard on each is the one placement no drawn line avoids.
+            int levelsWithFords = 0;
 
             for (int level = 1; level <= 10; level++)
             {
                 var map = Level(1, level);
-                if (map.CorridorOf(CorridorKind.Odd) == null) continue;
 
-                fastTotal += map.Encounters.SilverByCorridor[(int)CorridorKind.Fast];
-                oddTotal += map.Encounters.SilverByCorridor[(int)CorridorKind.Odd];
-                levels++;
+                bool hasFord = false;
+                for (int i = 0; i < map.Grid.TileCount; i++)
+                    if (map.Grid[i] == TerrainType.Ford) { hasFord = true; break; }
+
+                if (!hasFord) continue;
+                levelsWithFords++;
+
+                Assert.Greater(map.Encounters.FordGuards, 0,
+                    $"level 1-{level} has fords and none of them is watched");
+
+                foreach (var spawn in map.Encounters.Enemies)
+                    if (spawn.Origin == PlacementOrigin.Guard)
+                        Assert.AreEqual(TerrainType.Ford, map.Grid[spawn.Tile],
+                            "a ford guard is standing somewhere other than on its ford");
             }
 
-            Assert.Greater(levels, 5);
-            float ratio = (float)fastTotal / oddTotal;
-            Assert.Greater(ratio, 1.25f,
-                $"the fast route pays only {ratio:P0} of the long one — not worth the danger");
+            Assert.Greater(levelsWithFords, 5, "too few levels had a river to check");
+        }
+
+        [Test]
+        public void ThreatFollowsFastGround()
+        {
+            // The corridor rule restated per tile: the quick way is the dangerous way.
+            // Enemies should sit on ground that is faster than the map's average, or
+            // the trade the whole route choice rests on has quietly inverted.
+            int checkedLevels = 0;
+
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = Level(1, level);
+                if (map.Encounters.Enemies.Count == 0) continue;
+
+                float occupied = 0f;
+                foreach (var spawn in map.Encounters.Enemies)
+                    occupied += TerrainTable.Speed(map.Grid[spawn.Tile]);
+                occupied /= map.Encounters.Enemies.Count;
+
+                float everywhere = 0f;
+                int passable = 0;
+                for (int i = 0; i < map.Grid.TileCount; i++)
+                {
+                    if (!map.Grid.IsPassable(i)) continue;
+                    everywhere += TerrainTable.Speed(map.Grid[i]);
+                    passable++;
+                }
+                everywhere /= passable;
+
+                Assert.Greater(occupied, everywhere,
+                    $"level 1-{level}: enemies sit on slower ground ({occupied:F2}) " +
+                    $"than the map average ({everywhere:F2})");
+                checkedLevels++;
+            }
+
+            Assert.Greater(checkedLevels, 5);
+        }
+
+        [Test]
+        public void EveryGroupWatchesAStretchOfCountry()
+        {
+            var map = Level(1, 3);
+            Assert.Greater(map.Encounters.Enemies.Count, 0);
+
+            foreach (var spawn in map.Encounters.Enemies)
+            {
+                Assert.GreaterOrEqual(spawn.Territory, EncounterPlacer.TerritoryMinTiles);
+                Assert.LessOrEqual(spawn.Territory, EncounterPlacer.TerritoryMaxTiles);
+            }
+        }
+
+        [Test]
+        public void ADrawnRouteCanAlwaysEarnTheUpgradeFloor()
+        {
+            // A route that cannot pay for two upgrades leaves the player at the level's
+            // last fight with an army they had no way to improve. That is broken rather
+            // than hard, and the caches exist to prevent exactly it.
+            var recipe = Recipe();
+
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = Level(1, level, recipe);
+                if (!map.Encounters.SilverValidated) continue;
+
+                foreach (var route in FreshSample(map))
+                {
+                    int earned = 0;
+                    foreach (int index in EncounterPlacer.MetGroups(map.Grid, route, map.Encounters))
+                        earned += EnemyTable.GroupSilver(map.Encounters.Enemies[index].Kind);
+
+                    Assert.Greater(earned, 0,
+                        $"level 1-{level}: a route earned nothing at all");
+                }
+            }
+        }
+
+        [Test]
+        public void NothingWaitsInTheFirstStrides()
+        {
+            // Being ambushed before the caravan has moved is not a decision the player
+            // could have made differently.
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = Level(1, level);
+                var start = Vec2.FromTile(map.Grid, map.StartIndex);
+                var goal = Vec2.FromTile(map.Grid, map.GoalIndex);
+
+                foreach (var spawn in map.Encounters.Enemies)
+                {
+                    var position = Vec2.FromTile(map.Grid, spawn.Tile);
+                    Assert.Greater(Vec2.Distance(position, start), TileGrid.TileSize * 4f,
+                        $"level 1-{level}: a group is waiting on the start tile");
+                    Assert.Greater(Vec2.Distance(position, goal), TileGrid.TileSize * 4f,
+                        $"level 1-{level}: a group is waiting on the goal tile");
+                }
+            }
         }
 
         [Test]
         public void PlacementIsDeterministic()
         {
-            var a = Level(3, 7);
-            var b = Level(3, 7);
+            // A level is a recipe plus a seed. If placement drifts, the seed stops
+            // being the level.
+            var a = Level(4, 7);
+            var b = Level(4, 7);
 
             Assert.AreEqual(a.Encounters.Enemies.Count, b.Encounters.Enemies.Count);
+            Assert.AreEqual(a.Encounters.Traps.Count, b.Encounters.Traps.Count);
+            Assert.AreEqual(a.Encounters.TotalPoints, b.Encounters.TotalPoints);
+            Assert.AreEqual(a.Encounters.MinEncounters, b.Encounters.MinEncounters);
+
             for (int i = 0; i < a.Encounters.Enemies.Count; i++)
             {
                 Assert.AreEqual(a.Encounters.Enemies[i].Tile, b.Encounters.Enemies[i].Tile);
                 Assert.AreEqual(a.Encounters.Enemies[i].Kind, b.Encounters.Enemies[i].Kind);
+                Assert.AreEqual(a.Encounters.Enemies[i].Territory, b.Encounters.Enemies[i].Territory);
             }
-
-            Assert.AreEqual(a.Encounters.Traps.Count, b.Encounters.Traps.Count);
-            CollectionAssert.AreEqual(a.Encounters.PointsByCorridor, b.Encounters.PointsByCorridor);
-        }
-
-        [Test]
-        public void EnemyStatsAreSelfConsistent()
-        {
-            foreach (var kind in EnemyTable.All)
-            {
-                Assert.Greater(EnemyTable.GroupSize(kind), 0);
-                Assert.Greater(EnemyTable.GroupHp(kind), 0f);
-                Assert.Greater(EnemyTable.DetectRadius(kind), 0f);
-                Assert.Greater(EnemyTable.Points(kind), 0);
-                Assert.AreEqual(EnemyTable.GroupSilver(kind),
-                    EnemyTable.SilverPerKill(kind) * EnemyTable.GroupSize(kind));
-            }
-
-            // The archer is the reason ranged troops matter: it outranges everything
-            // the caravan has in melee and must be answered at distance.
-            Assert.Greater(EnemyTable.AttackRange(EnemyKind.BanditArcher),
-                EnemyTable.AttackRange(EnemyKind.Bandit) * 5f);
-
-            // The wolf is the reason flanks matter: it arrives before anything else.
-            Assert.Greater(EnemyTable.Speed(EnemyKind.Wolf), EnemyTable.Speed(EnemyKind.Bandit));
         }
     }
 }

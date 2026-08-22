@@ -4,16 +4,19 @@ Working notes, kept current so that picking the work up on another machine does 
 mean rediscovering what was already settled. The design documents next to this one
 say what the game is meant to be; this one says what it currently is.
 
-Last updated when the four asset packs were settled and the swap planned; §8 holds
-it. The landscape pass on chapter 1 is what came before.
+Last updated when route drawing replaced the three-corridor choice and threat moved
+onto the whole crossable band. The four-pack asset swap in §8 is planned but not yet
+done; the landscape pass on chapter 1 came before both.
 
 ---
 
 ## 1. State in one paragraph
 
-The simulation is complete and tested: terrain generation, three-corridor route
-choice, caravan movement, detection, traps, combat, silver and upgrades, all
-deterministic from a seed and all covered by 147 tests. The presentation has just
+The simulation is complete and tested: terrain generation, route drawing, caravan
+movement, detection, traps, combat, silver and upgrades, all deterministic from a seed
+and all covered by tests. The route is the player's now — they draw it through the
+country rather than picking one of three the generator drew, and threat is placed
+across the whole crossable band to suit. The presentation has just
 been through a full pass — the ground is lit and textured, the scenery is textured,
 and the planning map is a top-down render of the real world rather than a grid of
 coloured squares. What is missing is everything between levels: no camp, no shop,
@@ -77,14 +80,23 @@ gives them. The country is right, the dressing is a sketch. See
 ## 3. What works
 
 - Deterministic generation: seed 1005 is level 1-5 on every machine, every time.
-- Three corridors per level with a validated difference between them.
+- Three corridors per level with a validated difference between them — used as the
+  generator's quality gate and for par time, never shown to the player.
+- Threat placed across the whole crossable band, with a guard on every ford and a
+  territory around every group, then verified against sampled routes. Measured over
+  chapter 1 against forty routes the placer never saw: no route met fewer than three
+  groups, the average was five to six, and every level stayed inside its budget.
+- Route drawing in the simulation: `RoutePlanner` stitches up to six waypoints into one
+  caravan route with terrain-weighted A* per leg, and reports travel cost, terrain
+  shares and which leg is impassable.
 - The full run loop: movement, terrain speed, detection, traps, combat, silver.
 - Ground: lit, shadowed, textured at two tiling scales, colours blended across
   tile corners so the world is continuous rather than tiled.
 - Scenery: textured trees, grass, ferns, rocks; stones along every waterline;
   landmarks placed where they would stand rather than scattered.
-- Planning map: a top-down orthographic render of the real level, with the three
-  corridors drawn over it as ribbons.
+- Planning map: a top-down orthographic render of the real level. It still draws the
+  three corridors as ribbons, which is now wrong — §5 step 1 replaces them with the one
+  route the player draws.
 - Weapons fitted to the right hand on every troop and enemy that needed one.
 
 ---
@@ -97,8 +109,11 @@ speed-against-safety trade-off is missing a pole, and houses and fields are plac
 on and beside roads, so neither has ever appeared on a map. See §6 for why the
 obvious fix does not work on its own.
 
-**Corridor overlap runs high.** Level 1-5 shares 59% of its tiles between the three
-routes. The whole level rests on the routes being meaningfully different.
+**Corridor overlap runs high — and now means something else.** Level 1-5 shares 59 %
+of its tiles between its three corridors. The corridors are no longer shown to anyone,
+so this is not a broken level any more; it is a map that affords fewer distinct
+crossings than it should, which is what the quality gate is measuring. Worth keeping an
+eye on, no longer worth blocking on.
 
 **The wagons are bought, not built.** A wagon pack settles this — see §8 — and the
 hand-built ones are gone with the scripts that made them. `Assets/_Project/Models`
@@ -119,18 +134,28 @@ in §8 is meant to end.
 
 ## 5. What to do next, in order
 
-1. **Swap the asset packs**, and measure before wiring — see §8. It settles the
+1. **The planning screen.** Everything under it is built: `RoutePlanner` solves the
+   route, `RouteResult` carries the readout, and placement no longer assumes corridors.
+   What is missing is the screen — tap to place a waypoint, one ribbon instead of three,
+   travel time and terrain shares, markers on the fords, and a start button locked until
+   the route is valid. Until it exists the game's central decision is implemented and
+   unreachable.
+2. **Swap the asset packs**, and measure before wiring — see §8. It settles the
    untextured landforms, the missing buildings and the character roster in one move,
    and it decides what is left of the wagon problem.
-2. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
+3. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
    heavier cart for war, a box or merchant wagon for treasure — and retire
    `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
-3. **The enemy budget, then roads.** Roads cannot land until the budget is fixed;
-   see §6.
-4. **The planning map's frame** — border, compass, title. Cheap, and it is much of
+4. **Roads.** The budget objection is settled: threat is spread over a band by how fast
+   the ground is, so a road makes its own tiles more dangerous instead of concentrating
+   a corridor's whole share onto a shorter line. Lay them and re-measure.
+5. **The planning map's frame** — border, compass, title. Cheap, and it is much of
    what makes a picture read as a map.
-5. **The camp between levels**, so silver and upgrades have somewhere to happen.
-6. **Android and iOS build support**, and a build on a real device. The frame rate
+6. **Bought scouting** — the eagle in GDD §3.6. It is a moving `Watcher` over the
+   planning map and perhaps thirty lines, and it is the second decision that feeds the
+   first: where to look before you draw.
+7. **The camp between levels**, so silver and upgrades have somewhere to happen.
+8. **Android and iOS build support**, and a build on a real device. The frame rate
    target has never been measured on hardware.
 
 ---
@@ -143,7 +168,13 @@ given more enemies. Anything that makes a route faster therefore makes it
 disproportionately deadlier. Laying roads was tried: corridor overlap on 1-5 fell
 from 59% to 42% and the fastest route from 94.4 to 86.6 — both improvements — but
 level 1-6 went from winnable to unsurvivable on all three routes, because the larger
-budget landed on less ground. The budget formula has to be settled first.
+budget landed on less ground.
+
+That objection is now spent. Threat is no longer shared between corridors at all — it
+is spread over the crossable band by how fast each tile is (§5 of
+`content-pipeline.md`), so a road makes its own tiles more dangerous rather than
+concentrating a corridor's whole share onto a shorter line. Roads are a scenery and
+balance job again, not a blocked one.
 
 **The packs disagree about which way is up.** The RTS scenery is Z-up and miniature
 — a whole tree is 0.72 × 0.45 × 0.93. The stylized nature pack and the medieval

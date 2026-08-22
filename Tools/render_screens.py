@@ -1014,12 +1014,12 @@ def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
         build_figure(mesh, position, ground(position), TROOP_TABARD, TROOP_STEEL,
                      1.85, facing)
 
-    # Everything the generator put on this corridor, drawn where it stands. The game
-    # reveals enemies only once detection finds them; this is the level, not a frame of
-    # a run, so what is here is what is there.
+    # Everything the generator put near this route, drawn where it stands. Groups are
+    # placed across the whole crossable band now rather than along three corridors, so
+    # the filter is distance from the caravan rather than which corridor they belong to.
+    # The game reveals them only once detection finds them; this is the level, not a
+    # frame of a run, so what is here is what is there.
     for spawn in level.encounters.enemies:
-        if spawn.corridor != corridor.kind:
-            continue
         position = A.tile_centre(grid, spawn.tile)
         if math.dist(position, lead) > 220:
             continue
@@ -1030,9 +1030,9 @@ def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
                          1.8, facing + 180)
 
     for cache in level.encounters.caches:
-        if cache.corridor != corridor.kind:
-            continue
         position = A.tile_centre(grid, cache.tile)
+        if math.dist(position, lead) > 220:
+            continue
         _add(mesh, BOX, CACHE_GOLD, (1.4, 1.0, 1.0), facing,
              np.array([position[0], ground(position), position[1]]))
 

@@ -608,158 +608,427 @@ TRAP_POINTS = [2, 3]
 TRAP_DISARM_SILVER = [8, 8]
 
 SAFE_END_TILES = 6
-GROUP_SPACING = 5
 BASE_TRAP_CHANCE = 0.035
+
+# --- Placement over the whole band -------------------------------------------------
+#
+# The player draws the route now, so threat can no longer live on three corridors. It
+# lives on every tile a sane crossing could use, and these are the numbers that decide
+# which tiles those are and how thickly they are covered.
+
+# How far past the fastest crossing a detour may run before it stops being a route
+# anyone would draw. 1.6 keeps the whole width of a 64-tile map in play without
+# spending the budget in the corners.
+BAND_SLACK = 1.6
+
+# Travel cost kept clear at either end, so nothing is waiting in the first strides.
+SAFE_END_COST = 8.0
+
+GROUP_SPACING_TILES = 5.0
+TRAP_SPACING_TILES = 3.0
+
+# How close a group has to be to the drawn line to wake and reach the caravan. The
+# widest detect radius in EnemyTable is 22 m, which is five and a half tiles; four is
+# the distance at which it will certainly close.
+ENGAGE_RADIUS_TILES = 4.0
+
+# The promise: no drawn route meets fewer than this many groups.
+MIN_ENCOUNTERS = 5
+
+# A group watches the country around it out to half the distance to its nearest
+# neighbour, clamped. Placement alone cannot keep this promise: four encounters along
+# a freely drawn line across a sixty-four tile map would need about twenty-eight
+# groups to seal the band, and the budget buys twelve. Territory is what closes that
+# gap without doubling the enemy count — a band of raiders watches a stretch of road
+# rather than standing on one tile of it.
+TERRITORY_MIN = 6.0
+TERRITORY_MAX = 13.0
+
+# Share of the threat budget spent on traps rather than on enemies, before the
+# recipe's own trap density scales it. Traps are the other half of the route
+# trade-off, not a tax on top of it.
+TRAP_BUDGET_SHARE = 0.25
+
+SAMPLE_ROUTES = 32
+MAX_REPAIRS = 12
+
+# Why a thing is where it is. Diagnostics only, but the distinction is the design:
+# a guard is a promise, a scattered group is a probability, a repair is the placer
+# admitting the probability was not enough.
+GUARD, SCATTERED, REPAIR = 0, 1, 2
+ORIGIN_NAMES = ["Guard", "Scattered", "Repair"]
 
 
 @dataclass
 class EnemySpawn:
     tile: int
     kind: int
-    corridor: int
+    origin: int
+
+    # Tiles of country this group watches. Cross it and they come for you — which is
+    # how twelve groups cover a map fifty tiles wide without standing shoulder to
+    # shoulder across it. See TERRITORY_MIN/MAX and docs/GDD.md §7.
+    territory: float = 0.0
 
 
 @dataclass
 class TrapPlacement:
     tile: int
     kind: int
-    corridor: int
+    origin: int
 
 
 @dataclass
 class SilverCache:
     tile: int
     amount: int
-    corridor: int
+    origin: int
 
 
 @dataclass
 class EncounterLayout:
+    """Everything hostile or valuable on a level, and what the placer proved about it."""
+
     enemies: List[EnemySpawn] = field(default_factory=list)
     traps: List[TrapPlacement] = field(default_factory=list)
     caches: List[SilverCache] = field(default_factory=list)
-    points_by_corridor: List[int] = field(default_factory=lambda: [0, 0, 0])
-    silver_by_corridor: List[int] = field(default_factory=lambda: [0, 0, 0])
+
+    total_silver: int = 0
     silver_validated: bool = False
+
+    # What the placer measured about its own output. `min_encounters` is the number
+    # the whole design rests on: the fewest groups any sampled route ran into.
+    band_tiles: int = 0
+    ford_guards: int = 0
+    repairs: int = 0
+    sampled_routes: int = 0
+    min_encounters: int = 0
 
     @property
     def total_points(self) -> int:
-        return sum(self.points_by_corridor)
+        points = sum(ENEMY_POINTS[s.kind] for s in self.enemies)
+        return points + sum(TRAP_POINTS[t.kind] for t in self.traps)
+
+
+def _travel_field(grid: TileGrid, x: int, y: int) -> List[float]:
+    """Cheapest travel cost from one tile to every other, over the same eight
+    neighbours and the same costs the pathfinder uses.
+
+    Two of these — one from the start, one from the goal — are what let placement
+    reason about every crossing of the map at once instead of about three of them.
+    """
+    n = grid.tile_count
+    dist = [math.inf] * n
+    passable = [PASSABLE[t] for t in grid.tiles.tolist()]
+    cost = [f32(TRAVEL_COST[t]) for t in grid.tiles.tolist()]
+    width, height = grid.width, grid.height
+
+    source = y * width + x
+    if not passable[source]:
+        return dist
+
+    dist[source] = 0.0
+    heap = _MinHeap()
+    heap.push(source, 0.0)
+    settled = [False] * n
+
+    while heap.count > 0:
+        current = heap.pop()
+        if settled[current]:
+            continue
+        settled[current] = True
+        cy, cx = divmod(current, width)
+        base = dist[current]
+
+        for d in range(8):
+            dx, dy = _DX[d], _DY[d]
+            nx, ny = cx + dx, cy + dy
+            if nx < 0 or ny < 0 or nx >= width or ny >= height:
+                continue
+            neighbour = ny * width + nx
+            if not passable[neighbour]:
+                continue
+            if d >= 4:
+                if not passable[cy * width + cx + dx]:
+                    continue
+                if not passable[(cy + dy) * width + cx]:
+                    continue
+
+            step = cost[neighbour]
+            if d >= 4:
+                step = f32(step * _SQRT2_F)
+            candidate = f32(base + step)
+            if candidate < dist[neighbour]:
+                dist[neighbour] = candidate
+                heap.push(neighbour, candidate)
+
+    return dist
+
+
+@dataclass
+class ThreatBand:
+    """Every tile a sane crossing could pass through, and what it is worth threatening."""
+    tiles: List[int]
+    weight: dict
+    from_start: List[float]
+    from_goal: List[float]
+    fastest: float
+
+
+def build_band(grid: TileGrid, level_start: int, level_goal: int,
+               slack: float = BAND_SLACK) -> Optional[ThreatBand]:
+    """Tiles where the detour past them stays inside `slack` of the fastest crossing.
+
+    Placing outside the band is budget spent where nobody goes; placing evenly inside
+    it is what makes "the player will meet something" a property of the map rather
+    than of luck.
+    """
+    sx, sy = grid.to_coords(level_start)
+    gx, gy = grid.to_coords(level_goal)
+
+    from_start = _travel_field(grid, sx, sy)
+    from_goal = _travel_field(grid, gx, gy)
+
+    fastest = from_start[level_goal]
+    if not math.isfinite(fastest) or fastest <= 0.0:
+        return None
+
+    limit = fastest * slack
+    tiles = []
+    weight = {}
+
+    for i in range(grid.tile_count):
+        total = from_start[i] + from_goal[i]
+        if not math.isfinite(total) or total > limit:
+            continue
+        if from_start[i] < SAFE_END_COST or from_goal[i] < SAFE_END_COST:
+            continue
+
+        terrain = int(grid.tiles[i])
+        speed = SPEED[terrain]
+        if speed <= 0.0:
+            continue
+
+        # Threat follows speed: fast ground carries the most, the fen the least. It is
+        # the corridor rule — the quick way is the dangerous way — restated per tile,
+        # which is the only form of it that survives the player drawing their own line.
+        tiles.append(i)
+        weight[i] = speed * AMBUSH[terrain]
+
+    if not tiles:
+        return None
+    return ThreatBand(tiles, weight, from_start, from_goal, fastest)
+
+
+def _ford_crossings(grid: TileGrid, band: ThreatBand) -> List[List[int]]:
+    """Ford tiles grouped into crossings, one group per place the river can be forded."""
+    in_band = set(band.tiles)
+    fords = [i for i in in_band if int(grid.tiles[i]) == FORD]
+    crossings = []
+    seen = set()
+
+    for tile in sorted(fords):
+        if tile in seen:
+            continue
+        group = []
+        stack = [tile]
+        seen.add(tile)
+        while stack:
+            current = stack.pop()
+            group.append(current)
+            cx, cy = grid.to_coords(current)
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    nx, ny = cx + dx, cy + dy
+                    if not grid.in_bounds(nx, ny):
+                        continue
+                    neighbour = grid.to_index(nx, ny)
+                    if neighbour in seen or neighbour not in in_band:
+                        continue
+                    if int(grid.tiles[neighbour]) != FORD:
+                        continue
+                    seen.add(neighbour)
+                    stack.append(neighbour)
+        crossings.append(sorted(group))
+
+    return crossings
 
 
 def place_encounters(grid: TileGrid, corridors: Sequence[Corridor], recipe: "LevelRecipe",
-                     rng: DeterministicRandom) -> EncounterLayout:
-    """Threat allocated in inverse proportion to travel time: the quick way carries the most."""
+                     rng: DeterministicRandom, level_start: int = -1,
+                     level_goal: int = -1) -> EncounterLayout:
+    """Places threat across the whole crossable band, then proves no route slips past it.
+
+    The old rule spent the budget along the three corridors, in inverse proportion to
+    their travel time. That worked while those three were the only routes on offer. Now
+    the player draws their own line, and a route drawn between the corridors would have
+    met nothing at all.
+
+    So: guard the fords, spread the rest over the band by how fast the ground is, then
+    sample routes and repair whatever they slip through. The guarantee the design needs
+    — you always meet something — comes from the last two steps, not from the dice.
+    """
     layout = EncounterLayout()
-    if not corridors:
+    if level_start < 0 or level_goal < 0 or not corridors:
         return layout
 
+    band = build_band(grid, level_start, level_goal)
+    if band is None:
+        return layout
+
+    layout.band_tiles = len(band.tiles)
     occupied = set()
+    budget = recipe.enemy_budget
 
-    inverse_sum = sum(1.0 / c.travel_cost for c in corridors if c.travel_cost > 0.0)
-    if inverse_sum <= 0.0:
-        return layout
+    budget -= _guard_the_fords(grid, band, recipe, rng, layout, occupied, budget)
+    budget -= _scatter_traps(grid, band, recipe, rng, layout, occupied, budget)
+    _scatter_enemies(grid, band, recipe, rng, layout, occupied, budget)
 
-    for corridor in corridors:
-        if corridor.travel_cost <= 0.0:
-            continue
-
-        share = (1.0 / corridor.travel_cost) / inverse_sum
-        points = _round_half_even(recipe.enemy_budget * share)
-
-        points -= _place_traps(grid, corridor, recipe, rng, layout, occupied, points)
-        _place_enemies(grid, corridor, recipe, rng, layout, occupied, points)
-
+    _assign_territories(grid, layout)
     _tally_silver(layout, recipe)
-    _top_up_silver(corridors, recipe, layout, occupied)
+    _verify_and_repair(grid, band, corridors, recipe, rng, layout, occupied,
+                       level_start, level_goal)
     return layout
+
+
+def _assign_territories(grid: TileGrid, layout: EncounterLayout) -> None:
+    """Half the distance to the nearest other group, clamped.
+
+    Halved so two neighbouring territories meet rather than overlap, and clamped so a
+    group alone in a corner does not end up watching a quarter of the map.
+    """
+    tiles = [spawn.tile for spawn in layout.enemies]
+
+    for index, spawn in enumerate(layout.enemies):
+        x, y = grid.to_coords(spawn.tile)
+        nearest = math.inf
+
+        for other in range(len(tiles)):
+            if other == index:
+                continue
+            ox, oy = grid.to_coords(tiles[other])
+            nearest = min(nearest, math.hypot(ox - x, oy - y))
+
+        radius = TERRITORY_MAX if not math.isfinite(nearest) else nearest * 0.5
+        spawn.territory = min(max(radius, TERRITORY_MIN), TERRITORY_MAX)
 
 
 def _round_half_even(value: float) -> int:
     return int(np.round(np.float32(value)))
 
 
-def _place_traps(grid, corridor, recipe, rng, layout, occupied, available_points) -> int:
-    spent = 0
-    tiles = corridor.tiles
+def _spaced_enough(tile: int, grid: TileGrid, occupied, spacing: float) -> bool:
+    """Groups arrive one at a time, so nothing is placed within a few tiles of another."""
+    x, y = grid.to_coords(tile)
+    limit = spacing * spacing
+    for other in occupied:
+        ox, oy = grid.to_coords(other)
+        if (ox - x) ** 2 + (oy - y) ** 2 < limit:
+            return False
+    return True
 
-    for i in range(SAFE_END_TILES, len(tiles) - SAFE_END_TILES):
-        tile = tiles[i]
+
+def _guard_the_fords(grid, band, recipe, rng, layout, occupied, budget) -> int:
+    """A group on every ford in the band.
+
+    The river runs across the caravan's travel and can only be crossed at its fords, so
+    a guard on each is the one placement that no drawn route can avoid. Everything else
+    in this file is a probability; this is the floor.
+    """
+    spent = 0
+
+    for crossing in _ford_crossings(grid, band):
+        if spent >= budget:
+            break
+
+        # The middle of the crossing, so the guard sits on the ford rather than at the
+        # water's edge where a route can slip around it.
+        tile = crossing[len(crossing) // 2]
         if tile in occupied:
             continue
 
-        chance = BASE_TRAP_CHANCE * recipe.trap_density * TRAP_DENSITY[grid.tiles[tile]]
-        if not rng.chance(chance):
+        kind = _pick_affordable(recipe.enemy_pool, rng, budget - spent)
+        if kind is None:
+            break
+
+        layout.enemies.append(EnemySpawn(tile, kind, GUARD))
+        occupied.add(tile)
+        spent += ENEMY_POINTS[kind]
+        layout.ford_guards += 1
+
+    return spent
+
+
+def _scatter_traps(grid, band, recipe, rng, layout, occupied, budget) -> int:
+    """Traps over the band, thickest where the ground hides them: the marsh.
+
+    Traps take a share of the budget rather than a per-tile chance. The chance was
+    written for a corridor of seventy tiles and the band is three thousand, so carried
+    over unchanged it laid thirty-five traps and left the enemies nothing to spend —
+    the level became a minefield with four guards in it.
+    """
+    allowance = int(budget * TRAP_BUDGET_SHARE * recipe.trap_density)
+    if allowance <= 0:
+        return 0
+
+    scored = []
+    for tile in sorted(band.tiles):
+        if tile in occupied:
+            continue
+        density = TRAP_DENSITY[int(grid.tiles[tile])]
+        if density <= 0.0:
+            continue
+        scored.append((density * rng.range_float(0.5, 1.5), tile))
+    scored.sort(key=lambda entry: entry[0], reverse=True)
+
+    spent = 0
+    for _, tile in scored:
+        if spent >= allowance:
+            break
+        if tile in occupied:
+            continue
+        if not _spaced_enough(tile, grid, occupied, TRAP_SPACING_TILES):
             continue
 
         kind = PIT if rng.chance(0.6) else LOG
         cost = TRAP_POINTS[kind]
-        if spent + cost > available_points:
-            break
+        if spent + cost > allowance:
+            continue
 
-        layout.traps.append(TrapPlacement(tile, kind, corridor.kind))
-        layout.points_by_corridor[corridor.kind] += cost
+        layout.traps.append(TrapPlacement(tile, kind, SCATTERED))
         occupied.add(tile)
         spent += cost
 
     return spent
 
 
-def _place_enemies(grid, corridor, recipe, rng, layout, occupied, points) -> None:
-    if points <= 0:
+def _scatter_enemies(grid, band, recipe, rng, layout, occupied, budget) -> None:
+    """The rest of the budget, over the band, weighted by how fast the ground is."""
+    if budget <= 0:
         return
 
-    candidates = _weighted_candidates(grid, corridor, occupied, rng)
-    budget = points
-    index = 0
-
-    while budget > 0 and index < len(candidates):
-        tile = candidates[index]
-        index += 1
+    scored = []
+    for tile in sorted(band.tiles):
         if tile in occupied:
             continue
-        if _too_close_to_group(corridor, tile, occupied):
+        scored.append((band.weight[tile] * rng.range_float(0.6, 1.4), tile))
+    scored.sort(key=lambda entry: entry[0], reverse=True)
+
+    for _, tile in scored:
+        if budget <= 0:
+            break
+        if tile in occupied:
+            continue
+        if not _spaced_enough(tile, grid, occupied, GROUP_SPACING_TILES):
             continue
 
         kind = _pick_affordable(recipe.enemy_pool, rng, budget)
         if kind is None:
             break
 
-        layout.enemies.append(EnemySpawn(tile, kind, corridor.kind))
-        layout.points_by_corridor[corridor.kind] += ENEMY_POINTS[kind]
+        layout.enemies.append(EnemySpawn(tile, kind, SCATTERED))
         occupied.add(tile)
         budget -= ENEMY_POINTS[kind]
-
-
-def _weighted_candidates(grid, corridor, occupied, rng) -> List[int]:
-    """Corridor tiles ordered by ambush suitability, with a random tiebreak."""
-    tiles = corridor.tiles
-    scored = []
-
-    for i in range(SAFE_END_TILES, len(tiles) - SAFE_END_TILES):
-        tile = tiles[i]
-        if tile in occupied:
-            continue
-        weight = AMBUSH[grid.tiles[tile]] * rng.range_float(0.6, 1.4)
-        scored.append((weight, tile))
-
-    scored.sort(key=lambda entry: entry[0], reverse=True)
-    return [tile for _, tile in scored]
-
-
-def _too_close_to_group(corridor, tile, occupied) -> bool:
-    try:
-        position = corridor.tiles.index(tile)
-    except ValueError:
-        return False
-
-    start = max(0, position - GROUP_SPACING)
-    end = min(len(corridor.tiles) - 1, position + GROUP_SPACING)
-
-    for i in range(start, end + 1):
-        if i != position and corridor.tiles[i] in occupied:
-            return True
-    return False
 
 
 def _pick_affordable(pool, rng, budget) -> Optional[int]:
@@ -772,46 +1041,230 @@ def _pick_affordable(pool, rng, budget) -> Optional[int]:
 
 def _tally_silver(layout: EncounterLayout, recipe: "LevelRecipe") -> None:
     multiplier = recipe.silver_multiplier if recipe.silver_multiplier > 0.0 else 1.0
+    layout.total_silver = 0
 
     for spawn in layout.enemies:
         group_silver = ENEMY_SILVER_PER_KILL[spawn.kind] * ENEMY_GROUP_SIZE[spawn.kind]
-        layout.silver_by_corridor[spawn.corridor] += int(group_silver * multiplier)
+        layout.total_silver += int(group_silver * multiplier)
 
     for trap in layout.traps:
-        layout.silver_by_corridor[trap.corridor] += int(TRAP_DISARM_SILVER[trap.kind] * multiplier)
+        layout.total_silver += int(TRAP_DISARM_SILVER[trap.kind] * multiplier)
+
+    for cache in layout.caches:
+        layout.total_silver += cache.amount
 
 
-def _top_up_silver(corridors, recipe, layout, occupied) -> None:
-    """A corridor below the silver floor gets an abandoned camp, never more enemies."""
+# --- Verification -----------------------------------------------------------------
+
+def sample_routes(grid: TileGrid, band: ThreatBand, corridors: Sequence[Corridor],
+                  rng: DeterministicRandom, level_start: int, level_goal: int,
+                  count: int = SAMPLE_ROUTES) -> List[List[int]]:
+    """Routes a player might actually draw: the three the generator knows, plus
+    crossings through random waypoints in the band.
+
+    This is the stand-in for the player. Everything the placer promises is checked
+    against it, and a promise that only holds for the three corridors is exactly the
+    promise that broke when the player was given a pen.
+    """
+    sx, sy = grid.to_coords(level_start)
+    gx, gy = grid.to_coords(level_goal)
+
+    pathfinder = GridPathfinder(grid)
+    routes = [list(c.tiles) for c in corridors if c.tiles]
+    pool = sorted(band.tiles)
+
+    while len(routes) < count and pool:
+        waypoints = [pool[rng.range_int(0, len(pool))]
+                     for _ in range(1 + rng.range_int(0, 2))]
+
+        tiles: List[int] = []
+        fx, fy = sx, sy
+        broken = False
+
+        for waypoint in waypoints + [level_goal]:
+            wx, wy = grid.to_coords(waypoint)
+            leg, _ = pathfinder.find_path(fx, fy, wx, wy)
+            if leg is None:
+                broken = True
+                break
+            tiles.extend(leg if not tiles else leg[1:])
+            fx, fy = wx, wy
+
+        if not broken and tiles:
+            routes.append(tiles)
+
+    return routes
+
+
+def _met_on_route(grid: TileGrid, route: Sequence[int], tiles: Sequence[int],
+                  radius: float = ENGAGE_RADIUS_TILES,
+                  radii: Optional[Sequence[float]] = None) -> List[int]:
+    """Which of `tiles` a caravan on this route comes close enough to wake.
+
+    `radii` gives each entry its own reach — a group's territory. Without it every
+    entry uses the flat `radius`, which is what traps and caches want.
+    """
+    on_route = set(route)
+    met = []
+
+    for index, tile in enumerate(tiles):
+        tx, ty = grid.to_coords(tile)
+        if tile in on_route:
+            met.append(index)
+            continue
+
+        reach = radius if radii is None else radii[index]
+        limit = reach * reach
+        for step in route:
+            rx, ry = grid.to_coords(step)
+            if (rx - tx) ** 2 + (ry - ty) ** 2 <= limit:
+                met.append(index)
+                break
+
+    return met
+
+
+def met_groups(grid: TileGrid, route: Sequence[int], layout: EncounterLayout) -> List[int]:
+    """Indices of the enemy groups whose territory this route crosses."""
+    return _met_on_route(grid, route, [s.tile for s in layout.enemies],
+                         radii=[s.territory for s in layout.enemies])
+
+
+def _verify_and_repair(grid, band, corridors, recipe, rng, layout, occupied,
+                       level_start, level_goal) -> None:
+    """Samples routes, and moves threat onto whichever one met too little.
+
+    A scattered field says nothing about the worst case, and the worst case is the one
+    that matters: a player who happens to draw between the groups gets a level with no
+    game in it. So the placer measures its own output and repairs it.
+
+    Repairs move a group rather than add one. Adding was the first version and it broke
+    the ceiling the whole difficulty curve rests on — chapter 1 came out between 13 and
+    71 percent over its enemy budget, and §6 of the status notes records what happens
+    when that budget lands on less ground than it was measured for. A group no sampled
+    route ever came near is doing nothing where it stands, so it is the one that moves.
+    """
+    routes = sample_routes(grid, band, corridors, rng, level_start, level_goal)
+    layout.sampled_routes = len(routes)
+    if not routes:
+        return
+
+    for _ in range(MAX_REPAIRS):
+        met_by = [len(met_groups(grid, route, layout)) for route in routes]
+
+        worst = min(range(len(routes)), key=lambda i: met_by[i])
+        layout.min_encounters = met_by[worst]
+        if met_by[worst] >= MIN_ENCOUNTERS:
+            break
+
+        donor = _idlest_group(grid, routes, layout)
+        if donor < 0:
+            break
+
+        target = _emptiest_stretch(grid, routes[worst], band, occupied)
+        if target < 0:
+            break
+
+        occupied.discard(layout.enemies[donor].tile)
+        layout.enemies[donor] = EnemySpawn(target, layout.enemies[donor].kind, REPAIR)
+        occupied.add(target)
+        layout.repairs += 1
+        _assign_territories(grid, layout)
+
+    _tally_silver(layout, recipe)
+    _top_up_silver(grid, routes, recipe, layout, occupied)
+
+
+def _idlest_group(grid, routes, layout) -> int:
+    """The placed group that fewest sampled routes come near. Ford guards never move."""
+    best, fewest = -1, None
+
+    for index, spawn in enumerate(layout.enemies):
+        if spawn.origin == GUARD:
+            continue
+
+        met = 0
+        for route in routes:
+            if _met_on_route(grid, route, [spawn.tile], radii=[spawn.territory]):
+                met += 1
+
+        if fewest is None or met < fewest:
+            fewest = met
+            best = index
+
+    return best
+
+
+def _emptiest_stretch(grid: TileGrid, route: Sequence[int], band: ThreatBand,
+                      occupied) -> int:
+    """The tile on a route that is furthest from anything already placed."""
+    best, best_distance = -1, -1.0
+
+    for tile in route:
+        if tile in occupied or tile not in band.weight:
+            continue
+        if band.from_start[tile] < SAFE_END_COST or band.from_goal[tile] < SAFE_END_COST:
+            continue
+
+        x, y = grid.to_coords(tile)
+        nearest = math.inf
+        for other in occupied:
+            ox, oy = grid.to_coords(other)
+            nearest = min(nearest, (ox - x) ** 2 + (oy - y) ** 2)
+
+        if nearest > best_distance:
+            best_distance = nearest
+            best = tile
+
+    return best
+
+
+def _top_up_silver(grid, routes, recipe, layout, occupied) -> None:
+    """A cache wherever a sampled route could not earn the floor.
+
+    Same reasoning as the old per-corridor top-up: a route that cannot pay for two
+    upgrades leaves the player at the level's last fight with an army they had no way
+    to improve, which is broken rather than hard. Only the unit of measurement changed,
+    from the corridor to the route the player might draw.
+    """
     layout.silver_validated = True
+    multiplier = recipe.silver_multiplier if recipe.silver_multiplier > 0.0 else 1.0
 
-    for corridor in corridors:
-        index = corridor.kind
-        shortfall = recipe.min_silver_per_corridor - layout.silver_by_corridor[index]
+    for route in routes:
+        earned = 0
+        for index in met_groups(grid, route, layout):
+            spawn = layout.enemies[index]
+            earned += int(ENEMY_SILVER_PER_KILL[spawn.kind] * ENEMY_GROUP_SIZE[spawn.kind]
+                          * multiplier)
+        for index in _met_on_route(grid, route, [t.tile for t in layout.traps]):
+            earned += int(TRAP_DISARM_SILVER[layout.traps[index].kind] * multiplier)
+        for index in _met_on_route(grid, route, [c.tile for c in layout.caches]):
+            earned += layout.caches[index].amount
+
+        shortfall = recipe.min_silver_per_corridor - earned
         if shortfall <= 0:
             continue
 
-        tile = _find_free_tile(corridor, occupied)
+        tile = _free_tile_on(route, occupied)
         if tile < 0:
             layout.silver_validated = False
             continue
 
-        layout.caches.append(SilverCache(tile, shortfall, corridor.kind))
-        layout.silver_by_corridor[index] += shortfall
+        layout.caches.append(SilverCache(tile, shortfall, SCATTERED))
         occupied.add(tile)
 
+    _tally_silver(layout, recipe)
 
-def _find_free_tile(corridor, occupied) -> int:
-    tiles = corridor.tiles
-    middle = len(tiles) // 2
 
-    for offset in range(len(tiles)):
+def _free_tile_on(route: Sequence[int], occupied) -> int:
+    middle = len(route) // 2
+    for offset in range(len(route)):
         for direction in (1, -1):
             i = middle + offset * direction
-            if i < SAFE_END_TILES or i >= len(tiles) - SAFE_END_TILES:
+            if i < SAFE_END_TILES or i >= len(route) - SAFE_END_TILES:
                 continue
-            if tiles[i] not in occupied:
-                return tiles[i]
+            if route[i] not in occupied:
+                return route[i]
     return -1
 
 
@@ -949,7 +1402,8 @@ def generate(recipe: LevelRecipe, seed: int) -> LevelMap:
             continue
 
         valid = is_meaningful_choice(corridors)
-        encounters = place_encounters(grid, corridors, recipe, rng)
+        encounters = place_encounters(grid, corridors, recipe, rng,
+                                      grid.to_index(sx, sy), grid.to_index(gx, gy))
 
         level = LevelMap(grid, seed, sx, sy, gx, gy, corridors[0].travel_cost,
                          corridors, valid, attempt + 1, encounters)
