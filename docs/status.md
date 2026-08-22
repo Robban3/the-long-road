@@ -285,6 +285,24 @@ least as well — a farm cart left in a field reads as abandoned. Import, put it
 `LevelPreview.RuinSites`, look at it on a map, and only then delete the folder. If it
 does not read, keep the village pack and drop this paragraph.
 
+**`Assets/Quaternius/Animals` stays, and is not up for review.** "Everything under
+Assets/Quaternius" would have taken the wolf with it, and `Wolf.fbx` is the only enemy
+on level 1-1 — the unlock table holds bandits back to 1-2 and archers to 1-4, so
+deleting it leaves the first level of the game with nothing in it. `Horse.fbx` is the
+cavalry mount on the same footing. Both are CC0, both already have animator controllers
+matched to their filenames, and the army pack is a pack of soldiers: it will bring
+horses and it will not bring wolves. The other ten animals in the folder are unused and
+cost nothing to keep.
+
+**Crows do not exist anywhere yet.** GDD §3.5 wants circling crows as the strongest of
+the soft signals — an enemy group within twenty tiles, twenty percent false positives —
+and route drawing makes that signal considerably more important, because it is read
+before the line is drawn rather than during the run. Nothing in any of the four packs is
+a crow. It should not be a model either: the planning map looks straight down from
+seventy metres, where a bird is three pixels. Three dark shapes circling is perhaps
+thirty lines of marker, reads instantly at that distance, and is the better answer than
+an anatomically correct crow would be.
+
 The cart matters more than its size suggests. `RuinSites` places it near a trap field
 and never on one, which is the soft signal the design asks for in GDD §2 — ground where
 a caravan came to grief before. It is the only thing in the game that warns the player
@@ -337,7 +355,10 @@ Everything else in §6 survives — the widest-axis rule, `SurfaceElevation`, th
 equator, synchronous shader compilation in headless captures — because none of it is
 about a particular pack.
 
-**What it does not solve.** Roads and the enemy budget are untouched; no pack lays a
+**What it does not solve.** The bestiary. Wolves come from the CC0 animal folder that
+stays, and anything beyond wolves, bandits and archers needs a source — Synty's SIMPLE
+Forest Animals is the cheap one, with the caveat that SIMPLE is a flatter art line than
+POLYGON and carries no birds at all. Roads and the enemy budget are untouched; no pack lays a
 road — though Knights brings modular cobble and stone path pieces, so the art will be
 waiting when the budget question is finally settled. The camp, the shop and the UI are
 untouched, and so are the phone builds.
