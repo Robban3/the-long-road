@@ -4,7 +4,7 @@ Working notes, kept current so that picking the work up on another machine does 
 mean rediscovering what was already settled. The design documents next to this one
 say what the game is meant to be; this one says what it currently is.
 
-Last updated when the three asset packs were settled and the swap planned; §8 holds
+Last updated when the four asset packs were settled and the swap planned; §8 holds
 it. The landscape pass on chapter 1 is what came before.
 
 ---
@@ -100,23 +100,11 @@ obvious fix does not work on its own.
 **Corridor overlap runs high.** Level 1-5 shares 59% of its tiles between the three
 routes. The whole level rests on the routes being meaningfully different.
 
-**The wagons are poor — and most of it was one line.** `box()` in both wagon scripts
-set `obj.scale` to half the requested size, because the base cube it scales is already
-one metre on a side. Every board, plank and beam therefore came out at half its stated
-dimension while the wheels, built from radii, stayed correct: a full-sized wheel
-against a half-sized body, which is exactly what "hand-built and they look it" was
-describing. Fixed, with the proportions retuned around it, and the treasure wagon's
-placeholder green replaced by brass over the same timber as the supply wagon, so the
-two read as one caravan.
-
-The scripts are fixed; the models in `Assets/_Project/Models` are not. They are
-exported FBX and have to be rebuilt on a machine with Blender:
-
-    blender --background --python Tools/wagon.py -- --out Assets/_Project/Models/Wagon.fbx
-    blender --background --python Tools/treasure_wagon.py -- --out Assets/_Project/Models/WagonTreasure.fbx
-
-Whether a bought cart still beats a built one is worth re-judging after that, not
-before: the comparison everyone was making was against a wagon with half-scale timber.
+**The wagons are bought, not built.** A wagon pack settles this — see §8 — and the
+hand-built ones are gone with the scripts that made them. `Assets/_Project/Models`
+still holds `Wagon.fbx` and `WagonTreasure.fbx`, and `VisualLibrary` still points at
+them; they stay until the pack's wagons are wired in their place, because deleting
+them first leaves the caravan with nothing to draw.
 
 **Mountains and buildings are untextured.** They come from the flat-coloured RTS
 pack and sit beside textured trees. The stylized nature pack has no landforms and no
@@ -134,10 +122,9 @@ in §8 is meant to end.
 1. **Swap the asset packs**, and measure before wiring — see §8. It settles the
    untextured landforms, the missing buildings and the character roster in one move,
    and it decides what is left of the wagon problem.
-2. **Re-export the wagons** and look at them again. The scripts that build them were
-   shrinking every board to half size against correctly sized wheels; that is fixed,
-   but the FBX in the repository still comes from the old script. Replace them with a
-   bought cart only if they still look wrong once rebuilt.
+2. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
+   heavier cart for war, a box or merchant wagon for treasure — and retire
+   `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
 3. **The enemy budget, then roads.** Roads cannot land until the budget is fixed;
    see §6.
 4. **The planning map's frame** — border, compass, title. Cheap, and it is much of
@@ -224,9 +211,9 @@ installed. Assets for tabletop mapmaking are also worth checking carefully: the
 largest libraries licence for print and virtual tabletops but explicitly exclude
 integration into software.
 
-The swap in §8 changes what this section can promise. Two purchased Asset Store packs
-cannot be committed, so the repository stops being a thing that runs after a clone: it
-becomes code plus a shopping list. What stays committed stays CC0 — the medieval
+The swap in §8 changes what this section can promise. Four purchased packs cannot be
+committed, so the repository stops being a thing that runs after a clone: it becomes
+code plus a shopping list. What stays committed stays CC0 — the medieval
 village pack is kept for exactly the props §8 lists, and nothing about it changes here. That is a fair trade for art that carries the game,
 but it is a decision rather than a side effect, and the consequence is worth stating
 plainly — the code can stay public, the game it renders cannot be assembled from the
@@ -243,12 +230,22 @@ Everything under `Assets/Quaternius` is being replaced by three purchased packs:
 | Stylized Medieval Army Pack | The cast — every troop and enemy in `VisualLibrary`, and the camp: tents, palisade, banners |
 | POLYGON Nature Pack (Synty) | The country — trees, plants, rocks, terrain, dead trees for the marsh |
 | POLYGON Knights (Synty) | The built things — castle, houses, church, mountains, cliff, bridge, well, road pieces, an empty hay cart |
+| Medieval Wagons, Carts & Carriages Vol. 1 | The caravan itself — ten wagons, which is what the game is about |
 
-Two of the three are from the same POLYGON series, which is the reason for choosing
+Two of the four are from the same POLYGON series, which is the reason for choosing
 Knights over cheaper castle packs: the nature pack sets the art direction, and a pack
 from the same series matches it by construction rather than by hope. Every alternative
 was a bet that two artists' idea of stylized low-poly is the same idea, and that bet is
 visible in every frame if it loses.
+
+The wagon pack was bought on a different criterion, and deliberately. Ten wagons in one
+purchase is what lets the war, supply and treasure wagons be three different vehicles
+rather than one model in three colours — and telling them apart in motion is the whole
+reason the treasure wagon is a different colour at all (docs/GDD.md §5). It ships 2K
+and 4K PBR textures, which is not the flat-atlas look the rest of the world is drawn
+in. Two settings close most of that gap at import: textures down to 1K, smoothness
+low. What gives a photoreal asset away beside a stylized one at forty-six metres is the
+gloss and the normal map, not the model.
 
 **The village pack goes too, once one thing is checked.** The earlier plan kept
 `Assets/Quaternius/MedievalVillage` because it was the only source of the abandoned
@@ -314,10 +311,19 @@ road — though Knights brings modular cobble and stone path pieces, so the art 
 waiting when the budget question is finally settled. The camp, the shop and the UI are
 untouched, and so are the phone builds.
 
-The caravan's wagons are their own question. Knights' hay cart is a farm cart, and the
-treasure wagon has to read as a treasure wagon, so `Tools/wagon.py` stays unless the
-army pack ships a covered cart. Check that at import: it is the difference between §5
-step 2 being a day's work and being deleted.
+The caravan's wagons are no longer their own question. They come from the wagon pack,
+and the three roles want three shapes: a covered wagon for supply, a heavier cart for
+war, and a box or merchant wagon for treasure — a strongbox on wheels reads as loot
+from further away than a colour does. Knights' empty hay cart stays what it is, the
+ruin beside a trap field.
+
+`Tools/wagon.py` and `Tools/treasure_wagon.py` are gone with that decision. They built
+a covered cart and a strongbox cart in Blender and were the answer while there was no
+better one. One thing from them is worth carrying forward if anything is ever built by
+script again: Blender's `primitive_cube_add(size=1)` is already one metre on a side, so
+scaling by `size / 2` — which both scripts did — halves every board while wheels built
+from radii stay correct. A full-sized wheel against a half-sized body is what the old
+models were, and it is not a proportion anyone chose.
 
 **Order of operations.** Import and measure, wire `ArnaSetup`, run
 `CaptureLevelPreview` and `CapturePlayScene`, and only then delete the Quaternius
