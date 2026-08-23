@@ -55,6 +55,23 @@ av rutorna delas mellan rutterna, och den säkra rutten är bara 2 % långsammar
 snabba — vägvalet betyder nästan ingenting där. 1-1 är motsatsen och visar vad
 generatorn gör när den lyckas.
 
+### Örnen och lagret
+
+    python3 render_screens.py --chapter 1 --level 5 --eagle --out ../docs/screenshots
+
+Med `--eagle` ligger planeringskartan under det grå lagret och bara det örnen flög
+över har full färg. Grupperna den passerade över får en röd nål, och fågeln själv står
+längst fram i spåret.
+
+**Fågeln är inte i skala, och ringen är därför inte heller det.** En kungsörn är två
+meter bred, vilket är elva bildpunkter rakt uppifrån sjuttio meter — ingenting. Tjugoen
+meter, som första utkastet hade, gjorde en hängglidare av den: bredare än granarna på
+åtta meter som den flög över, vilket får kartan att se liten ut i stället för fågeln
+stor. Elva meter är det minsta som fortfarande läses som en fågel däruppifrån, och
+ringen omkring den är ritad i bildrummet efter att världen är skuggad — den behåller
+sin storlek över både ljus äng och mörk granskog. En ring på marken provades först och
+åts av lövverket: en vit skära bakom en gran läser som ett ljusfel, inte som en markör.
+
 ### Spelvyn
 
 Bakom och ovanför kolonnen, på det avstånd `LevelRunner` använder (46 m bakåt, 32 m upp,

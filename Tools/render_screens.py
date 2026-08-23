@@ -801,7 +801,6 @@ def build_eagle(mesh: Mesh, position, ground_y: float, heading) -> None:
          [span * 0.035, 0.0, span * 0.20]],
         [[0, 1, 2]], EAGLE_HEAD)
 
-
 def build_prop(mesh: Mesh, prop: A.Prop) -> None:
     """Draws one placed prop as the nearest simple solid at the size it was given."""
     base = np.array([prop.x, prop.ground_y, prop.z])
@@ -978,14 +977,26 @@ EAGLE_BODY = np.array([0.26, 0.19, 0.13])
 EAGLE_WING = np.array([0.38, 0.29, 0.19])
 EAGLE_HEAD = np.array([0.90, 0.88, 0.82])
 
-# Metres across. A real eagle is two metres and would be seven pixels at map scale;
-# this is a marker of a bird, sized to be read at a glance from seventy metres up.
-EAGLE_SPAN = 21.0
+# Metres across. Twenty-one was a hang-glider: wider than the eight-metre spruces it
+# flew over, which made the map look small rather than the bird look grand. A real eagle
+# spans two, and two is eleven pixels from seventy metres up — nothing. Eleven metres is
+# the smallest that still reads as a bird from up there, and the pin below does the
+# finding so the bird does not have to be big enough to find itself.
+EAGLE_SPAN = 11.0
 
 # Metres above the ground it flies. Clear of the canopy so it never vanishes into a
 # treetop, low enough that the shadow it throws stays beside it rather than reading as
 # a second bird.
 EAGLE_HEIGHT = 9.0
+
+# The ring around the bird, drawn in screen space after the world is shaded rather than
+# as a disc on the ground. On the ground the canopy ate it — a white crescent behind a
+# spruce, which reads as a lighting mistake and not as a marker. In screen space it is
+# what it actually is: a pin on a map, at the same size whatever it flies over.
+EAGLE_PIN = np.array([0.98, 0.96, 0.88])
+EAGLE_PIN_SHADE = np.array([0.10, 0.09, 0.07])
+EAGLE_PIN_RADIUS = 0.023   # of image width
+EAGLE_PIN_WIDTH = 0.0013   # of image width, so supersampling thins nothing
 
 # The overlay. Not a fog that hides the country — the terrain is what the player reads
 # to plan, and hiding it would remove the decision rather than the certainty. It takes
@@ -1023,6 +1034,39 @@ def _apply_overlay(image: np.ndarray, frame: Frame, level: A.LevelMap,
     return image * alpha + blended * (1.0 - alpha)
 
 
+def _draw_pin(image: np.ndarray, camera: Camera, position: np.ndarray) -> np.ndarray:
+    """A thin ring around a world point, drawn over the finished picture.
+
+    The planning map is a map, so a marker on it is allowed to be a marker: it keeps its
+    size and its place whether the bird is over pale grass or dark canopy, which is
+    exactly what a thing in the world cannot do.
+    """
+    screen = camera.to_screen(camera.to_view(position[None, :]))[0]
+    height, width = image.shape[:2]
+
+    radius = EAGLE_PIN_RADIUS * width
+    reach = int(radius + 4)
+    x0, x1 = max(int(screen[0]) - reach, 0), min(int(screen[0]) + reach + 1, width)
+    y0, y1 = max(int(screen[1]) - reach, 0), min(int(screen[1]) + reach + 1, height)
+    if x0 >= x1 or y0 >= y1:
+        return image
+
+    ys, xs = np.mgrid[y0:y1, x0:x1]
+    distance = np.abs(np.hypot(xs - screen[0], ys - screen[1]) - radius)
+
+    # Cream inside a dark edge. One colour alone disappears against half the map: the
+    # pale ring on a sunlit meadow, the dark one under spruce.
+    half = EAGLE_PIN_WIDTH * width * 0.5
+    cream = np.clip(1.0 - (distance - half), 0.0, 1.0)
+    shade = np.clip(1.0 - (distance - half - EAGLE_PIN_WIDTH * width), 0.0, 1.0) - cream
+
+    patch = image[y0:y1, x0:x1]
+    patch = patch * (1.0 - shade[..., None] * 0.55) + EAGLE_PIN_SHADE * shade[..., None] * 0.55
+    patch = patch * (1.0 - cream[..., None]) + EAGLE_PIN * cream[..., None]
+    image[y0:y1, x0:x1] = patch
+    return image
+
+
 def _box_blur(mask: np.ndarray, radius: int) -> np.ndarray:
     """Two box passes — cheap, and close enough to a gaussian for a soft edge."""
     for _ in range(2):
@@ -1053,6 +1097,7 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
     extent = grid.width * A.TILE_SIZE
 
     keep_clear = {tile for corridor in level.corridors for tile in corridor.tiles}
+    bird = None
 
     mesh = Mesh()
     build_terrain(mesh, level, height_scale, as_ground=True, mark_endpoints=True)
@@ -1079,9 +1124,9 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
             behind = eagle.path[max(len(eagle.path) - 6, 0)]
             heading = (head[0] - behind[0], head[1] - behind[1])
             length = math.hypot(*heading) or 1.0
-            build_eagle(mesh, head,
-                        grid.surface_elevation(head[0], head[1]) * height_scale,
-                        (heading[0] / length, heading[1] / length))
+            ground = grid.surface_elevation(head[0], head[1]) * height_scale
+            build_eagle(mesh, head, ground, (heading[0] / length, heading[1] / length))
+            bird = np.array([head[0], ground + EAGLE_HEIGHT, head[1]])
 
     vertices, triangles, colors, normals, material = mesh.finish()
 
@@ -1106,6 +1151,8 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
 
     if draw_routes:
         image = _draw_routes(image, level, camera, height_scale, frame)
+    if bird is not None:
+        image = _draw_pin(image, camera, bird)
     return _to_image(image)
 
 
