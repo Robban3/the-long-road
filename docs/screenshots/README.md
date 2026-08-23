@@ -63,6 +63,13 @@ Med `--eagle` ligger planeringskartan under det grå lagret och bara det örnen 
 över har full färg. Grupperna den passerade över får en röd nål, och fågeln själv står
 längst fram i spåret.
 
+Lagret tar bort 88 % av färgen och lämnar formen. Mindre än så — 72 %, som första
+versionen — blev en dis snarare än ett lager, och örnens spår stack knappt ut mot landet
+omkring; förmågan måste synligt vara värd sitt guld. Mer kostar för mycket: vid 94 % och
+uppåt slutar floden vara blå utanför spåret, och GDD §3.3 kräver att vatten och dess
+övergångar går att läsa *innan* rutten dras. Det är hela skälet till att lagret är
+genomskinligt.
+
 **Fågeln är inte i skala, och ringen är därför inte heller det.** En kungsörn är två
 meter bred, vilket är elva bildpunkter rakt uppifrån sjuttio meter — ingenting. Tjugoen
 meter, som första utkastet hade, gjorde en hängglidare av den: bredare än granarna på

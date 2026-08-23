@@ -1003,8 +1003,15 @@ EAGLE_PIN_WIDTH = 0.0013   # of image width, so supersampling thins nothing
 # to plan, and hiding it would remove the decision rather than the certainty. It takes
 # the colour out and leaves the shape, so unflown ground says "you have not looked here"
 # while staying legible.
+#
+# The mix is how much of that colour goes. At 0.72 the grey was a haze and the eagle's
+# trail barely stood out from the country around it; the ability has to be visibly worth
+# its gold. Full grey was tried and costs too much: at 0.94 and above the river stops
+# being blue outside the trail, and §3.3 asks that water and its crossings be legible
+# *before* the route is drawn — that is the whole reason the overlay is see-through.
+# 0.88 is the last stop where the water still reads.
 OVERLAY_GREY = np.array([0.46, 0.47, 0.45])
-OVERLAY_MIX = 0.72
+OVERLAY_MIX = 0.88
 OVERLAY_DARKEN = 0.88
 
 
