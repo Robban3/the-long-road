@@ -49,3 +49,11 @@ Thumbs.db
 
 # Windows/Drive artefakter
 desktop.ini
+
+# Renderade skärmbilder. PNG ligger i Git LFS enligt .gitattributes, och bilderna
+# byggs om deterministiskt ur fröet med Tools/render_screens.py — se
+# docs/screenshots/README.md.
+/docs/screenshots/*.png
+
+# Python-verktygen i Tools/
+__pycache__/

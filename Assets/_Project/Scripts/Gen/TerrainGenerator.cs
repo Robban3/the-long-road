@@ -62,9 +62,11 @@ namespace Arna.Gen
 
                 bool valid = CorridorFinder.IsMeaningfulChoice(corridors);
 
-                // Encounters are placed only once the corridors are known, because the
-                // whole distribution is derived from their relative travel times.
-                var encounters = EncounterPlacer.Place(grid, corridors, recipe, rng);
+                // Encounters need the endpoints as well as the corridors now: the
+                // distribution is derived from the ground a route can be drawn through,
+                // and the corridors are only the first three samples of that.
+                var encounters = EncounterPlacer.Place(grid, corridors, recipe, rng,
+                                                       grid.ToIndex(sx, sy), grid.ToIndex(gx, gy));
 
                 var map = new LevelMap(grid, seed, sx, sy, gx, gy,
                                        corridors[0].TravelCost, corridors, valid, attempt + 1, encounters);

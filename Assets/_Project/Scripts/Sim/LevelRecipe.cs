@@ -122,16 +122,19 @@ namespace Arna.Sim
         public EnemyKind[] EnemyPool = EnemyTable.All;
 
         /// <summary>
-        /// Silver each corridor must be able to yield — two upgrade levels for one
-        /// troop (20+32). Below that the player reaches the level's last fight with an
-        /// army they had no way to improve at all, which is broken rather than hard.
+        /// Silver a route must be able to yield — two upgrade levels for one troop
+        /// (20+32). Below that the player reaches the level's last fight with an army
+        /// they had no way to improve at all, which is broken rather than hard.
         ///
         /// Deliberately low. An earlier value of 105 was set to "three upgrades" and
-        /// turned out to bind on almost every corridor, topping them all up to exactly
-        /// the same figure — which erased the reward for taking the dangerous route,
-        /// the very thing the silver economy exists to create. The floor is a safety
-        /// net for the broken case, not a guarantee of a comfortable income.
+        /// turned out to bind almost everywhere, topping every route up to exactly the
+        /// same figure — which erased the reward for taking the dangerous line, the very
+        /// thing the silver economy exists to create. The floor is a safety net for the
+        /// broken case, not a guarantee of a comfortable income.
+        ///
+        /// Measured per sampled route since the player started drawing their own; it
+        /// used to be per corridor, back when there were only three of them.
         /// </summary>
-        public int MinSilverPerCorridor = 55;
+        public int MinSilverPerRoute = 55;
     }
 }
