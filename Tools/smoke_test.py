@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""Smoke tests for the generator, run against the Python port in `arna_level.py`.
+
+The Unity EditMode tests are the real suite, but they need an editor and this
+environment has none. These cover the same ground from the port, which reproduces
+the engine's arithmetic exactly (see the module docstring in `arna_level.py`), so a
+failure here is a failure there.
+
+Three kinds of check, and the middle one is the point:
+
+  determinism  a level is a recipe plus a seed and nothing else, so the same pair
+               must give the same level however much is generated in between
+  promises     the numbers the design leans on — the threat budget, the silver
+               floor, and above all MIN_ENCOUNTERS
+  leakage      information the player is not meant to have, reaching them anyway
+
+    python3 smoke_test.py            # chapter 1, quick
+    python3 smoke_test.py --all      # all five chapters, slow
+"""
+
+from __future__ import annotations
+
+import argparse
+import math
+import sys
+
+import arna_level as A
+
+CHAPTER = A.ChapterRecipe()
+
+failures: list[str] = []
+
+
+def check(name: str, ok: bool, detail: str = "") -> bool:
+    if not ok:
+        failures.append(f"{name}: {detail}" if detail else name)
+        print(f"  FAIL  {name}  {detail}")
+    return ok
+
+
+def level(chapter: int, number: int) -> A.LevelMap:
+    return A.generate(CHAPTER.for_level(number),
+                      A.DeterministicRandom.seed_for(chapter, number))
+
+
+def fingerprint(m: A.LevelMap):
+    """Everything about a level that a replay would have to reproduce."""
+    g = m.grid
+    return (tuple(int(t) for t in g.tiles),
+            tuple(round(float(h), 6) for h in g.elevation),
+            m.start_index, m.goal_index,
+            tuple((e.tile, e.kind, e.origin, round(e.territory, 4)) for e in m.encounters.enemies),
+            tuple((t.tile, t.kind) for t in m.encounters.traps),
+            tuple((c.tile, c.amount) for c in m.encounters.caches),
+            tuple(tuple(c.tiles) for c in m.corridors))
+
+
+def determinism() -> None:
+    print("== determinism ==")
+    a, b = level(1, 5), level(1, 5)
+    check("same seed, same level", fingerprint(a) == fingerprint(b))
+
+    # The one that catches a module-level RNG or a cached grid: generating something
+    # else in between must not move the first level a single tile.
+    first = level(1, 5)
+    level(7, 3)
+    check("no state carried between levels", fingerprint(first) == fingerprint(level(1, 5)))
+
+    f1, f2 = A.fly_the_eagle(a), A.fly_the_eagle(b)
+    check("same level, same flight",
+          f1.revealed_tiles == f2.revealed_tiles and f1.revealed_enemies == f2.revealed_enemies)
+
+    other = A.fly_the_eagle(a, flight=1)
+    shared = len(f1.revealed_tiles & other.revealed_tiles)
+    check("a second eagle looks elsewhere", shared < len(f1.revealed_tiles) * 0.8,
+          f"{shared} of {len(f1.revealed_tiles)} tiles shared")
+
+    # Scouting is a read. If flying moved anything, a player could scout to change
+    # the level rather than to learn it.
+    before = fingerprint(a)
+    A.fly_the_eagle(a)
+    A.fly_the_eagle(a, flight=2)
+    check("flying does not mutate the level", fingerprint(a) == before)
+
+
+def promises(chapters: range) -> None:
+    print("== promises ==")
+    worst_recorded = 99
+
+    for chapter in chapters:
+        for number in range(1, 11):
+            m = level(chapter, number)
+            recipe = CHAPTER.for_level(number)
+            grid, layout = m.grid, m.encounters
+            tag = f"{chapter}-{number}"
+
+            placed = ([e.tile for e in layout.enemies]
+                      + [t.tile for t in layout.traps]
+                      + [c.tile for c in layout.caches])
+
+            check(f"{tag} everything on the map",
+                  all(0 <= t < grid.tile_count for t in placed))
+            check(f"{tag} nothing stacked",
+                  len(set(placed)) == len(placed),
+                  f"{len(placed) - len(set(placed))} tiles carry two things")
+            check(f"{tag} nothing on impassable ground",
+                  all(grid.is_passable(*grid.to_coords(t)) for t in placed))
+            check(f"{tag} start and goal clear",
+                  m.start_index not in placed and m.goal_index not in placed)
+
+            check(f"{tag} within the threat budget",
+                  layout.total_points <= recipe.enemy_budget,
+                  f"{layout.total_points} of {recipe.enemy_budget}")
+            check(f"{tag} enemies from the unlocked pool",
+                  all(e.kind in recipe.enemy_pool for e in layout.enemies))
+            check(f"{tag} territories clamped",
+                  all(A.TERRITORY_MIN - 1e-3 <= e.territory <= A.TERRITORY_MAX + 1e-3
+                      for e in layout.enemies))
+            check(f"{tag} silver validated", layout.silver_validated)
+
+            # The promise the route-drawing mechanic rests on.
+            check(f"{tag} min encounters", layout.min_encounters >= A.MIN_ENCOUNTERS,
+                  f"worst sampled route met {layout.min_encounters}, "
+                  f"promise is {A.MIN_ENCOUNTERS}")
+            worst_recorded = min(worst_recorded, layout.min_encounters)
+
+            flight = A.fly_the_eagle(m)
+            extent = grid.width * A.TILE_SIZE
+            check(f"{tag} flight stays on the map",
+                  all(-A.TILE_SIZE <= p[0] <= extent + A.TILE_SIZE
+                      and -A.TILE_SIZE <= p[1] <= extent + A.TILE_SIZE
+                      for p in flight.path))
+            check(f"{tag} found groups stand on flown ground",
+                  all(layout.enemies[i].tile in flight.revealed_tiles
+                      for i in flight.revealed_enemies))
+            check(f"{tag} one eagle never finds the whole level",
+                  len(flight.revealed_enemies) < len(layout.enemies)
+                  or len(layout.enemies) < 4,
+                  f"{len(flight.revealed_enemies)} of {len(layout.enemies)}")
+            covered = len(flight.revealed_tiles) / grid.tile_count
+            check(f"{tag} eagle coverage in range", 0.10 <= covered <= 0.45,
+                  f"{covered:.0%}")
+
+    print(f"  worst recorded min_encounters: {worst_recorded}")
+
+
+def unseen_routes(chapters: range, count: int = 60) -> None:
+    """The recorded guarantee is measured against 32 routes the placer chose. This
+    measures it against routes it never saw, which is the case that ships."""
+    print("== the promise against routes the placer never sampled ==")
+
+    for chapter in chapters:
+        for number in (1, 5, 10):
+            m = level(chapter, number)
+            band = A.build_band(m.grid, m.start_index, m.goal_index)
+            if band is None:
+                continue
+
+            rng = A.DeterministicRandom(m.seed ^ 0x5EED1)
+            routes = A.sample_routes(m.grid, band, [], rng,
+                                     m.start_index, m.goal_index, count=count)
+            met = [len(A.met_groups(m.grid, r, m.encounters)) for r in routes]
+
+            check(f"{chapter}-{number} unseen route meets enough",
+                  min(met) >= A.MIN_ENCOUNTERS,
+                  f"recorded {m.encounters.min_encounters}, "
+                  f"worst of {len(routes)} unseen was {min(met)}, "
+                  f"mean {sum(met) / len(met):.1f}")
+
+
+def leakage(chapters: range) -> None:
+    """Information the player is not meant to have, reaching them anyway."""
+    print("== leakage ==")
+
+    for chapter in chapters:
+        for number in (1, 5, 10):
+            m = level(chapter, number)
+            grid = m.grid
+            tag = f"{chapter}-{number}"
+
+            # A ruin is a tell that a trap field is near, deliberately offset so it
+            # says "be careful here" and not "step there". On the tile itself it
+            # hands over the position the whole detection system exists to hide.
+            traps = {t.tile for t in m.encounters.traps}
+            sites = A.ruin_sites(m)
+            check(f"{tag} no ruin stands on a trap",
+                  not (traps & set(sites)),
+                  f"{len(traps & set(sites))} of {len(sites)} ruins mark a trap exactly")
+
+            # The three corridors are the generator's own working. Scenery is kept
+            # clear along them, which draws them as lanes through the forest — and
+            # the planning overlay takes colour out, not geometry, so a cleared lane
+            # shows through it.
+            corridor = {t for c in m.corridors for t in c.tiles}
+            if not corridor:
+                continue
+            props = A.decorate(grid, m.seed, keep_clear=corridor, height_scale=22.0,
+                               max_props=2600, density_scale=2.2, sites=sites)
+            on = sum(1 for p in props
+                     if grid.to_index(min(max(int(p.x / A.TILE_SIZE), 0), grid.width - 1),
+                                      min(max(int(p.z / A.TILE_SIZE), 0), grid.height - 1))
+                     in corridor)
+            here = on / len(corridor)
+            there = (len(props) - on) / (grid.tile_count - len(corridor))
+            check(f"{tag} corridors are not legible as cleared lanes",
+                  here > there * 0.75,
+                  f"{here:.2f} props/tile on the corridors against {there:.2f} elsewhere")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--all", action="store_true",
+                        help="all five chapters rather than just the first")
+    args = parser.parse_args()
+    chapters = range(1, 6) if args.all else range(1, 2)
+
+    determinism()
+    promises(chapters)
+    unseen_routes(chapters)
+    leakage(chapters)
+
+    print(f"\n{len(failures)} failure(s)")
+    for line in failures:
+        print(f"  - {line}")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
