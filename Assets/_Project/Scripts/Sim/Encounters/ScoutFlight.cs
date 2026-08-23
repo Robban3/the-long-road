@@ -48,19 +48,27 @@ namespace Arna.Sim
     /// </summary>
     public static class ScoutingAbility
     {
-        /// <summary>Metres per second. Fast enough that seven seconds crosses the map.</summary>
+        /// <summary>Metres per second. Fast enough that ten seconds quarters the map.</summary>
         public const float Speed = 40f;
 
         /// <summary>Seconds aloft. Bought per level, so this is the whole of it.</summary>
-        public const float Seconds = 7f;
+        public const float Seconds = 10f;
 
         /// <summary>
-        /// Metres either side of the flight the bird can see down into. Wide enough to be
-        /// worth buying, narrow enough that most of the map stays under the overlay:
-        /// measured over chapter 1 it uncovers 23–25 % of the ground and finds three to
-        /// five of the twelve groups.
+        /// Metres either side of the flight the bird can see down into.
+        ///
+        /// Narrow, deliberately. A wide trail at the same coverage is one broad stripe
+        /// through the middle of the map; a narrow one wanders further for the same
+        /// ground, so what it uncovers is spread about. Measured over chapter 1 it lifts
+        /// 17–25 % of the overlay and finds two to five of the twelve groups.
         /// </summary>
-        public const float Sight = 32f;
+        public const float Sight = 20f;
+
+        /// <summary>
+        /// Turns the flight takes. Two gave one sweep across the map — the same picture
+        /// every level with the angle changed. Six give a bird that quarters ground.
+        /// </summary>
+        const int Waypoints = 6;
 
         /// <summary>Samples per segment of the flight curve.</summary>
         const int StepsPerSegment = 64;
@@ -87,31 +95,51 @@ namespace Arna.Sim
         }
 
         /// <summary>
-        /// A curve entering at one edge and leaving by another, bent by two inland
-        /// points. Two rather than one: a single bend always bulges the same way and
-        /// reads as a machine sweeping the map, where two give the wandering line a bird
-        /// actually flies.
+        /// A wandering curve: in from one edge, then six turns wherever the bird likes.
         /// </summary>
         static void BuildPath(List<Vec2> path, TileGrid grid, DeterministicRandom rng, float seconds)
         {
             float extent = grid.Width * TileGrid.TileSize;
 
-            int entryEdge = rng.Range(0, 4);
-            int exitEdge = (entryEdge + 1 + rng.Range(0, 3)) % 4;
+            // Each turn is taken from where the bird already is, at a random heading a
+            // third of the map away. Six independent points anywhere on the map looked
+            // like wandering and was not: the curve through them doubled back over one
+            // quarter and left the other three untouched. A step from the last point is
+            // how something quartering ground actually moves — it covers rather than
+            // revisits.
+            var points = new List<Vec2> { EdgePoint(rng, rng.Range(0, 4), extent) };
 
-            var points = new List<Vec2>
+            for (int w = 0; w < Waypoints; w++)
             {
-                EdgePoint(rng, entryEdge, extent),
-                new Vec2(rng.Range(0.2f, 0.8f) * extent, rng.Range(0.2f, 0.8f) * extent),
-                new Vec2(rng.Range(0.2f, 0.8f) * extent, rng.Range(0.2f, 0.8f) * extent),
-                EdgePoint(rng, exitEdge, extent)
-            };
+                var previous = points[points.Count - 1];
+                bool placed = false;
+
+                for (int attempt = 0; attempt < 8 && !placed; attempt++)
+                {
+                    float angle = rng.Range(0f, (float)(2.0 * Math.PI));
+                    float reach = rng.Range(0.28f, 0.52f) * extent;
+
+                    var candidate = new Vec2(previous.X + (float)Math.Cos(angle) * reach,
+                                             previous.Y + (float)Math.Sin(angle) * reach);
+
+                    if (candidate.X >= 0.05f * extent && candidate.X <= 0.95f * extent &&
+                        candidate.Y >= 0.05f * extent && candidate.Y <= 0.95f * extent)
+                    {
+                        points.Add(candidate);
+                        placed = true;
+                    }
+                }
+
+                if (!placed)
+                    points.Add(new Vec2(rng.Range(0.2f, 0.8f) * extent,
+                                        rng.Range(0.2f, 0.8f) * extent));
+            }
 
             float budget = Speed * seconds;
             float travelled = 0f;
 
-            var previous = points[0];
-            path.Add(previous);
+            var last = points[0];
+            path.Add(last);
 
             for (int segment = 0; segment < points.Count - 1; segment++)
             {
@@ -123,13 +151,19 @@ namespace Arna.Sim
                 for (int i = 1; i <= StepsPerSegment; i++)
                 {
                     var point = CatmullRom(p0, p1, p2, p3, i / (float)StepsPerSegment);
-                    float step = Vec2.Distance(previous, point);
 
+                    // Keep the bird over the map. A Catmull-Rom through points near the
+                    // edge overshoots outside it, and a trail that leaves the map is
+                    // ground the player paid for and cannot use.
+                    point = new Vec2(Math.Min(Math.Max(point.X, 0f), extent),
+                                     Math.Min(Math.Max(point.Y, 0f), extent));
+
+                    float step = Vec2.Distance(last, point);
                     if (travelled + step > budget) return;
 
                     travelled += step;
                     path.Add(point);
-                    previous = point;
+                    last = point;
                 }
             }
         }

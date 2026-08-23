@@ -744,6 +744,64 @@ TUFT = _quad_cross()
 TILT = _tilt()
 
 
+def build_eagle(mesh: Mesh, position, ground_y: float, heading) -> None:
+    """The bird at the head of its own trail.
+
+    Drawn from above, which is the only angle this map has, so the silhouette is the
+    whole of it: a narrow body, a fanned tail, and two wings swept back from the
+    shoulders. The first attempt gave each wing one triangle from the centre outwards
+    and the two met into a filled diamond — a paper dart with a white nose. A wing
+    needs a root, a leading edge and a trailing edge before it reads as a wing.
+    """
+    span = EAGLE_SPAN
+    yaw = math.degrees(math.atan2(heading[0], heading[1]))
+    base = np.array([position[0], ground_y + EAGLE_HEIGHT, position[1]])
+
+    def add(shape, triangles, colour):
+        shape = np.asarray(shape, float)
+        mesh.add(_transform(shape, np.ones(3), yaw, base), np.asarray(triangles), colour,
+                 np.tile([0.0, 1.0, 0.0], (len(shape), 1)), material=1.0)
+
+    half = span * 0.035
+
+    add([[0.0, 0.0, span * 0.30],
+         [-half, 0.0, span * 0.12],
+         [half, 0.0, span * 0.12],
+         [-half, 0.0, -span * 0.16],
+         [half, 0.0, -span * 0.16]],
+        [[0, 1, 2], [1, 3, 4], [1, 4, 2]], EAGLE_BODY)
+
+    # Fanned tail. A bird from above is mostly wing, and the tail is what says which end
+    # you are looking at when the wings are symmetrical.
+    add([[-half, 0.0, -span * 0.14],
+         [half, 0.0, -span * 0.14],
+         [span * 0.09, 0.0, -span * 0.34],
+         [-span * 0.09, 0.0, -span * 0.34]],
+        [[0, 1, 2], [0, 2, 3]], EAGLE_BODY * 1.15)
+
+    for side in (-1.0, 1.0):
+        root_front = span * 0.16
+        root_back = -span * 0.10
+        tip = side * span * 0.50
+
+        add([[side * half, 0.0, root_front],
+             [tip, 0.0, root_front - span * 0.20],
+             [tip, 0.0, root_front - span * 0.30],
+             [side * half, 0.0, root_back]],
+            [[0, 1, 2], [0, 2, 3]], EAGLE_WING)
+
+        # Dark primaries at the tip, which is what stops the wing looking cut from card.
+        add([[tip * 0.98, 0.0, root_front - span * 0.20],
+             [tip * 1.02, 0.0, root_front - span * 0.26],
+             [tip * 0.80, 0.0, root_front - span * 0.31]],
+            [[0, 1, 2]], EAGLE_BODY * 0.75)
+
+    add([[0.0, 0.0, span * 0.32],
+         [-span * 0.035, 0.0, span * 0.20],
+         [span * 0.035, 0.0, span * 0.20]],
+        [[0, 1, 2]], EAGLE_HEAD)
+
+
 def build_prop(mesh: Mesh, prop: A.Prop) -> None:
     """Draws one placed prop as the nearest simple solid at the size it was given."""
     base = np.array([prop.x, prop.ground_y, prop.z])
@@ -916,6 +974,19 @@ def _scene_bounds(level: A.LevelMap, height_scale: float):
 
 ENEMY_MARKER = np.array([0.86, 0.18, 0.16])
 
+EAGLE_BODY = np.array([0.26, 0.19, 0.13])
+EAGLE_WING = np.array([0.38, 0.29, 0.19])
+EAGLE_HEAD = np.array([0.90, 0.88, 0.82])
+
+# Metres across. A real eagle is two metres and would be seven pixels at map scale;
+# this is a marker of a bird, sized to be read at a glance from seventy metres up.
+EAGLE_SPAN = 21.0
+
+# Metres above the ground it flies. Clear of the canopy so it never vanishes into a
+# treetop, low enough that the shadow it throws stays beside it rather than reading as
+# a second bird.
+EAGLE_HEIGHT = 9.0
+
 # The overlay. Not a fog that hides the country — the terrain is what the player reads
 # to plan, and hiding it would remove the decision rather than the certainty. It takes
 # the colour out and leaves the shape, so unflown ground says "you have not looked here"
@@ -1002,6 +1073,15 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
             y = grid.surface_elevation(x, z) * height_scale
             _add(mesh, CONE, ENEMY_MARKER, (5.0, -7.0, 5.0), 0.0,
                  np.array([x, y + 9.0, z]), normals=(0.0, 1.0, 0.0))
+
+        if len(eagle.path) >= 2:
+            head = eagle.path[-1]
+            behind = eagle.path[max(len(eagle.path) - 6, 0)]
+            heading = (head[0] - behind[0], head[1] - behind[1])
+            length = math.hypot(*heading) or 1.0
+            build_eagle(mesh, head,
+                        grid.surface_elevation(head[0], head[1]) * height_scale,
+                        (heading[0] / length, heading[1] / length))
 
     vertices, triangles, colors, normals, material = mesh.finish()
 

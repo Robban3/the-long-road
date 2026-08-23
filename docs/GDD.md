@@ -112,7 +112,7 @@ Information är en resurs, och spejartruppen är bara ett av sätten att betala 
 
 | Köp | Vad den ger | Varför den är begränsad |
 |---|---|---|
-| **Örnen** | Flyger sju sekunder över kartan före ritandet. Spåret efter den återfår full färg, och varje grupp den passerade över markeras. Det står kvar medan rutten dras. | Täcker 23–25 % av kartan och hittar tre till fem av tolv grupper. **Banan är inte riktad** — du köper en blick på en fjärdedel av landet, inte på den fjärdedel du helst ville se. |
+| **Örnen** | Flyger tio sekunder över kartan före ritandet, i en irrande bana med sex vändningar. Spåret efter den återfår full färg, och varje grupp den passerade över markeras. Det står kvar medan rutten dras. | Lyfter 17–25 % av lagret och hittar två till fem av tolv grupper. Spåret är **smalt** — en bred korridor täcker lika mycket mark som en enda strimma tvärs kartan, en smal hinner vandra och sprider det den ser. **Banan är inte riktad:** du köper en blick på en fjärdedel av landet, inte på den fjärdedel du helst ville se. |
 | **Rykten** | En grov varning per landsdel: "skogen i norr är tjock av vargar". Inga positioner. | Billigare och grövre. Pekar ut en riktning, inte en ruta. |
 | **Vägvisaren** | Avslöjar vakten vid exakt ett vadställe. | Ett vadställe av tre. Valet av vilket är hela köpet. |
 

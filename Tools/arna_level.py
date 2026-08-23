@@ -1769,12 +1769,14 @@ class Caravan:
 # sweep across the map rather than a stroll over one corner of it.
 EAGLE_SPEED = 40.0
 
-# Seconds aloft. The ability is bought per level, so this is the whole of it.
-EAGLE_SECONDS = 7.0
+# Seconds aloft. The ability is bought per level, so this is the whole of it. Longer
+# than the first pass, to buy back some of the ground the narrower trail gives up.
+EAGLE_SECONDS = 10.0
 
-# Metres either side of the flight the eagle can see down into. Wide enough to be
-# worth buying, narrow enough that most of the map stays under the overlay.
-EAGLE_SIGHT = 32.0
+# Metres either side of the flight the eagle can see down into. A narrow trail is worth
+# more than a wide one at the same coverage: it wanders further, so what it uncovers is
+# spread across the map instead of being one broad stripe through the middle.
+EAGLE_SIGHT = 20.0
 
 # How finely the flight is walked when marking what it saw. Half a tile keeps the
 # trail continuous without sampling more than the reveal radius needs.
@@ -1802,12 +1804,19 @@ class ScoutFlight:
         return len(self.revealed_tiles)
 
 
-def _flight_path(grid: TileGrid, rng: DeterministicRandom, seconds: float) -> List[tuple]:
-    """A curve entering at one edge and leaving by another, bent by two inland points.
+# Inland points the flight bends through. Two gave a single sweep across the map; six
+# give a bird that wanders — doubles back, cuts a corner, leaves a trail worth reading
+# rather than a stripe.
+EAGLE_WAYPOINTS = 6
 
-    Two control points rather than one: a single bend gives an arc that always bulges
-    the same way and reads as a machine sweeping the map. Two gives the wandering line
-    a bird actually flies, and it is what makes a trail worth looking at.
+
+def _flight_path(grid: TileGrid, rng: DeterministicRandom, seconds: float) -> List[tuple]:
+    """A wandering curve that enters at an edge and then goes where it likes.
+
+    The first version flew edge to edge through two control points, which always came
+    out as one broad diagonal — the same picture on every level with the angle changed.
+    A bird quartering ground does not do that. Six points, each free to be anywhere on
+    the map, give a line that turns back on itself and covers scattered country.
     """
     extent = grid.width * TILE_SIZE
 
@@ -1821,18 +1830,27 @@ def _flight_path(grid: TileGrid, rng: DeterministicRandom, seconds: float) -> Li
             return (along, 0.0)
         return (along, extent)
 
-    entry_edge = rng.range_int(0, 4)
-    exit_edge = (entry_edge + 1 + rng.range_int(0, 3)) % 4
+    # Each turn is taken from where the bird already is, at a random heading and a
+    # third of the map away. Drawing six independent points anywhere on the map looked
+    # like wandering but was not: the curve through them doubled back on one quarter and
+    # left the other three untouched. A step from the last point is how something
+    # quartering ground actually moves — it covers, rather than revisits.
+    points = [edge_point(rng.range_int(0, 4))]
+    for _ in range(EAGLE_WAYPOINTS):
+        previous = points[-1]
+        for _ in range(8):
+            angle = rng.range_float(0.0, 2.0 * math.pi)
+            reach = rng.range_float(0.28, 0.52) * extent
+            candidate = (previous[0] + math.cos(angle) * reach,
+                         previous[1] + math.sin(angle) * reach)
+            if 0.05 * extent <= candidate[0] <= 0.95 * extent \
+                    and 0.05 * extent <= candidate[1] <= 0.95 * extent:
+                points.append(candidate)
+                break
+        else:
+            points.append((rng.range_float(0.2, 0.8) * extent,
+                           rng.range_float(0.2, 0.8) * extent))
 
-    start = edge_point(entry_edge)
-    end = edge_point(exit_edge)
-    controls = [(rng.range_float(0.2, 0.8) * extent, rng.range_float(0.2, 0.8) * extent)
-                for _ in range(2)]
-
-    points = [start] + controls + [end]
-
-    # Catmull-Rom through the four points, walked at a fixed step so the sampling
-    # matches the distance the eagle can actually cover in its seconds aloft.
     budget = EAGLE_SPEED * seconds
     path = []
     travelled = 0.0
@@ -1846,6 +1864,12 @@ def _flight_path(grid: TileGrid, rng: DeterministicRandom, seconds: float) -> Li
         for i in range(1, steps + 1):
             t = i / steps
             point = _catmull_rom(p0, p1, p2, p3, t)
+
+            # Keep the bird over the map. A Catmull-Rom through points near the edge
+            # overshoots outside it, and a trail that leaves the map is a trail the
+            # player paid for and cannot use.
+            point = (min(max(point[0], 0.0), extent), min(max(point[1], 0.0), extent))
+
             step = math.dist(previous, point)
             if travelled + step > budget:
                 return path

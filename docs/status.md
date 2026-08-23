@@ -93,10 +93,11 @@ gives them. The country is right, the dressing is a sketch. See
 - Route drawing in the simulation: `RoutePlanner` stitches up to six waypoints into one
   caravan route with terrain-weighted A* per leg, and reports travel cost, terrain
   shares and which leg is impassable.
-- The scouting ability: `ScoutingAbility.Fly` sends an eagle across the planning map on
-  a curve seeded from the level, and reports the ground it saw and the groups it passed
-  over. Seven seconds uncovers 23–25 % of the map and finds three to five of the twelve
-  groups. Deterministic from the seed, so the flight cannot be re-rolled by restarting.
+- The scouting ability: `ScoutingAbility.Fly` sends an eagle wandering over the planning
+  map on a curve seeded from the level, and reports the ground it saw and the groups it
+  passed over. Ten seconds on a narrow trail lifts 17–25 % of the overlay and finds two
+  to five of the twelve groups. Deterministic from the seed, so the flight cannot be
+  re-rolled by restarting the level.
 - The full run loop: movement, terrain speed, detection, traps, combat, silver.
 - Ground: lit, shadowed, textured at two tiling scales, colours blended across
   tile corners so the world is continuous rather than tiled.
