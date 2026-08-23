@@ -914,10 +914,70 @@ def _scene_bounds(level: A.LevelMap, height_scale: float):
     return centre, extent * 0.75
 
 
+ENEMY_MARKER = np.array([0.86, 0.18, 0.16])
+
+# The overlay. Not a fog that hides the country — the terrain is what the player reads
+# to plan, and hiding it would remove the decision rather than the certainty. It takes
+# the colour out and leaves the shape, so unflown ground says "you have not looked here"
+# while staying legible.
+OVERLAY_GREY = np.array([0.46, 0.47, 0.45])
+OVERLAY_MIX = 0.72
+OVERLAY_DARKEN = 0.88
+
+
+def _apply_overlay(image: np.ndarray, frame: Frame, level: A.LevelMap,
+                   revealed: set) -> np.ndarray:
+    """Greys out every pixel standing on a tile the eagle never flew over."""
+    grid = level.grid
+    tx = np.clip((frame.world[..., 0] / A.TILE_SIZE).astype(int), 0, grid.width - 1)
+    tz = np.clip((frame.world[..., 2] / A.TILE_SIZE).astype(int), 0, grid.height - 1)
+
+    seen = np.zeros(grid.tile_count, bool)
+    if revealed:
+        seen[np.fromiter(revealed, int, len(revealed))] = True
+
+    lifted = seen[tz * grid.width + tx].astype(float)
+
+    # Feather the edge. A four-metre tile is eleven pixels at map scale, so a hard mask
+    # draws the eagle's trail as a staircase of squares — which says "grid" where it
+    # should say "this is as far as the bird could see".
+    radius = max(2, int(image.shape[1] * 0.012))
+    lifted = _box_blur(lifted, radius)
+
+    luminance = image @ np.array([0.299, 0.587, 0.114])
+    muted = (luminance[..., None] * OVERLAY_GREY / OVERLAY_GREY.mean()) * OVERLAY_DARKEN
+    blended = image * (1.0 - OVERLAY_MIX) + muted * OVERLAY_MIX
+
+    alpha = (lifted * frame.covered)[..., None]
+    return image * alpha + blended * (1.0 - alpha)
+
+
+def _box_blur(mask: np.ndarray, radius: int) -> np.ndarray:
+    """Two box passes — cheap, and close enough to a gaussian for a soft edge."""
+    for _ in range(2):
+        padded = np.pad(mask, radius, mode="edge")
+        cumulative = np.cumsum(np.cumsum(padded, axis=0), axis=1)
+        cumulative = np.pad(cumulative, ((1, 0), (1, 0)))
+
+        size = 2 * radius + 1
+        h, w = mask.shape
+        total = (cumulative[size:size + h, size:size + w]
+                 - cumulative[0:h, size:size + w]
+                 - cumulative[size:size + h, 0:w]
+                 + cumulative[0:h, 0:w])
+        mask = total / (size * size)
+    return np.clip(mask, 0.0, 1.0)
+
+
 def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
                 height_scale: float = 22.0, density_scale: float = 2.2,
-                max_props: int = 2600) -> Image.Image:
-    """The planning map: straight down, orthographic, the three corridors drawn over it."""
+                max_props: int = 2600, eagle=None, draw_routes: bool = True) -> Image.Image:
+    """The planning map: straight down, orthographic, under the scouting overlay.
+
+    With `eagle`, the map is greyed out except along the flight, and the groups the bird
+    passed over are marked. Without it everything is grey — which is what a player sees
+    on a level they did not spend the ability on.
+    """
     grid = level.grid
     extent = grid.width * A.TILE_SIZE
 
@@ -930,6 +990,18 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
                        sites=A.ruin_sites(level))
     for prop in props:
         build_prop(mesh, prop)
+
+    # What the eagle found, drawn as markers rather than as models. At seventy metres up
+    # a wolf is four pixels; a pin is the honest way to say "something is here", and it
+    # says nothing about how many or how strong — which is the rule the design puts on
+    # bought information.
+    if eagle is not None:
+        for index in eagle.revealed_enemies:
+            spawn = level.encounters.enemies[index]
+            x, z = A.tile_centre(grid, spawn.tile)
+            y = grid.surface_elevation(x, z) * height_scale
+            _add(mesh, CONE, ENEMY_MARKER, (5.0, -7.0, 5.0), 0.0,
+                 np.array([x, y + 9.0, z]), normals=(0.0, 1.0, 0.0))
 
     vertices, triangles, colors, normals, material = mesh.finish()
 
@@ -947,7 +1019,13 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
     image = shade(frame, sun, np.array([1.0, 0.97, 0.91]), 1.05, shadow, 0.55,
                   PLAN_BACKGROUND, None, camera)
 
-    image = _draw_routes(image, level, camera, height_scale, frame)
+    if eagle is not None:
+        image = _apply_overlay(image, frame, level, eagle.revealed_tiles)
+    else:
+        image = _apply_overlay(image, frame, level, set())
+
+    if draw_routes:
+        image = _draw_routes(image, level, camera, height_scale, frame)
     return _to_image(image)
 
 
@@ -1084,6 +1162,10 @@ def main() -> None:
                         help="Metres above it. With distance, this sets the look-down angle.")
     parser.add_argument("--fov", type=float, default=50.0,
                         help="Vertical field of view. Lower is a longer lens.")
+    parser.add_argument("--eagle", action="store_true",
+                        help="Fly the scouting ability and lift the overlay along its trail.")
+    parser.add_argument("--no-overlay", action="store_true",
+                        help="Draw the map with no scouting overlay at all.")
     parser.add_argument("--faceted", action="store_true",
                         help="Flat-shade the ground, one normal per triangle.")
     parser.add_argument("--height-scale", type=float, default=14.0,
@@ -1108,7 +1190,21 @@ def main() -> None:
 
     if args.view in ("plan", "both"):
         size = args.width * scale
-        image = render_plan(level, size, size)
+
+        flight = None
+        if args.eagle:
+            flight = A.fly_the_eagle(level)
+            covered = 100.0 * flight.coverage / level.grid.tile_count
+            print(f"[Arna] eagle: {flight.seconds:.0f} s aloft, {covered:.0f}% of the map, "
+                  f"{len(flight.revealed_enemies)} of {len(level.encounters.enemies)} groups found")
+        elif args.no_overlay:
+            flight = A.ScoutFlight([], set(range(level.grid.tile_count)), [], 0.0)
+
+        # The corridors are the generator's own measurement and the player never sees
+        # them. Under the scouting overlay they would be a third answer sheet laid over
+        # the two the player is allowed.
+        image = render_plan(level, size, size, eagle=flight,
+                            draw_routes=not (args.eagle or args.no_overlay))
         if scale > 1:
             image = image.resize((args.width, args.width), Image.LANCZOS)
         path = os.path.join(args.out, f"plan-{args.chapter}-{args.level}.png")

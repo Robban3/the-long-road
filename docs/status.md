@@ -93,6 +93,10 @@ gives them. The country is right, the dressing is a sketch. See
 - Route drawing in the simulation: `RoutePlanner` stitches up to six waypoints into one
   caravan route with terrain-weighted A* per leg, and reports travel cost, terrain
   shares and which leg is impassable.
+- The scouting ability: `ScoutingAbility.Fly` sends an eagle across the planning map on
+  a curve seeded from the level, and reports the ground it saw and the groups it passed
+  over. Seven seconds uncovers 23–25 % of the map and finds three to five of the twelve
+  groups. Deterministic from the seed, so the flight cannot be re-rolled by restarting.
 - The full run loop: movement, terrain speed, detection, traps, combat, silver.
 - Ground: lit, shadowed, textured at two tiling scales, colours blended across
   tile corners so the world is continuous rather than tiled.
@@ -164,9 +168,10 @@ in §8 is meant to end.
    a corridor's whole share onto a shorter line. Lay them and re-measure.
 5. **The planning map's frame** — border, compass, title. Cheap, and it is much of
    what makes a picture read as a map.
-6. **Bought scouting** — the eagle in GDD §3.6. It is a moving `Watcher` over the
-   planning map and perhaps thirty lines, and it is the second decision that feeds the
-   first: where to look before you draw.
+6. **The scouting overlay in Unity.** The flight itself is built and measured; what is
+   missing is the map under a grey layer that lifts along the trail, the markers on what
+   the bird found, and the gold that pays for it. `Tools/render_screens.py --eagle` draws
+   exactly what it should look like.
 7. **The camp between levels**, so silver and upgrades have somewhere to happen.
 8. **Android and iOS build support**, and a build on a real device. The frame rate
    target has never been measured on hardware.

@@ -108,13 +108,19 @@ Falska positiva är avsiktliga: signaler ska vara *information*, inte *facit*.
 
 Information är en resurs, och spejartruppen är bara ett av sätten att betala för den. Före banan går det att köpa spaning i guld — metavalutan, inte silvret som dör med banan — så att den konkurrerar med truppuppbyggnad över tid.
 
+**Kartan ligger under ett grått lager från början.** Inte en dimma som döljer landet — terrängen är vad spelaren planerar mot, och att gömma den hade tagit bort beslutet i stället för ovissheten. Lagret tar färgen ur marken och lämnar formen: floden, skogen och bergen syns, men marken säger *du har inte tittat här*.
+
 | Köp | Vad den ger | Varför den är begränsad |
 |---|---|---|
-| **Örnen** | Flyger en bana spelaren väljer i 5–10 s före ritandet. Det den såg står kvar på planeringskartan medan rutten dras. | Räcker till ungefär en tredjedel av bandet. *Var* du tittar blir därmed ett eget beslut som matar vägvalet. |
+| **Örnen** | Flyger sju sekunder över kartan före ritandet. Spåret efter den återfår full färg, och varje grupp den passerade över markeras. Det står kvar medan rutten dras. | Täcker 23–25 % av kartan och hittar tre till fem av tolv grupper. **Banan är inte riktad** — du köper en blick på en fjärdedel av landet, inte på den fjärdedel du helst ville se. |
 | **Rykten** | En grov varning per landsdel: "skogen i norr är tjock av vargar". Inga positioner. | Billigare och grövre. Pekar ut en riktning, inte en ruta. |
 | **Vägvisaren** | Avslöjar vakten vid exakt ett vadställe. | Ett vadställe av tre. Valet av vilket är hela köpet. |
 
-Örnen flyger **före** ritandet, inte under färden. Köpt till körningen vore den bara en avslöjningsbuff; köpt till planeringen är den information som blir ett beslut.
+Örnen flyger **före** ritandet, inte under färden. Köpt till körningen vore den bara en avslöjningsbuff; köpt till planeringen är den information som blir ett beslut. Vill man använda förmågan på en bana måste den alltså spenderas innan pennan tas fram — efteråt finns inget beslut kvar att informera.
+
+**Flygningen är låst till banans frö.** En bana som slumpades om vid varje tryck hade låtit spelaren starta om tills örnen råkade svepa över just den mark hen brydde sig om, och en förmåga man kan slå om gratis är inte ett beslut utan en enarmad bandit. Samma bana, samma flygning — slumpen ligger i kartan, inte i omtaget.
+
+Markören säger **att** något står där, aldrig **vad**. Antal och styrka är fortfarande något spelaren får reda på genom att gå dit.
 
 Regeln som håller dem ärliga: köpt information får minska *överraskningen*, inte ta bort *beslutet*. Örnen visar var något står — aldrig hur starkt det är. Blir spaning billig nog att köpas varje bana är dimman borta, och terrängläsningen som §3.4 och §3.5 bygger upp slutar spela roll.
 

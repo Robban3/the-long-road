@@ -1763,6 +1763,146 @@ class Caravan:
         return seconds
 
 
+# --- The eagle -------------------------------------------------------------------
+
+# Metres per second. A gliding bird covers ground fast enough that seven seconds is a
+# sweep across the map rather than a stroll over one corner of it.
+EAGLE_SPEED = 40.0
+
+# Seconds aloft. The ability is bought per level, so this is the whole of it.
+EAGLE_SECONDS = 7.0
+
+# Metres either side of the flight the eagle can see down into. Wide enough to be
+# worth buying, narrow enough that most of the map stays under the overlay.
+EAGLE_SIGHT = 32.0
+
+# How finely the flight is walked when marking what it saw. Half a tile keeps the
+# trail continuous without sampling more than the reveal radius needs.
+EAGLE_STEP = TILE_SIZE * 0.5
+
+
+@dataclass
+class ScoutFlight:
+    """Where the eagle went and what it found.
+
+    Deterministic from the level seed. That is not a detail: a flight rolled fresh on
+    every press would let a player restart the level until the eagle happened to sweep
+    the ground they cared about, and an ability you can re-roll for free is not a
+    decision, it is a slot machine. Same level, same flight — the randomness is in the
+    map, not in the retry.
+    """
+
+    path: List[tuple]           # world positions, metres
+    revealed_tiles: set         # tiles the overlay is lifted from
+    revealed_enemies: List[int] # indices into EncounterLayout.enemies
+    seconds: float
+
+    @property
+    def coverage(self) -> float:
+        return len(self.revealed_tiles)
+
+
+def _flight_path(grid: TileGrid, rng: DeterministicRandom, seconds: float) -> List[tuple]:
+    """A curve entering at one edge and leaving by another, bent by two inland points.
+
+    Two control points rather than one: a single bend gives an arc that always bulges
+    the same way and reads as a machine sweeping the map. Two gives the wandering line
+    a bird actually flies, and it is what makes a trail worth looking at.
+    """
+    extent = grid.width * TILE_SIZE
+
+    def edge_point(edge: int) -> tuple:
+        along = rng.range_float(0.15, 0.85) * extent
+        if edge == 0:
+            return (0.0, along)
+        if edge == 1:
+            return (extent, along)
+        if edge == 2:
+            return (along, 0.0)
+        return (along, extent)
+
+    entry_edge = rng.range_int(0, 4)
+    exit_edge = (entry_edge + 1 + rng.range_int(0, 3)) % 4
+
+    start = edge_point(entry_edge)
+    end = edge_point(exit_edge)
+    controls = [(rng.range_float(0.2, 0.8) * extent, rng.range_float(0.2, 0.8) * extent)
+                for _ in range(2)]
+
+    points = [start] + controls + [end]
+
+    # Catmull-Rom through the four points, walked at a fixed step so the sampling
+    # matches the distance the eagle can actually cover in its seconds aloft.
+    budget = EAGLE_SPEED * seconds
+    path = []
+    travelled = 0.0
+    previous = points[0]
+    path.append(previous)
+
+    padded = [points[0]] + points + [points[-1]]
+    for segment in range(len(points) - 1):
+        p0, p1, p2, p3 = padded[segment:segment + 4]
+        steps = 64
+        for i in range(1, steps + 1):
+            t = i / steps
+            point = _catmull_rom(p0, p1, p2, p3, t)
+            step = math.dist(previous, point)
+            if travelled + step > budget:
+                return path
+            travelled += step
+            path.append(point)
+            previous = point
+
+    return path
+
+
+def _catmull_rom(p0, p1, p2, p3, t):
+    t2, t3 = t * t, t * t * t
+    return tuple(
+        0.5 * ((2 * p1[i])
+               + (-p0[i] + p2[i]) * t
+               + (2 * p0[i] - 5 * p1[i] + 4 * p2[i] - p3[i]) * t2
+               + (-p0[i] + 3 * p1[i] - 3 * p2[i] + p3[i]) * t3)
+        for i in range(2)
+    )
+
+
+def fly_the_eagle(level: LevelMap, seconds: float = EAGLE_SECONDS,
+                  sight: float = EAGLE_SIGHT, flight: int = 0) -> ScoutFlight:
+    """Flies the scouting ability over a level and reports what it uncovered.
+
+    The eagle is bought before the route is drawn, and this is why: what it found is
+    still on the map when the player picks up the pen. Bought for the run it would be
+    a reveal buff; bought for the planning it is information that becomes a decision.
+    """
+    grid = level.grid
+    rng = DeterministicRandom(level.seed ^ (0x3A91 + flight * 7919))
+
+    path = _flight_path(grid, rng, seconds)
+    revealed = set()
+
+    radius_tiles = sight / TILE_SIZE
+    span = int(math.ceil(radius_tiles))
+    limit = radius_tiles * radius_tiles
+
+    for x, y in path:
+        cx, cy = int(x / TILE_SIZE), int(y / TILE_SIZE)
+        for ty in range(cy - span, cy + span + 1):
+            for tx in range(cx - span, cx + span + 1):
+                if not grid.in_bounds(tx, ty):
+                    continue
+                if (tx - x / TILE_SIZE) ** 2 + (ty - y / TILE_SIZE) ** 2 > limit:
+                    continue
+                revealed.add(grid.to_index(tx, ty))
+
+    # A group is found if the eagle passed over where it stands. Its territory does not
+    # help it hide and does not help it be seen: the bird looks down at the ground.
+    found = [index for index, spawn in enumerate(level.encounters.enemies)
+             if spawn.tile in revealed]
+
+    return ScoutFlight(path, revealed, found, seconds)
+
+
 # --- Scenery ---------------------------------------------------------------------
 #
 # The decorator's placement, reproduced so the same trees stand in the same places.
