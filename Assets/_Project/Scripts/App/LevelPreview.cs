@@ -23,7 +23,21 @@ namespace Arna.App
         [Header("Level")]
         [Min(1)] public int Chapter = 1;
         [Min(1)] public int Level = 1;
-        public bool ShowCorridors = true;
+        /// <summary>
+        /// Draws the three corridors the generator found, and clears scenery along
+        /// them so the ribbons read.
+        ///
+        /// Off by default, and that is a design change and not a preference. The
+        /// corridors were the level's three answers while the player picked one of
+        /// them; now the player draws their own line and the corridors are the
+        /// generator's own working — an answer sheet laid over the question. Worse,
+        /// the cleared scenery leaks them even with the ribbons hidden: three lanes
+        /// through the forest at a third of the surrounding prop density, which the
+        /// planning overlay cannot cover because it removes colour and not geometry.
+        ///
+        /// Turn it on to look at what the generator did. Not to play against it.
+        /// </summary>
+        public bool ShowCorridors;
 
         [Header("World")]
         /// <summary>
@@ -234,6 +248,13 @@ namespace Arna.App
             var traps = map.Encounters?.Traps;
             if (traps == null || traps.Count == 0) return null;
 
+            // "Never on one" is the whole of the tell, and it used to be said and not
+            // done: the offset below is drawn from [-3, 3] in both axes, which includes
+            // (0, 0), and nothing checked the trap tiles. A ruin marked a trap exactly
+            // on one of nine sites on 1-5.
+            var mined = new HashSet<int>();
+            foreach (var trap in traps) mined.Add(trap.Tile);
+
             var rng = new DeterministicRandom(map.Seed ^ 0x2117);
             var neighbourhoods = new HashSet<int>();
             var sites = new List<int>();
@@ -256,7 +277,10 @@ namespace Arna.App
                     var terrain = map.Grid[nx, ny];
                     if (terrain == TerrainType.Water || terrain == TerrainType.Cliff) continue;
 
-                    sites.Add(map.Grid.ToIndex(nx, ny));
+                    int site = map.Grid.ToIndex(nx, ny);
+                    if (mined.Contains(site)) continue;
+
+                    sites.Add(site);
                     break;
                 }
             }

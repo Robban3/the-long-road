@@ -67,6 +67,14 @@ laptop without the project installed — can still look at:
 
     cd Tools && python3 render_screens.py --chapter 1 --level 5 --out ../docs/screenshots
 
+The same port is what the generator is tested against here, since the EditMode suite
+needs an editor:
+
+    cd Tools && python3 smoke_test.py --all
+
+It checks determinism, the numbers the design leans on, and information the player is
+not meant to have. It found four real bugs the first time it was run; see §4.
+
 It reproduces both numbers this document records for 1-5 — 59 % corridor overlap in
 §4 and a fastest route of 94.4 in §6 — which is the check that it is generating the
 same levels. Getting there needed its pathfinder to round to single
@@ -111,6 +119,39 @@ gives them. The country is right, the dressing is a sketch. See
 ---
 
 ## 4. Known problems, worst first
+
+**Fixed by the first smoke run, recorded so they are not reintroduced.** Four bugs,
+two of them information leaks, all four present in the engine and not only in the port:
+
+- *The repair loop livelocked.* `EncounterPlacer` moves a group onto whichever sampled
+  route met too little, and picked the idlest group to move — but the group it just
+  moved is the idlest group on the next pass, because it went somewhere only one route
+  reaches. Traced over forty passes on 2-5, the same band of raiders moved forty times
+  while the worst route stayed pinned at four. All twelve repairs were being spent
+  walking one group in a circle, and the `MinEncounters` promise broke on 10 of 50
+  levels, down to 2. The loop now scores itself, undoes a move that does not help, and
+  offers each donor several landing spots instead of one.
+- *The generator never re-rolled on the broken promise.* It re-rolled up to twelve
+  times on whether the three corridors differ from each other — which stopped being a
+  question when the player was handed a pen — while `MinEncounters` was not a criterion
+  at all. It is now, through `EncounterLayout.EncountersValidated`.
+- *A ruin could stand on the trap it is meant to only hint at.* The offset is drawn
+  from [-3, 3] in both axes, which includes (0, 0), and nothing checked the trap tiles.
+  One of nine sites on 1-5 marked a trap exactly — handing over the position the whole
+  detection system exists to hide.
+- *The three corridors leaked through the scenery.* Props were cleared along them so
+  the ribbons would read, which drew them as lanes through the forest at a third of the
+  surrounding density. The planning overlay cannot hide that, because it removes colour
+  and not geometry — so hiding the ribbons hid nothing. Clearing is now tied to drawing
+  the ribbons, and `LevelPreview.ShowCorridors` defaults off.
+
+**The planning map is denser than it was.** A consequence of that last fix rather than
+a bug: with nothing cleared, the planning map is dressed exactly like the run, which is
+the point — but the three clearings used to give the map its structure, and without
+them the start and goal markers are harder to pick out of the canopy. Worth a look
+before the planning screen is built: bigger endpoint markers, or props drawn shorter on
+the map, are both cheaper than putting the leak back.
+
 
 **The generator lays no roads.** `TerrainType.Road` exists in the terrain table and
 nothing ever writes it. Road is the fastest terrain in the game, so the

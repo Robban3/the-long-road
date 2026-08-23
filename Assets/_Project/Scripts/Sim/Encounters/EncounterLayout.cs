@@ -75,6 +75,16 @@ namespace Arna.Sim
         /// <summary>False when a sampled route could not be brought up to the silver floor.</summary>
         public bool SilverValidated;
 
+        /// <summary>
+        /// False when the repair loop could not bring the worst sampled route up to
+        /// <see cref="Arna.Gen.EncounterPlacer.MinEncounters"/>.
+        ///
+        /// The generator reads this and rolls the level again, which is the point of
+        /// recording it. A level where a drawn line can meet almost nothing is not one
+        /// to ship; it is one to re-roll, and that costs generation time and nothing else.
+        /// </summary>
+        public bool EncountersValidated;
+
         /// <summary>Tiles a sane crossing could pass through — the ground placement covers.</summary>
         public int BandTiles;
 

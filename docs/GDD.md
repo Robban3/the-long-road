@@ -88,6 +88,8 @@ När `sightRadius > detectRadius` ser du fienden innan den vaknar och hinner omg
 
 **Varje grupp bevakar en sträcka, inte en ruta.** `detectRadius` i tabellen är golvet; den faktiska väckningsradien är gruppens *revir* — halva avståndet till närmaste grannagrupp, mellan 24 och 52 meter. Det är vad som gör att tolv grupper täcker en karta spelaren får korsa var som helst: de håller landet mellan sig, och korsar du någons sträcka kommer de. Utan revir hade en fritt ritad linje behövt ungefär tjugoåtta grupper för att garantera fyra möten, och budgeten räcker till tolv. Det är också den sannare fiktionen — rövarband håller en vägsträcka, de köar inte på en ruta.
 
+**Löftet, och vad det är värt.** Ingen ritad rutt ska möta färre än **fem** grupper — det är vad som gör ritfriheten till ett val i stället för en chansning. Placeraren bevisar det genom att sampla 32 rutter och flytta hot till den sämsta av dem, och den siktar på sex, inte fem: den kan bara mäta rutter den själv drog, och en linje ritad mellan dem kommer regelmässigt ut en grupp kort. Reparerat till exakt fem mötte varje osedd rutt fyra; siktat på sex möter de fem eller sex. Kvar står ett mätt undantag — en osedd rutt kan möta fyra. Högre marginal köper inte bort det, den flyttar bara vilka banor som faller (se `docs/content-pipeline.md` §3 steg 9).
+
 Första gången en ny fiendegrupp upptäcks körs **0,4 sekunder slow motion** med en markör. Det är spelarens signal att reagera.
 
 ### 3.5 Mjuka signaler

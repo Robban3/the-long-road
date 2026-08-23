@@ -17,9 +17,22 @@ namespace Arna.Tests
     public class EncounterPlacerTests
     {
         const int FreshRoutes = 40;
+        const int MinEncounters = EncounterPlacer.MinEncounters;
 
-        /// <summary>The floor measured over chapter 1 against routes the placer never saw.</summary>
-        const int WorstCaseEncounters = 3;
+        /// <summary>
+        /// The floor measured against routes the placer never saw.
+        ///
+        /// One below <see cref="EncounterPlacer.MinEncounters"/>, and measured rather
+        /// than chosen. The placer proves its case over the 32 routes it sampled and
+        /// repairs to one above the promise so the unsampled ones keep it too, but a
+        /// line drawn between the samples can still come out a group short. Raising
+        /// the repair target further does not buy it back: at 7 the failures move to
+        /// other levels, at 8 generation time triples and levels start failing
+        /// validation outright.
+        ///
+        /// It was 3 while the repair loop livelocked, and levels were shipping at 2.
+        /// </summary>
+        const int WorstCaseEncounters = MinEncounters - 1;
 
         static LevelRecipe Recipe() => new LevelRecipe();
 
@@ -48,6 +61,42 @@ namespace Arna.Tests
                 Assert.GreaterOrEqual(worst, WorstCaseEncounters,
                     $"level 1-{level}: some drawn route met only {worst} groups");
             }
+        }
+
+        [Test]
+        public void TheRepairLoopFinishesWhatItStarts()
+        {
+            // It used to livelock. The group just moved is the idlest group on the next
+            // pass, because it went somewhere only one route reaches, so it was picked
+            // again — traced over forty passes on 2-5, the same band of raiders moved
+            // forty times while the worst route stayed pinned at four. Every repair in
+            // the budget was being spent walking one group in a circle.
+            //
+            // What it asserts is the outcome rather than the repair count. Saturation
+            // was the symptom — every failing level spent all twelve — but a level may
+            // legitimately need most of them, and the levels here already use ten. The
+            // thing livelock actually prevented is arriving, so that is what is checked.
+            for (int level = 1; level <= 10; level++)
+            {
+                var layout = Level(1, level).Encounters;
+
+                Assert.GreaterOrEqual(layout.MinEncounters, EncounterPlacer.RepairTarget,
+                    $"level 1-{level}: repaired to {layout.MinEncounters} in "
+                    + $"{layout.Repairs} moves, target is {EncounterPlacer.RepairTarget}");
+            }
+        }
+
+        [Test]
+        public void ALevelThatCannotKeepThePromiseIsRolledAgain()
+        {
+            // The generator used to re-roll on IsMeaningfulChoice alone — whether the
+            // three corridors it found differ from each other, which stopped being a
+            // question the moment the player was handed a pen. The promise that
+            // replaced it was not a criterion at all, so levels shipped broken.
+            for (int chapter = 1; chapter <= 3; chapter++)
+                for (int level = 1; level <= 10; level++)
+                    Assert.IsTrue(Level(chapter, level).Encounters.EncountersValidated,
+                        $"level {chapter}-{level} shipped without keeping its promise");
         }
 
         [Test]

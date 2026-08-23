@@ -120,10 +120,28 @@ Träd, stenar, vrak. Rent kosmetiskt, deterministiskt från tileseed.
 
 **9. Validering**
 - Finns minst en genomförbar rutt? (annars: förkasta, nytt seed)
+- **Möter den sämsta samplade rutten minst `RepairTarget` (6) grupper?** (annars: förkasta, nytt seed)
 - Är de tre korridorerna fortfarande distinkta efter fiendeplacering?
-- Når varje korridors silverpotential minst 5 uppgraderingsnivåer?
+- Når varje ruttens silverpotential minst 5 uppgraderingsnivåer?
 - Ligger triangelantal och instansantal inom prestandabudget?
 - Är `parTime` rimlig mot snabbaste rutten? (par = snabbaste rutt × 1.35)
+
+**Om löftet och marginalen.** Utlovat är `MinEncounters` = 5: ingen ritad rutt möter
+färre grupper än så. Reparationsloopen siktar ändå på 6, och skillnaden är inte slack
+utan vad samplingen kostar. Placeraren kan bara mäta de 32 rutter den själv drog; en
+linje ritad mellan dem kommer regelmässigt ut en grupp kort. Reparerat till exakt 5
+mötte varje osedd rutt 4 — mätt över sextio färska rutter på sex banor. Siktat på 6
+återger samma mätning 5 och 6.
+
+Högre marginal köper inget: vid 7 flyttar felen till andra banor, vid 8 tredubblas
+generationstiden och banor börjar falla igenom valideringen helt. Kvar står att en
+osedd rutt kan möta 4 i stället för 5. Det är mätt och accepterat — fyra grupper är
+fortfarande en bana med ett spel i sig. `Tools/smoke_test.py` vaktar den siffran.
+
+Kriteriet stod länge på fel sak. Generatorn gjorde om banan upp till tolv gånger på
+korridorernas inbördes spridning — alltså på om de tre vägar generatorn hittade skiljer
+sig åt, vilket spelaren slutade välja mellan i samma stund hen fick en penna — medan
+löftet som ersatte det inte var något kriterium alls.
 
 ---
 

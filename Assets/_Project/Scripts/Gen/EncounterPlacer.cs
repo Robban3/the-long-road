@@ -64,8 +64,31 @@ namespace Arna.Gen
         /// <summary>Groups the placer works to put on every sampled route.</summary>
         public const int MinEncounters = 5;
 
+        /// <summary>
+        /// What the repair loop aims at, which is one more than the promise.
+        ///
+        /// The loop can only measure the routes it sampled, and a player draws whatever
+        /// they like. Repaired to exactly the promise, the sampled routes all met five
+        /// and the ones nobody sampled met four — measured over sixty fresh routes on
+        /// six levels, every one came in a group short. Aimed one above, the same
+        /// measurement returns five and six. The margin is what the sampling costs; it
+        /// is not slack, and <see cref="EncounterLayout.EncountersValidated"/> still
+        /// records the promise rather than the target.
+        /// </summary>
+        public const int RepairTarget = MinEncounters + 1;
+
         public const int SampleRoutes = 32;
         public const int MaxRepairs = 12;
+
+        /// <summary>
+        /// Donors the loop may try per repair it keeps. A rejected move costs an
+        /// attempt and leaves the layout as it was, so without this the cap would be
+        /// spent on candidates rather than on repairs.
+        /// </summary>
+        const int RepairAttempts = 4;
+
+        /// <summary>Landing spots offered per donor, emptiest first.</summary>
+        const int RepairTargets = 3;
 
         public static EncounterLayout Place(TileGrid grid, IReadOnlyList<Corridor> corridors,
                                             LevelRecipe recipe, DeterministicRandom rng,
@@ -386,7 +409,7 @@ namespace Arna.Gen
         }
 
         /// <summary>Groups arrive one at a time, so nothing is placed on top of anything else.</summary>
-        static bool SpacedEnough(TileGrid grid, int tile, HashSet<int> occupied, float spacing)
+        static bool SpacedEnough(TileGrid grid, int tile, IEnumerable<int> occupied, float spacing)
         {
             grid.ToCoords(tile, out int x, out int y);
             float limit = spacing * spacing;
@@ -570,50 +593,122 @@ namespace Arna.Gen
             layout.SampledRoutes = routes.Count;
             if (routes.Count == 0) return;
 
-            for (int attempt = 0; attempt < MaxRepairs; attempt++)
+            var rejected = new HashSet<int>();
+            Score(grid, routes, layout, out int fewest, out int tied, out int worst);
+
+            // A rejection costs an attempt but not a repair, so the cap still means
+            // what it says: twelve groups moved, not twelve things tried.
+            for (int attempt = 0; attempt < MaxRepairs * RepairAttempts; attempt++)
             {
-                int worst = -1, fewest = int.MaxValue;
-                for (int i = 0; i < routes.Count; i++)
-                {
-                    int met = MetGroups(grid, routes[i], layout).Count;
-                    if (met >= fewest) continue;
-                    fewest = met;
-                    worst = i;
-                }
-
                 layout.MinEncounters = fewest;
-                if (worst < 0 || fewest >= MinEncounters) break;
+                if (worst < 0 || fewest >= RepairTarget || layout.Repairs >= MaxRepairs) break;
 
-                int donor = IdlestGroup(grid, routes, layout);
+                int donor = IdlestGroup(grid, routes, layout, rejected);
                 if (donor < 0) break;
 
-                int target = EmptiestStretch(grid, routes[worst], band, occupied);
-                if (target < 0) break;
+                var targets = EmptiestStretches(grid, routes[worst], band, occupied);
+                if (targets.Count == 0) break;
 
-                var moved = layout.Enemies[donor];
-                occupied.Remove(moved.Tile);
-                moved.Tile = target;
-                moved.Origin = PlacementOrigin.Repair;
-                layout.Enemies[donor] = moved;
-                occupied.Add(target);
+                var before = layout.Enemies[donor];
+                bool kept = false;
+
+                foreach (int target in targets)
+                {
+                    var moved = before;
+                    occupied.Remove(before.Tile);
+                    moved.Tile = target;
+                    moved.Origin = PlacementOrigin.Repair;
+                    layout.Enemies[donor] = moved;
+                    occupied.Add(target);
+                    AssignTerritories(grid, layout);
+
+                    Score(grid, routes, layout, out int nowFewest, out int nowTied, out int nowWorst);
+                    if (nowFewest > fewest || (nowFewest == fewest && nowTied < tied))
+                    {
+                        fewest = nowFewest;
+                        tied = nowTied;
+                        worst = nowWorst;
+                        kept = true;
+                        break;
+                    }
+
+                    occupied.Remove(target);
+                    layout.Enemies[donor] = before;
+                    occupied.Add(before.Tile);
+                    AssignTerritories(grid, layout);
+                }
+
+                if (!kept)
+                {
+                    rejected.Add(donor);
+                    continue;
+                }
+
                 layout.Repairs++;
-
-                AssignTerritories(grid, layout);
+                rejected.Clear();   // the ground moved; a group that could not help may now
             }
+
+            layout.MinEncounters = fewest;
+            // Against the target, not the promise. A level that reaches five on the
+            // routes the placer sampled has no margin left for the ones it did not,
+            // and re-rolling costs generation time where shipping it costs a level
+            // with no game in it.
+            layout.EncountersValidated = fewest >= RepairTarget;
 
             TallySilver(layout, recipe);
             TopUpSilver(grid, routes, recipe, layout, occupied);
         }
 
-        /// <summary>The placed group fewest sampled routes come near. Ford guards never move.</summary>
-        static int IdlestGroup(TileGrid grid, List<List<int>> routes, EncounterLayout layout)
+        /// <summary>
+        /// How good the layout is, worst route first: the fewest groups any sampled
+        /// route meets, then how many routes are stuck at that number.
+        ///
+        /// The second term is what stops a repair from robbing one route to pay
+        /// another. Without a score at all the loop had no idea which way was up, and
+        /// kept every move it made.
+        /// </summary>
+        static void Score(TileGrid grid, List<List<int>> routes, EncounterLayout layout,
+                          out int fewest, out int tied, out int worst)
+        {
+            fewest = int.MaxValue;
+            worst = -1;
+
+            for (int i = 0; i < routes.Count; i++)
+            {
+                int met = MetGroups(grid, routes[i], layout).Count;
+                if (met >= fewest) continue;
+                fewest = met;
+                worst = i;
+            }
+
+            tied = 0;
+            for (int i = 0; i < routes.Count; i++)
+                if (MetGroups(grid, routes[i], layout).Count == fewest) tied++;
+        }
+
+        /// <summary>
+        /// The placed group fewest sampled routes come near.
+        ///
+        /// Ford guards never move — a guard is the one placement no crossing can
+        /// avoid, and spending it elsewhere gives that back. Nor does a group whose
+        /// last move was rejected, until an accepted move changes the ground under
+        /// the question.
+        ///
+        /// That second rule is why the loop terminates. Without it the group just
+        /// moved was the idlest group on the next pass, because it went somewhere
+        /// only one route reaches, so it was picked again — and again. Traced over
+        /// forty passes on 2-5 the same band of raiders moved forty times while the
+        /// worst route stayed pinned at four.
+        /// </summary>
+        static int IdlestGroup(TileGrid grid, List<List<int>> routes, EncounterLayout layout,
+                               HashSet<int> rejected)
         {
             int best = -1, fewest = int.MaxValue;
 
             for (int i = 0; i < layout.Enemies.Count; i++)
             {
                 var spawn = layout.Enemies[i];
-                if (spawn.Origin == PlacementOrigin.Guard) continue;
+                if (spawn.Origin == PlacementOrigin.Guard || rejected.Contains(i)) continue;
 
                 float reach = spawn.Territory > 0f ? spawn.Territory : EngageRadiusTiles;
                 int met = 0;
@@ -628,12 +723,23 @@ namespace Arna.Gen
             return best;
         }
 
-        /// <summary>The tile on a route that is furthest from anything already placed.</summary>
-        static int EmptiestStretch(TileGrid grid, IReadOnlyList<int> route, ThreatBand band,
-                                   HashSet<int> occupied)
+        /// <summary>
+        /// Tiles on a route furthest from anything already placed, emptiest first.
+        ///
+        /// More than one, because the emptiest tile is a guess and not an answer. It
+        /// is the stretch of road nothing else watches, which is usually where a group
+        /// is worth most — but a group put there can cost another route more than it
+        /// gains this one, and then the loop wants a second candidate rather than a
+        /// different donor. Offering only the best tile left 1-10 giving up after a
+        /// single repair.
+        ///
+        /// Candidates are spaced apart: the three emptiest tiles on a route are
+        /// usually neighbours, and three tries at the same stretch of road is one try.
+        /// </summary>
+        static List<int> EmptiestStretches(TileGrid grid, IReadOnlyList<int> route, ThreatBand band,
+                                           HashSet<int> occupied, int count = RepairTargets)
         {
-            int best = -1;
-            float bestDistance = -1f;
+            var scored = new List<(float Distance, int Tile)>();
 
             foreach (int tile in route)
             {
@@ -651,13 +757,24 @@ namespace Arna.Gen
                     if (distance < nearest) nearest = distance;
                 }
 
-                if (nearest <= bestDistance) continue;
-                bestDistance = nearest;
-                best = tile;
+                scored.Add((nearest, tile));
             }
 
-            return best;
+            scored.Sort((a, b) => a.Distance != b.Distance
+                ? b.Distance.CompareTo(a.Distance)
+                : a.Tile.CompareTo(b.Tile));
+
+            var chosen = new List<int>();
+            foreach (var candidate in scored)
+            {
+                if (SpacedEnough(grid, candidate.Tile, chosen, GroupSpacingTiles))
+                    chosen.Add(candidate.Tile);
+                if (chosen.Count >= count) break;
+            }
+
+            return chosen;
         }
+
 
         static void TallySilver(EncounterLayout layout, LevelRecipe recipe)
         {

@@ -1092,6 +1092,22 @@ def _box_blur(mask: np.ndarray, radius: int) -> np.ndarray:
     return np.clip(mask, 0.0, 1.0)
 
 
+def planning_keep_clear(level: A.LevelMap, draw_routes: bool):
+    """Tiles the decorator leaves bare, which is none unless the corridors are drawn.
+
+    Clearing exists for one reason: a ribbon under a spruce is not a ribbon. Left on
+    with the ribbons off it leaks them anyway — cleared ground reads as three lanes
+    through the forest at a quarter to a third of the prop density around them, and the
+    planning overlay cannot hide that, because it takes out colour and not geometry.
+
+    The engine has the same split and always did: `LevelRunner` keeps nothing clear, so
+    a planning map that cleared was showing a forest the run does not have.
+    """
+    if not draw_routes:
+        return None
+    return {tile for corridor in level.corridors for tile in corridor.tiles}
+
+
 def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
                 height_scale: float = 22.0, density_scale: float = 2.2,
                 max_props: int = 2600, eagle=None, draw_routes: bool = True) -> Image.Image:
@@ -1104,7 +1120,7 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
     grid = level.grid
     extent = grid.width * A.TILE_SIZE
 
-    keep_clear = {tile for corridor in level.corridors for tile in corridor.tiles}
+    keep_clear = planning_keep_clear(level, draw_routes)
     bird = None
 
     mesh = Mesh()

@@ -43,6 +43,7 @@ namespace Arna.Gen
             int attempts = Math.Max(1, recipe.MaxGenerationAttempts);
 
             LevelMap best = null;
+            bool bestKept = false, bestValid = false;
             float bestSpread = -1f;
 
             for (int attempt = 0; attempt < attempts; attempt++)
@@ -71,18 +72,43 @@ namespace Arna.Gen
                 var map = new LevelMap(grid, seed, sx, sy, gx, gy,
                                        corridors[0].TravelCost, corridors, valid, attempt + 1, encounters);
 
-                if (valid) return map;
+                // Both, or roll again. The placer repairs what it can and says so when
+                // it could not, and a level where any drawn line meets almost nothing is
+                // not one to ship — it is one to re-roll, which costs generation time
+                // and nothing else.
+                //
+                // Retrying on `valid` alone was the old rule, and it aged badly. It
+                // measures whether the three corridors the generator found differ from
+                // each other, and the player stopped choosing between them when they
+                // were given a pen. The promise that replaced it — MinEncounters — was
+                // not a criterion at all, so the generator would re-roll twelve times
+                // for a property nobody reads and accept a level that broke the one the
+                // whole mechanic rests on.
+                bool kept = encounters.EncountersValidated;
+                if (valid && kept) return map;
 
-                // Keep the least-bad candidate: the one whose routes differ most.
+                // Keep the least-bad candidate: promise first, then a meaningful
+                // choice, then the corridors that differ most.
                 float spread = SpreadOf(corridors);
-                if (spread > bestSpread)
+                if (Better(kept, valid, spread, bestKept, bestValid, bestSpread))
                 {
+                    bestKept = kept;
+                    bestValid = valid;
                     bestSpread = spread;
                     best = map;
                 }
             }
 
             return best ?? Fallback(recipe, seed, attempts);
+        }
+
+        /// <summary>Ranks two failed attempts, worst-case promise first.</summary>
+        static bool Better(bool kept, bool valid, float spread,
+                           bool bestKept, bool bestValid, float bestSpread)
+        {
+            if (kept != bestKept) return kept;
+            if (valid != bestValid) return valid;
+            return spread > bestSpread;
         }
 
         static float SpreadOf(IReadOnlyList<Corridor> corridors)

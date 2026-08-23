@@ -635,6 +635,15 @@ ENGAGE_RADIUS_TILES = 4.0
 # The promise: no drawn route meets fewer than this many groups.
 MIN_ENCOUNTERS = 5
 
+# What the repair loop actually aims at, which is one more than the promise.
+#
+# The loop can only measure the routes it sampled, and a player draws whatever they
+# like. Repaired to exactly the promise, the sampled routes all met five and the ones
+# nobody sampled met four — measured over sixty fresh routes on six levels, every one
+# came in a group short. Aimed one above, the same measurement returns five and six.
+# The margin is what the sampling costs; it is not slack.
+REPAIR_TARGET = MIN_ENCOUNTERS + 1
+
 # A group watches the country around it out to half the distance to its nearest
 # neighbour, clamped. Placement alone cannot keep this promise: four encounters along
 # a freely drawn line across a sixty-four tile map would need about twenty-eight
@@ -651,6 +660,14 @@ TRAP_BUDGET_SHARE = 0.25
 
 SAMPLE_ROUTES = 32
 MAX_REPAIRS = 12
+
+# Donors the loop may try per repair it keeps. A rejected move costs an attempt and
+# leaves the layout as it was, so without this the cap would be spent on candidates
+# rather than on repairs.
+REPAIR_ATTEMPTS = 4
+
+# Landing spots offered per donor, emptiest first.
+REPAIR_TARGETS = 3
 
 # Why a thing is where it is. Diagnostics only, but the distinction is the design:
 # a guard is a promise, a scattered group is a probability, a repair is the placer
@@ -695,6 +712,10 @@ class EncounterLayout:
 
     total_silver: int = 0
     silver_validated: bool = False
+
+    # False when the repair loop could not bring the worst sampled route up to
+    # MIN_ENCOUNTERS. The generator reads this and rolls the level again.
+    encounters_validated: bool = False
 
     # What the placer measured about its own output. `min_encounters` is the number
     # the whole design rests on: the fewest groups any sampled route ran into.
@@ -1143,44 +1164,101 @@ def _verify_and_repair(grid, band, corridors, recipe, rng, layout, occupied,
     71 percent over its enemy budget, and §6 of the status notes records what happens
     when that budget lands on less ground than it was measured for. A group no sampled
     route ever came near is doing nothing where it stands, so it is the one that moves.
+
+    One rule keeps the loop honest, and it had none at first: **a move that does not
+    help is undone, and the group that made it is not asked again until something
+    else has changed.**
+
+    Hill-climbing needs to know which way is up. The score is the worst route's tally
+    first, then how many routes are stuck at that tally — so a repair that lifts one
+    route at another's expense is rejected rather than kept.
+
+    Without it the loop livelocked. The group just moved is the idlest group on the
+    next pass, because it went somewhere only one route reaches, so it was picked
+    again — and again. Traced over forty passes on 2-5 the same band of raiders moved
+    forty times while the worst route stayed pinned at four. All twelve repairs were
+    being spent walking one group in a circle.
+
+    A group whose move *was* kept may move again: the score strictly rises on every
+    accepted move and is bounded above, so that cannot cycle.
     """
     routes = sample_routes(grid, band, corridors, rng, level_start, level_goal)
     layout.sampled_routes = len(routes)
     if not routes:
         return
 
-    for _ in range(MAX_REPAIRS):
-        met_by = [len(met_groups(grid, route, layout)) for route in routes]
+    rejected = set()
 
-        worst = min(range(len(routes)), key=lambda i: met_by[i])
-        layout.min_encounters = met_by[worst]
-        if met_by[worst] >= MIN_ENCOUNTERS:
+    def score():
+        """Worst route first, then how many routes share that worst. Higher is better."""
+        met_by = [len(met_groups(grid, route, layout)) for route in routes]
+        fewest = min(met_by)
+        return fewest, -met_by.count(fewest), met_by.index(fewest)
+
+    fewest, tied, worst = score()
+
+    # A rejection costs an attempt but not a repair, so the cap still means what it
+    # says: twelve groups moved, not twelve things tried.
+    for _ in range(MAX_REPAIRS * REPAIR_ATTEMPTS):
+        layout.min_encounters = fewest
+        if fewest >= REPAIR_TARGET or layout.repairs >= MAX_REPAIRS:
             break
 
-        donor = _idlest_group(grid, routes, layout)
+        donor = _idlest_group(grid, routes, layout, rejected)
         if donor < 0:
             break
 
-        target = _emptiest_stretch(grid, routes[worst], band, occupied)
-        if target < 0:
+        targets = _emptiest_stretches(grid, routes[worst], band, occupied)
+        if not targets:
             break
 
-        occupied.discard(layout.enemies[donor].tile)
-        layout.enemies[donor] = EnemySpawn(target, layout.enemies[donor].kind, REPAIR)
-        occupied.add(target)
-        layout.repairs += 1
-        _assign_territories(grid, layout)
+        before = layout.enemies[donor]
+        kept = None
 
+        for target in targets:
+            occupied.discard(before.tile)
+            layout.enemies[donor] = EnemySpawn(target, before.kind, REPAIR)
+            occupied.add(target)
+            _assign_territories(grid, layout)
+
+            after = score()
+            if after[:2] > (fewest, tied):
+                kept = after
+                break
+
+            occupied.discard(target)
+            layout.enemies[donor] = before
+            occupied.add(before.tile)
+            _assign_territories(grid, layout)
+
+        if kept is None:
+            rejected.add(donor)
+            continue
+
+        layout.repairs += 1
+        fewest, tied, worst = kept
+        rejected.clear()          # the ground moved; a group that could not help may now
+
+    layout.min_encounters = fewest
+    # Against the target, not the promise. A level that reaches five on the routes
+    # the placer sampled has no margin left for the ones it did not, and re-rolling
+    # costs generation time where shipping it costs a level with no game in it.
+    layout.encounters_validated = fewest >= REPAIR_TARGET
     _tally_silver(layout, recipe)
     _top_up_silver(grid, routes, recipe, layout, occupied)
 
 
-def _idlest_group(grid, routes, layout) -> int:
-    """The placed group that fewest sampled routes come near. Ford guards never move."""
+def _idlest_group(grid, routes, layout, rejected=()) -> int:
+    """The placed group that fewest sampled routes come near.
+
+    Ford guards never move — a guard is the one placement no crossing can avoid, and
+    spending it elsewhere gives that back. Nor does a group whose last move was
+    rejected, until an accepted move changes the ground under the question.
+    """
     best, fewest = -1, None
 
     for index, spawn in enumerate(layout.enemies):
-        if spawn.origin == GUARD:
+        if spawn.origin == GUARD or index in rejected:
             continue
 
         met = 0
@@ -1195,10 +1273,17 @@ def _idlest_group(grid, routes, layout) -> int:
     return best
 
 
-def _emptiest_stretch(grid: TileGrid, route: Sequence[int], band: ThreatBand,
-                      occupied) -> int:
-    """The tile on a route that is furthest from anything already placed."""
-    best, best_distance = -1, -1.0
+def _emptiest_stretches(grid: TileGrid, route: Sequence[int], band: ThreatBand,
+                        occupied, count: int = REPAIR_TARGETS) -> List[int]:
+    """Tiles on a route furthest from anything already placed, emptiest first.
+
+    More than one, because the emptiest tile is a guess and not an answer. It is the
+    stretch of road nothing else watches, which is usually where a group is worth
+    most — but a group put there can cost another route more than it gains this one,
+    and then the loop wants a second candidate rather than a different donor. Offering
+    only the best tile was what left 1-10 giving up after a single repair.
+    """
+    scored = []
 
     for tile in route:
         if tile in occupied or tile not in band.weight:
@@ -1212,11 +1297,20 @@ def _emptiest_stretch(grid: TileGrid, route: Sequence[int], band: ThreatBand,
             ox, oy = grid.to_coords(other)
             nearest = min(nearest, (ox - x) ** 2 + (oy - y) ** 2)
 
-        if nearest > best_distance:
-            best_distance = nearest
-            best = tile
+        scored.append((nearest, tile))
 
-    return best
+    scored.sort(key=lambda pair: (-pair[0], pair[1]))
+
+    # Spread the candidates out. The three emptiest tiles on a route are usually
+    # neighbours, and three tries at the same stretch of road is one try.
+    chosen: List[int] = []
+    for _, tile in scored:
+        if _spaced_enough(tile, grid, chosen, GROUP_SPACING_TILES):
+            chosen.append(tile)
+        if len(chosen) >= count:
+            break
+
+    return chosen
 
 
 def _top_up_silver(grid, routes, recipe, layout, occupied) -> None:
@@ -1372,6 +1466,11 @@ class LevelMap:
     def goal_index(self) -> int:
         return self.grid.to_index(self.goal_x, self.goal_y)
 
+    @property
+    def encounters_validated(self) -> bool:
+        """Whether every route the placer sampled met enough to be a level."""
+        return self.encounters.encounters_validated
+
     def corridor_of(self, kind: int) -> Optional[Corridor]:
         for corridor in self.corridors:
             if corridor.kind == kind:
@@ -1384,7 +1483,7 @@ def generate(recipe: LevelRecipe, seed: int) -> LevelMap:
     attempts = max(1, recipe.max_generation_attempts)
 
     best: Optional[LevelMap] = None
-    best_spread = -1.0
+    best_rank = (False, False, -1.0)
 
     for attempt in range(attempts):
         rng = DeterministicRandom(seed + attempt * 7919)
@@ -1408,12 +1507,20 @@ def generate(recipe: LevelRecipe, seed: int) -> LevelMap:
         level = LevelMap(grid, seed, sx, sy, gx, gy, corridors[0].travel_cost,
                          corridors, valid, attempt + 1, encounters)
 
-        if valid:
+        # Both, or roll again. The placer repairs what it can and says so when it
+        # could not, and a level where any drawn line meets almost nothing is not one
+        # to ship — it is one to re-roll, which costs nothing but generation time.
+        #
+        # Retrying on `valid` alone was the old rule, and it aged badly: it measures
+        # whether the three corridors the generator found differ from each other, and
+        # the player stopped choosing between them when they were given a pen. The
+        # promise that replaced it was not a criterion at all.
+        if valid and encounters.encounters_validated:
             return level
 
-        spread = _spread_of(corridors)
-        if spread > best_spread:
-            best_spread = spread
+        rank = (encounters.encounters_validated, valid, _spread_of(corridors))
+        if rank > best_rank:
+            best_rank = rank
             best = level
 
     return best if best is not None else _fallback(recipe, seed, attempts)
@@ -1973,11 +2080,21 @@ class Prop:
 
 
 def ruin_sites(level: LevelMap) -> List[int]:
-    """Ground that shows a caravan came to grief: near a trap field, never on one."""
+    """Ground that shows a caravan came to grief: near a trap field, never on one.
+
+    "Never on one" is the whole of the tell. A ruin says be careful here; a ruin
+    standing on the trap says step there instead, and hands over the position the
+    detection system exists to keep hidden.
+
+    It used to say so and not do it. The offset is drawn from [-3, 3] in both axes,
+    which includes (0, 0), and nothing checked the trap tiles — so a ruin marked a
+    trap exactly on 1 of 9 sites on 1-5.
+    """
     traps = level.encounters.traps
     if not traps:
         return []
 
+    mined = {trap.tile for trap in traps}
     rng = DeterministicRandom(level.seed ^ 0x2117)
     neighbourhoods = set()
     sites: List[int] = []
@@ -1997,7 +2114,12 @@ def ruin_sites(level: LevelMap) -> List[int]:
             terrain = level.grid.at(nx, ny)
             if terrain in (WATER, CLIFF):
                 continue
-            sites.append(level.grid.to_index(nx, ny))
+
+            site = level.grid.to_index(nx, ny)
+            if site in mined:
+                continue
+
+            sites.append(site)
             break
 
     return sites
