@@ -67,8 +67,10 @@ längst fram i spåret.
 meter bred, vilket är elva bildpunkter rakt uppifrån sjuttio meter — ingenting. Tjugoen
 meter, som första utkastet hade, gjorde en hängglidare av den: bredare än granarna på
 åtta meter som den flög över, vilket får kartan att se liten ut i stället för fågeln
-stor. Elva meter är det minsta som fortfarande läses som en fågel däruppifrån, och
-ringen omkring den är ritad i bildrummet efter att världen är skuggad — den behåller
+stor. Tio meter är där den ligger nu — under lövverket den flyger över, vilket var
+proportionen som skavde, och fortfarande en fågel snarare än en fläck.
+
+Ringen omkring den är ritad i bildrummet efter att världen är skuggad, så den behåller
 sin storlek över både ljus äng och mörk granskog. En ring på marken provades först och
 åts av lövverket: en vit skära bakom en gran läser som ett ljusfel, inte som en markör.
 

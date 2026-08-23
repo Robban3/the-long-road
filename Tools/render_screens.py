@@ -979,10 +979,11 @@ EAGLE_HEAD = np.array([0.90, 0.88, 0.82])
 
 # Metres across. Twenty-one was a hang-glider: wider than the eight-metre spruces it
 # flew over, which made the map look small rather than the bird look grand. A real eagle
-# spans two, and two is eleven pixels from seventy metres up — nothing. Eleven metres is
-# the smallest that still reads as a bird from up there, and the pin below does the
-# finding so the bird does not have to be big enough to find itself.
-EAGLE_SPAN = 11.0
+# spans two, and two is eleven pixels from seventy metres up — nothing. Ten is where it
+# sits now: under the canopy it flies over, which is the proportion that was wrong, and
+# still a bird rather than a smudge. The pin does the finding, so the bird does not have
+# to be big enough to find itself.
+EAGLE_SPAN = 10.0
 
 # Metres above the ground it flies. Clear of the canopy so it never vanishes into a
 # treetop, low enough that the shadow it throws stays beside it rather than reading as
