@@ -75,12 +75,21 @@ needs an editor:
 It checks determinism, the numbers the design leans on, and information the player is
 not meant to have. It found four real bugs the first time it was run; see §4.
 
-It reproduces both numbers this document records for 1-5 — 59 % corridor overlap in
-§4 and a fastest route of 94.4 in §6 — which is the check that it is generating the
-same levels. Getting there needed its pathfinder to round to single
+It was validated against this document's own recorded numbers for 1-5 — 59 % corridor
+overlap and a fastest route of 94.4 — which is how we know it generates the same levels
+and not merely similar ones. Getting there needed its pathfinder to round to single
 precision the way C# float does; in double precision 1-5 came out at 67 % overlap
 instead of 59 %, because the cautious route is searched over ground thick with
 equal-cost tiles and the rounding decides which of two identical paths A* keeps.
+
+**Those two numbers have since moved, and on purpose.** The generator now re-rolls a
+level whose encounter promise it cannot keep (§4), so 1-5 is no longer decided on the
+first attempt but on the sixth, and it is a different level: fastest 77.6, worst-pair
+overlap 67 %. The port and the engine were changed together and still agree by
+construction, but the cross-check above is now historical — it validated the
+transcription at the commit where both were the old code. Re-running it needs an
+editor, so anyone who has one should: generate 1-5 in Unity and check it against
+`python3 render_screens.py --chapter 1 --level 5`.
 
 What it cannot show is the art: every FBX and texture in the repository is a Git LFS
 pointer, so scenery is drawn as procedural stand-ins at the sizes `TerrainDecorator`
@@ -164,8 +173,12 @@ speed-against-safety trade-off is missing a pole, and houses and fields are plac
 on and beside roads, so neither has ever appeared on a map. See §6 for why the
 obvious fix does not work on its own.
 
-**Corridor overlap runs high — and now means something else.** Level 1-5 shares 59 %
-of its tiles between its three corridors. The corridors are no longer shown to anyone,
+**Corridor overlap runs high — and now means something else.** Level 1-5 shares 67 %
+of its tiles between its two closest corridors, and five levels in fifty share 100 %.
+That last figure is not a broken gate: `IsMeaningfulChoice` asks that *some* pair of
+corridors differ, while the overlap figure reports the *worst* pair, so two coinciding
+routes and a third that diverges passes — correctly, since the fast way and the safe
+way being the same road is a real thing for a map to say. The corridors are no longer shown to anyone,
 so this is not a broken level any more; it is a map that affords fewer distinct
 crossings than it should, which is what the quality gate is measuring. Worth keeping an
 eye on, no longer worth blocking on.

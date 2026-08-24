@@ -191,6 +191,111 @@ namespace Arna.Tests
             Assert.Greater(far, near, "dragging the waypoint further out did not lengthen the route");
         }
 
+        // --- What the preview tells the player (docs/GDD.md §3.3) -------------------
+
+        [Test]
+        public void ADetourAroundAnObstacleIsFlagged()
+        {
+            // Drawing across a river away from its fords does not stop anything — A*
+            // goes around — and the caravan takes a detour nobody asked for. The point
+            // of the flag is that it arrives before the run does, not during it.
+            var grid = Plains(21, 21);
+            for (int y = 0; y < 20; y++) grid[10, y] = TerrainType.Water;   // a wall with one gap
+
+            var planner = new RoutePlanner(grid);
+            var route = planner.Solve(0, 0, 20, 0);
+
+            Assert.IsTrue(route.IsValid);
+            Assert.AreEqual(1, route.Legs.Count);
+            Assert.Greater(route.Legs[0].Detour, RouteResult.DetourThreshold,
+                $"the way round the water read {route.Legs[0].Detour:0.00}");
+            Assert.AreEqual(1, route.DetourLegs);
+        }
+
+        [Test]
+        public void AnOrdinaryLegIsNotFlagged()
+        {
+            // The threshold has to clear the noise floor. A* on eight-connected ground
+            // never walks the crow's line, so an ordinary leg already reads above 1.0 —
+            // measured over chapter 1 to 3 in the port, 1.05 to 1.19. A threshold inside
+            // that spread would warn on every route and mean nothing.
+            var route = new RoutePlanner(Plains()).Solve(0, 0, 19, 19);
+
+            Assert.IsTrue(route.IsValid);
+            Assert.LessOrEqual(route.Legs[0].Detour, RouteResult.DetourThreshold);
+            Assert.AreEqual(0, route.DetourLegs);
+        }
+
+        [Test]
+        public void TheLegThatCrossesTheRiverNamesItsFord()
+        {
+            // §3.3: the crossing is where the decision is, so the preview has to be
+            // able to point at the one this route uses.
+            var grid = Plains(21, 21);
+            for (int y = 0; y < 21; y++) grid[10, y] = TerrainType.Water;
+            grid[10, 5] = TerrainType.Ford;
+
+            var route = new RoutePlanner(grid).Solve(0, 5, 20, 5);
+
+            Assert.IsTrue(route.IsValid);
+            Assert.AreEqual(grid.ToIndex(10, 5), route.Legs[0].FordTile);
+            CollectionAssert.AreEqual(new[] { grid.ToIndex(10, 5) }, route.Crossings);
+        }
+
+        [Test]
+        public void TheRiskReadingComesOffTheTerrainAndNothingElse()
+        {
+            // The rule the whole information economy rests on: what is out there is
+            // bought with the eagle or paid for in blood. A risk number that consulted
+            // the encounter layout would hand it over for free.
+            var forest = Plains();
+            for (int i = 0; i < forest.TileCount; i++) forest[i] = TerrainType.Forest;
+
+            var open = Plains();
+            for (int i = 0; i < open.TileCount; i++) open[i] = TerrainType.Plains;
+
+            float dense = new RoutePlanner(forest).Solve(0, 0, 19, 0).AmbushExposure;
+            float bare = new RoutePlanner(open).Solve(0, 0, 19, 0).AmbushExposure;
+
+            Assert.That(dense, Is.EqualTo(TerrainTable.AmbushWeight(TerrainType.Forest)).Within(0.001f));
+            Assert.That(bare, Is.EqualTo(TerrainTable.AmbushWeight(TerrainType.Plains)).Within(0.001f));
+            Assert.Greater(dense, bare, "forest should read as worse country to be ambushed in");
+        }
+
+        [Test]
+        public void AFailedLegIsRecordedRatherThanDropped()
+        {
+            // The preview draws the failed leg red and blocks the start, so it needs
+            // the leg itself and not only its number.
+            var grid = Plains();
+            for (int y = 0; y < 20; y++) grid[10, y] = TerrainType.Water;
+
+            var route = new RoutePlanner(grid).Solve(0, 0, 19, 0);
+
+            Assert.IsFalse(route.IsValid);
+            Assert.AreEqual(0, route.FailedLeg);
+            Assert.AreEqual(1, route.Legs.Count);
+            Assert.IsTrue(route.Legs[0].Failed);
+        }
+
+        [Test]
+        public void EveryLegIsRecordedInOrder()
+        {
+            var grid = Plains();
+            var planner = new RoutePlanner(grid);
+            planner.TryAddWaypoint(5, 10);
+            planner.TryAddWaypoint(12, 3);
+
+            var route = planner.Solve(0, 0, 19, 19);
+
+            Assert.AreEqual(3, route.Legs.Count);
+            Assert.AreEqual(grid.ToIndex(0, 0), route.Legs[0].FromTile);
+            Assert.AreEqual(grid.ToIndex(5, 10), route.Legs[0].ToTile);
+            Assert.AreEqual(grid.ToIndex(5, 10), route.Legs[1].FromTile);
+            Assert.AreEqual(grid.ToIndex(12, 3), route.Legs[1].ToTile);
+            Assert.AreEqual(grid.ToIndex(19, 19), route.Legs[2].ToTile);
+        }
+
         [Test]
         public void ReusedResultObjectDoesNotAccumulate()
         {

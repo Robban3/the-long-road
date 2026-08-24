@@ -68,12 +68,14 @@ Rutten är spelarens, inte generatorns. Kartan visar ingen färdig väg och inga
 
 - Spelaren trycker ut upp till 6 waypoints. Varje etapp löses med terrängviktad A*, så en grovt dragen linje blir en väg en karavanförare faktiskt hade tagit: den kramar snabb mark och skyr kärr i stället för att skära rakt igenom.
 - Rutten valideras: den får inte korsa ofarbar terräng. Ogiltiga etapper visas röda och går inte att starta med.
-- **Ruttförhandsvisning** uppdateras live och visar: total sträcka, uppskattad restid, andel per terrängtyp, och en risk-indikator baserad på bakhållsvikt. Detta är spelarens enda hårda beslutsunderlag — det måste vara tydligt.
+- **Ruttförhandsvisning** uppdateras live och visar: total sträcka, uppskattad restid, andel per terrängtyp, och en risk-indikator baserad på bakhållsvikt. Detta är spelarens enda hårda beslutsunderlag — det måste vara tydligt. Risktalet läses **enbart av terrängen**: ett tal som konsulterade fiendelistan hade gett bort gratis det örnen säljs för (§3.6). Det säger *det här är bakhållsmark*, aldrig *det står fyra bakom åsen*.
 - Vissa waypoints kan sättas som **specialpunkter**: `Rasta` (läker trupper, kostar 15 s), `Spana` (avslöjar 25 m radie, kostar 8 s).
 
 **Passagerna måste synas.** Floden går tvärs färdriktningen och kan bara korsas vid sina vadställen, så vadställena är kartans viktigaste information. De markeras som byggda saker — en bro, ett märke — inte som en ljusare ruta vatten. Den etapp som korsar floden lyfter fram vilket vadställe den använder, för det är där beslutet ligger.
 
 **Omvägar ska inte komma som en överraskning.** Ritar spelaren tvärs en flod utan vadställe stannar ingenting — A* går runt — men karavanen tar en omväg spelaren aldrig menade. En etapp som blir mer än 40 % längre än fågelvägen ritas därför avvikande: *detta blev inte vad du trodde*.
+
+Tröskeln mäts som *gången sträcka delat med fågelvägen*, i rutor och inte i restid. Restid hade blandat ihop två olika saker: en etapp genom kärr är dyr utan att vara en överraskning, och en etapp den långa vägen runt en flod är en överraskning även på god mark. Att 40 % räcker är mätt: A\* på åttagrannars mark går aldrig fågelvägen, så en ostörd etapp ligger redan på 1,05–1,19, och en etapp som tvingas runt till fel vadställe läser 1,8–2,5. En tröskel inne i det första spannet hade varnat för varje rutt.
 
 Generatorn räknar fortfarande fram tre korridorer — snabb, säker och udda — men de visas aldrig. De är mätinstrument: kvalitetsgrinden som förkastar frön där ingen korsning skiljer sig från någon annan, och partiden som tredje stjärnan mäts mot.
 

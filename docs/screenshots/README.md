@@ -20,7 +20,10 @@ siffror banan har, så texten står på egna ben även utan filerna bredvid sig.
 
 **Banan är på riktigt.** Terräng, höjdfält, floder och vadställen, de tre korridorerna
 och varje fiende, fälla och silverdepå kommer ur porten av generatorn. Den reproducerar
-siffrorna som `status.md` noterar för 1-5: snabbaste rutt 94.4 och 59 % korridoröverlapp.
+siffrorna `status.md` noterade för 1-5 när porten skrevs — snabbaste rutt 94.4 och 59 %
+korridoröverlapp. Båda har sedan flyttat sig med flit: generatorn gör nu om en bana vars
+möteslöfte den inte kan hålla, så 1-5 avgörs på sjätte försöket i stället för det första
+och är en annan bana. Tabellerna nedan visar de nya siffrorna.
 Det är beviset på att det är samma banor som motorn bygger — porten räknar i enkel
 precision just för att träffa dem exakt.
 
@@ -46,14 +49,45 @@ Start är den gröna rutan i väst, mål den gula i öst.
 
 | Bild | Bana | Snabb | Säker | Udda | Överlapp | Fiendegrupper | Fällor |
 |---|---|---|---|---|---|---|---|
-| `plan-1-1.png` | 1-1 (frö 1001) | 78.9 | 100.1 | 154.4 | 14 % | 12 | 5 |
-| `plan-1-5.png` | 1-5 (frö 1005) | 94.4 | 96.1 | 137.1 | 59 % | 9 | 4 |
-| `plan-1-10.png` | 1-10 (frö 1010) | 90.9 | 96.2 | 158.8 | 57 % | 12 | 7 |
+| `plan-1-1.png` | 1-1 (frö 1001) | 109.2 | 111.9 | 159.2 | 36 % | 13 | 9 |
+| `plan-1-5.png` | 1-5 (frö 1005) | 77.6 | 78.3 | 151.8 | 67 % | 11 | 8 |
+| `plan-1-10.png` | 1-10 (frö 1010) | 95.9 | 95.9 | 139.7 | 100 % | 13 | 8 |
 
-Kostnaderna är restid i rutsteg. 1-5 är banan `status.md` pekar ut som problemet: 59 %
-av rutorna delas mellan rutterna, och den säkra rutten är bara 2 % långsammare än den
-snabba — vägvalet betyder nästan ingenting där. 1-1 är motsatsen och visar vad
-generatorn gör när den lyckas.
+Kostnaderna är restid i rutsteg, och överlappet är det **sämsta paret** av tre. Att
+1-10 står på 100 % betyder att två av dess korridorer sammanfaller helt — kvalitetsgrinden
+kräver att *något* par skiljer sig, inte att alla gör det, så banan passerar. Det är
+rimligt: att den snabba och den säkra vägen är samma väg är något en karta får säga.
+
+Korridorerna visas aldrig för spelaren. De är mätinstrument — kvalitetsgrinden och
+partiden — och de tre siffrorna här säger hur mycket landet självt erbjuder, inte vilka
+val spelaren får.
+
+### Att rita en rutt
+
+    python3 render_screens.py --chapter 1 --level 5 --view plan --waypoints "42,23 56,23"
+
+Upp till sex tryck. Varje etapp löses med terrängviktad A\*, och `--waypoints` skriver
+ut samma förhandsvisning som spelaren ska se: sträcka, restid, andel per terrängtyp,
+bakhållsvikt, vilka vadställen rutten använder, och vilka etapper som blev längre än
+man ritade.
+
+Linjen ritas etapp för etapp, för två av de tre sakerna förhandsvisningen är skyldig
+spelaren gäller enskilda etapper:
+
+| Färg | Betyder |
+|---|---|
+| Krämvit | Etappen blev vad du ritade |
+| Orange | **Omväg** — mer än 1,4× fågelvägen. Inget är fel, men karavanen går en väg du inte menade |
+| Röd stapel | Etappen har ingen väg alls. Går inte att starta |
+
+Vita prickar är trycken själva. Tröskeln 1,4 är mätt, inte vald: A\* på åttagrannars mark
+går aldrig fågelvägen, så en ostörd etapp ligger redan på 1,05–1,19. En tröskel inom det
+spannet hade varnat för varje rutt och därmed inte betytt något. En etapp som tvingas runt
+en flod till fel vadställe läser 1,8–2,5.
+
+Bakhållsvikten läses **enbart av terrängen**. Ett risktal som konsulterade fiendelistan
+hade gett bort gratis det örnen säljs för (GDD §3.4) — det säger *det här är bakhållsmark*,
+aldrig *det står fyra bakom åsen*.
 
 ### Kartans markörer
 

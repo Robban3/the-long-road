@@ -610,6 +610,171 @@ TRAP_DISARM_SILVER = [8, 8]
 SAFE_END_TILES = 6
 BASE_TRAP_CHANCE = 0.035
 
+# --- Route drawing ------------------------------------------------------------------
+#
+# The route is the player's, not the generator's (docs/GDD.md §3.3). They put down up
+# to six waypoints and each leg is solved with terrain-weighted A*, so a roughly drawn
+# line becomes a path a caravan master would actually have taken. The gap between what
+# is drawn and what is walked is the whole reason the mechanic feels good rather than
+# fiddly — and it is also where the one thing that can go wrong lives.
+
+MAX_WAYPOINTS = 6
+
+# How much longer than the crow's line a leg may run before it is flagged.
+#
+# Draw across a river away from its fords and nothing stops: A* goes around, and the
+# caravan takes a detour nobody asked for. §3.3 says a detour must not arrive as a
+# surprise, so the leg is marked and the preview says so before the run starts.
+DETOUR_THRESHOLD = 1.4
+
+
+@dataclass
+class RouteLeg:
+    """One stretch, from the last point the player put down to the next."""
+
+    from_tile: int
+    to_tile: int
+    tile_count: int = 0
+    travel_cost: float = 0.0
+
+    # Where this leg's tiles sit in `RouteResult.tiles`, inclusive. §3.3 asks for the
+    # failed leg drawn red and the detour leg drawn differently, which needs the leg's
+    # own stretch of the line and not just its number.
+    first: int = 0
+    last: int = -1
+    walked: float = 0.0          # tiles of ground, a diagonal counting √2
+    straight_line: float = 0.0   # tiles as the crow flies
+    failed: bool = False
+    ford_tile: int = -1
+
+    @property
+    def detour(self) -> float:
+        return 1.0 if self.straight_line <= 0.0 else self.walked / self.straight_line
+
+    @property
+    def is_detour(self) -> bool:
+        return self.detour > DETOUR_THRESHOLD
+
+
+@dataclass
+class RouteResult:
+    """What the map can tell the player about the line they drew, before they commit."""
+
+    tiles: List[int] = field(default_factory=list)
+    legs: List[RouteLeg] = field(default_factory=list)
+    crossings: List[int] = field(default_factory=list)
+    travel_cost: float = 0.0
+    tiles_by_terrain: List[int] = field(default_factory=lambda: [0] * 8)
+
+    # Mean ambush weight along the route, read off the terrain and nothing else. It
+    # must not consult the encounter layout: what is actually out there is bought with
+    # the eagle or paid for in blood, and a risk number that knew would hand it over
+    # for free (§3.4). It says "this is ambush country", never "there are four of them
+    # behind that ridge".
+    ambush_exposure: float = 0.0
+
+    valid: bool = False
+    failed_leg: int = -1
+
+    @property
+    def detour_legs(self) -> int:
+        return sum(1 for leg in self.legs if leg.is_detour)
+
+    def share_of(self, terrain: int) -> float:
+        return 0.0 if not self.tiles else self.tiles_by_terrain[terrain] / len(self.tiles)
+
+    def estimated_seconds(self, tiles_per_second: float = 2.0) -> float:
+        return 0.0 if tiles_per_second <= 0 else self.travel_cost / tiles_per_second
+
+
+def can_place_waypoint(grid: TileGrid, tile: int, placed: Sequence[int] = ()) -> bool:
+    """Whether a tap puts a waypoint down (mirrors `RoutePlanner.TryAddWaypoint`).
+
+    A tap on deep water does nothing rather than snapping somewhere the player did not
+    choose: a route that quietly moves the point you put down is a route you did not
+    draw, which is the one thing this mechanic cannot afford.
+    """
+    if len(placed) >= MAX_WAYPOINTS:
+        return False
+    if not 0 <= tile < grid.tile_count:
+        return False
+    if not grid.is_passable(*grid.to_coords(tile)):
+        return False
+    return tile not in placed
+
+
+def solve_route(grid: TileGrid, start: int, goal: int,
+                waypoints: Sequence[int] = ()) -> RouteResult:
+    """Stitches start → waypoints → goal into one route, and reads it back.
+
+    Always returns a result; check `valid` before letting the player start.
+    """
+    result = RouteResult()
+    pathfinder = GridPathfinder(grid)
+
+    sx, sy = grid.to_coords(start)
+    fx, fy = sx, sy
+
+    for leg_index, waypoint in enumerate(list(waypoints) + [goal]):
+        tx, ty = grid.to_coords(waypoint)
+        leg = RouteLeg(grid.to_index(fx, fy), waypoint,
+                       straight_line=math.hypot(tx - fx, ty - fy))
+
+        tiles, cost = pathfinder.find_path(fx, fy, tx, ty)
+        if tiles is None:
+            leg.failed = True
+            result.legs.append(leg)
+            result.failed_leg = leg_index
+            return result
+
+        leg.tile_count = len(tiles)
+        leg.travel_cost = cost
+        leg.walked = _walked(grid, tiles)
+
+        for tile in tiles:
+            if int(grid.tiles[tile]) != FORD:
+                continue
+            if leg.ford_tile < 0:
+                leg.ford_tile = tile
+            if tile not in result.crossings:
+                result.crossings.append(tile)
+
+        # The seam belongs to both legs on screen even though it is counted once.
+        leg.first = max(len(result.tiles) - (0 if not result.tiles else 1), 0)
+        result.tiles.extend(tiles if not result.tiles else tiles[1:])
+        leg.last = len(result.tiles) - 1
+
+        result.legs.append(leg)
+        result.travel_cost += cost
+        fx, fy = tx, ty
+
+    ambush = 0.0
+    for tile in result.tiles:
+        terrain = int(grid.tiles[tile])
+        result.tiles_by_terrain[terrain] += 1
+        ambush += AMBUSH[terrain]
+
+    result.ambush_exposure = ambush / len(result.tiles) if result.tiles else 0.0
+    result.valid = True
+    return result
+
+
+def _walked(grid: TileGrid, tiles: Sequence[int]) -> float:
+    """Tiles of ground covered, a diagonal counting √2.
+
+    Distance and not travel cost, deliberately. The detour warning is about the route
+    going somewhere the player did not draw, and travel cost would confuse that with
+    the route going somewhere slow — a leg through marsh is expensive without being a
+    surprise, and a leg the long way round a river is a surprise even on good ground.
+    """
+    total = 0.0
+    for previous, tile in zip(tiles, tiles[1:]):
+        px, py = grid.to_coords(previous)
+        x, y = grid.to_coords(tile)
+        total += SQRT2 if px != x and py != y else 1.0
+    return total
+
+
 # --- Placement over the whole band -------------------------------------------------
 #
 # The player draws the route now, so threat can no longer live on three corridors. It

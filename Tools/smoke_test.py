@@ -179,6 +179,74 @@ def unseen_routes(chapters: range, count: int = 60) -> None:
                   f"mean {sum(met) / len(met):.1f}")
 
 
+def route_drawing(chapters: range) -> None:
+    """The line the player draws, and what the map is able to tell them about it."""
+    print("== route drawing ==")
+
+    baseline = []
+
+    for chapter in chapters:
+        for number in (1, 5, 10):
+            m = level(chapter, number)
+            grid = m.grid
+            tag = f"{chapter}-{number}"
+
+            straight = A.solve_route(grid, m.start_index, m.goal_index)
+            check(f"{tag} a route with no waypoints reaches the goal", straight.valid)
+            if not straight.valid:
+                continue
+
+            check(f"{tag} the route starts at the start and ends at the goal",
+                  straight.tiles[0] == m.start_index and straight.tiles[-1] == m.goal_index)
+            check(f"{tag} the route is contiguous",
+                  all(_adjacent(grid, a, b)
+                      for a, b in zip(straight.tiles, straight.tiles[1:])))
+            check(f"{tag} the route never crosses impassable ground",
+                  all(grid.is_passable(*grid.to_coords(t)) for t in straight.tiles))
+            check(f"{tag} no tile is counted twice",
+                  len(set(straight.tiles)) == len(straight.tiles))
+            check(f"{tag} the terrain tally adds up",
+                  sum(straight.tiles_by_terrain) == len(straight.tiles))
+
+            # The risk reading must come off the terrain and nothing else: a number
+            # that knew where the groups were would hand over for free what the eagle
+            # is sold for.
+            check(f"{tag} the risk reading is a terrain average",
+                  min(A.AMBUSH[:6]) - 1e-4 <= straight.ambush_exposure <= max(A.AMBUSH) + 1e-4,
+                  f"{straight.ambush_exposure:.2f}")
+
+            # Every crossing of the river is a ford, because there is no other way over.
+            check(f"{tag} every crossing is at a ford",
+                  all(int(grid.tiles[c]) == A.FORD for c in straight.crossings))
+
+            baseline += [leg.detour for leg in straight.legs]
+
+            # A tap on water puts nothing down.
+            water = [t for t in range(grid.tile_count)
+                     if not grid.is_passable(*grid.to_coords(t))]
+            if water:
+                check(f"{tag} a tap on impassable ground places no waypoint",
+                      not A.can_place_waypoint(grid, water[0]))
+
+    # The detour threshold has to clear the noise floor. A* on eight-connected ground
+    # never walks the crow's line, so an undisturbed leg already reads above 1.0; if
+    # the threshold sat inside that spread every route would warn and the warning
+    # would mean nothing.
+    if baseline:
+        check("the detour threshold clears an ordinary leg",
+              max(baseline) < A.DETOUR_THRESHOLD * 0.95,
+              f"an ordinary leg reads up to {max(baseline):.2f} against a threshold "
+              f"of {A.DETOUR_THRESHOLD}")
+        print(f"  ordinary leg detour: {min(baseline):.2f} to {max(baseline):.2f}, "
+              f"threshold {A.DETOUR_THRESHOLD}")
+
+
+def _adjacent(grid, a: int, b: int) -> bool:
+    ax, ay = grid.to_coords(a)
+    bx, by = grid.to_coords(b)
+    return max(abs(ax - bx), abs(ay - by)) == 1
+
+
 def leakage(chapters: range) -> None:
     """Information the player is not meant to have, reaching them anyway."""
     print("== leakage ==")
@@ -227,6 +295,7 @@ def main() -> int:
     determinism()
     promises(chapters)
     unseen_routes(chapters)
+    route_drawing(chapters)
     leakage(chapters)
 
     print(f"\n{len(failures)} failure(s)")

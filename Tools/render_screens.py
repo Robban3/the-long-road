@@ -72,6 +72,23 @@ ROUTE_FAST = np.array([0.98, 0.34, 0.30])
 ROUTE_SAFE = np.array([0.40, 0.85, 0.98])
 ROUTE_ODD = np.array([0.98, 0.72, 0.24])
 ROUTE_OPACITY = 0.72
+
+# The line the player drew, and the two things it can tell them about itself.
+#
+# A drawn route is not one of the generator's corridors and is not coloured like one:
+# those three are a measurement the player never sees, this is their own mark. Pale
+# and warm so it reads on grey overlay and green trail alike.
+ROUTE_DRAWN = np.array([0.98, 0.93, 0.80])
+
+# A leg that went appreciably further than the line drawn — round a river, round a
+# cliff. Nothing is wrong and nothing is blocked; the colour says *this did not become
+# what you thought*, which §3.3 asks for before the run rather than during it.
+ROUTE_DETOUR = np.array([0.98, 0.68, 0.20])
+
+# A leg with no route at all. The run cannot start on it.
+ROUTE_FAILED = np.array([0.95, 0.24, 0.22])
+
+WAYPOINT_FILL = np.array([0.99, 0.97, 0.92])
 ROUTE_WIDTH = 2.2
 ROUTE_LIFT = 0.35
 
@@ -1270,9 +1287,70 @@ def planning_keep_clear(level: A.LevelMap, draw_routes: bool):
     return None
 
 
+def draw_drawn_route(image: np.ndarray, level: A.LevelMap, route, camera: Camera,
+                     height_scale: float) -> np.ndarray:
+    """The player's own line, leg by leg, with each leg's own reading of itself.
+
+    Drawn per leg rather than as one ribbon because two of the three things the preview
+    owes the player are per-leg: which stretch has no route at all, and which stretch
+    went somewhere they did not draw.
+    """
+    for leg in route.legs:
+        if leg.failed:
+            continue
+
+        tiles = route.tiles[leg.first:leg.last + 1]
+        if len(tiles) < 2:
+            continue
+
+        colour = ROUTE_DETOUR if leg.is_detour else ROUTE_DRAWN
+        built = ribbon(level.grid, tiles, height_scale)
+        if built is None:
+            continue
+
+        vertices, triangles = built
+        overlay = Frame(camera.width, camera.height)
+        rasterise(overlay, camera, vertices, triangles,
+                  np.tile(colour, (len(vertices), 1)),
+                  np.tile([0.0, 1.0, 0.0], (len(vertices), 1)),
+                  np.ones(len(vertices)))
+
+        # No depth test, for the same reason the corridors have none: the line is the
+        # player's, not a thing in the world, and a map that hides it behind a spruce
+        # is hiding the one mark on it they made.
+        mask = overlay.covered
+        image[mask] = image[mask] * (1.0 - ROUTE_OPACITY) + colour * ROUTE_OPACITY
+
+    # The failed leg last and as a straight bar between its ends: there is no path to
+    # trace, and the player still has to see which tap cannot be reached.
+    for leg in route.legs:
+        if not leg.failed:
+            continue
+        a = _tile_position(level.grid, leg.from_tile, height_scale)
+        b = _tile_position(level.grid, leg.to_tile, height_scale)
+        _draw_capsule(image, camera, a, b, FORD_THICKNESS * 0.6, ROUTE_FAILED)
+
+    return image
+
+
+def _tile_position(grid: A.TileGrid, tile: int, height_scale: float) -> np.ndarray:
+    x, z = A.tile_centre(grid, tile)
+    return np.array([x, grid.surface_elevation(x, z) * height_scale, z])
+
+
+def draw_waypoints(image: np.ndarray, level: A.LevelMap, waypoints, camera: Camera,
+                   height_scale: float) -> np.ndarray:
+    """The taps themselves, so the player can see what they put down and what it did."""
+    for tile in waypoints:
+        _draw_disc(image, camera, _tile_position(level.grid, tile, height_scale) + [0, 1.0, 0],
+                   ENDPOINT_RADIUS * 0.62, WAYPOINT_FILL)
+    return image
+
+
 def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
                 height_scale: float = 22.0, density_scale: float = 2.2,
-                max_props: int = 2600, eagle=None, draw_routes: bool = True) -> Image.Image:
+                max_props: int = 2600, eagle=None, draw_routes: bool = True,
+                route=None, waypoints=()) -> Image.Image:
     """The planning map: straight down, orthographic, under the scouting overlay.
 
     With `eagle`, the map is greyed out except along the flight, and the groups the bird
@@ -1338,10 +1416,14 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
     if draw_routes:
         image = _draw_routes(image, level, camera, height_scale, frame)
 
+    if route is not None:
+        image = draw_drawn_route(image, level, route, camera, height_scale)
+
     # Markers last, so nothing in the world can cover them. The eagle's ring goes on
     # top of the rest: it is the one marker that moves, and a moving marker under a
     # fixed one reads as a glitch.
     image = draw_map_markers(image, camera, level, height_scale)
+    image = draw_waypoints(image, level, waypoints, camera, height_scale)
     if bird is not None:
         image = _draw_pin(image, camera, bird)
     return _to_image(image)
@@ -1470,8 +1552,58 @@ def _to_image(buffer: np.ndarray) -> Image.Image:
 
 # --- Command line ----------------------------------------------------------------
 
+def _parse_waypoints(text: str, grid: A.TileGrid):
+    """Taps, in the order they were made. A tap the planner would refuse is refused here."""
+    placed = []
+
+    for token in text.split():
+        x, _, y = token.partition(",")
+        tile = grid.to_index(int(x), int(y))
+        if not A.can_place_waypoint(grid, tile, placed):
+            raise SystemExit(f"[Arna] {token} is not somewhere a waypoint can go — "
+                             "impassable, already used, or past the limit of "
+                             f"{A.MAX_WAYPOINTS}")
+        placed.append(tile)
+
+    return placed
+
+
+def _print_preview(level: A.LevelMap, route, waypoints) -> None:
+    """The route preview from §3.3, which is the player's only hard decision material."""
+    grid = level.grid
+
+    if not route.valid:
+        print(f"[Arna] route: leg {route.failed_leg} has no path — the run cannot start")
+        return
+
+    named = [(A.PLAINS, "plains"), (A.FOREST, "forest"), (A.MARSH, "marsh"),
+             (A.MOUNTAIN_PASS, "pass"), (A.FORD, "ford")]
+    mix = ", ".join(f"{name} {route.share_of(terrain):.0%}"
+                    for terrain, name in named if route.share_of(terrain) >= 0.01)
+
+    print(f"[Arna] route: {len(route.tiles)} tiles, cost {route.travel_cost:.1f}, "
+          f"about {route.estimated_seconds():.0f} s")
+    print(f"[Arna] ground: {mix}")
+    print(f"[Arna] ambush weight {route.ambush_exposure:.2f} "
+          f"(plains {A.AMBUSH[A.PLAINS]}, forest {A.AMBUSH[A.FOREST]}, "
+          f"marsh {A.AMBUSH[A.MARSH]})")
+
+    if route.crossings:
+        where = ", ".join(str(grid.to_coords(c)) for c in route.crossings)
+        print(f"[Arna] crosses the river at {where}")
+
+    for index, leg in enumerate(route.legs):
+        if not leg.is_detour:
+            continue
+        print(f"[Arna] leg {index} runs {leg.detour:.1f}x the crow's line — "
+              "this did not become what you drew")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--waypoints", default="",
+                        help='taps on the map as "x,y x,y", up to six — the route is '
+                             'solved through them and the preview printed')
     parser.add_argument("--chapter", type=int, default=1)
     parser.add_argument("--level", type=int, default=1)
     parser.add_argument("--out", default="screens")
@@ -1524,11 +1656,19 @@ def main() -> None:
         elif args.no_overlay:
             flight = A.ScoutFlight([], set(range(level.grid.tile_count)), [], 0.0)
 
+        waypoints = _parse_waypoints(args.waypoints, level.grid)
+        route = (A.solve_route(level.grid, level.start_index, level.goal_index, waypoints)
+                 if args.waypoints else None)
+        if route is not None:
+            _print_preview(level, route, waypoints)
+
         # The corridors are the generator's own measurement and the player never sees
         # them. Under the scouting overlay they would be a third answer sheet laid over
-        # the two the player is allowed.
+        # the two the player is allowed — and with a drawn route on the map they would
+        # be three more lines competing with the one the player made.
         image = render_plan(level, size, size, eagle=flight,
-                            draw_routes=not (args.eagle or args.no_overlay))
+                            draw_routes=not (args.eagle or args.no_overlay or route),
+                            route=route, waypoints=waypoints)
         if scale > 1:
             image = image.resize((args.width, args.width), Image.LANCZOS)
         path = os.path.join(args.out, f"plan-{args.chapter}-{args.level}.png")
