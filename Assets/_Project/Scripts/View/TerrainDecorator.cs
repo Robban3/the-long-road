@@ -192,19 +192,30 @@ namespace Arna.View
             var occupied = new HashSet<int>();
             placed += PlaceLandmarks(parent, grid, rng, decor, clear, occupied, heightScale, ruinSites);
 
-            for (int i = 0; i < grid.TileCount && placed < maxProps; i++)
+            // Two passes over the same ground, and the order is half the fix. The scatter
+            // walks tiles in index order, so a mountain reaching tile 500 cannot un-place
+            // the pine put down on tile 450 twenty tiles earlier — the big thing has to
+            // claim its ground first or the small things grow out of it.
+            for (int pass = 0; pass < 2; pass++)
             {
-                var terrain = grid[i];
-                if (!Density.TryGetValue(terrain, out float density)) continue;
-                if (clear != null && clear.Contains(i)) continue;
-                if (occupied.Contains(i)) continue;
-                if (!rng.Chance(density * densityScale)) continue;
+                bool bulky = pass == 0;
+                var passRng = new DeterministicRandom(seed ^ (0x9E37 * (pass + 1)));
 
-                var choice = Pick(decor, terrain, rng);
-                if (choice.Prefab == null) continue;
+                for (int i = 0; i < grid.TileCount && placed < maxProps; i++)
+                {
+                    var terrain = grid[i];
+                    if (!Density.TryGetValue(terrain, out float density)) continue;
+                    if (clear != null && clear.Contains(i)) continue;
+                    if (occupied.Contains(i)) continue;
+                    if (!passRng.Chance(density * densityScale)) continue;
 
-                Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.4f);
-                placed++;
+                    var choice = Pick(decor, terrain, passRng);
+                    if (choice.Prefab == null) continue;
+                    if (IsBulky(terrain, choice) != bulky) continue;
+
+                    if (Scatter(parent, grid, passRng, choice, i, heightScale, spread: 1.4f, occupied))
+                        placed++;
+                }
             }
 
             placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
@@ -306,8 +317,9 @@ namespace Arna.View
         }
 
         /// <summary>Drops one model somewhere inside a tile, turned at random.</summary>
-        static void Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
-                            Choice choice, int tile, float heightScale, float spread)
+        static bool Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
+                            Choice choice, int tile, float heightScale, float spread,
+                            HashSet<int> occupied = null)
         {
             var position = Vec2.FromTile(grid, tile);
             float x = position.X + rng.Range(-spread, spread);
@@ -331,7 +343,120 @@ namespace Arna.View
             float size = choice.Size * rng.Range(0.8f, 1.25f);
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
             else ModelScaling.Fit(instance, size, groundY);
+
+            // Fitted before the ground is checked, because until it is fitted nobody
+            // knows how much ground it wants. A big prop that cannot fit is destroyed
+            // again rather than left standing through a watchtower.
+            if (!FootprintClear(grid, occupied, x, z, FootprintRadius(instance)))
+            {
+                if (Application.isPlaying) Object.Destroy(instance);
+                else Object.DestroyImmediate(instance);
+                return false;
+            }
+
+            Reserve(grid, occupied, instance, x, z);
+            return true;
         }
+
+        /// <summary>
+        /// Marks every tile the prop's own body covers, and not merely the one it was
+        /// placed on.
+        ///
+        /// One tile per prop was the old rule and it is wrong by a factor of four at the
+        /// worst. A mountain is drawn about `size * 1.2` across and size runs to 25 m, so
+        /// it is a thirty-metre rock standing on one four-metre tile — everything placed
+        /// within fifteen metres went inside it, and the mountainside came out with
+        /// spruces growing out of the stone. What the player sees there is not two props
+        /// overlapping; it is the world not being solid.
+        ///
+        /// The radius is read off the instance's own bounds rather than from a table of
+        /// sizes, because after <see cref="ModelScaling"/> has fitted it the renderer
+        /// knows how big the thing actually came out and a table only knows what was
+        /// asked for.
+        /// </summary>
+        static void Reserve(TileGrid grid, HashSet<int> occupied, GameObject instance,
+                            float x, float z)
+        {
+            float radius = FootprintRadius(instance);
+            if (occupied == null || radius <= 0f) return;
+
+            ForEachTileUnder(grid, x, z, radius, tile => occupied.Add(tile));
+        }
+
+        /// <summary>
+        /// Whether a prop of this size can stand here without something already inside it.
+        ///
+        /// Checking only the centre tile is what let a mountain land eight metres from a
+        /// watchtower and swallow it: the tower had reserved its own ground, but the
+        /// mountain only ever asked about the one tile under its middle.
+        ///
+        /// Asked only of the big props. Below a tile's width, overlap is what a forest
+        /// looks like — spruce canopies touch, and a tile of air around every tree would
+        /// give an orchard.
+        /// </summary>
+        static bool FootprintClear(TileGrid grid, HashSet<int> occupied, float x, float z,
+                                   float radius)
+        {
+            if (occupied == null || radius <= TileGrid.TileSize) return true;
+
+            bool clear = true;
+            ForEachTileUnder(grid, x, z, radius,
+                             tile => { if (occupied.Contains(tile)) clear = false; });
+            return clear;
+        }
+
+        /// <summary>Ground the prop's own body covers, as tile indices.</summary>
+        static void ForEachTileUnder(TileGrid grid, float x, float z, float radius,
+                                     System.Action<int> visit)
+        {
+            int span = Mathf.FloorToInt(radius / TileGrid.TileSize) + 1;
+            int cx = Mathf.FloorToInt(x / TileGrid.TileSize);
+            int cz = Mathf.FloorToInt(z / TileGrid.TileSize);
+            float limit = radius * radius;
+
+            for (int ty = cz - span; ty <= cz + span; ty++)
+            {
+                for (int tx = cx - span; tx <= cx + span; tx++)
+                {
+                    if (!grid.InBounds(tx, ty)) continue;
+
+                    float dx = (tx + 0.5f) * TileGrid.TileSize - x;
+                    float dz = (ty + 0.5f) * TileGrid.TileSize - z;
+                    if (dx * dx + dz * dz <= limit) visit(grid.ToIndex(tx, ty));
+                }
+            }
+        }
+
+        /// <summary>
+        /// How much ground the instance actually stands on, read off its own bounds.
+        ///
+        /// From the bounds rather than from a table of sizes, because after
+        /// <see cref="ModelScaling"/> has fitted it the renderer knows how big the thing
+        /// came out and a table only knows what was asked for. Height is left out: a pine
+        /// is tall and stands on very little.
+        /// </summary>
+        static float FootprintRadius(GameObject instance)
+        {
+            if (instance == null) return 0f;
+
+            var renderers = instance.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return 0f;
+
+            var bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+
+            return Mathf.Max(bounds.extents.x, bounds.extents.z);
+        }
+
+        /// <summary>
+        /// Whether this is one of the props big enough to swallow what is already there.
+        ///
+        /// Mountains and nothing else, for now. Everything else is within a tile or two
+        /// of the ground it was placed on, and the ordering only matters for the thing
+        /// that is not.
+        /// </summary>
+        static bool IsBulky(TerrainType terrain, Choice choice)
+            => terrain == TerrainType.MountainPass && choice.Size >= MountainHeight * 0.9f;
 
         /// <summary>
         /// Places the things that were built rather than grown.
@@ -358,7 +483,7 @@ namespace Arna.View
 
                     Place(parent, grid, tile, rng,
                           new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth, byWidth: true),
-                          heightScale);
+                          heightScale, occupied);
                     placed++;
 
                     // Dead trees around it. A cart alone is small enough to miss from
@@ -413,7 +538,7 @@ namespace Arna.View
                 if (choice.Prefab == null) continue;
 
                 occupied.Add(i);
-                Place(parent, grid, i, rng, choice, heightScale);
+                Place(parent, grid, i, rng, choice, heightScale, occupied);
                 placed++;
             }
 
@@ -461,7 +586,7 @@ namespace Arna.View
 
         /// <summary>Stands one landmark on the centre of a tile, sized and seated.</summary>
         static void Place(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,
-                          Choice choice, float heightScale)
+                          Choice choice, float heightScale, HashSet<int> occupied = null)
         {
             var position = Vec2.FromTile(grid, tile);
             float groundY = grid.SurfaceElevation(position.X, position.Y) * heightScale;
@@ -478,6 +603,10 @@ namespace Arna.View
 
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, choice.Size, groundY);
             else ModelScaling.Fit(instance, choice.Size, groundY);
+
+            // A farm is nine metres across and a ruin five, so the landmarks need their
+            // ground reserving for the same reason the mountain does.
+            Reserve(grid, occupied, instance, position.X, position.Y);
         }
 
         static Choice Pick(BiomeDecor decor, TerrainType terrain, DeterministicRandom rng)

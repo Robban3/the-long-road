@@ -129,6 +129,30 @@ gives them. The country is right, the dressing is a sketch. See
 
 ## 4. Known problems, worst first
 
+**Props stood inside each other, and it took a screenshot to notice.** The decorator
+reserved one tile per prop however big the prop was. A mountain is drawn about `size *
+1.2` across and size runs to 25 m, so a thirty-metre rock stood on one four-metre tile
+and everything within fifteen metres was placed inside it — spruces growing out of the
+rock face. What that reads as is not two props overlapping; it is the world not being
+solid, and one such tree undoes a hillside of careful scenery.
+
+Three parts to the fix, and the second was found by the test written for the first:
+
+- Reserve the ground a prop actually covers, not the tile it was aimed at. In Unity
+  the radius is read off the instance's own bounds after `ModelScaling` has fitted it,
+  which is better than a table: the table knows what was asked for, the bounds know
+  what came out.
+- Place the bulky things first. The scatter walks tiles in index order, so a mountain
+  reaching tile 500 cannot un-place the pine put down on tile 450.
+- A big prop must find its **whole footprint** clear, not just its centre tile.
+  Otherwise a mountain lands eight metres from a watchtower and swallows it — the tower
+  had reserved its ground, but the mountain only asked about the one tile under its
+  middle. Only asked above a tile's width: below it, overlap is what a forest looks
+  like, and a tile of air around every tree would give an orchard.
+
+`Tools/smoke_test.py` now has a `solid world` section. It exists because a screenshot
+caught this and no test did.
+
 **Fixed by the first smoke run, recorded so they are not reintroduced.** Four bugs,
 two of them information leaks, all four present in the engine and not only in the port:
 

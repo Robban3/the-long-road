@@ -309,6 +309,45 @@ def crows(chapters: range) -> None:
           f"flocks per group {min(ratios):.2f}-{max(ratios):.2f}")
 
 
+def solid_world(chapters: range) -> None:
+    """Nothing stands inside anything else.
+
+    Found by looking at a screenshot, not by a test, which is the reason this exists.
+    A mountain is drawn thirty metres across and was placed on one four-metre tile with
+    one tile reserved, so every spruce within fifteen metres was put inside the rock.
+    What that looks like is not two props overlapping — it is the world not being solid,
+    and one such tree undoes a whole hillside of careful scenery.
+    """
+    print("== solid world ==")
+
+    # Grass and shoreline pebbles are flat and may lie under anything; a tuft of grass
+    # at the foot of a boulder is not a fault.
+    FLAT = {"cover", "shore"}
+
+    for chapter in chapters:
+        for number in (1, 5, 10):
+            m = level(chapter, number)
+            props = [p for p in A.decorate(m.grid, m.seed, keep_clear=None,
+                                           height_scale=14.0, max_props=2200)
+                     if p.kind not in FLAT]
+            tag = f"{chapter}-{number}"
+
+            worst = None
+            for big in props:
+                radius = A.prop_footprint(big.kind, big.size)
+                if radius < 4.0:      # only things large enough to swallow a tree
+                    continue
+                for other in props:
+                    if other is big:
+                        continue
+                    gap = math.hypot(other.x - big.x, other.z - big.z)
+                    if gap < radius * 0.8:
+                        worst = f"a {other.kind} stood {gap:.1f} m inside a {big.kind} " \
+                                f"of radius {radius:.1f} m"
+
+            check(f"{tag} nothing grows out of the rock", worst is None, worst or "")
+
+
 def leakage(chapters: range) -> None:
     """Information the player is not meant to have, reaching them anyway."""
     print("== leakage ==")
@@ -359,6 +398,7 @@ def main() -> int:
     unseen_routes(chapters)
     route_drawing(chapters)
     crows(chapters)
+    solid_world(chapters)
     leakage(chapters)
 
     print(f"\n{len(failures)} failure(s)")

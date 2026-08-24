@@ -2231,6 +2231,94 @@ SET_SIZES = {
 COVER_DENSITY = {FOREST: 2.4, PLAINS: 1.7, MARSH: 2.0, MOUNTAIN_PASS: 0.5, ROAD: 0.15}
 DENSITY = {FOREST: 0.28, MOUNTAIN_PASS: 0.18, PLAINS: 0.03, MARSH: 0.06, ROAD: 0.01}
 
+# How much ground a prop actually stands on, as a share of the size it is given.
+#
+# Reserving one tile per prop was the old rule and it was wrong by a factor of four for
+# the worst case. A mountain is `size * 1.2` across and `size` runs to 25 m, so it is a
+# thirty-metre cone standing on one four-metre tile — every tree within fifteen metres
+# was placed inside it, and the mountainside came out with spruces growing out of the
+# rock. What the eye sees is not one prop overlapping another; it is the world not being
+# solid.
+#
+# The numbers are the widest horizontal extent each kind is drawn at, halved. They
+# belong here rather than in the renderer because placement is what has to respect
+# them; the drawing merely has to stay inside.
+PROP_FOOTPRINT = {
+    "mountains": 0.60,   # cone at size * 1.2
+    "houses": 0.58,      # roof at size * 1.15
+    "rocks": 0.50,
+    "boulders": 0.50,
+    "ruins": 0.45,
+    "trees": 0.43,       # canopy at size * 0.85
+    "pines": 0.31,       # widest whorl at size * 0.62
+    "towers": 0.25,
+    "timber": 0.20,
+    "dead": 0.12,
+    "farms": 0.50,
+    "cover": 0.0,        # grass. Anything may stand in grass.
+}
+
+# Kinds placed before everything else, because they are the ones big enough to swallow
+# what is already there. Order matters and did not used to: the scatter walks tiles in
+# index order, so a mountain reaching tile 500 could not un-place the pine put on tile
+# 450 twenty tiles earlier.
+BULKY_KINDS = ("mountains",)
+
+
+def prop_footprint(kind: str, size: float) -> float:
+    """Radius in metres that nothing else may stand inside."""
+    return size * PROP_FOOTPRINT.get(kind, 0.35)
+
+
+# Above this radius a prop must find its whole footprint clear before it is placed,
+# not merely the tile it was aimed at. Below it, overlap is what a forest looks like:
+# spruce canopies touch, and forcing a tile of air around every tree would give an
+# orchard.
+FOOTPRINT_CHECK_METRES = TILE_SIZE
+
+
+def _footprint_clear(grid: TileGrid, occupied: set, x: float, z: float,
+                     radius: float) -> bool:
+    """Whether a prop of this size can stand here without something already inside it.
+
+    Checking only the centre tile is what let a mountain land eight metres from a
+    watchtower and swallow it: the tower had reserved its own ground, but the mountain
+    only ever asked about the one tile under its middle.
+    """
+    span = int(radius / TILE_SIZE) + 1
+    cx, cz = int(x / TILE_SIZE), int(z / TILE_SIZE)
+    limit = radius * radius
+
+    for ty in range(cz - span, cz + span + 1):
+        for tx in range(cx - span, cx + span + 1):
+            if not grid.in_bounds(tx, ty):
+                continue
+            dx = (tx + 0.5) * TILE_SIZE - x
+            dz = (ty + 0.5) * TILE_SIZE - z
+            if dx * dx + dz * dz <= limit and grid.to_index(tx, ty) in occupied:
+                return False
+
+    return True
+
+
+def _reserve(grid: TileGrid, occupied: set, x: float, z: float, radius: float) -> None:
+    """Marks every tile the prop's own body covers, not just the one it was placed on."""
+    if radius <= 0.0:
+        return
+
+    span = int(radius / TILE_SIZE) + 1
+    cx, cz = int(x / TILE_SIZE), int(z / TILE_SIZE)
+    limit = radius * radius
+
+    for ty in range(cz - span, cz + span + 1):
+        for tx in range(cx - span, cx + span + 1):
+            if not grid.in_bounds(tx, ty):
+                continue
+            dx = (tx + 0.5) * TILE_SIZE - x
+            dz = (ty + 0.5) * TILE_SIZE - z
+            if dx * dx + dz * dz <= limit:
+                occupied.add(grid.to_index(tx, ty))
+
 
 @dataclass
 class Prop:
@@ -2425,26 +2513,37 @@ def decorate(grid: TileGrid, seed: int, keep_clear=None, height_scale: float = 0
     _place_landmarks(props, grid, rng, clear, occupied, height_scale, sites)
     placed = len(props)
 
-    for i in range(grid.tile_count):
-        if placed >= max_props:
-            break
-        terrain = int(grid.tiles[i])
-        density = DENSITY.get(terrain)
-        if density is None:
-            continue
-        if clear is not None and i in clear:
-            continue
-        if i in occupied:
-            continue
-        if not rng.chance(density * density_scale):
-            continue
+    # Two passes over the same ground, and the order is the fix. The scatter walks tiles
+    # in index order, so a mountain reaching tile 500 cannot un-place the pine put down
+    # on tile 450 twenty tiles earlier — the big thing has to claim its ground first or
+    # the small things grow out of it.
+    for pass_index in range(2):
+        bulky = pass_index == 0
+        pass_rng = DeterministicRandom(seed ^ (0x5EED10 + 0x9E37 * pass_index))
 
-        choice = _pick(terrain, rng)
-        if choice is None:
-            continue
+        for i in range(grid.tile_count):
+            if placed >= max_props:
+                break
+            terrain = int(grid.tiles[i])
+            density = DENSITY.get(terrain)
+            if density is None:
+                continue
+            if clear is not None and i in clear:
+                continue
+            if i in occupied:
+                continue
+            if not pass_rng.chance(density * density_scale):
+                continue
 
-        _scatter(props, grid, rng, choice, i, height_scale, spread=1.4)
-        placed += 1
+            choice = _pick(terrain, pass_rng)
+            if choice is None:
+                continue
+            if (choice[0] in BULKY_KINDS) != bulky:
+                continue
+
+            if _scatter(props, grid, pass_rng, choice, i, height_scale, spread=1.4,
+                        occupied=occupied):
+                placed += 1
 
     _place_ground_cover(props, grid, rng, clear, occupied, height_scale, density_scale)
     _place_shoreline(props, grid, rng, occupied, height_scale)
@@ -2475,7 +2574,8 @@ def _pick(terrain: int, rng: DeterministicRandom):
     return None
 
 
-def _scatter(props, grid, rng, choice, tile, height_scale, spread) -> None:
+def _scatter(props, grid, rng, choice, tile, height_scale, spread,
+             occupied: Optional[set] = None) -> None:
     kind, size, by_width, _model = choice
     cx, cz = tile_centre(grid, tile)
     x = cx + rng.range_float(-spread, spread)
@@ -2484,7 +2584,15 @@ def _scatter(props, grid, rng, choice, tile, height_scale, spread) -> None:
 
     yaw = rng.range_float(0.0, 360.0)
     scaled = size * rng.range_float(0.8, 1.25)
+    radius = prop_footprint(kind, scaled)
+
+    if occupied is not None:
+        if radius > FOOTPRINT_CHECK_METRES and not _footprint_clear(grid, occupied, x, z, radius):
+            return False
+        _reserve(grid, occupied, x, z, radius)
+
     props.append(Prop(kind, x, z, ground_y, scaled, yaw, by_width))
+    return True
 
 
 def _place_ground_cover(props, grid, rng, clear, occupied, height_scale, density_scale) -> int:
@@ -2509,7 +2617,8 @@ def _place_ground_cover(props, grid, rng, clear, occupied, height_scale, density
             if placed >= MAX_GROUND_COVER:
                 break
             choice = ("cover", COVER_HEIGHT, False, rng.range_int(0, SET_SIZES["cover"]))
-            _scatter(props, grid, rng, choice, i, height_scale, spread=1.9)
+            _scatter(props, grid, rng, choice, i, height_scale, spread=1.9,
+                     occupied=occupied)
             placed += 1
 
     return placed
@@ -2534,7 +2643,8 @@ def _place_shoreline(props, grid, rng, occupied, height_scale) -> int:
             if placed >= MAX_SHORE_STONES:
                 break
             choice = ("shore", SHORE_STONE_SIZE, True, rng.range_int(0, SET_SIZES["rocks"]))
-            _scatter(props, grid, rng, choice, i, height_scale, spread=2.0)
+            _scatter(props, grid, rng, choice, i, height_scale, spread=2.0,
+                     occupied=occupied)
             placed += 1
 
     return placed
@@ -2561,13 +2671,14 @@ def _place_landmarks(props, grid, rng, clear, occupied, height_scale, sites) -> 
             occupied.add(tile)
 
             choice = ("ruins", RUIN_WIDTH, True, rng.range_int(0, SET_SIZES["ruins"]))
-            _place(props, grid, tile, rng, choice, height_scale)
+            _place(props, grid, tile, rng, choice, height_scale, occupied)
             placed += 1
 
             # Dead trees around it: a cart alone is too small to read from map height.
             for _ in range(2):
                 dead = ("dead", DEAD_TREE_HEIGHT, False, rng.range_int(0, SET_SIZES["dead"]))
-                _scatter(props, grid, rng, dead, tile, height_scale, spread=2.6)
+                _scatter(props, grid, rng, dead, tile, height_scale, spread=2.6,
+                                 occupied=occupied)
                 placed += 1
 
     for i in range(grid.tile_count):
@@ -2595,7 +2706,7 @@ def _place_landmarks(props, grid, rng, clear, occupied, height_scale, sites) -> 
             continue
 
         occupied.add(i)
-        _place(props, grid, i, rng, choice, height_scale)
+        _place(props, grid, i, rng, choice, height_scale, occupied)
         placed += 1
 
 
@@ -2608,9 +2719,15 @@ def _near_road(grid: TileGrid, x: int, y: int, radius: int) -> bool:
     return False
 
 
-def _place(props, grid, tile, rng, choice, height_scale) -> None:
+def _place(props, grid, tile, rng, choice, height_scale, occupied=None) -> None:
     kind, size, by_width, _model = choice
     cx, cz = tile_centre(grid, tile)
     ground_y = grid.surface_elevation(cx, cz) * height_scale
     yaw = rng.range_int(0, 4) * 90.0
     props.append(Prop(kind, cx, cz, ground_y, size, yaw, by_width))
+
+    # A farm is nine metres across and a ruin five, so the landmarks need their ground
+    # reserving for the same reason the mountain does — and they are placed first, so
+    # without it the mountain lands on top of them rather than the other way round.
+    if occupied is not None:
+        _reserve(grid, occupied, cx, cz, prop_footprint(kind, size))
