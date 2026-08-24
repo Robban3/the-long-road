@@ -55,6 +55,28 @@ av rutorna delas mellan rutterna, och den säkra rutten är bara 2 % långsammar
 snabba — vägvalet betyder nästan ingenting där. 1-1 är motsatsen och visar vad
 generatorn gör när den lyckas.
 
+### Kartans markörer
+
+Start, mål och varje vadställe ritas i **bildrummet**, ovanpå den färdiga bilden — inte
+på marken. Det är inte en genväg utan hela poängen: planeringskartan är en karta, och
+det spelaren planerar mot måste behålla sin storlek och sin plats vare sig det ligger på
+solbelyst äng eller under gran.
+
+Så var det inte förut, och kartan gick inte att använda för det. Start och mål var en
+ruta färg var på marken — fyra meter, elva bildpunkter rakt uppifrån sjuttio meter — och
+målet på 1-5 låg under ett berg och syntes inte alls. Vadställena var terrängfärg, alltså
+en aning ljusare flod, fast GDD §3.3 kallar dem kartans viktigaste information. Spelaren
+ombads dra en linje till ett mål hen inte såg, över passager hen inte hittade.
+
+Vadställen ritas som ett brospann tvärs strömmen, dragna en bit upp på båda stränderna:
+ett märke som slutar vid vattenlinjen läses som grunt vatten, vilket är precis den
+läsningen §3.3 säger att man ska undvika. De ritas oavsett om örnen flugit — vatten är
+terräng, inte något spaningen döljer.
+
+**Rutten ritas också ovanpå allt**, utan djuptest. Linjen är spelarens egen och inte ett
+föremål i världen; testad mot djupbufferten försvann den under lövverket på tre ställen
+på 1-5 och nådde aldrig fram till målet, för sista sträckan gick bakom ett berg.
+
 ### Örnen och lagret
 
     python3 render_screens.py --chapter 1 --level 5 --eagle --out ../docs/screenshots

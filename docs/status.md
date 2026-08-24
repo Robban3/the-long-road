@@ -145,12 +145,17 @@ two of them information leaks, all four present in the engine and not only in th
   and not geometry — so hiding the ribbons hid nothing. Clearing is now tied to drawing
   the ribbons, and `LevelPreview.ShowCorridors` defaults off.
 
-**The planning map is denser than it was.** A consequence of that last fix rather than
-a bug: with nothing cleared, the planning map is dressed exactly like the run, which is
-the point — but the three clearings used to give the map its structure, and without
-them the start and goal markers are harder to pick out of the canopy. Worth a look
-before the planning screen is built: bigger endpoint markers, or props drawn shorter on
-the map, are both cheaper than putting the leak back.
+**The planning map is legible again, in the renderer.** Removing the cleared lanes cost
+the map its structure — start and goal were one tinted tile each, and the goal on 1-5
+sat under a mountain — so start, goal and every ford are now drawn in screen space over
+the finished picture, and the route with them. Nothing in the world can cover them, and
+the clearing is gone for good: it existed so a ribbon would not sit under a spruce, and
+the ribbon no longer can.
+
+This is `Tools/render_screens.py` only. The same three marks have to be built on the
+Unity planning screen when it is written (§5), and the sizes and colours settled here
+are the starting point: endpoint discs at 1.1 % of screen width, ford spans at 0.8 %,
+each with its own dark rim so it carries contrast onto both meadow and canopy.
 
 
 **The generator lays no roads.** `TerrainType.Road` exists in the terrain table and

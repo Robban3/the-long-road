@@ -1042,36 +1042,194 @@ def _apply_overlay(image: np.ndarray, frame: Frame, level: A.LevelMap,
     return image * alpha + blended * (1.0 - alpha)
 
 
-def _draw_pin(image: np.ndarray, camera: Camera, position: np.ndarray) -> np.ndarray:
-    """A thin ring around a world point, drawn over the finished picture.
+# --- Map markers ------------------------------------------------------------------
+#
+# Everything here is drawn in screen space, over the finished picture, and that is the
+# whole point of the section. The planning map is a map: the things a player plans
+# against have to keep their size and their place whether they sit on sunlit meadow or
+# under spruce, which is exactly what an object in the world cannot do.
+#
+# It was not always drawn this way and the map was unusable for it. Start and goal were
+# one four-metre tile each, tinted on the ground — eleven pixels from seventy metres up,
+# and the goal on 1-5 was hidden under a mountain. Fords were terrain colour, so the
+# crossings docs/GDD.md §3.3 calls the map's most important information were a slightly
+# paler shade of river. A player was being asked to draw a line to a goal they could not
+# see, over crossings they could not find.
 
-    The planning map is a map, so a marker on it is allowed to be a marker: it keeps its
-    size and its place whether the bird is over pale grass or dark canopy, which is
-    exactly what a thing in the world cannot do.
+START_MARKER = np.array([0.42, 0.78, 0.36])
+GOAL_MARKER = np.array([0.98, 0.80, 0.22])
+FORD_MARKER = np.array([0.76, 0.62, 0.42])
+MARKER_EDGE = np.array([0.10, 0.09, 0.07])
+
+# All as a share of image width, so supersampling changes nothing.
+ENDPOINT_RADIUS = 0.011
+MARKER_EDGE_WIDTH = 0.0026
+FORD_THICKNESS = 0.008
+
+
+def _stamp(image: np.ndarray, distance: np.ndarray, box, fill, edge=MARKER_EDGE,
+           edge_width: float = None, fill_alpha: float = 1.0,
+           edge_alpha: float = 0.7) -> None:
+    """Composites one antialiased shape from its signed distance field, edge outward.
+
+    Every marker is two colours, and not for decoration: a pale mark vanishes on a
+    sunlit meadow and a dark one under spruce, so each carries its own contrast with it.
     """
-    screen = camera.to_screen(camera.to_view(position[None, :]))[0]
-    height, width = image.shape[:2]
-
-    radius = EAGLE_PIN_RADIUS * width
-    reach = int(radius + 4)
-    x0, x1 = max(int(screen[0]) - reach, 0), min(int(screen[0]) + reach + 1, width)
-    y0, y1 = max(int(screen[1]) - reach, 0), min(int(screen[1]) + reach + 1, height)
+    x0, y0, x1, y1 = box
     if x0 >= x1 or y0 >= y1:
-        return image
+        return
 
-    ys, xs = np.mgrid[y0:y1, x0:x1]
-    distance = np.abs(np.hypot(xs - screen[0], ys - screen[1]) - radius)
+    width = image.shape[1]
+    rim = (MARKER_EDGE_WIDTH if edge_width is None else edge_width) * width
 
-    # Cream inside a dark edge. One colour alone disappears against half the map: the
-    # pale ring on a sunlit meadow, the dark one under spruce.
-    half = EAGLE_PIN_WIDTH * width * 0.5
-    cream = np.clip(1.0 - (distance - half), 0.0, 1.0)
-    shade = np.clip(1.0 - (distance - half - EAGLE_PIN_WIDTH * width), 0.0, 1.0) - cream
+    inside = np.clip(0.5 - distance, 0.0, 1.0)
+    outline = np.clip(0.5 - (distance - rim), 0.0, 1.0) - inside
 
     patch = image[y0:y1, x0:x1]
-    patch = patch * (1.0 - shade[..., None] * 0.55) + EAGLE_PIN_SHADE * shade[..., None] * 0.55
-    patch = patch * (1.0 - cream[..., None]) + EAGLE_PIN * cream[..., None]
+    a = (outline * edge_alpha)[..., None]
+    patch = patch * (1.0 - a) + edge * a
+    a = (inside * fill_alpha)[..., None]
+    patch = patch * (1.0 - a) + fill * a
     image[y0:y1, x0:x1] = patch
+
+
+def _box_around(image: np.ndarray, points: np.ndarray, margin: float):
+    """Pixel bounds enclosing the points plus a margin, clipped to the image."""
+    height, width = image.shape[:2]
+    low = points.min(axis=0) - margin
+    high = points.max(axis=0) + margin
+    return (max(int(low[0]), 0), max(int(low[1]), 0),
+            min(int(high[0]) + 1, width), min(int(high[1]) + 1, height))
+
+
+def _grid_of(box):
+    x0, y0, x1, y1 = box
+    ys, xs = np.mgrid[y0:y1, x0:x1]
+    return xs, ys
+
+
+def _draw_disc(image, camera, position, radius_share, fill) -> None:
+    screen = camera.to_screen(camera.to_view(position[None, :]))
+    radius = radius_share * image.shape[1]
+    box = _box_around(image, screen, radius + MARKER_EDGE_WIDTH * image.shape[1] + 2)
+    xs, ys = _grid_of(box)
+    _stamp(image, np.hypot(xs - screen[0, 0], ys - screen[0, 1]) - radius, box, fill)
+
+
+def _draw_ring(image, camera, position, radius_share, width_share, fill,
+               edge_alpha=0.55) -> None:
+    screen = camera.to_screen(camera.to_view(position[None, :]))
+    radius = radius_share * image.shape[1]
+    half = width_share * image.shape[1] * 0.5
+    box = _box_around(image, screen, radius + half + width_share * image.shape[1] + 2)
+    xs, ys = _grid_of(box)
+    distance = np.abs(np.hypot(xs - screen[0, 0], ys - screen[0, 1]) - radius) - half
+    _stamp(image, distance, box, fill, edge_width=width_share, edge_alpha=edge_alpha)
+
+
+def _draw_capsule(image, camera, a, b, thickness_share, fill) -> None:
+    """A bar with rounded ends between two world points — the bridge over a ford."""
+    screen = camera.to_screen(camera.to_view(np.stack([a, b])))
+    half = thickness_share * image.shape[1] * 0.5
+    box = _box_around(image, screen, half + MARKER_EDGE_WIDTH * image.shape[1] + 2)
+    xs, ys = _grid_of(box)
+
+    ax, ay = screen[0]
+    bx, by = screen[1]
+    dx, dy = bx - ax, by - ay
+    length_squared = dx * dx + dy * dy
+
+    if length_squared < 1e-6:
+        distance = np.hypot(xs - ax, ys - ay)
+    else:
+        t = np.clip(((xs - ax) * dx + (ys - ay) * dy) / length_squared, 0.0, 1.0)
+        distance = np.hypot(xs - (ax + t * dx), ys - (ay + t * dy))
+
+    _stamp(image, distance - half, box, fill)
+
+
+def _ford_crossings(grid: A.TileGrid):
+    """Ford tiles gathered into crossings, and which way each one runs.
+
+    A ford is set on a river tile and its horizontal neighbours, so the run of tiles is
+    the direction a caravan crosses in — which is the direction the bridge is drawn.
+    """
+    seen = set()
+    crossings = []
+
+    for tile in range(grid.tile_count):
+        if int(grid.tiles[tile]) != A.FORD or tile in seen:
+            continue
+
+        cluster, stack = [], [tile]
+        seen.add(tile)
+
+        while stack:
+            current = stack.pop()
+            cluster.append(current)
+            cx, cy = grid.to_coords(current)
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nx, ny = cx + dx, cy + dy
+                if not grid.in_bounds(nx, ny):
+                    continue
+                neighbour = grid.to_index(nx, ny)
+                if neighbour in seen or int(grid.tiles[neighbour]) != A.FORD:
+                    continue
+                seen.add(neighbour)
+                stack.append(neighbour)
+
+        coords = [grid.to_coords(t) for t in cluster]
+        xs = [c[0] for c in coords]
+        ys = [c[1] for c in coords]
+
+        # The long axis of the cluster is the way across.
+        if max(xs) - min(xs) >= max(ys) - min(ys):
+            ends = ((min(xs), sum(ys) / len(ys)), (max(xs), sum(ys) / len(ys)))
+        else:
+            ends = ((sum(xs) / len(xs), min(ys)), (sum(xs) / len(xs), max(ys)))
+        crossings.append(ends)
+
+    return crossings
+
+
+def draw_map_markers(image: np.ndarray, camera: Camera, level: A.LevelMap,
+                     height_scale: float) -> np.ndarray:
+    """Start, goal and every crossing of the river, none of which the canopy may hide.
+
+    Fords are drawn whether or not the eagle has flown. They are terrain, not something
+    the scouting hides — and §3.3 asks that the player see where the river can be
+    crossed *before* the line is drawn, because that is where the decision is.
+    """
+    grid = level.grid
+
+    def at(tile: int, lift: float) -> np.ndarray:
+        x, z = A.tile_centre(grid, tile)
+        return np.array([x, grid.surface_elevation(x, z) * height_scale + lift, z])
+
+    for (ax, ay), (bx, by) in _ford_crossings(grid):
+        a = np.array([(ax + 0.5) * A.TILE_SIZE, 0.0, (ay + 0.5) * A.TILE_SIZE])
+        b = np.array([(bx + 0.5) * A.TILE_SIZE, 0.0, (by + 0.5) * A.TILE_SIZE])
+        a[1] = grid.surface_elevation(a[0], a[2]) * height_scale
+        b[1] = grid.surface_elevation(b[0], b[2]) * height_scale
+
+        # Extended a little past the water so the bridge lands on both banks, the way
+        # a built thing does. A mark that stops at the waterline reads as shallow
+        # water, which is the exact reading §3.3 says to avoid.
+        along = b - a
+        a = a - along * 0.35
+        b = b + along * 0.35
+        _draw_capsule(image, camera, a, b, FORD_THICKNESS, FORD_MARKER)
+
+    _draw_disc(image, camera, at(level.start_index, 1.0), ENDPOINT_RADIUS, START_MARKER)
+    _draw_disc(image, camera, at(level.goal_index, 1.0), ENDPOINT_RADIUS, GOAL_MARKER)
+    _draw_ring(image, camera, at(level.goal_index, 1.0),
+               ENDPOINT_RADIUS * 1.9, MARKER_EDGE_WIDTH, GOAL_MARKER, edge_alpha=0.45)
+    return image
+
+
+def _draw_pin(image: np.ndarray, camera: Camera, position: np.ndarray) -> np.ndarray:
+    """The ring around the eagle. Same reasoning as the markers above."""
+    _draw_ring(image, camera, position, EAGLE_PIN_RADIUS, EAGLE_PIN_WIDTH, EAGLE_PIN)
     return image
 
 
@@ -1093,19 +1251,23 @@ def _box_blur(mask: np.ndarray, radius: int) -> np.ndarray:
 
 
 def planning_keep_clear(level: A.LevelMap, draw_routes: bool):
-    """Tiles the decorator leaves bare, which is none unless the corridors are drawn.
+    """Tiles the decorator leaves bare on the planning map, which is none of them.
 
-    Clearing exists for one reason: a ribbon under a spruce is not a ribbon. Left on
-    with the ribbons off it leaks them anyway — cleared ground reads as three lanes
-    through the forest at a quarter to a third of the prop density around them, and the
-    planning overlay cannot hide that, because it takes out colour and not geometry.
+    Clearing existed for one reason — a ribbon under a spruce is not a ribbon — and
+    that reason is gone: the route is composited over the finished picture now, so the
+    canopy cannot cover it whatever grows there.
 
-    The engine has the same split and always did: `LevelRunner` keeps nothing clear, so
-    a planning map that cleared was showing a forest the run does not have.
+    What the clearing did instead was leak. Cleared ground read as lanes through the
+    forest at a third of the surrounding prop density, wherever the three corridors ran,
+    and the planning overlay cannot hide that because it takes out colour and not
+    geometry. Hiding the ribbons hid nothing.
+
+    So: nothing is cleared, even with the corridors drawn, and the planning map is
+    dressed exactly as `LevelRunner` dresses the run. The argument is kept as a
+    parameter because the question — *should* the ribbons buy themselves clear ground —
+    is the one this function exists to answer, and the answer is no.
     """
-    if not draw_routes:
-        return None
-    return {tile for corridor in level.corridors for tile in corridor.tiles}
+    return None
 
 
 def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
@@ -1175,6 +1337,11 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
 
     if draw_routes:
         image = _draw_routes(image, level, camera, height_scale, frame)
+
+    # Markers last, so nothing in the world can cover them. The eagle's ring goes on
+    # top of the rest: it is the one marker that moves, and a moving marker under a
+    # fixed one reads as a glitch.
+    image = draw_map_markers(image, camera, level, height_scale)
     if bird is not None:
         image = _draw_pin(image, camera, bird)
     return _to_image(image)
@@ -1200,7 +1367,13 @@ def _draw_routes(image: np.ndarray, level: A.LevelMap, camera: Camera,
                   np.tile([0.0, 1.0, 0.0], (len(vertices), 1)),
                   np.ones(len(vertices)))
 
-        mask = overlay.covered & (overlay.depth <= frame.depth + 1.0)
+        # No depth test. The ribbon is built on the ground surface, so it lands in the
+        # right place — but the line is the player's own, not a thing in the world, and
+        # a map that hides it behind a spruce is hiding the one mark on it they made.
+        # Tested against the depth buffer it vanished under the canopy in three places
+        # on 1-5 and never visually reached the goal at all: the last stretch ran
+        # behind a mountain.
+        mask = overlay.covered
         image[mask] = image[mask] * (1.0 - ROUTE_OPACITY) + color * ROUTE_OPACITY
 
     return image
