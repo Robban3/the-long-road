@@ -406,14 +406,32 @@ matched to their filenames, and the army pack is a pack of soldiers: it will bri
 horses and it will not bring wolves. The other ten animals in the folder are unused and
 cost nothing to keep.
 
-**Crows do not exist anywhere yet.** GDD §3.5 wants circling crows as the strongest of
+**Crows are built, in the port and the renderer.** GDD §3.5 wants circling crows as the strongest of
 the soft signals — an enemy group within twenty tiles, twenty percent false positives —
 and route drawing makes that signal considerably more important, because it is read
 before the line is drawn rather than during the run. Nothing in any of the four packs is
-a crow. It should not be a model either: the planning map looks straight down from
-seventy metres, where a bird is three pixels. Three dark shapes circling is perhaps
-thirty lines of marker, reads instantly at that distance, and is the better answer than
-an anatomically correct crow would be.
+a crow.
+
+**They are two things, and an earlier note here got that half wrong.** It said crows
+should never be a model, because a bird straight down from seventy metres is a few
+pixels. That is true of the planning map and only of it: in the play view the camera is
+46 m back and 32 m up, where a one-metre crow is 12 to 20 pixels and the flock's ring is
+a hundred across. That wants a model with a flap. So: a marker of three specks on the
+map, three low-poly birds in the run, both from the same `crow_sites` so they agree
+about where the flock is.
+
+The play view settled two numbers a still picture will not forgive. At 14 m the birds sat
+in the spruce tops, and a near-black crow against dark forest at eighty metres is simply
+invisible; at 34 m they were above a camera that looks 35° down and left the frame. 22 m
+holds. They are painted a dark grey-blue rather than black, which is what eighty metres
+of air does to a dark bird anyway.
+
+**The hint radius in GDD §3.5 was wrong and is fixed.** It said a flock means a group
+within 20 tiles; with sixteen groups on a 64-tile map, 96 % of the ground already has one
+within 20 tiles, so the signal was true almost everywhere by accident. Six tiles covers
+39 %, which makes a flock a real update rather than a decoration. `Tools/smoke_test.py`
+guards the radius, the 20 % false-positive share, and — the load-bearing one — that
+flocks cannot be counted back into groups.
 
 The cart matters more than its size suggests. `RuinSites` places it near a trap field
 and never on one, which is the soft signal the design asks for in GDD §2 — ground where

@@ -100,13 +100,37 @@ Synliga i terrängöversikten redan under planeringen. De antyder fara utan att 
 
 | Signal | Antyder | Falskt positivt |
 |---|---|---|
-| Cirklande kråkor | Fiendegrupp inom ~20 tiles | 20 % |
+| Cirklande kråkor | Fiendegrupp inom ~6 tiles | 20 % |
 | Brända vagnsvrak | Bakhållsplats på tilen | 10 % |
 | Spår i leran | Trupp har passerat nyligen | 25 % |
 | Benhögar / totem | Fällfält i närheten | 15 % |
 | Övergiven lägerplats | Säker tile, bra rastplats | 0 % |
 
 Falska positiva är avsiktliga: signaler ska vara *information*, inte *facit*.
+
+**Kråkornas radie var 20 tiles och sa ingenting.** Med sexton grupper på en 64-rutors
+karta har 96 % av marken redan en grupp inom tjugo rutor, så påståendet var sant nästan
+överallt av ren tur — en spelare som struntade i kråkorna hade haft rätt lika ofta. Mätt
+över nio banor:
+
+| radie | 3 | 4 | 5 | 6 | 8 | 10 | 12 | 15 | 20 |
+|---|---|---|---|---|---|---|---|---|---|
+| andel av kartan som täcks | 12 % | 20 % | 30 % | **39 %** | 56 % | 71 % | 79 % | 89 % | 96 % |
+
+Sex är där signalen börjar vara en signal: slumpmässig mark har en grupp inom sex rutor
+39 % av tiden, en flock säger 80 %. Det är en verklig uppdatering, vilket är hela testet
+på om något är värt att läsa. Sex rutor är också ungefär en grupps eget revir, så
+"kråkor över den skogen" betyder "du vore inne i någons räckvidd däromkring".
+
+**Inte alla grupper får en flock** — ungefär hälften. Hade varje grupp en vore antalet
+flockar antalet grupper, och att räkna dem hade gett bort banans hela slagordning gratis.
+Mätt landar kvoten mellan 0,27 och 1,07 flockar per grupp.
+
+**Kråkorna ritas på två sätt.** I spelvyn är de fåglar: en kråka är 12–20 bildpunkter
+bakom karavanen och flockens ring hundra, alltså ett föremål på skärmen. På
+planeringskartan rakt uppifrån är samma kråka fyra bildpunkter, och tre mörka prickar på
+en ring säger "fåglar som cirklar" bättre än en modell gör. Samma signal, samma plats,
+två ritsätt — vyn avgör vilket, inte smaken.
 
 ### 3.6 Spaning att köpa
 
