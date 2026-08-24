@@ -247,6 +247,68 @@ def _adjacent(grid, a: int, b: int) -> bool:
     return max(abs(ax - bx), abs(ay - by)) == 1
 
 
+def crows(chapters: range) -> None:
+    """The soft signal, and whether it is a signal at all (docs/GDD.md §3.5)."""
+    print("== circling crows ==")
+
+    flocks = truthful = 0
+    distances = []
+    ratios = []
+
+    for chapter in chapters:
+        for number in range(1, 11):
+            m = level(chapter, number)
+            grid = m.grid
+            tag = f"{chapter}-{number}"
+            sites = A.crow_sites(m)
+            groups = [grid.to_coords(s.tile) for s in m.encounters.enemies]
+            if not sites or not groups:
+                continue
+
+            flocks += len(sites)
+            truthful += sum(1 for f in sites if f.truthful)
+            ratios.append(len(sites) / len(groups))
+
+            for flock in sites:
+                fx, fy = grid.to_coords(flock.tile)
+                nearest = min(math.hypot(gx - fx, gy - fy) for gx, gy in groups)
+
+                check(f"{tag} no flock doubles as a marker",
+                      nearest >= A.CROW_MIN_TILES - 1e-6,
+                      f"a flock sat {nearest:.1f} tiles from a group")
+
+                if flock.truthful:
+                    distances.append(nearest)
+                    check(f"{tag} a truthful flock tells the truth",
+                          nearest <= A.CROW_HINT_TILES + 1e-6,
+                          f"{nearest:.1f} tiles, claim is {A.CROW_HINT_TILES}")
+                else:
+                    check(f"{tag} a false flock is genuinely false",
+                          nearest > A.CROW_HINT_TILES,
+                          f"{nearest:.1f} tiles — something was under it after all")
+
+            check(f"{tag} flocks stand on passable ground",
+                  all(grid.is_passable(*grid.to_coords(f.tile)) for f in sites))
+
+    if not flocks:
+        return
+
+    false_share = 1.0 - truthful / flocks
+    check("about a fifth of the flocks are lying",
+          abs(false_share - A.CROW_FALSE_SHARE) <= 0.06,
+          f"{false_share:.0%} against a design figure of {A.CROW_FALSE_SHARE:.0%}")
+
+    # The load-bearing one. If every group had a flock, counting flocks would count
+    # groups, and the level's whole order of battle would be free.
+    check("flocks cannot be counted into groups",
+          max(ratios) - min(ratios) > 0.3,
+          f"the ratio only ranged {min(ratios):.2f} to {max(ratios):.2f}")
+
+    print(f"  {flocks} flocks, {false_share:.0%} false, truthful ones "
+          f"{min(distances):.1f}-{max(distances):.1f} tiles from their group, "
+          f"flocks per group {min(ratios):.2f}-{max(ratios):.2f}")
+
+
 def leakage(chapters: range) -> None:
     """Information the player is not meant to have, reaching them anyway."""
     print("== leakage ==")
@@ -296,6 +358,7 @@ def main() -> int:
     promises(chapters)
     unseen_routes(chapters)
     route_drawing(chapters)
+    crows(chapters)
     leakage(chapters)
 
     print(f"\n{len(failures)} failure(s)")

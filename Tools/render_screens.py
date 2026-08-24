@@ -761,18 +761,91 @@ TUFT = _quad_cross()
 TILT = _tilt()
 
 
-def build_eagle(mesh: Mesh, position, ground_y: float, heading) -> None:
-    """The bird at the head of its own trail.
+# Crows (docs/GDD.md §3.5). One metre across, so 12 to 20 pixels in the play view and
+# four on the map — which is why they are built here and marked there.
+# A crow spans one metre and a raven a little over. 1.6 is a shade generous, which is
+# the usual licence in a stylized game and is earned here: at sixty to a hundred metres
+# a true-scale crow is twelve pixels of near-black against dark spruce, and the signal
+# was in frame and could not be found.
+CROW_SPAN = 1.6
 
-    Drawn from above, which is the only angle this map has, so the silhouette is the
-    whole of it: a narrow body, a fanned tail, and two wings swept back from the
-    shoulders. The first attempt gave each wing one triangle from the centre outwards
-    and the two met into a filled diamond — a paper dart with a white nose. A wing
-    needs a root, a leading edge and a trailing edge before it reads as a wing.
+# Not black. A dark bird at eighty metres is not black to the eye either — the air
+# between lifts it toward the sky behind it, and painting that in is both truer and the
+# difference between a bird and a missing pixel.
+CROW_BODY = np.array([0.17, 0.17, 0.21])
+CROW_WING = np.array([0.23, 0.23, 0.28])
+
+# The ring they turn on, and how high above the ground they hold it.
+#
+# High, and that is not decoration. At fourteen metres the birds sat among the spruce
+# tops, and a near-black crow against dark forest at eighty metres is invisible — the
+# signal was in the frame and could not be seen. Thirty-four puts them level with the
+# camera, so they read against the sky and the pale middle distance instead of against
+# the canopy. It is also what circling birds actually do; they are not skimming the
+# trees, they are holding a thermal over something.
+CROW_RING_METRES = 10.0
+
+# Twenty-two metres: clear of the eight-metre spruce by a good margin, and still ten
+# below the camera so the birds stay in a frame that looks thirty-five degrees down. At
+# fourteen they sat in the canopy and vanished into it; at thirty-four they were above
+# the camera and left the frame entirely.
+CROW_HEIGHT = 22.0
+CROWS_PER_FLOCK = 3
+
+
+def build_crows(mesh: Mesh, level: A.LevelMap, flocks, height_scale: float,
+                phase: float = 0.0) -> None:
+    """Three birds turning over a piece of ground.
+
+    They are birds and not markers here because the play view is not the map: a crow is
+    twelve to twenty pixels behind the caravan, and the flock's ring is a hundred pixels
+    across. That is a thing on screen, and the note in status.md saying crows should
+    never be models was measuring the planning map and quietly generalising.
+
+    Nothing distinguishes a truthful flock from a lying one. That is the design and not
+    an omission — a signal you can tell is false is not a false positive (§3.5).
     """
-    span = EAGLE_SPAN
+    grid = level.grid
+
+    for index, flock in enumerate(flocks):
+        cx, cz = A.tile_centre(grid, flock.tile)
+        ground = grid.surface_elevation(cx, cz) * height_scale
+
+        for bird in range(CROWS_PER_FLOCK):
+            angle = phase + 2.0 * math.pi * (bird / CROWS_PER_FLOCK + index * 0.37)
+            x = cx + math.cos(angle) * CROW_RING_METRES
+            z = cz + math.sin(angle) * CROW_RING_METRES
+
+            # Facing along the turn, and each bird a little higher or lower than the
+            # next: three birds at one altitude read as a printed logo, not as birds.
+            heading = (-math.sin(angle), math.cos(angle))
+            lift = CROW_HEIGHT + math.sin(angle * 1.7 + index) * 1.6
+
+            build_bird(mesh, (x, z), ground + lift - CROW_HEIGHT, heading,
+                       CROW_SPAN, CROW_HEIGHT, CROW_BODY, CROW_WING, CROW_BODY * 1.4)
+
+
+def build_eagle(mesh: Mesh, position, ground_y: float, heading) -> None:
+    """The bird at the head of its own trail."""
+    build_bird(mesh, position, ground_y, heading, EAGLE_SPAN, EAGLE_HEIGHT,
+               EAGLE_BODY, EAGLE_WING, EAGLE_HEAD)
+
+
+def build_bird(mesh: Mesh, position, ground_y: float, heading, span: float,
+               altitude: float, body_colour, wing_colour, head_colour) -> None:
+    """One bird seen from above, which is the only angle either view ever gets.
+
+    The silhouette is the whole of it: a narrow body, a fanned tail, and two wings swept
+    back from the shoulders. The first attempt gave each wing one triangle from the
+    centre outwards and the two met into a filled diamond — a paper dart with a white
+    nose. A wing needs a root, a leading edge and a trailing edge before it reads as a
+    wing.
+
+    One builder for the eagle and the crows because they differ in exactly three things
+    a caller can pass: how wide, how high, and what colour.
+    """
     yaw = math.degrees(math.atan2(heading[0], heading[1]))
-    base = np.array([position[0], ground_y + EAGLE_HEIGHT, position[1]])
+    base = np.array([position[0], ground_y + altitude, position[1]])
 
     def add(shape, triangles, colour):
         shape = np.asarray(shape, float)
@@ -786,7 +859,7 @@ def build_eagle(mesh: Mesh, position, ground_y: float, heading) -> None:
          [half, 0.0, span * 0.12],
          [-half, 0.0, -span * 0.16],
          [half, 0.0, -span * 0.16]],
-        [[0, 1, 2], [1, 3, 4], [1, 4, 2]], EAGLE_BODY)
+        [[0, 1, 2], [1, 3, 4], [1, 4, 2]], body_colour)
 
     # Fanned tail. A bird from above is mostly wing, and the tail is what says which end
     # you are looking at when the wings are symmetrical.
@@ -794,7 +867,7 @@ def build_eagle(mesh: Mesh, position, ground_y: float, heading) -> None:
          [half, 0.0, -span * 0.14],
          [span * 0.09, 0.0, -span * 0.34],
          [-span * 0.09, 0.0, -span * 0.34]],
-        [[0, 1, 2], [0, 2, 3]], EAGLE_BODY * 1.15)
+        [[0, 1, 2], [0, 2, 3]], body_colour * 1.15)
 
     for side in (-1.0, 1.0):
         root_front = span * 0.16
@@ -805,18 +878,18 @@ def build_eagle(mesh: Mesh, position, ground_y: float, heading) -> None:
              [tip, 0.0, root_front - span * 0.20],
              [tip, 0.0, root_front - span * 0.30],
              [side * half, 0.0, root_back]],
-            [[0, 1, 2], [0, 2, 3]], EAGLE_WING)
+            [[0, 1, 2], [0, 2, 3]], wing_colour)
 
         # Dark primaries at the tip, which is what stops the wing looking cut from card.
         add([[tip * 0.98, 0.0, root_front - span * 0.20],
              [tip * 1.02, 0.0, root_front - span * 0.26],
              [tip * 0.80, 0.0, root_front - span * 0.31]],
-            [[0, 1, 2]], EAGLE_BODY * 0.75)
+            [[0, 1, 2]], body_colour * 0.75)
 
     add([[0.0, 0.0, span * 0.32],
          [-span * 0.035, 0.0, span * 0.20],
          [span * 0.035, 0.0, span * 0.20]],
-        [[0, 1, 2]], EAGLE_HEAD)
+        [[0, 1, 2]], head_colour)
 
 def build_prop(mesh: Mesh, prop: A.Prop) -> None:
     """Draws one placed prop as the nearest simple solid at the size it was given."""
@@ -1209,6 +1282,41 @@ def _ford_crossings(grid: A.TileGrid):
     return crossings
 
 
+CROW_MARKER = np.array([0.13, 0.13, 0.15])
+CROW_MARKER_RADIUS = 0.0035
+CROW_MARKER_RING = 0.012
+
+
+def draw_crow_flocks(image: np.ndarray, camera: Camera, level: A.LevelMap,
+                     flocks, height_scale: float) -> np.ndarray:
+    """Three dark specks turning over a piece of ground, drawn as a marker.
+
+    A crow is one metre, which is four pixels straight down from seventy — a model
+    there would be a dark smudge and the animation would be wasted. Three specks on a
+    ring say "birds circling" at that size better than a bird does, which is the whole
+    argument, and it only holds for this view.
+
+    Shown whether or not the eagle has flown. §3.5 puts the soft signals in the terrain
+    overview during planning; they are what makes hidden information fair rather than
+    arbitrary, and hiding them behind the ability the player may not have bought would
+    take that away from exactly the player who needs it.
+    """
+    grid = level.grid
+
+    for index, flock in enumerate(flocks):
+        cx, cz = A.tile_centre(grid, flock.tile)
+        ground = grid.surface_elevation(cx, cz) * height_scale
+
+        for bird in range(CROWS_PER_FLOCK):
+            angle = 2.0 * math.pi * (bird / CROWS_PER_FLOCK + index * 0.37)
+            position = np.array([cx + math.cos(angle) * CROW_RING_METRES,
+                                 ground + CROW_HEIGHT,
+                                 cz + math.sin(angle) * CROW_RING_METRES])
+            _draw_disc(image, camera, position, CROW_MARKER_RADIUS, CROW_MARKER)
+
+    return image
+
+
 def draw_map_markers(image: np.ndarray, camera: Camera, level: A.LevelMap,
                      height_scale: float) -> np.ndarray:
     """Start, goal and every crossing of the river, none of which the canopy may hide.
@@ -1350,7 +1458,7 @@ def draw_waypoints(image: np.ndarray, level: A.LevelMap, waypoints, camera: Came
 def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
                 height_scale: float = 22.0, density_scale: float = 2.2,
                 max_props: int = 2600, eagle=None, draw_routes: bool = True,
-                route=None, waypoints=()) -> Image.Image:
+                route=None, waypoints=(), crows=True) -> Image.Image:
     """The planning map: straight down, orthographic, under the scouting overlay.
 
     With `eagle`, the map is greyed out except along the flight, and the groups the bird
@@ -1423,6 +1531,8 @@ def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
     # top of the rest: it is the one marker that moves, and a moving marker under a
     # fixed one reads as a glitch.
     image = draw_map_markers(image, camera, level, height_scale)
+    if crows:
+        image = draw_crow_flocks(image, camera, level, A.crow_sites(level), height_scale)
     image = draw_waypoints(image, level, waypoints, camera, height_scale)
     if bird is not None:
         image = _draw_pin(image, camera, bird)
@@ -1488,6 +1598,14 @@ def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
         build_prop(mesh, prop)
 
     ground = lambda p: grid.surface_elevation(p[0], p[1]) * height_scale
+
+    # Crows, as birds. Here they are twelve to twenty pixels each and the flock's ring
+    # is a hundred across, which is a thing on screen rather than a speck — the opposite
+    # of what the same signal is worth on the planning map, and the reason it is built
+    # two ways.
+    near = [flock for flock in A.crow_sites(level)
+            if math.dist(A.tile_centre(grid, flock.tile), lead) <= 240]
+    build_crows(mesh, level, near, height_scale)
 
     for index, kind in enumerate(A.WAGON_ORDER):
         position = caravan.wagon_position(index)

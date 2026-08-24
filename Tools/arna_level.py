@@ -2244,6 +2244,129 @@ class Prop:
     by_width: bool
 
 
+# --- Circling crows (docs/GDD.md §3.5) ---------------------------------------------
+#
+# The strongest of the soft signals, and route drawing made it more important than it
+# was: it is read before the line is drawn rather than during the run, so it is one of
+# the few things that shapes the decision itself.
+#
+# What it says is deliberately vague: a flock means a group somewhere near, never a
+# group on that tile. Same rule the ruin follows, for the same reason — a signal must be
+# information, not the answer sheet.
+
+# Tiles a flock stands for.
+#
+# §3.5 said twenty, and twenty says nothing. With sixteen groups on a sixty-four tile
+# map, 96 % of the ground already has a group within twenty tiles, so "there is one
+# within twenty" is true almost everywhere by accident and a player who ignored the
+# crows entirely would be right just as often. Measured over nine levels:
+#
+#     radius   3     4     5     6     8    10    12    15    20
+#     covered 12%   20%   30%   39%   56%   71%   79%   89%   96%
+#
+# Six is where the signal starts being one. A random piece of ground has a group within
+# six tiles 39 % of the time; a flock says 80 % — a real update, which is the whole test
+# for whether a signal is worth reading. It is also about the size of a group's own
+# territory (TERRITORY_MIN is six), so "crows over that wood" means "you would be inside
+# somebody's reach around there", which is the truthful reading rather than a coincidence.
+CROW_HINT_TILES = 6
+
+# Never nearer than this to *any* group, so a flock cannot double as a marker for one.
+# Vaguer than the ruin's three-tile offset from a trap field is precise, which is the
+# right order: a trap you walk onto is more punishing than a group you can see coming.
+CROW_MIN_TILES = 3
+
+# Chance a given group is announced at all.
+#
+# Not all of them, and this is the load-bearing part: if every group had a flock, the
+# number of flocks would be the number of groups, and counting them would hand over the
+# level's whole order of battle for free.
+CROW_PER_GROUP = 0.5
+
+# Share of flocks standing over nothing. §3.5 puts it at 20 %, and false positives are
+# the point — a signal that is always right is not a signal, it is a map.
+CROW_FALSE_SHARE = 0.20
+
+
+@dataclass
+class CrowFlock:
+    """Birds circling a piece of ground, and whether anything is actually under them."""
+
+    tile: int
+    truthful: bool
+
+
+def crow_sites(level: LevelMap) -> List[CrowFlock]:
+    """Where the crows circle. Deterministic from the level seed."""
+    grid = level.grid
+    groups = level.encounters.enemies
+    rng = DeterministicRandom(level.seed ^ 0x0C0F)
+
+    flocks: List[CrowFlock] = []
+    taken: set = set()
+
+    positions = [grid.to_coords(spawn.tile) for spawn in groups]
+
+    def nearest_group(x: int, y: int) -> float:
+        return min((math.hypot(gx - x, gy - y) for gx, gy in positions), default=math.inf)
+
+    def free(tile: int) -> bool:
+        if tile in taken:
+            return False
+        x, y = grid.to_coords(tile)
+        if not grid.is_passable(x, y) or int(grid.tiles[tile]) == FORD:
+            return False
+        # Distance from every group, not just the one this flock belongs to. Checking
+        # only its own let a flock land on a different group's tile — measured at zero
+        # tiles away, which is a marker and not a hint.
+        return nearest_group(x, y) >= CROW_MIN_TILES
+
+    for spawn in groups:
+        if not rng.chance(CROW_PER_GROUP):
+            continue
+
+        gx, gy = grid.to_coords(spawn.tile)
+        for _ in range(12):
+            angle = rng.range_float(0.0, 2.0 * math.pi)
+            reach = rng.range_float(CROW_MIN_TILES, CROW_HINT_TILES)
+            nx = int(round(gx + math.cos(angle) * reach))
+            ny = int(round(gy + math.sin(angle) * reach))
+
+            if not grid.in_bounds(nx, ny):
+                continue
+            tile = grid.to_index(nx, ny)
+            if not free(tile):
+                continue
+
+            # Check the claim after rounding, not before. `reach` is drawn below the
+            # radius but snapping to a whole tile can push it past — measured at 6.1 to
+            # 6.3 tiles against a claim of 6, which is a flock quietly lying.
+            if math.hypot(nx - gx, ny - gy) > CROW_HINT_TILES:
+                continue
+
+            taken.add(tile)
+            flocks.append(CrowFlock(tile, True))
+            break
+
+    # Then the lies. Placed where nothing is within the radius they claim, so a false
+    # flock is genuinely false rather than accidentally right.
+    wanted = int(round(len(flocks) * CROW_FALSE_SHARE / (1.0 - CROW_FALSE_SHARE)))
+    for _ in range(wanted):
+        for _ in range(24):
+            tile = rng.range_int(0, grid.tile_count)
+            if not free(tile):
+                continue
+
+            if nearest_group(*grid.to_coords(tile)) <= CROW_HINT_TILES:
+                continue
+
+            taken.add(tile)
+            flocks.append(CrowFlock(tile, False))
+            break
+
+    return flocks
+
+
 def ruin_sites(level: LevelMap) -> List[int]:
     """Ground that shows a caravan came to grief: near a trap field, never on one.
 
