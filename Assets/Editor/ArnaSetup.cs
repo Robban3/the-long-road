@@ -157,13 +157,12 @@ namespace Arna.Editor
                                 "Assets/Quaternius/RPGItems/Axe_small.fbx", 0.6f),
                 Mounted = Actor("Assets/Quaternius/Animals/Horse.fbx"),
 
-                // From ForestAnimals rather than Quaternius. The pack ships the model,
-                // a URP prefab and a controller, and it is the only enemy on level 1-1
+                // From ForestAnimals rather than Quaternius: the pack ships the model
+                // and a URP prefab, and the wolf is the only enemy on level 1-1
                 // — which is why the Quaternius folder could not simply be deleted with
                 // the rest of it. `Horse.fbx` still has to stay: neither new pack has one.
                 Wolf = Actor("Assets/ForestAnimals/URP/Wolf/Prefab/Wolf_URP.prefab",
-                             animator: "Assets/ForestAnimals/Animations/Wolf_Controller/"
-                                       + "WolfAnimations.controller"),
+                             animator: "Assets/_Project/Animation/Wolf.controller"),
 
                 // Barbarossa already carries his cutlass in the rig, so nothing is
                 // fitted to him — but his file also carries a second man, Ernest, who
@@ -178,19 +177,20 @@ namespace Arna.Editor
                                      "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f,
                                      hide: new[] { "Weapon_Lute" }),
 
-                // The wildlife of GDD §3.5, each with the pack's own controller.
+                // The wildlife of GDD §3.5.
+                //
+                // The URP prefab for the materials, but the controller this project
+                // builds rather than the pack's: everything here is driven through
+                // Speed, Attack and Dead, and the pack's controllers use other names.
+                // Run Arna > Build Animator Controllers before Set Up Play Scene.
                 Fox = Actor("Assets/ForestAnimals/URP/Fox/Prefab/Fox_URP.prefab",
-                            animator: "Assets/ForestAnimals/Animations/Fox_Controller/"
-                                      + "FoxAnimations.controller"),
+                            animator: "Assets/_Project/Animation/Fox.controller"),
                 DeerFemale = Actor("Assets/ForestAnimals/URP/DeerFemale/Prefab/DeerFemale_URP.prefab",
-                                   animator: "Assets/ForestAnimals/Animations/DeerFemale_Controller/"
-                                             + "DeerFemale_Animations.controller"),
+                                   animator: "Assets/_Project/Animation/DeerFemale.controller"),
                 DeerMale = Actor("Assets/ForestAnimals/URP/DeerMale/Prefabs/DeerMale_URP.prefab",
-                                 animator: "Assets/ForestAnimals/Animations/DeerMale_Controller/"
-                                           + "DeerMale_Animations.controller"),
+                                 animator: "Assets/_Project/Animation/DeerMale.controller"),
                 Boar = Actor("Assets/ForestAnimals/URP/Boar/Prefab/Boar.prefab",
-                             animator: "Assets/ForestAnimals/Animations/Boar_Controller/"
-                                       + "BoarAnimations.controller"),
+                             animator: "Assets/_Project/Animation/Boar.controller"),
 
                 // "Wild Few" of the six flock prefabs: its flock size is three, which
                 // is the number this design measured. The others spawn more.

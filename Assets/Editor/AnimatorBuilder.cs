@@ -31,8 +31,21 @@ namespace Arna.Editor
         static readonly string[] Models =
         {
             "Assets/Quaternius/Knight/Knight.fbx",
-            "Assets/Quaternius/Animals/Wolf.fbx",
             "Assets/Quaternius/Animals/Horse.fbx",
+
+            // ForestAnimals. The pack ships its own controllers and they cannot be used:
+            // this project drives every animator through Speed, Attack and Dead, and a
+            // controller with other parameter names is a controller nothing can steer.
+            // The wolf that came out of that sat in its default state and slid along
+            // beside the caravan — which looks exactly like being dragged, because it is.
+            //
+            // So the clips are taken from the pack and a controller built here instead.
+            "Assets/ForestAnimals/Models/Wolf.fbx",
+            "Assets/ForestAnimals/Models/Fox.fbx",
+            "Assets/ForestAnimals/Models/DeerFemale.fbx",
+            "Assets/ForestAnimals/Models/DeerMale.fbx",
+            "Assets/ForestAnimals/Models/Boar.fbx",
+
             "Assets/Quaternius/ModularMen/Adventurer.fbx",
             "Assets/Quaternius/ModularMen/Farmer.fbx",
             "Assets/Quaternius/PiratePack/Characters_Captain_Barbarossa.fbx",

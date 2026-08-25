@@ -318,6 +318,13 @@ namespace Arna.View
         {
             if (animals == null) return;
 
+            // Said out loud, because "no animals" and "animals with no model" look the
+            // same from the outside and are fixed in different places.
+            if (Library.Fox.Prefab == null && Library.DeerFemale.Prefab == null
+                && Library.DeerMale.Prefab == null && Library.Boar.Prefab == null)
+                Debug.LogWarning("[Arna] No wildlife models loaded — the scene predates them. "
+                                 + "Run Arna > Build Animator Controllers, then Set Up Play Scene.");
+
             foreach (var animal in animals)
             {
                 var marker = SpawnActor(Library.For(animal.Kind), PrimitiveType.Capsule,
@@ -327,6 +334,8 @@ namespace Arna.View
                 Place(marker, new Vector3(animal.Position.X, GroundAt(animal.Position),
                                           animal.Position.Y));
             }
+
+            Debug.Log($"[Arna] {animals.Count} wild animals placed.");
         }
 
         /// <summary>
@@ -361,7 +370,14 @@ namespace Arna.View
 
         public void BuildCrowFlocks(IReadOnlyList<CrowFlock> flocks, TileGrid grid)
         {
-            if (Library.CrowFlockPrefab == null || flocks == null) return;
+            if (flocks == null) return;
+
+            if (Library.CrowFlockPrefab == null)
+            {
+                Debug.LogWarning("[Arna] No crow flock prefab — the scene predates it, or the "
+                                 + "path into Unluck Software is wrong. Run Set Up Play Scene.");
+                return;
+            }
 
             foreach (var flock in flocks)
             {
@@ -372,6 +388,8 @@ namespace Arna.View
                 instance.transform.position =
                     new Vector3(position.X, GroundAt(position) + CrowAltitude, position.Y);
             }
+
+            Debug.Log($"[Arna] {flocks.Count} crow flocks placed.");
         }
 
         /// <summary>
