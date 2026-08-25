@@ -69,12 +69,33 @@ namespace Arna.Editor
                 AssetDatabase.CreateFolder("Assets/_Project", "Animation");
 
             int built = 0;
+            var missed = new List<string>();
+
             foreach (var model in Models)
+            {
                 if (Build(model) != null) built++;
+                else missed.Add(Path.GetFileNameWithoutExtension(model));
+            }
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log($"[Arna] Built {built} animator controllers in {OutputDir}.");
+
+            // A count on its own cannot be read. "Built eleven" is the right answer for
+            // eleven models and a silent failure for twelve, and the difference only
+            // showed up because somebody happened to know what the list was that day.
+            // The per-model warnings were there and scrolled past; a total that names
+            // its denominator does not need anyone to go looking.
+            if (missed.Count == 0)
+            {
+                Debug.Log($"[Arna] Built {built} of {Models.Length} animator controllers in {OutputDir}.");
+                return;
+            }
+
+            Debug.LogWarning($"[Arna] Built {built} of {Models.Length} animator controllers in "
+                             + $"{OutputDir}. No controller for: {string.Join(", ", missed)}. "
+                             + "The warning above each one says why — a missing file reads as "
+                             + "\"No clips\", a file whose clips this project cannot name reads "
+                             + "as \"No idle clip\".");
         }
 
         static string Name(AnimationClip clip) => clip == null ? "—" : clip.name;
