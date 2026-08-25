@@ -58,6 +58,25 @@ Tests:
 
     Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testResults <xml>
 
+### Type-checking the C# without Unity
+
+`Arna.Sim` is compiled without engine references on purpose, and `Arna.Gen` only
+depends on it, so both build with a plain C# compiler:
+
+    apt-get install -y mono-mcs
+    mcs -langversion:latest -target:library -out:/tmp/arna.dll -nowarn:1591,1587,1574 \
+        $(find Assets/_Project/Scripts/Sim Assets/_Project/Scripts/Gen -name "*.cs")
+
+Mono crashes in its own code generation on the iterator in `DetectionSystem.Query` —
+an IKVM bug, not a project fault. Errors are reported before that, so grep the output
+for `error CS` and ignore the stack trace.
+
+This matters more than it looks. Two thirds of the game's logic lives in those two
+assemblies, and without this there is no way to know whether an edit compiles until
+somebody opens the editor. A constant and a method sharing the name `SampleRoutes` sat
+in `EncounterPlacer` through several commits for exactly that reason — nothing here
+could build it, so nothing caught it. `View`, `App` and `Editor` still need Unity.
+
 ### Without Unity at all
 
 `Tools/arna_level.py` is `Arna.Sim` and `Arna.Gen` transcribed to Python, and

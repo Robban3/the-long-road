@@ -77,7 +77,15 @@ namespace Arna.Gen
         /// </summary>
         public const int RepairTarget = MinEncounters + 1;
 
-        public const int SampleRoutes = 32;
+        /// <summary>
+        /// Routes drawn to check the placement against.
+        ///
+        /// Named apart from the method that uses it because C# will not have a constant
+        /// and a method sharing a name in one type — which is how this went unbuilt for
+        /// a while: nothing here runs without an editor, so the clash only surfaced when
+        /// one was opened.
+        /// </summary>
+        public const int RouteSamples = 32;
         public const int MaxRepairs = 12;
 
         /// <summary>
@@ -478,7 +486,7 @@ namespace Arna.Gen
         /// </summary>
         public static List<List<int>> SampleRoutes(TileGrid grid, IReadOnlyList<Corridor> corridors,
                                                    DeterministicRandom rng, int startIndex,
-                                                   int goalIndex, int count = SampleRoutes)
+                                                   int goalIndex, int count = RouteSamples)
         {
             var band = ThreatBand.Build(grid, startIndex, goalIndex);
             return band == null
@@ -589,7 +597,7 @@ namespace Arna.Gen
                                     EncounterLayout layout, HashSet<int> occupied,
                                     int startIndex, int goalIndex)
         {
-            var routes = SampleRoutes(grid, band, corridors, rng, startIndex, goalIndex, SampleRoutes);
+            var routes = SampleRoutes(grid, band, corridors, rng, startIndex, goalIndex, RouteSamples);
             layout.SampledRoutes = routes.Count;
             if (routes.Count == 0) return;
 
