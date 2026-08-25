@@ -147,6 +147,17 @@ namespace Arna.View
         public const float TreeJitterHigh = 1.7f;
 
         /// <summary>
+        /// Dead trees, which are the exception — and a render said so before anyone did.
+        ///
+        /// They start at nine metres, the tallest entry in the table, because a bare
+        /// trunk has to read from map height. Drawn as a pole a tenth as wide, at 1.7
+        /// that is a fifteen-metre spike, and a ridge of them reads as a power line
+        /// rather than as a fen. Small snags yes, giants no.
+        /// </summary>
+        public const float DeadJitterLow = 0.5f;
+        public const float DeadJitterHigh = 1.15f;
+
+        /// <summary>
         /// Ground cover is capped separately and much higher. These are a few hundred
         /// triangles each against a tree's few thousand, so the budget that keeps trees
         /// affordable is the wrong budget for grass.
@@ -172,13 +183,36 @@ namespace Arna.View
         };
 
         /// <summary>
-        /// Props per tile. Tuned down from a first attempt at 0.55 in forest, which put
-        /// a thousand nine-metre trees on a 256-metre map and closed the canopy over
-        /// the caravan entirely — the world has to be looked through, not just at.
+        /// Props per tile.
+        ///
+        /// Forest was tuned down to 0.28 from a first attempt at 0.55, which put a
+        /// thousand nine-metre trees on a 256-metre map and closed the canopy over the
+        /// caravan entirely — the world has to be looked through, not just at. It is
+        /// back up at 0.62, and two things changed underneath that number so the old
+        /// objection no longer holds: trees now run from 4.7 m to 14.5 m rather than all
+        /// standing at nine, and canopy no longer reserves ground, so the small ones
+        /// fill in between the big ones instead of pushing them apart.
+        ///
+        /// Measured on 1-5, where the forest is 1812 tiles: 0.28 gives 489 trees at a
+        /// median 4.5 m to the nearest neighbour, 0.45 gives 796 at 4.1 m, 0.62 gives
+        /// 1088 at 3.6 m. A spruce crown is 0.62 of its height across, so at 3.6 m the
+        /// crowns overlap — which is what the reference picture shows and what 4.5 m did
+        /// not.
+        ///
+        /// <b>Not yet checked in a render.</b> Two were made and both were worthless: the
+        /// script that set the density for them matched `COVER_DENSITY` instead of
+        /// `DENSITY`, so they varied the grass and left the trees at 0.28. The counts and
+        /// spacings above come from the module directly and stand; whether the caravan
+        /// still reads against 1088 trees is open, and the first thing to look at.
+        ///
+        /// <b>This is the triangle budget's largest single line.</b> Twice the trees is
+        /// twice the geometry, against the 250k limit in docs/technical-design.md. They
+        /// share one atlas material so the draw calls batch; the triangles do not. Worth
+        /// a look at the Stats window before it is called done.
         /// </summary>
         static readonly Dictionary<TerrainType, float> Density = new Dictionary<TerrainType, float>
         {
-            { TerrainType.Forest, 0.28f },
+            { TerrainType.Forest, 0.62f },
             { TerrainType.MountainPass, 0.18f },
             { TerrainType.Plains, 0.03f },
             { TerrainType.Marsh, 0.06f },
@@ -330,7 +364,7 @@ namespace Arna.View
                 for (int t = 0; t < tufts && placed < MaxGroundCover; t++)
                 {
                     var choice = new Choice(decor.GroundCover, Any(decor.GroundCover, rng),
-                                            CoverHeight, byWidth: false);
+                                            CoverHeight, byWidth: false, canopy: true);
 
                     Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.9f);
                     placed++;
@@ -371,6 +405,12 @@ namespace Arna.View
             float size = choice.Size * rng.Range(low, high);
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
             else ModelScaling.Fit(instance, size, groundY);
+
+            // Canopy neither claims ground nor checks for it. Keeping it out of the
+            // reserved set has a second effect worth having: grass and ferns may now
+            // grow under a tree, where the tree's own footprint used to keep the floor
+            // bare beneath it.
+            if (choice.Canopy) return true;
 
             // Fitted before the ground is checked, because until it is fitted nobody
             // knows how much ground it wants. A big prop that cannot fit is destroyed
@@ -523,7 +563,9 @@ namespace Arna.View
                     for (int t = 0; t < 2; t++)
                     {
                         var dead = new Choice(decor.DeadTrees, Any(decor.DeadTrees, rng),
-                                              DeadTreeHeight, byWidth: false);
+                                              DeadTreeHeight, byWidth: false,
+                                              low: DeadJitterLow, high: DeadJitterHigh,
+                                              canopy: true);
 
                         Scatter(parent, grid, rng, dead, tile, heightScale, spread: 2.6f);
                         placed++;
@@ -591,8 +633,22 @@ namespace Arna.View
             public readonly float Low;
             public readonly float High;
 
+            /// <summary>
+            /// A growing thing rather than stone or masonry.
+            ///
+            /// It decides who claims ground. Nothing may grow out of a rock, but a wood
+            /// is things touching, so canopy neither reserves ground nor asks for clear
+            /// ground. The rule used to be expressed as a size — anything past a tile's
+            /// width had to find its whole footprint clear — and that held only while
+            /// nothing green could reach a tile's width. Given their real range a
+            /// fourteen-metre spruce has a four-and-a-half-metre crown, crossed the
+            /// threshold, and the checker began reading two touching crowns as a tree
+            /// growing out of a rock.
+            /// </summary>
+            public readonly bool Canopy;
+
             public Choice(PropSet set, GameObject prefab, float size, bool byWidth,
-                          float low = JitterLow, float high = JitterHigh)
+                          float low = JitterLow, float high = JitterHigh, bool canopy = false)
             {
                 Prefab = prefab;
                 ZUp = set != null && set.ZUp;
@@ -600,6 +656,7 @@ namespace Arna.View
                 ByWidth = byWidth;
                 Low = low;
                 High = high;
+                Canopy = canopy;
             }
         }
 
@@ -666,7 +723,8 @@ namespace Arna.View
                 // is the thing a marsh looks like.
                 case TerrainType.Marsh:
                     if (decor.DeadTrees.Any && rng.Chance(0.55f))
-                        return Tree(decor.DeadTrees, rng, DeadTreeHeight);
+                        return Tree(decor.DeadTrees, rng, DeadTreeHeight,
+                                    DeadJitterLow, DeadJitterHigh);
 
                     return From(decor.Rocks, rng, RockHeight);
 
@@ -688,9 +746,12 @@ namespace Arna.View
                 ? new Choice(set, Any(set, rng), size, false, low, high)
                 : default;
 
-        /// <summary>A tree, with the wide size spread a stand of them wants.</summary>
-        static Choice Tree(PropSet set, DeterministicRandom rng, float size) =>
-            From(set, rng, size, TreeJitterLow, TreeJitterHigh);
+        /// <summary>A tree: the wide size spread a stand of them wants, and canopy rules.</summary>
+        static Choice Tree(PropSet set, DeterministicRandom rng, float size,
+                           float low = TreeJitterLow, float high = TreeJitterHigh) =>
+            set != null && set.Any
+                ? new Choice(set, Any(set, rng), size, false, low, high, canopy: true)
+                : default;
 
         static GameObject Any(PropSet set, DeterministicRandom rng) =>
             set.Models[rng.Range(0, set.Models.Length)];

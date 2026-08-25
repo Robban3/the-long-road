@@ -334,6 +334,14 @@ def solid_world(chapters: range) -> None:
 
             worst = None
             for big in props:
+                # Stone only. The test used to say "anything with a footprint past four
+                # metres", which named the mountains for as long as nothing green could
+                # reach four metres — and indicted the forest the moment spruces were
+                # given their real size range. What must never happen is a tree growing
+                # out of a rock; two crowns touching is what a wood is.
+                if big.kind in A.CANOPY_KINDS:
+                    continue
+
                 radius = A.prop_footprint(big.kind, big.size)
                 if radius < 4.0:      # only things large enough to swallow a tree
                     continue

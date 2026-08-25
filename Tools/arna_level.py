@@ -2204,6 +2204,23 @@ def fly_the_eagle(level: LevelMap, seconds: float = EAGLE_SECONDS,
 # The decorator's placement, reproduced so the same trees stand in the same places.
 # Model sets are counted rather than loaded — see the module docstring.
 
+# How far a scattered prop may vary from its table size. Mirrors
+# Arna.View.TerrainDecorator: a quarter either way for rocks, grass and buildings, and
+# far more for trees. A quarter gave a stand of spruces between 6.8 and 10.6 m — a hedge,
+# evenly clipped — while in the reference picture the smallest conifer is about a third
+# the height of the largest. 0.55 to 1.7 against a pine's 8.5 m is 4.7 m to 14.5 m.
+JITTER_LOW, JITTER_HIGH = 0.8, 1.25
+TREE_JITTER_LOW, TREE_JITTER_HIGH = 0.55, 1.7
+
+# Dead trees are the exception, and a render said so before anything else did. They
+# start at 9 m — the tallest entry in the table, because a bare trunk has to read from
+# map height — and they are drawn as a pole a tenth as wide. At 1.7 that is a
+# fifteen-metre spike, and a ridge of them reads as a power line rather than as a fen.
+# Small snags yes, giants no.
+DEAD_JITTER_LOW, DEAD_JITTER_HIGH = 0.5, 1.15
+
+TREE_KINDS = ("trees", "pines")
+
 TREE_HEIGHT = 7.0
 PINE_HEIGHT = 8.5
 ROCK_HEIGHT = 2.2
@@ -2229,7 +2246,12 @@ SET_SIZES = {
 }
 
 COVER_DENSITY = {FOREST: 2.4, PLAINS: 1.7, MARSH: 2.0, MOUNTAIN_PASS: 0.5, ROAD: 0.15}
-DENSITY = {FOREST: 0.28, MOUNTAIN_PASS: 0.18, PLAINS: 0.03, MARSH: 0.06, ROAD: 0.01}
+
+# Forest at 0.62 rather than the old 0.28. Measured on 1-5, 1812 forest tiles: 0.28 gives
+# 489 trees at a median 4.5 m to the nearest neighbour, 0.45 gives 796 at 4.1 m, 0.62
+# gives 1088 at 3.6 m. A spruce crown is 0.62 of its height across, so at 3.6 m crowns
+# overlap — which is what the reference shows and what 4.5 m did not.
+DENSITY = {FOREST: 0.62, MOUNTAIN_PASS: 0.18, PLAINS: 0.03, MARSH: 0.06, ROAD: 0.01}
 
 # How much ground a prop actually stands on, as a share of the size it is given.
 #
@@ -2263,6 +2285,16 @@ PROP_FOOTPRINT = {
 # index order, so a mountain reaching tile 500 could not un-place the pine put on tile
 # 450 twenty tiles earlier.
 BULKY_KINDS = ("mountains",)
+
+# What claims exclusive ground, and what merely stands on it.
+#
+# Stone and masonry claim it: nothing may grow out of a rock. Growing things do not,
+# because a wood is things touching. The rule used to be expressed as a size — anything
+# past a tile's width had to find its whole footprint clear — and that worked only for
+# as long as nothing green could reach a tile's width. The moment spruces were given
+# their real range a 14-metre one had a 4.5-metre canopy, crossed the threshold, and the
+# checker started reading two touching crowns as a tree growing out of a rock.
+CANOPY_KINDS = ("trees", "pines", "dead", "cover")
 
 
 def prop_footprint(kind: str, size: float) -> float:
@@ -2656,10 +2688,20 @@ def _scatter(props, grid, rng, choice, tile, height_scale, spread,
     ground_y = grid.surface_elevation(x, z) * height_scale
 
     yaw = rng.range_float(0.0, 360.0)
-    scaled = size * rng.range_float(0.8, 1.25)
+
+    if kind in TREE_KINDS:
+        low, high = TREE_JITTER_LOW, TREE_JITTER_HIGH
+    elif kind == "dead":
+        low, high = DEAD_JITTER_LOW, DEAD_JITTER_HIGH
+    else:
+        low, high = JITTER_LOW, JITTER_HIGH
+    scaled = size * rng.range_float(low, high)
     radius = prop_footprint(kind, scaled)
 
-    if occupied is not None:
+    # Canopy neither claims ground nor checks for it. Keeping it out of the reserved
+    # set has a second effect worth having: grass and ferns may now grow under a tree,
+    # where before the tree's own footprint kept the floor bare beneath it.
+    if occupied is not None and kind not in CANOPY_KINDS:
         if radius > FOOTPRINT_CHECK_METRES and not _footprint_clear(grid, occupied, x, z, radius):
             return False
         _reserve(grid, occupied, x, z, radius)
