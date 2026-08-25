@@ -2247,11 +2247,16 @@ SET_SIZES = {
 
 COVER_DENSITY = {FOREST: 2.4, PLAINS: 1.7, MARSH: 2.0, MOUNTAIN_PASS: 0.5, ROAD: 0.15}
 
-# Forest at 0.62 rather than the old 0.28. Measured on 1-5, 1812 forest tiles: 0.28 gives
+# Forest at 0.45 rather than the old 0.28. Measured on 1-5, 1812 forest tiles: 0.28 gives
 # 489 trees at a median 4.5 m to the nearest neighbour, 0.45 gives 796 at 4.1 m, 0.62
-# gives 1088 at 3.6 m. A spruce crown is 0.62 of its height across, so at 3.6 m crowns
-# overlap — which is what the reference shows and what 4.5 m did not.
-DENSITY = {FOREST: 0.62, MOUNTAIN_PASS: 0.18, PLAINS: 0.03, MARSH: 0.06, ROAD: 0.01}
+# gives 1088 at 3.6 m. A spruce crown is 0.62 of its height across, so a base-size pine's
+# crown is 5.3 m: at 4.1 m the crowns already overlap, which is what the reference shows
+# and 4.5 m did not.
+#
+# 0.62 was tried and rejected on the evidence — the render showed two wagons and one
+# troop through a gap and the rest of the column gone, which is the old 0.55 failure
+# exactly. Overlapping crowns were the goal and 0.45 reaches them.
+DENSITY = {FOREST: 0.45, MOUNTAIN_PASS: 0.18, PLAINS: 0.03, MARSH: 0.06, ROAD: 0.01}
 
 # How much ground a prop actually stands on, as a share of the size it is given.
 #

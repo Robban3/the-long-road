@@ -187,32 +187,30 @@ namespace Arna.View
         ///
         /// Forest was tuned down to 0.28 from a first attempt at 0.55, which put a
         /// thousand nine-metre trees on a 256-metre map and closed the canopy over the
-        /// caravan entirely — the world has to be looked through, not just at. It is
-        /// back up at 0.62, and two things changed underneath that number so the old
-        /// objection no longer holds: trees now run from 4.7 m to 14.5 m rather than all
-        /// standing at nine, and canopy no longer reserves ground, so the small ones
-        /// fill in between the big ones instead of pushing them apart.
+        /// caravan entirely — the world has to be looked through, not just at. At 0.45
+        /// it is dense and still transparent.
         ///
         /// Measured on 1-5, where the forest is 1812 tiles: 0.28 gives 489 trees at a
         /// median 4.5 m to the nearest neighbour, 0.45 gives 796 at 4.1 m, 0.62 gives
-        /// 1088 at 3.6 m. A spruce crown is 0.62 of its height across, so at 3.6 m the
-        /// crowns overlap — which is what the reference picture shows and what 4.5 m did
-        /// not.
+        /// 1088 at 3.6 m. A spruce crown is 0.62 of its height across, so a base-size
+        /// pine's crown is 5.3 m: at 4.1 m the crowns already overlap, which is the thing
+        /// the reference picture shows and 4.5 m did not.
         ///
-        /// <b>Not yet checked in a render.</b> Two were made and both were worthless: the
-        /// script that set the density for them matched `COVER_DENSITY` instead of
-        /// `DENSITY`, so they varied the grass and left the trees at 0.28. The counts and
-        /// spacings above come from the module directly and stand; whether the caravan
-        /// still reads against 1088 trees is open, and the first thing to look at.
+        /// <b>0.62 was tried and rejected on the evidence.</b> The argument for it was
+        /// that the old objection had expired — trees now run 4.7 m to 14.5 m rather than
+        /// all standing at nine, and canopy no longer reserves ground. The render says
+        /// otherwise: at 0.62 two wagons and one troop were visible through a gap and the
+        /// rest of the column was gone, which is the 0.55 failure exactly. Overlapping
+        /// crowns were the goal and 0.45 reaches them; 0.62 buys nothing the picture
+        /// wanted and costs the column.
         ///
-        /// <b>This is the triangle budget's largest single line.</b> Twice the trees is
-        /// twice the geometry, against the 250k limit in docs/technical-design.md. They
-        /// share one atlas material so the draw calls batch; the triangles do not. Worth
-        /// a look at the Stats window before it is called done.
+        /// It is still the triangle budget's largest single line — 796 trees against 489
+        /// — and the limit in docs/technical-design.md is 250k. They share one atlas
+        /// material so the draw calls batch; the triangles do not.
         /// </summary>
         static readonly Dictionary<TerrainType, float> Density = new Dictionary<TerrainType, float>
         {
-            { TerrainType.Forest, 0.62f },
+            { TerrainType.Forest, 0.45f },
             { TerrainType.MountainPass, 0.18f },
             { TerrainType.Plains, 0.03f },
             { TerrainType.Marsh, 0.06f },

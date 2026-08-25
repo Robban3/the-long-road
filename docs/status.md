@@ -521,7 +521,7 @@ is about a third the height of the largest, so the tree family alone runs 0.55 t
 which against a pine's 8.5 m is 4.7 m to 14.5 m. Rocks, grass and buildings keep the
 quarter.
 
-**The forest is at 0.62 props per tile, up from 0.28.** It was tuned *down* to 0.28 from
+**The forest is at 0.45 props per tile, up from 0.28.** It was tuned *down* to 0.28 from
 a first attempt at 0.55 because a thousand nine-metre trees closed the canopy over the
 caravan — and two things have changed underneath that number since. Trees now run 4.7 m
 to 14.5 m rather than all standing at nine, and canopy no longer reserves ground, so the
@@ -531,20 +531,30 @@ where the forest is 1812 tiles:
 | Density | Trees | Median gap to the nearest tree |
 |---|---|---|
 | 0.28 | 489 | 4.5 m |
-| 0.45 | 796 | 4.1 m |
-| **0.62** | **1088** | **3.6 m** |
+| **0.45** | **796** | **4.1 m** |
+| 0.62 | 1088 | 3.6 m |
 
-A spruce crown is 0.62 of its height across, so at 3.6 m the crowns overlap — which is
-what the reference shows and what 4.5 m did not.
+A spruce crown is 0.62 of its height across, so a base-size pine's crown is 5.3 m: at
+4.1 m the crowns already overlap, which is the thing the reference shows and 4.5 m did
+not.
 
-**Two things to check before this is called done.** Whether the caravan still reads
-against 1088 trees is *not yet verified*: two renders were made for it and both were
-worthless, because the script that set the density for them matched `COVER_DENSITY`
-instead of `DENSITY` and so varied the grass while leaving the trees at 0.28. The counts
-above come from the module directly and stand. And this is now the triangle budget's
-largest single line — twice the trees is twice the geometry against the 250k limit in
-docs/technical-design.md. The trees share one atlas material so the draw calls batch;
-the triangles do not.
+**0.62 was tried first and rejected on the evidence.** The argument for it was that the
+old objection had expired — trees now run 4.7 m to 14.5 m rather than all standing at
+nine, and canopy no longer reserves ground, so the small ones fill in between the big
+ones instead of pushing them apart. Plausible, and wrong: the render at 0.62 showed two
+wagons and one troop through a gap with the rest of the column gone, which is the 0.55
+failure exactly. Overlapping crowns were the whole goal and 0.45 reaches them, so 0.62
+buys nothing the picture wanted and costs the column.
+
+**Two renders were wasted getting there**, and the reason is worth keeping: the script
+that set the density for them matched `COVER_DENSITY` instead of `DENSITY`, so they
+varied the grass and left the trees where they were. Both looked plausibly denser, which
+is how they survived being looked at. The counts in the table come from the module
+directly and were never affected.
+
+It is still the triangle budget's largest single line — 796 trees against 489 — against
+the 250k limit in docs/technical-design.md. The trees share one atlas material so the
+draw calls batch; the triangles do not.
 
 `Assets/Quaternius/StylizedNature` is deleted — nothing referenced it once the swap
 landed. Two dimension reports were still pointing at it and at the RTS trees, and had
