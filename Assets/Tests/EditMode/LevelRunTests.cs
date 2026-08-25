@@ -298,9 +298,7 @@ namespace Arna.Tests
             // what ground — so it belongs against the travelling half; scoring it
             // against the wall clock would make every fight a second tax on the same
             // star that already charges for damage.
-            var map = TerrainGenerator.Generate(new LevelRecipe(),
-                                                DeterministicRandom.SeedFor(1, 5));
-            var run = new LevelRun(map, new Squad(12));
+            var run = Run(1, 5);
             run.RunToCompletion();
 
             Assert.LessOrEqual(run.TravelSeconds, run.ElapsedSeconds + 0.001f,

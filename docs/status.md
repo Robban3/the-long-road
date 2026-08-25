@@ -60,16 +60,24 @@ Tests:
 
 ### Type-checking the C# without Unity
 
-`Arna.Sim` is compiled without engine references on purpose, and `Arna.Gen` only
-depends on it, so both build with a plain C# compiler:
-
     apt-get install -y mono-mcs
-    mcs -langversion:latest -target:library -out:/tmp/arna.dll -nowarn:1591,1587,1574 \
-        $(find Assets/_Project/Scripts/Sim Assets/_Project/Scripts/Gen -name "*.cs")
+    ./Tools/csharp/typecheck.sh
 
-Mono crashes in its own code generation on the iterator in `DetectionSystem.Query` —
-an IKVM bug, not a project fault. Errors are reported before that, so grep the output
-for `error CS` and ignore the stack trace.
+`Arna.Sim` is compiled without engine references on purpose and `Arna.Gen` only depends
+on it, so both build with a plain compiler. The EditMode tests build too, against the
+NUnit stand-in beside that script — it asserts nothing and exists only so a test that
+will not compile is caught here rather than by somebody opening the editor.
+
+**Two mono limitations, and the second one has already hidden a real error.** Mono
+cannot parse C# local functions, so four test files are skipped; Unity compiles them
+fine. And mono reports parse errors and then stops, before typing anything — so a file
+it cannot parse masks real errors *everywhere else*. A wrong constructor argument in
+`LevelRunTests` reached a push that way, after a run that looked clean. Hence skipping
+those files rather than tolerating the noise.
+
+Mono also crashes in its own code generation on the iterator in `DetectionSystem.Query`
+— an IKVM bug, not a project fault. Errors are reported before that, so the script
+greps for `error CS` and the stack trace can be ignored.
 
 The same bug does block producing a runnable exe, which is worth working around,
 because the simulation can then be *run* here and not merely type-checked. Compile a
