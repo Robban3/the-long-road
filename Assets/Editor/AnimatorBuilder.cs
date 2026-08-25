@@ -23,10 +23,10 @@ namespace Arna.Editor
         const string OutputDir = "Assets/_Project/Animation";
 
         /// <summary>Clip suffixes tried in order for each state, first match wins.</summary>
-        static readonly string[] IdleNames = { "Idle", "Idle_Neutral", "Idle_2" };
-        static readonly string[] WalkNames = { "Walk", "Run", "Gallop" };
-        static readonly string[] AttackNames = { "Sword", "Sword_Slash", "Attack", "Attack_Kick", "Punch", "Punch_Right" };
-        static readonly string[] DeathNames = { "Death" };
+        static readonly string[] IdleNames = { "Idle", "Idle_Neutral", "Idle_2", "Eat", "Graze" };
+        static readonly string[] WalkNames = { "Walk", "Trot", "Run", "Gallop" };
+        static readonly string[] AttackNames = { "Sword", "Sword_Slash", "Attack", "Attack_Kick", "Bite", "Punch", "Punch_Right" };
+        static readonly string[] DeathNames = { "Death", "Die" };
 
         static readonly string[] Models =
         {
@@ -67,6 +67,8 @@ namespace Arna.Editor
             Debug.Log($"[Arna] Built {built} animator controllers in {OutputDir}.");
         }
 
+        static string Name(AnimationClip clip) => clip == null ? "—" : clip.name;
+
         public static AnimatorController Build(string modelPath)
         {
             var clips = LoadClips(modelPath);
@@ -89,6 +91,12 @@ namespace Arna.Editor
 
             string name = Path.GetFileNameWithoutExtension(modelPath);
             string path = $"{OutputDir}/{name}.controller";
+
+            // Said out loud, because a controller built from the wrong clips and one
+            // built from the right ones are the same file from the outside, and the
+            // difference only shows up as an animal standing still in a running game.
+            Debug.Log($"[Arna] {name}: idle={Name(idle)} walk={Name(walk)} "
+                      + $"attack={Name(attack)} death={Name(death)}  ({clips.Count} clips)");
 
             AssetDatabase.DeleteAsset(path);
             var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
@@ -174,18 +182,52 @@ namespace Arna.Editor
         /// Finds a clip whose name ends with one of the wanted suffixes. Exact matches
         /// win over partial ones, so "Idle" is not beaten by "Idle_HitReact_Left".
         /// </summary>
+        /// <summary>
+        /// Finds the clip for a state, trying the names in order and, for each, three
+        /// increasingly forgiving readings of "matches".
+        ///
+        /// It used to demand an exact name, which the comment at the top of this file
+        /// has always described as matching by suffix — and which was true enough while
+        /// every pack here happened to call its clip `Idle`. ForestAnimals calls it
+        /// `Wolf_Idle`, the build found no idle, and the animals stood in bind pose
+        /// while the simulation walked them about.
+        ///
+        /// Exact first, so a pack that names a clip plainly still wins it over a longer
+        /// name that merely contains the word.
+        /// </summary>
         static AnimationClip Match(List<AnimationClip> clips, string[] wanted)
         {
-            foreach (var suffix in wanted)
+            foreach (var name in wanted)
             {
-                foreach (var clip in clips)
-                {
-                    int bar = clip.name.LastIndexOf('|');
-                    string bare = bar >= 0 ? clip.name.Substring(bar + 1) : clip.name;
-                    if (bare == suffix) return clip;
-                }
+                var clip = Match(clips, name, Exactly) ?? Match(clips, name, EndsWith)
+                           ?? Match(clips, name, Contains);
+                if (clip != null) return clip;
             }
             return null;
         }
+
+        static AnimationClip Match(List<AnimationClip> clips, string wanted,
+                                   System.Func<string, string, bool> how)
+        {
+            foreach (var clip in clips)
+                if (how(Bare(clip.name), wanted)) return clip;
+            return null;
+        }
+
+        /// <summary>The part after the last bar: exporters prefix clips with the take's name.</summary>
+        static string Bare(string name)
+        {
+            int bar = name.LastIndexOf('|');
+            return bar >= 0 ? name.Substring(bar + 1) : name;
+        }
+
+        static bool Exactly(string a, string b)
+            => string.Equals(a, b, System.StringComparison.OrdinalIgnoreCase);
+
+        static bool EndsWith(string a, string b)
+            => a.EndsWith(b, System.StringComparison.OrdinalIgnoreCase);
+
+        static bool Contains(string a, string b)
+            => a.IndexOf(b, System.StringComparison.OrdinalIgnoreCase) >= 0;
     }
 }

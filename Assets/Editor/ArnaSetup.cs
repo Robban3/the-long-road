@@ -1165,13 +1165,35 @@ namespace Arna.Editor
         /// Clip names decide the whole animator setup, and they are not consistent
         /// between packs from different years. Reading them beats assuming them.
         /// </summary>
+        /// <summary>
+        /// Lists every clip in a model, and the rig type that decides whether they can
+        /// be shared.
+        ///
+        /// Reports on whatever is selected in the Project window, falling back to the
+        /// models this project built by hand. A hardcoded list was the whole of it
+        /// before, which meant the one report that could have explained why a new pack's
+        /// animals stood still could not be pointed at them.
+        /// </summary>
         [MenuItem("Arna/Report Animation Clips")]
         public static void ReportAnimationClips()
         {
-            string[] models =
+            var selected = new List<string>();
+
+            foreach (var obj in Selection.objects)
+            {
+                string path = AssetDatabase.GetAssetPath(obj);
+                if (string.IsNullOrEmpty(path)) continue;
+
+                if (AssetDatabase.IsValidFolder(path))
+                    foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { path }))
+                        selected.Add(AssetDatabase.GUIDToAssetPath(guid));
+                else if (path.EndsWith(".fbx", System.StringComparison.OrdinalIgnoreCase))
+                    selected.Add(path);
+            }
+
+            string[] models = selected.Count > 0 ? selected.ToArray() : new[]
             {
                 "Assets/Quaternius/Knight/Knight.fbx",
-                "Assets/Quaternius/Animals/Wolf.fbx",
                 "Assets/Quaternius/Animals/Horse.fbx",
                 "Assets/Quaternius/ModularMen/Adventurer.fbx",
                 "Assets/Quaternius/ModularMen/Farmer.fbx",
