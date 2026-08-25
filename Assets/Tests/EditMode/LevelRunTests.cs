@@ -289,5 +289,33 @@ namespace Arna.Tests
             Assert.Greater(mauled, levels / 2,
                 $"an unguarded caravan came through unharmed on {levels - mauled} of {levels} levels");
         }
+
+        [Test]
+        public void ParIsMeasuredOnTravelTimeAndNotOnTheClock()
+        {
+            // The caravan halts to fight, so the two clocks part company the moment
+            // anything reaches it. Par is derived from the route's cost — how far, over
+            // what ground — so it belongs against the travelling half; scoring it
+            // against the wall clock would make every fight a second tax on the same
+            // star that already charges for damage.
+            var map = TerrainGenerator.Generate(new LevelRecipe(),
+                                                DeterministicRandom.SeedFor(1, 5));
+            var run = new LevelRun(map, new Squad(12));
+            run.RunToCompletion();
+
+            Assert.LessOrEqual(run.TravelSeconds, run.ElapsedSeconds + 0.001f,
+                "travel time cannot exceed the clock");
+            Assert.That(run.FightingSeconds, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(run.TravelSeconds + run.FightingSeconds,
+                        Is.EqualTo(run.ElapsedSeconds).Within(0.01f),
+                        "the two halves must add up to the run");
+        }
+
+        [Test]
+        public void AFightHaltsTheColumn()
+        {
+            Assert.AreEqual(0f, CombatSystem.EngagedSpeedFactor,
+                "the caravan is meant to stop and form up, not push through");
+        }
     }
 }

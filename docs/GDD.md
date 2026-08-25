@@ -378,6 +378,20 @@ En trupp som överlever en bana får veteranpoäng. Vid 3 / 8 / 15 poäng: +10 %
 | ★★ | Alla tre vagnar överlever |
 | ★★★ | Alla tre vagnar över 60 % HP **och** måltid underskriden |
 
+**Karavanen stannar i strid, och partidens klocka stannar med den.** En kolonn under
+angrepp håller in och eskorten formerar sig — det är den sannare bilden och den
+tydligare: striden blir en händelse i stället för en sträcka långsammare väg.
+
+Men partiden mäts på **restiden**, inte på väggklockan. `parTime` härleds ur *ruttens*
+kostnad — hur långt, över vilken mark — så att mäta den mot en klocka som också räknar
+stillastående strid jämför olika saker. Det märktes inte medan strid bara saktade ner
+kolonnen.
+
+Det som står på spel är att tredje stjärnan ställer **två** frågor. Tid är rutten du
+ritade; blod är striderna du tog. Låter man striden kosta båda blir de en enda fråga
+ställd två gånger, och valet mellan den snabba och den säkra vägen upphör att vara ett
+val. Mätt: sex strider är 27 sekunder stillastående mot en partidsslack på 14–19.
+
 ---
 
 ## 9. Beslutade öppna frågor

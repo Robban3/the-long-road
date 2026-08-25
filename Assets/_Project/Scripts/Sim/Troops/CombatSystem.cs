@@ -29,8 +29,21 @@ namespace Arna.Sim
     /// </summary>
     public sealed class CombatSystem
     {
-        /// <summary>Caravan speed while anything is in contact. Picking through a fight is slow.</summary>
-        public const float EngagedSpeedFactor = 0.5f;
+        /// <summary>
+        /// Caravan speed while anything is in contact. Zero: the column halts and the
+        /// escort forms up.
+        ///
+        /// It used to be a half, and the wagons rolled on through the fight. Stopping is
+        /// the truer picture and the more legible one — a fight becomes an event rather
+        /// than a stretch of slower road — but on its own it would have taken the third
+        /// star with it: six fights at four and a half seconds is twenty-seven seconds
+        /// of standing still against a par slack of fourteen to nineteen.
+        ///
+        /// So the clock par is measured against stops too. See
+        /// <see cref="LevelRun.TravelSeconds"/>: the fight costs blood, the route costs
+        /// time, and the third star goes on asking both questions instead of one twice.
+        /// </summary>
+        public const float EngagedSpeedFactor = 0f;
 
         /// <summary>How close an enemy must be to a troop before it stops to fight.</summary>
         const float EngagementSlack = 1.5f;

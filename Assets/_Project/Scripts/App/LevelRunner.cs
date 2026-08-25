@@ -350,7 +350,12 @@ namespace Arna.App
             GUILayout.BeginArea(new Rect(14, 14, 380, 320), GUI.skin.box);
 
             GUILayout.Label($"<b>{Chapter}-{Level}</b>   {Route} route", style);
-            GUILayout.Label($"Tid  {_run.ElapsedSeconds:F1} s   (par {_run.ParSeconds:F0} s)", style);
+            // Two clocks, because they answer different questions and the player is
+            // scored on the second. Wall-clock is how long the run took; travel time is
+            // the route, with the fighting taken out, and that is what par measures.
+            GUILayout.Label($"Tid  {_run.ElapsedSeconds:F1} s", style);
+            GUILayout.Label($"Restid  {_run.TravelSeconds:F1} s   (par {_run.ParSeconds:F0} s)" +
+                            $"   strid {_run.FightingSeconds:F1} s", style);
             GUILayout.Label($"Sträcka  {_run.Caravan.Progress:P0}   i {_run.Caravan.CurrentTerrain}", style);
             GUILayout.Label($"Fart  {_run.Caravan.CurrentSpeed:F1} m/s", style);
             GUILayout.Space(6);

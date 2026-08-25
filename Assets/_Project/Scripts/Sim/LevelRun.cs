@@ -59,6 +59,25 @@ namespace Arna.Sim
         public CombatSystem Combat { get; }
 
         public float ElapsedSeconds { get; private set; }
+
+        /// <summary>
+        /// Seconds the caravan spent travelling, with the fighting taken out.
+        ///
+        /// This is what par is compared against, and the two were never the same thing.
+        /// `ParSeconds` is derived from the *route's* cost — how far and over what
+        /// ground — so measuring it against a clock that also counts standing still in
+        /// a fight compares unlike quantities. It only went unnoticed while a fight
+        /// merely slowed the column instead of halting it.
+        ///
+        /// What it keeps intact is the third star asking two separate questions. Time
+        /// is the route you drew; blood is the fights you took. Let combat spend both
+        /// and they collapse into one, and the choice between the fast way and the safe
+        /// way stops being a choice.
+        /// </summary>
+        public float TravelSeconds { get; private set; }
+
+        /// <summary>Seconds spent halted with something in contact.</summary>
+        public float FightingSeconds => ElapsedSeconds - TravelSeconds;
         public float ParSeconds { get; }
 
         /// <summary>Extra trap-spotting range, on top of whatever the squad provides.</summary>
@@ -106,6 +125,8 @@ namespace Arna.Sim
             if (Outcome != RunOutcome.InProgress) return;
 
             ElapsedSeconds += StepSeconds;
+            if (Combat == null || !Combat.InContact) TravelSeconds += StepSeconds;
+
             Caravan.Tick(StepSeconds);
 
             Squad?.UpdatePositions(Caravan.LeadPosition, Caravan.Heading);
@@ -224,7 +245,7 @@ namespace Arna.Sim
 
                 if (surviving == 0) return 0;
                 if (surviving < Caravan.Wagons.Count) return 1;
-                return allHealthy && ElapsedSeconds <= ParSeconds ? 3 : 2;
+                return allHealthy && TravelSeconds <= ParSeconds ? 3 : 2;
             }
         }
 
