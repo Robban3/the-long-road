@@ -162,7 +162,7 @@ namespace Arna.Editor
                 // — which is why the Quaternius folder could not simply be deleted with
                 // the rest of it. `Horse.fbx` still has to stay: neither new pack has one.
                 Wolf = Actor("Assets/ForestAnimals/URP/Wolf/Prefab/Wolf_URP.prefab",
-                             animator: "Assets/_Project/Animation/Wolf.controller"),
+                             animator: "Assets/_Project/Animation/Wolf.controller", yaw: ForestAnimalYaw),
 
                 // Barbarossa already carries his cutlass in the rig, so nothing is
                 // fitted to him — but his file also carries a second man, Ernest, who
@@ -184,13 +184,13 @@ namespace Arna.Editor
                 // Speed, Attack and Dead, and the pack's controllers use other names.
                 // Run Arna > Build Animator Controllers before Set Up Play Scene.
                 Fox = Actor("Assets/ForestAnimals/URP/Fox/Prefab/Fox_URP.prefab",
-                            animator: "Assets/_Project/Animation/Fox.controller"),
+                            animator: "Assets/_Project/Animation/Fox.controller", yaw: ForestAnimalYaw),
                 DeerFemale = Actor("Assets/ForestAnimals/URP/DeerFemale/Prefab/DeerFemale_URP.prefab",
-                                   animator: "Assets/_Project/Animation/DeerFemale.controller"),
+                                   animator: "Assets/_Project/Animation/DeerFemale.controller", yaw: ForestAnimalYaw),
                 DeerMale = Actor("Assets/ForestAnimals/URP/DeerMale/Prefabs/DeerMale_URP.prefab",
-                                 animator: "Assets/_Project/Animation/DeerMale.controller"),
+                                 animator: "Assets/_Project/Animation/DeerMale.controller", yaw: ForestAnimalYaw),
                 Boar = Actor("Assets/ForestAnimals/URP/Boar/Prefab/Boar.prefab",
-                             animator: "Assets/_Project/Animation/Boar.controller"),
+                             animator: "Assets/_Project/Animation/Boar.controller", yaw: ForestAnimalYaw),
 
                 // "Wild Few" of the six flock prefabs: its flock size is three, which
                 // is the number this design measured. The others spawn more.
@@ -224,9 +224,24 @@ namespace Arna.Editor
         }
 
         /// <summary>Pairs a model with the controller generated for it, matched by filename.</summary>
+        /// <summary>
+        /// Degrees the ForestAnimals models need turning so their noses lead.
+        ///
+        /// They are modelled along X while the code turns an actor by pointing its +Z
+        /// at what it is heading for, so without this a wolf charges the caravan
+        /// broadside — which is what "the wolf slides sideways" was, and it looked like
+        /// a movement bug rather than an import one.
+        ///
+        /// Ninety rather than minus ninety is a coin toss no file can settle: both put
+        /// the body the right way round and only one puts the head at the front. It is
+        /// a field on the model, so it can be flipped in the Inspector under
+        /// Level Runner > Models while the game runs, which beats reasoning about it.
+        /// </summary>
+        const float ForestAnimalYaw = 90f;
+
         static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f,
                                 string[] hide = null, string[] unsized = null,
-                                string animator = null)
+                                string animator = null, float yaw = 0f)
         {
             var prefab = One(path);
             if (prefab == null) return default;
@@ -252,6 +267,8 @@ namespace Arna.Editor
                 // packs disagree on which axis a blade runs down, so this is a fixed
                 // correction found by looking rather than a value from the files.
                 WeaponRotation = new Vector3(-90f, 0f, 0f),
+
+                YawOffset = yaw,
 
                 Hide = hide,
                 Unsized = unsized

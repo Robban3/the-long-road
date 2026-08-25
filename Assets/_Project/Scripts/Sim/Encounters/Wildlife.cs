@@ -53,8 +53,24 @@ namespace Arna.Sim
     /// </summary>
     public static class Wildlife
     {
-        /// <summary>Animals on a level. Sparse — a herd every few tiles is a zoo.</summary>
-        public const int Count = 14;
+        /// <summary>
+        /// Animals on a level.
+        ///
+        /// Measured rather than felt. Over nine levels, walking the fast route end to
+        /// end past a 26 m spook radius:
+        ///
+        ///     animals   scattered per run   in sight within 80 m
+        ///        14            2.3                  7.3
+        ///        26            3.8                 14.4
+        ///        44            6.8                 25.0
+        ///
+        /// Fourteen was the first guess and it is genuinely sparse — a whole run can go
+        /// by with nothing in frame, which for a signal that works by being noticed is
+        /// the same as not existing. Twenty-six is about one animal in view at a time.
+        /// Forty-four is a zoo, and a country teeming with deer stops saying anything
+        /// when some of them bolt.
+        /// </summary>
+        public const int Count = 26;
 
         /// <summary>Metres the caravan has to close before an animal bolts.</summary>
         public const float SpookRadius = 26f;
