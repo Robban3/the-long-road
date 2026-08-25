@@ -891,6 +891,57 @@ def build_bird(mesh: Mesh, position, ground_y: float, heading, span: float,
          [span * 0.035, 0.0, span * 0.20]],
         [[0, 1, 2]], head_colour)
 
+# Wildlife (docs/GDD.md §3.5). Shoulder heights, matching VisualLibrary.HeightOf: an
+# animal measured to the ear comes out a head too tall.
+ANIMAL_HEIGHT = {A.FOX: 0.45, A.DEER_FEMALE: 1.10, A.DEER_MALE: 1.35, A.BOAR: 0.85}
+ANIMAL_COAT = {
+    A.FOX: np.array([0.72, 0.34, 0.14]),
+    A.DEER_FEMALE: np.array([0.55, 0.40, 0.26]),
+    A.DEER_MALE: np.array([0.47, 0.33, 0.21]),
+    A.BOAR: np.array([0.26, 0.22, 0.20]),
+}
+ANTLER = np.array([0.72, 0.66, 0.52])
+
+
+def build_animal(mesh: Mesh, animal, ground_y: float, yaw: float) -> None:
+    """One grazing animal as a body on four legs.
+
+    A stand-in like every other model here, and the same rules apply: right size, right
+    place, wrong dress. What it has to get right from forty-six metres is the silhouette
+    — a low long body on legs, and a stag's antlers, because those are what separate a
+    deer from a boulder at that distance.
+    """
+    height = ANIMAL_HEIGHT[animal.kind]
+    coat = ANIMAL_COAT[animal.kind]
+    base = np.array([animal.home[0], ground_y, animal.home[1]])
+
+    body_length = height * 1.7
+    body_thick = height * 0.42
+    back = height * 0.72          # legs carry the body this far up
+
+    def add(prim, colour, size, offset):
+        _add(mesh, prim, colour, size, yaw, base + np.array(offset))
+
+    # Legs first, so the body sits on something.
+    for dx in (-body_thick * 0.42, body_thick * 0.42):
+        for dz in (-body_length * 0.34, body_length * 0.34):
+            add(CYLINDER, coat * 0.82, (height * 0.10, back, height * 0.10), (dx, 0.0, dz))
+
+    add(BOX, coat, (body_thick, height * 0.40, body_length), (0.0, back, 0.0))
+    add(BOX, coat * 1.06, (body_thick * 0.62, height * 0.30, height * 0.34),
+        (0.0, back + height * 0.22, body_length * 0.44))
+
+    if animal.kind == A.DEER_MALE:
+        # Antlers. Two forks, which is all that survives at this distance and all that
+        # is needed: nothing else on the level has a spiky top on a slim body.
+        for side in (-1.0, 1.0):
+            for lean, rise in ((0.22, 0.34), (0.34, 0.22)):
+                add(CYLINDER, ANTLER,
+                    (height * 0.045, height * rise, height * 0.045),
+                    (side * height * lean * 0.5, back + height * 0.34,
+                     body_length * 0.40 + height * 0.05))
+
+
 def build_prop(mesh: Mesh, prop: A.Prop) -> None:
     """Draws one placed prop as the nearest simple solid at the size it was given."""
     base = np.array([prop.x, prop.ground_y, prop.z])
@@ -1606,6 +1657,15 @@ def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
     near = [flock for flock in A.crow_sites(level)
             if math.dist(A.tile_centre(grid, flock.tile), lead) <= 240]
     build_crows(mesh, level, near, height_scale)
+
+    # The wildlife, drawn where it grazes. This is the level rather than a frame of a
+    # run, so nothing here is fleeing — a still picture cannot show the thing they were
+    # built for, which is that they scatter.
+    for animal in A.wildlife_sites(level):
+        if math.dist(animal.home, lead) > 240:
+            continue
+        yaw = ((animal.home[0] * 7 + animal.home[1] * 13) % 360)
+        build_animal(mesh, animal, ground(animal.home), yaw)
 
     for index, kind in enumerate(A.WAGON_ORDER):
         position = caravan.wagon_position(index)

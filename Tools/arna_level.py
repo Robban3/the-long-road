@@ -2332,6 +2332,72 @@ class Prop:
     by_width: bool
 
 
+# --- Wildlife (docs/GDD.md §3.5) ---------------------------------------------------
+#
+# Mirrors Arna.Sim.Wildlife. Deer, foxes and boar graze over the level and scatter when
+# the caravan closes or a fight starts. They cannot be killed and are worth nothing: the
+# moment an animal can be felled it becomes a resource, and a player who stops the
+# caravan to hunt deer is playing a different game.
+
+FOX, DEER_FEMALE, DEER_MALE, BOAR = 0, 1, 2, 3
+WILDLIFE_NAMES = ["Fox", "DeerFemale", "DeerMale", "Boar"]
+
+WILDLIFE_COUNT = 14
+WILDLIFE_SPOOK_RADIUS = 26.0
+WILDLIFE_BATTLE_RADIUS = 55.0
+WILDLIFE_FLEE_SECONDS = 4.5
+WILDLIFE_FLEE_SPEED = 11.0
+WILDLIFE_GRAZE_RADIUS = 6.0
+
+
+@dataclass
+class WildAnimal:
+    kind: int
+    home: tuple
+    position: tuple
+
+
+def wildlife_sites(level: LevelMap) -> List[WildAnimal]:
+    """Where the animals graze. Deterministic, and the same choice the engine makes."""
+    grid = level.grid
+    rng = DeterministicRandom(level.seed ^ 0x1EAF)
+    animals: List[WildAnimal] = []
+
+    groups = [grid.to_coords(spawn.tile) for spawn in level.encounters.enemies]
+
+    for _ in range(WILDLIFE_COUNT * 40):
+        if len(animals) >= WILDLIFE_COUNT:
+            break
+
+        tile = rng.range_int(0, grid.tile_count)
+        x, y = grid.to_coords(tile)
+
+        if not grid.is_passable(x, y):
+            continue
+        if int(grid.tiles[tile]) == FORD:
+            continue
+        if tile in (level.start_index, level.goal_index):
+            continue
+        # A fox grazing inside a bandit camp is a joke, and worse, a tell: an animal
+        # where no animal would be marks the group as surely as a flag would.
+        if any((gx - x) ** 2 + (gy - y) ** 2 <= 25 for gx, gy in groups):
+            continue
+
+        home = tile_centre(grid, tile)
+        animals.append(WildAnimal(_pick_wildlife(int(grid.tiles[tile]), rng), home, home))
+
+    return animals
+
+
+def _pick_wildlife(terrain: int, rng: DeterministicRandom) -> int:
+    """Deer in the open, foxes and boar under cover. Roughly true, and it reads."""
+    if terrain == FOREST:
+        return FOX if rng.chance(0.45) else BOAR
+    if terrain == MARSH:
+        return BOAR
+    return DEER_FEMALE if rng.chance(0.5) else DEER_MALE
+
+
 # --- Circling crows (docs/GDD.md §3.5) ---------------------------------------------
 #
 # The strongest of the soft signals, and route drawing made it more important than it
