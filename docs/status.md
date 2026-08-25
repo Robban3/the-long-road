@@ -449,6 +449,46 @@ matched to their filenames, and the army pack is a pack of soldiers: it will bri
 horses and it will not bring wolves. The other ten animals in the folder are unused and
 cost nothing to keep.
 
+### The crow and animal packs, as imported
+
+Measured from the folder listing rather than guessed:
+
+| | Path |
+|---|---|
+| Flock prefabs | `Assets/Unluck Software/Bird Flocks/Bird Flock Crow/Prefabs/Crow Flock - *.prefab` |
+| One bird | `.../Prefabs/Bird/Crow.prefab` |
+| **Baked variant** | `.../Baked (performance)/Prefabs/Bird Crow Baked.prefab` |
+| Controller script | `Assets/Unluck Software/Bird Flocks/Scripts/FlockController.cs` |
+| Wolf | `Assets/ForestAnimals/URP/Wolf/Prefab/Wolf_URP.prefab` |
+
+Four decisions the listing settles:
+
+**Import `Bird Flocks/URP materials - import as needed.unitypackage` first.** The pack
+ships built-in-pipeline materials and leaves the URP ones in a package beside them.
+This project is URP, so without that step the crows render as whatever the pipeline
+does with an unsupported shader, which is not a subtle failure but is an easily
+misattributed one.
+
+**Take the baked variant, not the skinned one.** `Baked (performance)` swaps the
+skinned mesh for a sequence of snapshot meshes (`CrowFlap Snap 1..15`) driven by
+`BakedMeshAnimator`. A skinned mesh per bird is a per-frame skinning cost for something
+twelve to twenty pixels across, and the budget in §6 is 150 draw calls on a phone.
+
+**`Crow TEX 4K Normal.png` is a four-thousand-pixel normal map on a bird that is
+twelve pixels.** Import size down to 128 or drop the map entirely. This is the same
+correction the wagon pack needs and for the same reason, only more extreme.
+
+**`Crow Flock - Wild Few` is the prefab to start from.** The flock size measured for
+this design is three birds; the other prefabs spawn more.
+
+**The wolf can move to ForestAnimals, the horse cannot.** `ForestAnimals` ships
+`Wolf.fbx`, `WolfUnity_Var2.fbx`, bear, boar, two deer and a fox, each with a URP prefab
+and an animator controller. It ships **no horse** — so `Assets/Quaternius/Animals` may
+lose everything except `Horse.fbx`, which is the cavalry mount. Note the new animals are
+photoreal PBR with a fur shader, so they want the same treatment as the wagons: textures
+down, smoothness down. It matters more here than for the crows, because a wolf is seen
+at 46 m in the play view rather than as a speck.
+
 **Crows are built, in the port and the renderer.** GDD §3.5 wants circling crows as the strongest of
 the soft signals — an enemy group within twenty tiles, twenty percent false positives —
 and route drawing makes that signal considerably more important, because it is read
