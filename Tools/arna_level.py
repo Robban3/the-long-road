@@ -2342,7 +2342,12 @@ class Prop:
 FOX, DEER_FEMALE, DEER_MALE, BOAR = 0, 1, 2, 3
 WILDLIFE_NAMES = ["Fox", "DeerFemale", "DeerMale", "Boar"]
 
-WILDLIFE_COUNT = 26
+WILDLIFE_COUNT = 34
+
+# Chansen att en skogsruta accepteras alls. Se Arna.Sim.Wildlife.ForestShare: att räkna
+# djur mätte fel sak — hälften av de synliga stod under ett lövverk som döljer dem helt
+# för en kamera 35° ovanför, och ett djur ingen ser är inte glest utan frånvarande.
+WILDLIFE_FOREST_SHARE = 0.35
 WILDLIFE_SPOOK_RADIUS = 26.0
 WILDLIFE_BATTLE_RADIUS = 55.0
 WILDLIFE_FLEE_SECONDS = 4.5
@@ -2381,6 +2386,8 @@ def wildlife_sites(level: LevelMap) -> List[WildAnimal]:
         # A fox grazing inside a bandit camp is a joke, and worse, a tell: an animal
         # where no animal would be marks the group as surely as a flag would.
         if any((gx - x) ** 2 + (gy - y) ** 2 <= 25 for gx, gy in groups):
+            continue
+        if int(grid.tiles[tile]) == FOREST and not rng.chance(WILDLIFE_FOREST_SHARE):
             continue
 
         home = tile_centre(grid, tile)

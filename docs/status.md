@@ -488,19 +488,21 @@ under mono, not estimated:
 
 | | |
 |---|---|
-| Animals per level | 26, a spread of fox, boar and both deer |
+| Animals per level | 34, a spread of fox, boar and both deer, 26 % of them in woodland |
 | Closest an animal homes to an enemy group | never within 4 tiles |
 | Caravan spook radius | 26 m |
 | Battle radius | 55 m — wider on purpose, see the GDD |
 | Distance covered by a bolt | about 49 m over 4.5 s |
 | Settles back to | within the 6 m grazing radius |
-| Met on an average run | 3.8 scattered, 14.4 in sight within 80 m |
+| Met on an average run | 19.4 in sight within 80 m, of which 14.9 in open ground |
 
-Twenty-six was measured, not felt. Fourteen — the first guess — gives 2.3 scattered and
-7.3 in sight over a whole run, which is sparse enough that a player can drive for a while
-with nothing in frame; for a signal that works by being noticed, that is the same as not
-existing. Forty-four gives 6.8 and 25, and a country teeming with deer stops saying
-anything when some of them bolt.
+**Counting animals was measuring the wrong thing.** Twenty-six placed evenly put 14.3
+within sight of a run and only 7.6 of them anywhere they could actually be seen — the
+rest stood under a canopy that hides a deer completely from a camera 35° above it, and
+an animal nobody can see is not sparse, it is absent. Accepting a forest tile only a
+third of the time, at 34 animals, gives 19.4 in sight and 14.9 in the open: twice the
+visible wildlife for a third more of it. A third rather than none, because foxes and
+boar belong in a wood and hiding is a thing animals do.
 
 The models are `ForestAnimals`: fox, both deer and boar, each loaded from its URP prefab
 with the pack's own animator controller. `RunVisuals.BuildWildlife` spawns them and

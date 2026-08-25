@@ -123,5 +123,33 @@ namespace Arna.Tests
                 Assert.AreEqual(first[i].Home.X, second[i].Home.X);
             }
         }
+
+        [Test]
+        public void MostOfThemStandWhereTheyCanBeSeen()
+        {
+            // Counting animals measured the wrong thing. Placed evenly, half of the
+            // ones a run came near stood under a canopy that hides a deer completely
+            // from a camera thirty-five degrees above it, and an animal nobody can see
+            // is not sparse, it is absent.
+            int forest = 0, total = 0;
+
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = Level(1, level);
+
+                foreach (var animal in Wildlife.Populate(map))
+                {
+                    int tile = map.Grid.ToIndex((int)(animal.Home.X / TileGrid.TileSize),
+                                                (int)(animal.Home.Y / TileGrid.TileSize));
+                    total++;
+                    if (map.Grid[tile] == TerrainType.Forest) forest++;
+                }
+            }
+
+            Assert.Greater(total, 0);
+            float share = forest / (float)total;
+            Assert.Less(share, 0.45f, $"{share:P0} of the wildlife is under the canopy");
+            Assert.Greater(share, 0.02f, "none of them are in the woods, which is where foxes live");
+        }
     }
 }

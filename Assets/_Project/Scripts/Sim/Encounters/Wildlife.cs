@@ -73,11 +73,33 @@ namespace Arna.Sim
         ///
         /// Fourteen was the first guess and it is genuinely sparse — a whole run can go
         /// by with nothing in frame, which for a signal that works by being noticed is
-        /// the same as not existing. Twenty-six is about one animal in view at a time.
-        /// Forty-four is a zoo, and a country teeming with deer stops saying anything
-        /// when some of them bolt.
+        /// the same as not existing. Forty-four is a zoo, and a country teeming with
+        /// deer stops saying anything when some of them bolt.
+        ///
+        /// Thirty-four, with <see cref="ForestShare"/> keeping most of them out from
+        /// under the canopy, puts about fifteen where they can actually be seen.
         /// </summary>
-        public const int Count = 26;
+        public const int Count = 34;
+
+        /// <summary>
+        /// How often a forest tile is accepted at all.
+        ///
+        /// Counting animals was measuring the wrong thing. At twenty-six placed evenly,
+        /// fourteen came within sight of the caravan over a run and only *seven* of
+        /// those stood anywhere they could be seen — the rest were under a canopy that
+        /// hides a deer completely from a camera thirty-five degrees above it. An animal
+        /// nobody can see is not sparse, it is absent.
+        ///
+        /// A third rather than none, because foxes and boar belong in a wood, and
+        /// hiding is a thing animals do. Pushing it lower bought almost nothing:
+        ///
+        ///     placed   forest share   in sight   of those, in the open
+        ///       26         all           14.3            7.6
+        ///       26         0.35          15.0           11.6
+        ///       34         0.35          19.8           15.4
+        ///       34         0.20          19.8           17.2
+        /// </summary>
+        public const float ForestShare = 0.35f;
 
         /// <summary>Metres the caravan has to close before an animal bolts.</summary>
         public const float SpookRadius = 26f;
@@ -128,6 +150,7 @@ namespace Arna.Sim
                 if (grid[tile] == TerrainType.Ford) continue;
                 if (tile == map.StartIndex || tile == map.GoalIndex) continue;
                 if (NearAnEnemy(map, x, y)) continue;
+                if (grid[tile] == TerrainType.Forest && !rng.Chance(ForestShare)) continue;
 
                 var home = Vec2.FromTile(grid, tile);
                 float facing = rng.Range(0f, (float)(2.0 * Math.PI));
