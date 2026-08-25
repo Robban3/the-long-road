@@ -42,7 +42,7 @@ namespace Arna.Sim
         /// must not arrive as a surprise, so the leg is drawn differently and says
         /// *this did not become what you thought*.
         /// </summary>
-        public bool IsDetour => Detour > DetourThreshold;
+        public bool IsDetour => Detour > RouteResult.DetourThreshold;
 
         public bool Failed;
 

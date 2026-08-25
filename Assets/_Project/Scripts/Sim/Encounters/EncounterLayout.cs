@@ -77,7 +77,8 @@ namespace Arna.Sim
 
         /// <summary>
         /// False when the repair loop could not bring the worst sampled route up to
-        /// <see cref="Arna.Gen.EncounterPlacer.MinEncounters"/>.
+        /// the placer's target (see `EncounterPlacer.RepairTarget` in Arna.Gen, which
+        /// this assembly cannot name: Gen depends on Sim and not the reverse).
         ///
         /// The generator reads this and rolls the level again, which is the point of
         /// recording it. A level where a drawn line can meet almost nothing is not one
