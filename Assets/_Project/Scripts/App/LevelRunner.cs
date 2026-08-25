@@ -3,6 +3,7 @@ using Arna.Gen;
 using Arna.Sim;
 using Arna.View;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Arna.App
 {
@@ -55,6 +56,18 @@ namespace Arna.App
         /// </summary>
         [Range(8f, 300f)] public float FollowHeight = 32f;
 
+        /// <summary>
+        /// Lets the player pinch to zoom and drag to swing the camera round.
+        ///
+        /// Off gives the fixed view the design was measured from, which is what a
+        /// screenshot or a comparison wants. On is what shipping wants: a fixed camera
+        /// in a game about reading terrain is a game that decides for you what you are
+        /// allowed to look at.
+        /// </summary>
+        public bool PlayerControlsCamera = true;
+
+        [Range(0.05f, 1f)] public float OrbitSensitivity = 0.25f;
+
         [Header("Models")]
         public VisualLibrary Models = new VisualLibrary();
 
@@ -77,6 +90,8 @@ namespace Arna.App
         RunVisuals _visuals;
         Transform _markerRoot;
         List<WildAnimal> _wildlife;
+        readonly CameraOrbit _orbit = new CameraOrbit();
+        float _pinchDistance;
         readonly List<Vec2> _battles = new List<Vec2>();
         Camera _camera;
         Vector3 _cameraOffset;
@@ -147,13 +162,100 @@ namespace Arna.App
             if (_camera == null || !FollowCaravan) return;
 
             var heading = _run.Caravan.Heading;
-            _cameraOffset = new Vector3(-heading.X, 0f, -heading.Y) * FollowDistance
-                            + Vector3.up * FollowHeight;
+
+            if (PlayerControlsCamera)
+            {
+                _orbit.Offset(heading.X, heading.Y, out float ox, out float oy, out float oz);
+                _cameraOffset = new Vector3(ox, oy, oz);
+            }
+            else
+            {
+                // The fixed view, straight from the inspector fields. Kept because every
+                // measurement in the design notes was taken from it, and a screenshot
+                // that quietly used a dragged camera would compare nothing to nothing.
+                _cameraOffset = new Vector3(-heading.X, 0f, -heading.Y) * FollowDistance
+                                + Vector3.up * FollowHeight;
+            }
 
             _camera.orthographic = false;
             _camera.transform.position = CaravanWorldPosition() + _cameraOffset;
             _camera.transform.LookAt(CaravanWorldPosition() + Vector3.up * 4f);
         }
+
+        /// <summary>
+        /// Reads the two gestures the camera answers to: pinch to zoom, drag to swing.
+        ///
+        /// Polled off the devices rather than through an action asset. There is no input
+        /// asset in this project yet, and inventing one for two gestures would put a
+        /// file between the code and the thing it does for no gain — when the game grows
+        /// a real control scheme, this moves into it.
+        ///
+        /// Both backends are enabled in the project settings, so every device here can
+        /// be null on a machine that has none of it. Each is checked.
+        /// </summary>
+        void ReadCameraInput()
+        {
+            if (!PlayerControlsCamera) return;
+
+            var touch = Touchscreen.current;
+            if (touch != null && touch.touches.Count > 0)
+            {
+                ReadTouch(touch);
+                return;
+            }
+
+            // Mouse, so the thing can be worked on in the editor without a phone.
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+
+            float scroll = mouse.scroll.ReadValue().y;
+            if (scroll != 0f) _orbit.Zoom(scroll > 0f ? 0.9f : 1f / 0.9f);
+
+            if (mouse.rightButton.isPressed || mouse.middleButton.isPressed)
+            {
+                var delta = mouse.delta.ReadValue();
+                _orbit.Orbit(delta.x * OrbitSensitivity, -delta.y * OrbitSensitivity);
+            }
+
+            var keyboard = Keyboard.current;
+            if (keyboard != null && keyboard.rKey.wasPressedThisFrame) _orbit.Reset();
+        }
+
+        void ReadTouch(Touchscreen touch)
+        {
+            int down = 0;
+            Vector2 first = default, second = default, drag = default;
+
+            foreach (var finger in touch.touches)
+            {
+                if (!finger.press.isPressed) continue;
+
+                if (down == 0) { first = finger.position.ReadValue(); drag = finger.delta.ReadValue(); }
+                else if (down == 1) second = finger.position.ReadValue();
+                down++;
+            }
+
+            // Two fingers is a pinch and nothing else. Letting it also orbit would make
+            // every zoom a small unintended swing, which is the usual reason a mobile
+            // camera feels slippery.
+            if (down >= 2)
+            {
+                float spread = Vector2.Distance(first, second);
+
+                if (_pinchDistance > 0f && spread > 0f)
+                    _orbit.Zoom(_pinchDistance / spread);
+
+                _pinchDistance = spread;
+                return;
+            }
+
+            _pinchDistance = 0f;
+            if (down == 1)
+                _orbit.Orbit(drag.x * OrbitSensitivity, -drag.y * OrbitSensitivity);
+        }
+
+        /// <summary>Back to the view the game is balanced for.</summary>
+        public void ResetCamera() => _orbit.Reset();
 
         /// <summary>
         /// Moves the wildlife on, and tells it where the fighting is.
@@ -182,6 +284,7 @@ namespace Arna.App
             if (_run.Outcome == RunOutcome.InProgress)
                 _run.Advance(Time.deltaTime * TimeScale);
 
+            ReadCameraInput();
             StepWildlife(Time.deltaTime * TimeScale);
             _visuals.Sync(_run);
             _visuals.SyncWildlife(_wildlife);

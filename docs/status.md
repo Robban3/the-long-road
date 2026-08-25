@@ -457,6 +457,22 @@ matched to their filenames, and the army pack is a pack of soldiers: it will bri
 horses and it will not bring wolves. The other ten animals in the folder are unused and
 cost nothing to keep.
 
+### The play camera
+
+`Arna.App.CameraOrbit` holds pitch, yaw and range — what the player's two gestures
+actually change — and `LevelRunner` polls the devices for them: pinch or scroll to zoom,
+one finger or right-drag to swing round, R to reset. It has no UnityEngine dependency,
+so the arithmetic is run and checked here rather than in an editor.
+
+Four clamps, and each is a design decision rather than a safety rail:
+
+| | |
+|---|---|
+| Range 24–120 m | Closer and the caravan fills a frame with no country in it, which is the one thing this game is about reading. Further and the column is grey specks. |
+| Pitch 12–68° | **Not 90.** Straight down *is* the planning map, and arriving there by dragging would hand over the overview screen without its overlay — and with it the terrain reading the design asks the player to earn. |
+| Yaw relative to the heading | A view chosen over the left flank stays over the left flank when the road turns. Absolute yaw swings the camera round the column at every bend. |
+| Default = 46 m back, 32 m up | Verified: `CameraOrbit` at its defaults reproduces exactly the offset every measurement in these notes was taken from. `PlayerControlsCamera = false` pins it there, which is what a screenshot wants. |
+
 ### Wildlife
 
 `Arna.Sim.Wildlife` puts 14 animals on a level and scatters them (GDD §3.5). Measured
