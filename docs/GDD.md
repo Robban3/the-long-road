@@ -108,6 +108,20 @@ Synliga i terrängöversikten redan under planeringen. De antyder fara utan att 
 
 Falska positiva är avsiktliga: signaler ska vara *information*, inte *facit*.
 
+**Vilt.** Rävar, hjortar och vildsvin betar över banan och skingras när karavanen kommer
+inom 26 m eller när en strid bryter ut inom 55 m. De går inte att döda och har inga
+poäng — i samma stund ett djur går att fälla blir det en resurs, och en spelare som
+stannar karavanen för att jaga hjort spelar ett annat spel än det här.
+
+De finns av två skäl. Det första är att signalerna ovan ber spelaren läsa landet, och i
+ett land där ingenting rör sig utom det som jagar dig lär sig ögat att rörelse betyder
+fara. Djur som skenar av egna skäl lägger brus i den kanalen, och bruset är vad som gör
+avläsningen till en färdighet i stället för en uppslagning.
+
+Det andra är att stridsradien är **större** än karavanradien, vilket gör flykten till
+den billigaste tänkbara upplysningen om att något hänt någonstans du inte tittar. Hjortar
+som bryter fram ur en skog du ännu inte nått är ingen mekanik som behöver förklaras.
+
 **Kråkornas radie var 20 tiles och sa ingenting.** Med sexton grupper på en 64-rutors
 karta har 96 % av marken redan en grupp inom tjugo rutor, så påståendet var sant nästan
 överallt av ren tur — en spelare som struntade i kråkorna hade haft rätt lika ofta. Mätt

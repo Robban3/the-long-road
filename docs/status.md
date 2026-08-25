@@ -71,6 +71,14 @@ Mono crashes in its own code generation on the iterator in `DetectionSystem.Quer
 an IKVM bug, not a project fault. Errors are reported before that, so grep the output
 for `error CS` and ignore the stack trace.
 
+The same bug does block producing a runnable exe, which is worth working around,
+because the simulation can then be *run* here and not merely type-checked. Compile a
+small `Main` against the subset a feature actually needs — `Wildlife`, for instance,
+reaches only Vec2, DeterministicRandom, LevelMap, TileGrid, the terrain tables and
+EncounterLayout — build a `TileGrid` by hand instead of generating one, and run it
+under `mono`. That is how the wildlife numbers below were measured rather than
+guessed.
+
 This matters more than it looks. Two thirds of the game's logic lives in those two
 assemblies, and without this there is no way to know whether an edit compiles until
 somebody opens the editor. A constant and a method sharing the name `SampleRoutes` sat
@@ -448,6 +456,24 @@ cavalry mount on the same footing. Both are CC0, both already have animator cont
 matched to their filenames, and the army pack is a pack of soldiers: it will bring
 horses and it will not bring wolves. The other ten animals in the folder are unused and
 cost nothing to keep.
+
+### Wildlife
+
+`Arna.Sim.Wildlife` puts 14 animals on a level and scatters them (GDD §3.5). Measured
+under mono, not estimated:
+
+| | |
+|---|---|
+| Animals per level | 14, a spread of fox, boar and both deer |
+| Closest an animal homes to an enemy group | never within 4 tiles |
+| Caravan spook radius | 26 m |
+| Battle radius | 55 m — wider on purpose, see the GDD |
+| Distance covered by a bolt | about 49 m over 4.5 s |
+| Settles back to | within the 6 m grazing radius |
+
+The models are `ForestAnimals`: `Fox.fbx`, `DeerFemale.fbx`, `DeerMale.fbx`, `Boar.fbx`,
+each with a URP prefab and a controller. Nothing in `View` is wired to them yet — the
+simulation runs, the animals are not drawn.
 
 ### The crow and animal packs, as imported
 

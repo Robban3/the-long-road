@@ -157,7 +157,13 @@ namespace Arna.Editor
                                 "Assets/Quaternius/RPGItems/Axe_small.fbx", 0.6f),
                 Mounted = Actor("Assets/Quaternius/Animals/Horse.fbx"),
 
-                Wolf = Actor("Assets/Quaternius/Animals/Wolf.fbx"),
+                // From ForestAnimals rather than Quaternius. The pack ships the model,
+                // a URP prefab and a controller, and it is the only enemy on level 1-1
+                // — which is why the Quaternius folder could not simply be deleted with
+                // the rest of it. `Horse.fbx` still has to stay: neither new pack has one.
+                Wolf = Actor("Assets/ForestAnimals/URP/Wolf/Prefab/Wolf_URP.prefab",
+                             animator: "Assets/ForestAnimals/Animations/Wolf_Controller/"
+                                       + "WolfAnimations.controller"),
 
                 // Barbarossa already carries his cutlass in the rig, so nothing is
                 // fitted to him — but his file also carries a second man, Ernest, who
@@ -171,6 +177,11 @@ namespace Arna.Editor
                 BanditArcher = Actor("Assets/Quaternius/PiratePack/Characters_Henry.fbx",
                                      "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f,
                                      hide: new[] { "Weapon_Lute" }),
+
+                // "Wild Few" of the six flock prefabs: its flock size is three, which
+                // is the number this design measured. The others spawn more.
+                CrowFlockPrefab = One("Assets/Unluck Software/Bird Flocks/Bird Flock Crow/"
+                                      + "Baked (performance)/Prefabs/Flock Crow Baked Example.prefab"),
 
                 Wagon = One("Assets/_Project/Models/Wagon.fbx"),
                 WagonTreasure = One("Assets/_Project/Models/WagonTreasure.fbx"),
@@ -189,12 +200,18 @@ namespace Arna.Editor
 
         /// <summary>Pairs a model with the controller generated for it, matched by filename.</summary>
         static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f,
-                                string[] hide = null, string[] unsized = null)
+                                string[] hide = null, string[] unsized = null,
+                                string animator = null)
         {
             var prefab = One(path);
             if (prefab == null) return default;
 
-            string controllerPath = $"Assets/_Project/Animation/{Path.GetFileNameWithoutExtension(path)}.controller";
+            // A pack that ships its own controller keeps it. Only the models we built
+            // controllers for by hand live under _Project/Animation, and asking for one
+            // there for a pack that already has a working animator would rebuild work
+            // that has been done.
+            string controllerPath = animator
+                ?? $"Assets/_Project/Animation/{Path.GetFileNameWithoutExtension(path)}.controller";
             var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(controllerPath);
             if (controller == null)
                 Debug.LogWarning($"[Arna] No animator for {Path.GetFileName(path)} — run Arna > Build Animator Controllers.");

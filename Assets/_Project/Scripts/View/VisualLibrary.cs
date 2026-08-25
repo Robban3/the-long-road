@@ -72,6 +72,20 @@ namespace Arna.View
         public ActorModel Bandit;
         public ActorModel BanditArcher;
 
+        [Header("Signals")]
+        /// <summary>
+        /// The circling crows of docs/GDD.md §3.5, as a flock prefab.
+        ///
+        /// One prefab per flock rather than three birds placed by hand, because the
+        /// pack's own controller already flies them: it spawns the birds and turns them
+        /// about its own transform. Nothing here configures it, and nothing here can —
+        /// the pack's scripts have no assembly definition, so they compile into
+        /// Assembly-CSharp, and an asmdef assembly like this one cannot reference that.
+        /// The flock's count, radius and altitude are therefore set on the prefab. The
+        /// numbers this design measured are 3 birds, a 10 m ring, 22 m up (§4).
+        /// </summary>
+        public GameObject CrowFlockPrefab;
+
         [Header("Caravan")]
         /// <summary>Complete carts. When set, the improvised crate-and-wheels build is skipped.</summary>
         public GameObject Wagon;

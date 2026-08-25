@@ -121,6 +121,7 @@ namespace Arna.App
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
             _visuals.Build(_run);
             _visuals.BuildCaches(map.Encounters.SilverCaches, map.Grid);
+            _visuals.BuildCrowFlocks(CrowSignal.Place(map), map.Grid);
             _visuals.Sync(_run);
 
             _camera = Camera.main;

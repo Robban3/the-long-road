@@ -291,6 +291,43 @@ namespace Arna.View
         }
 
         /// <summary>Places the silver caches, which never move once the level begins.</summary>
+        /// <summary>
+        /// Puts a flock of crows over each piece of ground <see cref="CrowSignal"/> chose.
+        ///
+        /// Instantiated and placed, and nothing more. The pack's controller flies the
+        /// birds itself, and this assembly could not configure it even if it wanted to:
+        /// the pack ships no assembly definition, so its scripts compile into
+        /// Assembly-CSharp, which an asmdef assembly cannot reference. Count, radius and
+        /// altitude live on the prefab — 3, 10 m and 22 m, measured in §4 of the status
+        /// notes.
+        ///
+        /// Truthful and lying flocks are built identically. That is the design and not
+        /// an oversight: a signal you can tell is false is not a false positive.
+        /// </summary>
+        public void BuildCrowFlocks(IReadOnlyList<CrowFlock> flocks, TileGrid grid)
+        {
+            if (Library.CrowFlockPrefab == null || flocks == null) return;
+
+            foreach (var flock in flocks)
+            {
+                var position = Vec2.FromTile(grid, flock.Tile);
+
+                var instance = Object.Instantiate(Library.CrowFlockPrefab, _root);
+                instance.name = $"Crows_{flock.Tile}";
+                instance.transform.position =
+                    new Vector3(position.X, GroundAt(position) + CrowAltitude, position.Y);
+            }
+        }
+
+        /// <summary>
+        /// Metres above the ground the flock turns.
+        ///
+        /// Measured rather than chosen. At 14 m the birds sat in the spruce tops and a
+        /// near-black crow against dark forest at eighty metres is invisible; at 34 m
+        /// they were above a camera that looks 35° down and left the frame entirely.
+        /// </summary>
+        public const float CrowAltitude = 22f;
+
         public void BuildCaches(IReadOnlyList<SilverCache> caches, TileGrid grid)
         {
             foreach (var cache in caches)
