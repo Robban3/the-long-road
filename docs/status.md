@@ -517,6 +517,16 @@ This project is URP, so without that step the crows render as whatever the pipel
 does with an unsupported shader, which is not a subtle failure but is an easily
 misattributed one.
 
+**Import the URP materials before anything else, or the birds are magenta.** They were,
+and the picture was unmistakable: the pack's built-in-pipeline materials find no shader
+under URP.
+
+**Use `Crow Flock - Wild Few`, not the baked example.** The example prefab is the
+pack's showcase — a large flock plus its feather particle system — and nine of them
+turned a level into a magenta snowstorm. The baked variant below is still the right
+idea, but it ships only as a single bird and that demo, so having it means building a
+flock prefab from `Bird Crow Baked` by hand.
+
 **Take the baked variant, not the skinned one.** `Baked (performance)` swaps the
 skinned mesh for a sequence of snapshot meshes (`CrowFlap Snap 1..15`) driven by
 `BakedMeshAnimator`. A skinned mesh per bird is a per-frame skinning cost for something

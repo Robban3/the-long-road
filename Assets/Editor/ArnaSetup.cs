@@ -194,8 +194,19 @@ namespace Arna.Editor
 
                 // "Wild Few" of the six flock prefabs: its flock size is three, which
                 // is the number this design measured. The others spawn more.
+                //
+                // Not the baked example, which is what this pointed at first and which
+                // is a demo: it carries the pack's whole showcase, feather particles
+                // included, and nine of them turned the level into a snowstorm. The
+                // lesson is duller than the picture — the comment above said Wild Few
+                // while the path said something else, and nobody reads a path.
+                //
+                // The baked variant is still the one to want for a phone, but it ships
+                // only as a single bird and a demo flock, so getting it means building
+                // a flock prefab from `Bird Crow Baked` by hand. Worth doing before
+                // release, not worth blocking on now.
                 CrowFlockPrefab = One("Assets/Unluck Software/Bird Flocks/Bird Flock Crow/"
-                                      + "Baked (performance)/Prefabs/Flock Crow Baked Example.prefab"),
+                                      + "Prefabs/Crow Flock - Wild Few.prefab"),
 
                 Wagon = One("Assets/_Project/Models/Wagon.fbx"),
                 WagonTreasure = One("Assets/_Project/Models/WagonTreasure.fbx"),
