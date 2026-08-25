@@ -89,6 +89,19 @@ Bakhållsvikten läses **enbart av terrängen**. Ett risktal som konsulterade fi
 hade gett bort gratis det örnen säljs för (GDD §3.4) — det säger *det här är bakhållsmark*,
 aldrig *det står fyra bakom åsen*.
 
+### Viltet och kråkorna
+
+Djuren i GDD §3.5 ritas i spelvyn. Placeringen kommer ur porten av `Arna.Sim.Wildlife`,
+och den är verifierad rad för rad mot motorn: samma fjorton djur, samma arter, samma
+positioner — jämfört genom att köra båda på en handbyggd karta och diffa utskrifterna.
+
+Modellerna är stand-ins som allt annat här. Vad silhuetten måste klara på fyrtiosex
+meter är att vara en låg lång kropp på ben, plus horn på kronhjorten — det är vad som
+skiljer en hjort från ett stenblock på det avståndet.
+
+**Bilderna visar dem betande.** En stillbild kan inte visa det de byggdes för, som är
+att de skingras: karavanen skrämmer inom 26 m, en strid inom 55 m.
+
 ### Kartans markörer
 
 Start, mål och varje vadställe ritas i **bildrummet**, ovanpå den färdiga bilden — inte
