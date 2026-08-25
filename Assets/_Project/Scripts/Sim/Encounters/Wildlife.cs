@@ -63,8 +63,11 @@ namespace Arna.Sim
         /// Metres from a fight at which animals scatter, whether or not it is near them.
         ///
         /// Wider than the caravan's own radius because a fight is louder than a cart.
-        /// It is also the more useful of the two signals: the caravan is where the
-        /// player already is, and a fight may not be.
+        ///
+        /// Not because it is somewhere else: every fight in this game happens at the
+        /// caravan, since the escort is what the enemies come for. Two radii on one
+        /// point, and what the player sees is the ring of startled country widening the
+        /// moment blades come out.
         /// </summary>
         public const float BattleRadius = 55f;
 

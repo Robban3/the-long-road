@@ -471,9 +471,15 @@ under mono, not estimated:
 | Distance covered by a bolt | about 49 m over 4.5 s |
 | Settles back to | within the 6 m grazing radius |
 
-The models are `ForestAnimals`: `Fox.fbx`, `DeerFemale.fbx`, `DeerMale.fbx`, `Boar.fbx`,
-each with a URP prefab and a controller. Nothing in `View` is wired to them yet — the
-simulation runs, the animals are not drawn.
+The models are `ForestAnimals`: fox, both deer and boar, each loaded from its URP prefab
+with the pack's own animator controller. `RunVisuals.BuildWildlife` spawns them and
+`SyncWildlife` moves them; a fleeing animal turns the way it is running and a grazing one
+keeps whatever facing it had — turning it toward a home it is only drifting back to would
+have every deer on the level pointing at the same spot, which reads as a formation.
+
+Shoulder heights, like the wolf: fox 0.45, boar 0.85, doe 1.1, stag 1.35. Measured to the
+ear they come out a head too tall, and a deer as tall as a knight reads as wrong long
+before anyone works out why.
 
 ### The crow and animal packs, as imported
 

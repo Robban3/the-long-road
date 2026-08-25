@@ -76,6 +76,8 @@ namespace Arna.App
         TileGrid _levelGrid;
         RunVisuals _visuals;
         Transform _markerRoot;
+        List<WildAnimal> _wildlife;
+        readonly List<Vec2> _battles = new List<Vec2>();
         Camera _camera;
         Vector3 _cameraOffset;
         Mesh _mesh;
@@ -122,6 +124,9 @@ namespace Arna.App
             _visuals.Build(_run);
             _visuals.BuildCaches(map.Encounters.SilverCaches, map.Grid);
             _visuals.BuildCrowFlocks(CrowSignal.Place(map), map.Grid);
+
+            _wildlife = Wildlife.Populate(map);
+            _visuals.BuildWildlife(_wildlife);
             _visuals.Sync(_run);
 
             _camera = Camera.main;
@@ -150,6 +155,26 @@ namespace Arna.App
             _camera.transform.LookAt(CaravanWorldPosition() + Vector3.up * 4f);
         }
 
+        /// <summary>
+        /// Moves the wildlife on, and tells it where the fighting is.
+        ///
+        /// Every fight in this game happens at the caravan — the escort is what the
+        /// enemies come for — so the battle position is the caravan's. The two radii
+        /// still differ and still matter: the same spot startles animals out to 55 m
+        /// once blades are out and only 26 m while the carts are merely rolling past,
+        /// so contact makes a visibly wider ring of the country break cover.
+        /// </summary>
+        void StepWildlife(float dt)
+        {
+            if (_wildlife == null) return;
+
+            _battles.Clear();
+            if (_run?.Combat != null && _run.Combat.InContact)
+                _battles.Add(_run.Caravan.LeadPosition);
+
+            Wildlife.Step(_wildlife, _run.Caravan.LeadPosition, _battles, dt);
+        }
+
         void Update()
         {
             if (_run == null) return;
@@ -157,7 +182,9 @@ namespace Arna.App
             if (_run.Outcome == RunOutcome.InProgress)
                 _run.Advance(Time.deltaTime * TimeScale);
 
+            StepWildlife(Time.deltaTime * TimeScale);
             _visuals.Sync(_run);
+            _visuals.SyncWildlife(_wildlife);
             AimCamera();
         }
 
@@ -199,6 +226,7 @@ namespace Arna.App
 
             for (int i = 0; i < steps && _run.Outcome == RunOutcome.InProgress; i++) _run.Step();
             _visuals.Sync(_run);
+            _visuals.SyncWildlife(_wildlife);
 
             // Animators do not tick outside play mode, so a capture would show bind
             // pose. Advancing a little lands the actors mid-stride instead.

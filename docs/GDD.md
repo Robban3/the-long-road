@@ -118,9 +118,12 @@ ett land där ingenting rör sig utom det som jagar dig lär sig ögat att röre
 fara. Djur som skenar av egna skäl lägger brus i den kanalen, och bruset är vad som gör
 avläsningen till en färdighet i stället för en uppslagning.
 
-Det andra är att stridsradien är **större** än karavanradien, vilket gör flykten till
-den billigaste tänkbara upplysningen om att något hänt någonstans du inte tittar. Hjortar
-som bryter fram ur en skog du ännu inte nått är ingen mekanik som behöver förklaras.
+Det andra är att stridsradien är **större** än karavanradien — 55 mot 26 meter. Varje
+strid i spelet sker vid karavanen, eftersom det är eskorten fienderna kommer för, så det
+är inte två olika platser utan två olika ljudnivåer: samma punkt skrämmer djur ut till
+55 m när klingorna är framme och bara 26 m medan kärrorna rullar förbi. Effekten är att
+striden får en synligt bredare ring av landet att bryta upp — landet reagerar, inte bara
+det du slåss mot.
 
 **Kråkornas radie var 20 tiles och sa ingenting.** Med sexton grupper på en 64-rutors
 karta har 96 % av marken redan en grupp inom tjugo rutor, så påståendet var sant nästan

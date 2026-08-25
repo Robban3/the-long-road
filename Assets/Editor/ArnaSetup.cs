@@ -178,6 +178,20 @@ namespace Arna.Editor
                                      "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f,
                                      hide: new[] { "Weapon_Lute" }),
 
+                // The wildlife of GDD §3.5, each with the pack's own controller.
+                Fox = Actor("Assets/ForestAnimals/URP/Fox/Prefab/Fox_URP.prefab",
+                            animator: "Assets/ForestAnimals/Animations/Fox_Controller/"
+                                      + "FoxAnimations.controller"),
+                DeerFemale = Actor("Assets/ForestAnimals/URP/DeerFemale/Prefab/DeerFemale_URP.prefab",
+                                   animator: "Assets/ForestAnimals/Animations/DeerFemale_Controller/"
+                                             + "DeerFemale_Animations.controller"),
+                DeerMale = Actor("Assets/ForestAnimals/URP/DeerMale/Prefabs/DeerMale_URP.prefab",
+                                 animator: "Assets/ForestAnimals/Animations/DeerMale_Controller/"
+                                           + "DeerMale_Animations.controller"),
+                Boar = Actor("Assets/ForestAnimals/URP/Boar/Prefab/Boar.prefab",
+                             animator: "Assets/ForestAnimals/Animations/Boar_Controller/"
+                                       + "BoarAnimations.controller"),
+
                 // "Wild Few" of the six flock prefabs: its flock size is three, which
                 // is the number this design measured. The others spawn more.
                 CrowFlockPrefab = One("Assets/Unluck Software/Bird Flocks/Bird Flock Crow/"

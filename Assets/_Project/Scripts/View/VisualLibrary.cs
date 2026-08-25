@@ -72,6 +72,44 @@ namespace Arna.View
         public ActorModel Bandit;
         public ActorModel BanditArcher;
 
+        [Header("Wildlife")]
+        /// <summary>
+        /// Deer, foxes and boar (docs/GDD.md §3.5). They cannot be fought, so they are
+        /// not in <see cref="For"/> with the enemies — nothing ever looks one up by
+        /// <see cref="EnemyKind"/>, and putting them there would invite it.
+        /// </summary>
+        public ActorModel Fox;
+        public ActorModel DeerFemale;
+        public ActorModel DeerMale;
+        public ActorModel Boar;
+
+        public ActorModel For(WildlifeKind kind)
+        {
+            switch (kind)
+            {
+                case WildlifeKind.Fox: return Fox;
+                case WildlifeKind.DeerFemale: return DeerFemale;
+                case WildlifeKind.DeerMale: return DeerMale;
+                default: return Boar;
+            }
+        }
+
+        /// <summary>
+        /// Shoulder heights, like the wolf and for the same reason: an animal measured
+        /// to the ear comes out a head too tall, and a deer as tall as a knight reads as
+        /// wrong long before anyone works out why.
+        /// </summary>
+        public static float HeightOf(WildlifeKind kind)
+        {
+            switch (kind)
+            {
+                case WildlifeKind.Fox: return 0.45f;
+                case WildlifeKind.DeerFemale: return 1.1f;
+                case WildlifeKind.DeerMale: return 1.35f;
+                default: return 0.85f;
+            }
+        }
+
         [Header("Signals")]
         /// <summary>
         /// The circling crows of docs/GDD.md §3.5, as a flock prefab.

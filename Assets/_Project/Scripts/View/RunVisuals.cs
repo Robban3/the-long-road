@@ -23,6 +23,7 @@ namespace Arna.View
         readonly Dictionary<TroopGroup, Transform> _troops = new Dictionary<TroopGroup, Transform>();
         readonly Dictionary<TrackedEnemy, Transform> _enemies = new Dictionary<TrackedEnemy, Transform>();
         readonly Dictionary<TrackedTrap, Transform> _traps = new Dictionary<TrackedTrap, Transform>();
+        readonly Dictionary<WildAnimal, Transform> _wildlife = new Dictionary<WildAnimal, Transform>();
         readonly Dictionary<Color, Material> _materials = new Dictionary<Color, Material>();
         readonly Dictionary<Transform, Animator> _animators = new Dictionary<Transform, Animator>();
 
@@ -304,6 +305,60 @@ namespace Arna.View
         /// Truthful and lying flocks are built identically. That is the design and not
         /// an oversight: a signal you can tell is false is not a false positive.
         /// </summary>
+        /// <summary>
+        /// Spawns the deer, foxes and boar (docs/GDD.md §3.5).
+        ///
+        /// Actors, because they are animated and walk — the same path the wolf takes,
+        /// which is also why they get the pack's own controllers. Unlike the enemies
+        /// they are never hidden and never revealed: an animal the player cannot see
+        /// until it is spotted would be a threat with the serial numbers filed off, and
+        /// the whole point of these is that they are not one.
+        /// </summary>
+        public void BuildWildlife(IReadOnlyList<WildAnimal> animals)
+        {
+            if (animals == null) return;
+
+            foreach (var animal in animals)
+            {
+                var marker = SpawnActor(Library.For(animal.Kind), PrimitiveType.Capsule,
+                                        $"Wild_{animal.Kind}", WildlifeColor,
+                                        VisualLibrary.HeightOf(animal.Kind));
+                _wildlife[animal] = marker;
+                Place(marker, new Vector3(animal.Position.X, GroundAt(animal.Position),
+                                          animal.Position.Y));
+            }
+        }
+
+        /// <summary>
+        /// Moves them, and faces a fleeing one the way it is running.
+        ///
+        /// A grazing animal keeps whatever facing it had. Turning it toward a home it is
+        /// only drifting back to would have every deer on the level pointing at the same
+        /// spot, which reads as a formation rather than as animals.
+        /// </summary>
+        public void SyncWildlife(IReadOnlyList<WildAnimal> animals)
+        {
+            if (animals == null) return;
+
+            foreach (var animal in animals)
+            {
+                if (!_wildlife.TryGetValue(animal, out var marker) || marker == null) continue;
+
+                var position = new Vector3(animal.Position.X, GroundAt(animal.Position),
+                                           animal.Position.Y);
+
+                if (animal.IsFleeing)
+                    Place(marker, position, Quaternion.LookRotation(
+                        new Vector3(animal.Heading.X, 0f, animal.Heading.Y), Vector3.up));
+                else
+                    Place(marker, position);
+
+                Animate(marker, animal.IsFleeing ? Wildlife.FleeSpeed : 0f, false, false);
+            }
+        }
+
+        static readonly Color WildlifeColor = new Color(0.58f, 0.46f, 0.30f);
+
         public void BuildCrowFlocks(IReadOnlyList<CrowFlock> flocks, TileGrid grid)
         {
             if (Library.CrowFlockPrefab == null || flocks == null) return;
