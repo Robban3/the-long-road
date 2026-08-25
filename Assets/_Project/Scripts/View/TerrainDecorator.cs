@@ -123,6 +123,30 @@ namespace Arna.View
         public const float CoverHeight = 0.7f;
 
         /// <summary>
+        /// How much a scattered prop may vary from its table size.
+        ///
+        /// A quarter either way for rocks, grass and buildings: enough that the eye does
+        /// not catch two identical stones, little enough that a boulder stays a boulder.
+        /// </summary>
+        public const float JitterLow = 0.8f;
+        public const float JitterHigh = 1.25f;
+
+        /// <summary>
+        /// Trees vary far more, and the reference picture is why.
+        ///
+        /// A quarter either way gave a stand of spruces between 6.8 and 10.6 m — a
+        /// hedge, evenly clipped. What a forest looks like from the air is saplings
+        /// through to giants, and in the pack's own marketing shot the smallest conifer
+        /// is about a third the height of the largest. At 0.55 to 1.7 against a pine's
+        /// eight and a half metres that is 4.7 m to 14.5 m, which is the same spread.
+        ///
+        /// Applied to the whole tree family, dead ones included: a fen kills trees of
+        /// every size.
+        /// </summary>
+        public const float TreeJitterLow = 0.55f;
+        public const float TreeJitterHigh = 1.7f;
+
+        /// <summary>
         /// Ground cover is capped separately and much higher. These are a few hundred
         /// triangles each against a tree's few thousand, so the budget that keeps trees
         /// affordable is the wrong budget for grass.
@@ -340,7 +364,11 @@ namespace Arna.View
                 ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
                 : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
 
-            float size = choice.Size * rng.Range(0.8f, 1.25f);
+            // Zero would come out of a default Choice and scale the prop to nothing.
+            float low = choice.Low > 0f ? choice.Low : JitterLow;
+            float high = choice.High > 0f ? choice.High : JitterHigh;
+
+            float size = choice.Size * rng.Range(low, high);
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
             else ModelScaling.Fit(instance, size, groundY);
 
@@ -559,12 +587,19 @@ namespace Arna.View
             public readonly float Size;
             public readonly bool ByWidth;
 
-            public Choice(PropSet set, GameObject prefab, float size, bool byWidth)
+            /// <summary>How far this prop may vary from its table size. See TreeJitterLow.</summary>
+            public readonly float Low;
+            public readonly float High;
+
+            public Choice(PropSet set, GameObject prefab, float size, bool byWidth,
+                          float low = JitterLow, float high = JitterHigh)
             {
                 Prefab = prefab;
                 ZUp = set != null && set.ZUp;
                 Size = size;
                 ByWidth = byWidth;
+                Low = low;
+                High = high;
             }
         }
 
@@ -616,9 +651,9 @@ namespace Arna.View
                 case TerrainType.Forest:
                     // Pines dominate, broadleaf mixed in so the canopy is not uniform.
                     if (decor.Pines.Any && (rng.Chance(0.62f) || !decor.Trees.Any))
-                        return From(decor.Pines, rng, PineHeight);
+                        return Tree(decor.Pines, rng, PineHeight);
 
-                    return From(decor.Trees, rng, TreeHeight);
+                    return Tree(decor.Trees, rng, TreeHeight);
 
                 case TerrainType.MountainPass:
                     if (decor.Mountains.Any && rng.Chance(0.30f))
@@ -631,7 +666,7 @@ namespace Arna.View
                 // is the thing a marsh looks like.
                 case TerrainType.Marsh:
                     if (decor.DeadTrees.Any && rng.Chance(0.55f))
-                        return From(decor.DeadTrees, rng, DeadTreeHeight);
+                        return Tree(decor.DeadTrees, rng, DeadTreeHeight);
 
                     return From(decor.Rocks, rng, RockHeight);
 
@@ -640,15 +675,22 @@ namespace Arna.View
                     if (decor.Rocks.Any && rng.Chance(0.6f))
                         return From(decor.Rocks, rng, RockHeight);
 
-                    return From(decor.Trees, rng, TreeHeight);
+                    return Tree(decor.Trees, rng, TreeHeight);
 
                 default:
                     return default;
             }
         }
 
-        static Choice From(PropSet set, DeterministicRandom rng, float size) =>
-            set != null && set.Any ? new Choice(set, Any(set, rng), size, false) : default;
+        static Choice From(PropSet set, DeterministicRandom rng, float size,
+                           float low = JitterLow, float high = JitterHigh) =>
+            set != null && set.Any
+                ? new Choice(set, Any(set, rng), size, false, low, high)
+                : default;
+
+        /// <summary>A tree, with the wide size spread a stand of them wants.</summary>
+        static Choice Tree(PropSet set, DeterministicRandom rng, float size) =>
+            From(set, rng, size, TreeJitterLow, TreeJitterHigh);
 
         static GameObject Any(PropSet set, DeterministicRandom rng) =>
             set.Models[rng.Range(0, set.Models.Length)];

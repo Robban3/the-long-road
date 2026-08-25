@@ -481,12 +481,60 @@ repository alone.
 
 ## 8. Swapping the asset packs
 
+### The nature half is done
+
+POLYGON Nature is in and drawing the whole landscape. What was matched is the pack's
+own marketing shot, which the design took as its target: conifers dominating in many
+sizes and two greens, a minority of rounded broadleaf, grey faceted rock, and a floor
+thick enough that no bare ground shows between the trees.
+
+| | Was | Is |
+|---|---|---|
+| Broadleaf | `CommonTree_1..5` | `SM_Tree_Round_01..05` |
+| Conifers | `Pine_1..5` | `SM_Tree_PolyPine_01..03`, `_Sparse_01..02`, `SM_Tree_Pine_01..02` |
+| Dead / marsh | `DeadTree_1..5` | `SM_Tree_Dead_01..03`, `SM_Tree_Pine_Dead_01`, `SM_Tree_Swamp_01..02` |
+| Rock | `Rock_Medium_*`, `Pebble_*` | `SM_Rock_01..04`, `_Rounded_01`, `_Small_01..02` |
+| Ground cover | Stylized Nature MegaKit | `SM_Plant_Grass_01..05` ×2, `Fern_01..03`, `Bush_01..03`, `Undergrowth_01`, `Flowers_01`, `Mushrooms_01..02` |
+| Mountains | **Quaternius RTS** | `SM_Terrain_Mountain_01..03` |
+
+Four things are worth keeping about how it went.
+
+**`Load` only ever looked for `.fbx`.** True of every pack in the project until this one.
+Synty ships prefabs and the FBX beside them carries no materials, so an fbx-only reader
+would have found the shape of a forest painted in Unity's default grey — the exact
+failure the *previous* pack swap was made to fix. It now tries `.prefab` first.
+
+**The mountains came home.** They were borrowed from the RTS kit because the old nature
+kit had rocks and no landforms — a borrowed ridge on a borrowed skyline, and the seam
+showed. POLYGON Nature has three, pale and snow-capped, which is what the reference puts
+on its horizon.
+
+**Two decisions survived the change of pack, because their reasons did.** Grass listed
+twice over and everything showier once: the floor in the reference is grass with things
+in it, not a flowerbed with grass around the edges. And no `SM_Plant_PurpleFlower_01` —
+the last pack taught that a violet plant at any weight takes over the middle distance,
+because violet is the one colour nothing else on a hillside is.
+
+**Trees now vary in size far more than anything else.** A quarter either way gave spruces
+between 6.8 and 10.6 m — a hedge, evenly clipped. In the reference the smallest conifer
+is about a third the height of the largest, so the tree family alone runs 0.55 to 1.7,
+which against a pine's 8.5 m is 4.7 m to 14.5 m. Rocks, grass and buildings keep the
+quarter.
+
+`Assets/Quaternius/StylizedNature` is deleted — nothing referenced it once the swap
+landed. Two dimension reports were still pointing at it and at the RTS trees, and had
+been measuring models the game stopped drawing; both now point at what is actually on
+the ground. `Report Selected Folder Dimensions` also searches `t:Prefab` now, or it
+reports an empty folder for the pack that supplies the entire landscape.
+
+### What is still to come
+
 Everything under `Assets/Quaternius` is being replaced by three purchased packs:
 
 | Pack | What it supplies |
 |---|---|
 | Stylized Medieval Army Pack | The cast — every troop and enemy in `VisualLibrary`, and the camp: tents, palisade, banners |
-| POLYGON Nature Pack (Synty) | The country — trees, plants, rocks, terrain, dead trees for the marsh |
+| ~~POLYGON Nature Pack (Synty)~~ | **Done.** The country — trees, plants, rocks, terrain, dead trees for the marsh |
 | POLYGON Knights (Synty) | The built things — castle, houses, church, mountains, cliff, bridge, well, road pieces, an empty hay cart |
 | Medieval Wagons, Carts & Carriages Vol. 1 | The caravan itself — ten wagons, which is what the game is about |
 

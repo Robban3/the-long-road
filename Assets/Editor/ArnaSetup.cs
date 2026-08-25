@@ -307,42 +307,60 @@ namespace Arna.Editor
             // and then scales them by their width, which looks like two separate bugs.
             return new BiomeDecor
             {
-                // Textured, from the Stylized Nature MegaKit. These replace the flat
-                // untextured RTS trees, whose materials measured tex=none across the
-                // board — which is what made the forest read as plastic long before
-                // anything about its shape was at fault.
-                // No twisted trees here. Their leaf texture is authored deep red — an
-                // autumn or blood tree — and scattered through a temperate forest at
-                // one in two they read as a bug rather than as a species. They belong
-                // to a chapter that wants them.
-                Trees = Nature("CommonTree_1", "CommonTree_2", "CommonTree_3", "CommonTree_4",
-                               "CommonTree_5"),
-                Pines = Nature("Pine_1", "Pine_2", "Pine_3", "Pine_4", "Pine_5"),
-                DeadTrees = Nature("DeadTree_1", "DeadTree_2", "DeadTree_3", "DeadTree_4", "DeadTree_5"),
-                Rocks = Nature("Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3",
-                               "Pebble_Round_1", "Pebble_Round_3", "Pebble_Square_1", "Pebble_Square_4"),
+                // The country comes from POLYGON Nature now (docs/status.md §8). What is
+                // being matched is the pack's own marketing shot, which the design took
+                // as its target: conifers dominating in many sizes and two greens, a
+                // minority of rounded broadleaf, grey faceted rock in three sizes, and a
+                // floor thick enough that no bare ground shows between the trees.
+                //
+                // Rounded broadleaf, and a minority on purpose. In the reference the
+                // spruces carry the picture and the round trees punctuate it — one big
+                // one by the water, a few among the pines. Reverse the proportion and it
+                // stops being a northern forest.
+                Trees = Synty("Trees", "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
+                              "SM_Tree_Round_04", "SM_Tree_Round_05"),
 
-                // Grass first and by a wide margin. The pack shares one leaf atlas
-                // across its plants — green, blue, orange, purple and pink leaves in a
-                // single image, picked by each model's own UVs — so the showier plants
-                // come out genuinely violet. A few are a woodland floor; the big
-                // variants at equal weight turned the forest into a flowerbed.
-                // Plant_1 and Plant_7 are gone. They are the pack's violet rosettes —
-                // the leaf atlas it shares between every plant carries green, blue,
-                // orange, purple and pink, and those two models point their UVs at the
-                // purple — and at any weight they took over the middle distance. A
-                // temperate forest floor is green with flowers in it, not the reverse.
-                GroundCover = Nature("Grass_Common_Short", "Grass_Common_Tall", "Grass_Wispy_Short",
-                                     "Grass_Wispy_Tall", "Grass_Common_Short", "Grass_Common_Tall",
-                                     "Grass_Wispy_Short", "Grass_Wispy_Tall",
-                                     "Clover_1", "Clover_2", "Fern_1", "Fern_1", "Fern_1",
-                                     "Bush_Common", "Bush_Common",
-                                     "Flower_3_Single", "Flower_4_Single", "Mushroom_Common"),
+                // Seven silhouettes rather than five, and the sparse variants are the
+                // reason. A stand of identical cones reads as wallpaper however many
+                // sizes it comes in; a thin one next to a full one reads as trees.
+                Pines = Synty("Trees", "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02",
+                              "SM_Tree_PolyPine_03", "SM_Tree_PolyPine_Sparse_01",
+                              "SM_Tree_PolyPine_Sparse_02", "SM_Tree_Pine_01", "SM_Tree_Pine_02"),
 
-                // Mountains stay with the RTS pack: the nature kit has rocks but no
-                // landforms, and a ridge on the skyline is a different job from a
-                // boulder on the ground.
-                Mountains = Rts("Mountain_Single", "MountainLarge_Single"),
+                // The marsh gets the swamp trees as well as the bare dead ones. A fen
+                // with nothing but grey sticks in it is a diagram of a fen.
+                DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
+                                  "SM_Tree_Pine_Dead_01", "SM_Tree_Swamp_01", "SM_Tree_Swamp_02"),
+
+                Rocks = Synty("Rocks", "SM_Rock_01", "SM_Rock_02", "SM_Rock_03", "SM_Rock_04",
+                              "SM_Rock_Rounded_01", "SM_Rock_Small_01", "SM_Rock_Small_02"),
+
+                // Grass first and by a wide margin — the same decision as before the
+                // swap, and it survives the change of pack because the reason does. The
+                // floor in the reference is grass with things in it, not a flowerbed
+                // with grass around the edges, so the five grasses are listed twice and
+                // everything showier once.
+                //
+                // No SM_Plant_PurpleFlower_01. The last pack taught this: a violet plant
+                // at any weight takes over the middle distance, because violet is the
+                // one colour nothing else on the hillside is.
+                GroundCover = Synty("Plants",
+                                    "SM_Plant_Grass_01", "SM_Plant_Grass_02", "SM_Plant_Grass_03",
+                                    "SM_Plant_Grass_04", "SM_Plant_Grass_05",
+                                    "SM_Plant_Grass_01", "SM_Plant_Grass_02", "SM_Plant_Grass_03",
+                                    "SM_Plant_Grass_04", "SM_Plant_Grass_05",
+                                    "SM_Plant_Fern_01", "SM_Plant_Fern_02", "SM_Plant_Fern_03",
+                                    "SM_Plant_Bush_01", "SM_Plant_Bush_02", "SM_Plant_Bush_03",
+                                    "SM_Plant_Undergrowth_01", "SM_Plant_Flowers_01",
+                                    "SM_Plant_Mushrooms_01", "SM_Plant_Mushrooms_02"),
+
+                // Landforms at last, and from the same pack as everything around them.
+                // They used to come from the RTS kit because the old nature kit had
+                // rocks and no mountains — a borrowed ridge on a borrowed skyline, and
+                // the seam showed. POLYGON Nature has three, pale and snow-capped, which
+                // is what the reference puts on its horizon.
+                Mountains = Synty("Terrain", "SM_Terrain_Mountain_01", "SM_Terrain_Mountain_02",
+                                  "SM_Terrain_Mountain_03"),
 
                 // The pack's buildings come in three levels of development. First age,
                 // level one: this is a road through the provinces, not a capital.
@@ -363,14 +381,31 @@ namespace Arna.Editor
             };
         }
 
-        const string NatureDir = "Assets/Quaternius/StylizedNature";
         const string VillageDir = "Assets/Quaternius/MedievalVillage";
+
+        /// <summary>
+        /// POLYGON Nature, which files its content by kind: Trees, Rocks, Plants,
+        /// Terrain, Props. The group is a parameter rather than five constants because
+        /// the same call has to reach all five and the folder names are the pack's own.
+        /// </summary>
+        const string SyntyNaturePack = "Assets/Synty/PolygonNature";
+        const string SyntyNatureDir = SyntyNaturePack + "/Prefabs";
 
         /// <summary>Models from the Z-up RTS scenery pack.</summary>
         static PropSet Rts(params string[] names) => new PropSet(true, Load(QuaterniusDir, names));
 
-        /// <summary>Models from the Y-up stylized nature pack.</summary>
-        static PropSet Nature(params string[] names) => new PropSet(false, Load(NatureDir, names));
+        /// <summary>
+        /// Prefabs from POLYGON Nature, which is Y-up like every Synty pack.
+        ///
+        /// Authored scale does not matter here and that is worth knowing before anyone
+        /// goes measuring: <see cref="TerrainDecorator"/> refits every prop to its own
+        /// table — a pine to eight and a half metres, a rock to two point two — so a
+        /// pack exported at ten times life size lands at the same height as one exported
+        /// at life size. The up axis is the part a pack can get wrong in a way nothing
+        /// downstream can correct.
+        /// </summary>
+        static PropSet Synty(string group, params string[] names)
+            => new PropSet(false, Load($"{SyntyNatureDir}/{group}", names));
 
         /// <summary>
         /// Models from the medieval village pack, which is Y-up — measured, not assumed.
@@ -381,14 +416,29 @@ namespace Arna.Editor
         static PropSet Village(params string[] names) =>
             new PropSet(false, Load(VillageDir, names));
 
+        /// <summary>
+        /// Loads scenery by name, preferring a prefab over the raw model.
+        ///
+        /// It used to look for `.fbx` and nothing else, which was true of every pack in
+        /// the project until Synty arrived. Synty ships its content as prefabs and the
+        /// FBX beside them carries no materials, so an fbx-only reader would have found
+        /// the shape of a forest painted entirely in Unity's default grey — the exact
+        /// failure the previous pack swap was made to fix.
+        ///
+        /// Prefab first, model second, and a warning naming both when neither is there.
+        /// The warning matters more than it looks: a missing prop is skipped silently by
+        /// everything downstream, so a mistyped name is a bare hillside and no error.
+        /// </summary>
         static GameObject[] Load(string folder, string[] names)
         {
             var found = new System.Collections.Generic.List<GameObject>();
             foreach (var name in names)
             {
-                var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{folder}/{name}.fbx");
+                var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{folder}/{name}.prefab")
+                            ?? AssetDatabase.LoadAssetAtPath<GameObject>($"{folder}/{name}.fbx");
+
                 if (asset != null) found.Add(asset);
-                else Debug.LogWarning($"[Arna] Scenery model not found: {folder}/{name}.fbx");
+                else Debug.LogWarning($"[Arna] Scenery model not found: {folder}/{name} (.prefab or .fbx)");
             }
             return found.ToArray();
         }
@@ -1012,7 +1062,7 @@ namespace Arna.Editor
         /// </summary>
         [MenuItem("Arna/Report Folder Dimensions")]
         public static void ReportFolderDimensions()
-            => ReportDimensionsOf(ArgValue("-arnaModelDir") ?? "Assets/Quaternius/StylizedNature");
+            => ReportDimensionsOf(ArgValue("-arnaModelDir") ?? SyntyNatureDir);
 
         /// <summary>
         /// Measures whatever folder is selected in the Project window.
@@ -1054,8 +1104,11 @@ namespace Arna.Editor
                 return;
             }
 
-            var guids = AssetDatabase.FindAssets("t:Model", new[] { folder });
-            Debug.Log($"[Arna] {folder}: {guids.Length} models");
+            // Prefabs as well as models. Synty files its content as prefabs with no FBX
+            // beside it, so a search for t:Model alone reports an empty folder for the
+            // pack that now supplies the entire landscape.
+            var guids = AssetDatabase.FindAssets("t:Model t:Prefab", new[] { folder });
+            Debug.Log($"[Arna] {folder}: {guids.Length} models and prefabs");
 
             foreach (var guid in guids)
             {
@@ -1113,11 +1166,14 @@ namespace Arna.Editor
         {
             string[] names =
             {
-                $"{QuaterniusDir}/Resource_Tree1.fbx",
-                $"{QuaterniusDir}/Resource_Tree2.fbx",
-                $"{QuaterniusDir}/Resource_PineTree.fbx",
-                $"{QuaterniusDir}/Rock.fbx",
-                $"{QuaterniusDir}/Mountain_Single.fbx",
+                // The forest as it is actually drawn, which is Synty now. This list
+                // pointed at the RTS trees for so long that it went on measuring them
+                // after they stopped being in the game.
+                $"{SyntyNatureDir}/Trees/SM_Tree_PolyPine_01.prefab",
+                $"{SyntyNatureDir}/Trees/SM_Tree_Round_01.prefab",
+                $"{SyntyNatureDir}/Rocks/SM_Rock_01.prefab",
+                $"{SyntyNatureDir}/Terrain/SM_Terrain_Mountain_01.prefab",
+                $"{SyntyNatureDir}/Plants/SM_Plant_Grass_01.prefab",
                 $"{QuaterniusDir}/Crate.fbx",
                 "Assets/Quaternius/Knight/Knight.fbx",
 
@@ -1392,7 +1448,9 @@ namespace Arna.Editor
         [MenuItem("Arna/Report Material Textures")]
         public static void ReportMaterialTextures()
         {
-            string folder = ArgValue("-arnaModelDir") ?? "Assets/Quaternius/StylizedNature";
+            // The pack root rather than its prefab folder: Synty keeps materials in a
+            // folder of their own beside the prefabs, so the narrower path finds none.
+            string folder = ArgValue("-arnaModelDir") ?? SyntyNaturePack;
 
             var guids = AssetDatabase.FindAssets("t:Material", new[] { folder });
             int missing = 0;
@@ -1420,9 +1478,9 @@ namespace Arna.Editor
         {
             string[] models =
             {
-                $"{QuaterniusDir}/Resource_PineTree.fbx",
-                $"{QuaterniusDir}/Resource_Tree1.fbx",
-                $"{QuaterniusDir}/Mountain_Single.fbx",
+                $"{SyntyNatureDir}/Trees/SM_Tree_PolyPine_01.prefab",
+                $"{SyntyNatureDir}/Trees/SM_Tree_Round_01.prefab",
+                $"{SyntyNatureDir}/Terrain/SM_Terrain_Mountain_01.prefab",
                 "Assets/Quaternius/Knight/Knight.fbx"
             };
 
