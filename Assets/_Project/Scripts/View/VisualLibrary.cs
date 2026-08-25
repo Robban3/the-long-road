@@ -28,6 +28,22 @@ namespace Arna.View
         public Vector3 WeaponRotation;
 
         /// <summary>
+        /// Degrees to turn the model so its nose points where it is going.
+        ///
+        /// Nothing in an FBX says which way is forward, and the packs disagree — the
+        /// same disagreement as the up axis, and with a worse symptom, because it looks
+        /// like a movement bug rather than an import one. A wolf whose model faces +X
+        /// while the code turns it to face the caravan runs at the caravan sideways,
+        /// crab-wise, which reads as the animation being broken or the thing being
+        /// dragged.
+        ///
+        /// Read it off `Arna > Report Selected Folder Dimensions`: on a quadruped the
+        /// long horizontal axis is the body, nose to tail. Long in Z is 0, long in X is
+        /// 90 or -90.
+        /// </summary>
+        public float YawOffset;
+
+        /// <summary>
         /// Meshes inside the file that are not this character, switched off on spawn.
         ///
         /// Some of the packs ship more than one figure per file — the pirate

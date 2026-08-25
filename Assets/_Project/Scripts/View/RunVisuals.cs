@@ -219,8 +219,8 @@ namespace Arna.View
                 // Face the caravan, which is what the group is coming for.
                 var toCaravan = run.Caravan.LeadPosition - enemy.Position;
                 if (toCaravan.X * toCaravan.X + toCaravan.Y * toCaravan.Y > 0.01f)
-                    marker.rotation = Quaternion.LookRotation(
-                        new Vector3(toCaravan.X, 0f, toCaravan.Y), Vector3.up);
+                    marker.rotation = Facing(new Vector3(toCaravan.X, 0f, toCaravan.Y),
+                                             Library.For(enemy.Kind).YawOffset);
 
                 // A group that has closed on the caravan is fighting; one that has woken
                 // but is still crossing the ground is running at it.
@@ -357,8 +357,9 @@ namespace Arna.View
                                            animal.Position.Y);
 
                 if (animal.IsFleeing)
-                    Place(marker, position, Quaternion.LookRotation(
-                        new Vector3(animal.Heading.X, 0f, animal.Heading.Y), Vector3.up));
+                    Place(marker, position,
+                          Facing(new Vector3(animal.Heading.X, 0f, animal.Heading.Y),
+                                 Library.For(animal.Kind).YawOffset));
                 else
                     Place(marker, position);
 
@@ -367,6 +368,13 @@ namespace Arna.View
         }
 
         static readonly Color WildlifeColor = new Color(0.58f, 0.46f, 0.30f);
+
+        /// <summary>
+        /// Points a model along a direction, correcting for which way its own nose
+        /// happens to face. See <see cref="ActorModel.YawOffset"/> for why that varies.
+        /// </summary>
+        static Quaternion Facing(Vector3 direction, float yawOffset)
+            => Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(0f, yawOffset, 0f);
 
         public void BuildCrowFlocks(IReadOnlyList<CrowFlock> flocks, TileGrid grid)
         {

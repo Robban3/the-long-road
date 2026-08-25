@@ -1034,9 +1034,17 @@ namespace Arna.Editor
                 string tallest = bounds.size.y >= bounds.size.x && bounds.size.y >= bounds.size.z ? "Y"
                                : bounds.size.z >= bounds.size.x ? "Z" : "X";
 
+                // The long horizontal axis. On anything that walks, that is the body —
+                // nose to tail — so it says which way the model faces, and a model that
+                // faces the wrong way runs sideways at whatever it is chasing. That
+                // reads as a movement bug and is an import one.
+                string along = bounds.size.x > bounds.size.z ? "X (YawOffset 90 or -90)"
+                                                             : "Z (YawOffset 0)";
+
                 Debug.Log($"[Arna]   {Path.GetFileNameWithoutExtension(path)}: " +
                           $"{bounds.size.x:F2} x {bounds.size.y:F2} x {bounds.size.z:F2} " +
-                          $"tallest={tallest} baseY={bounds.min.y:F2}");
+                          $"tallest={tallest} longest horizontal={along} " +
+                          $"baseY={bounds.min.y:F2}");
 
                 UnityEngine.Object.DestroyImmediate(instance);
             }
