@@ -31,7 +31,14 @@ namespace Arna.Sim
         /// <summary>Seconds of running left. Zero means it is grazing.</summary>
         public float Fleeing;
 
-        /// <summary>Direction it bolted in, held for the length of the flight.</summary>
+        /// <summary>
+        /// Which way it is looking.
+        ///
+        /// Given a value when it is placed rather than left at zero, because an animal
+        /// left facing +Z is an animal facing the same way as every other animal on the
+        /// level — a field of deer in parade order, which reads as a spawner and not as
+        /// wildlife. While it flees this is the direction it bolted in.
+        /// </summary>
         public Vec2 Heading;
 
         public bool IsFleeing => Fleeing > 0f;
@@ -123,12 +130,14 @@ namespace Arna.Sim
                 if (NearAnEnemy(map, x, y)) continue;
 
                 var home = Vec2.FromTile(grid, tile);
+                float facing = rng.Range(0f, (float)(2.0 * Math.PI));
+
                 animals.Add(new WildAnimal
                 {
                     Kind = Pick(grid[tile], rng),
                     Home = home,
                     Position = home,
-                    Heading = new Vec2(0f, 1f)
+                    Heading = new Vec2((float)Math.Sin(facing), (float)Math.Cos(facing))
                 });
             }
 

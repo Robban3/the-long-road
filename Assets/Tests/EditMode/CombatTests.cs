@@ -300,5 +300,56 @@ namespace Arna.Tests
 
             Assert.Less(HardHp(), EasyHp(), "doubling enemy strength changed nothing");
         }
+
+        [Test]
+        public void OnlyTheTroopWithAnOpponentIsFighting()
+        {
+            // The view turns each figure to its own target and swings only when it has
+            // one. Before this, the whole escort attacked the instant anybody made
+            // contact — six figures striking air in the direction of travel while one
+            // wolf worried the rear.
+            var run = Run(1, 5, Escort(18));
+
+            bool sawContact = false;
+            for (int step = 0; step < 4000 && run.Outcome == RunOutcome.InProgress; step++)
+            {
+                run.Step();
+                if (run.Combat == null || !run.Combat.InContact) continue;
+
+                sawContact = true;
+                int engaged = 0, alive = 0;
+
+                foreach (var group in run.Squad.Slots)
+                {
+                    if (group == null || !group.Alive) continue;
+                    alive++;
+                    if (group.Engaged) engaged++;
+                }
+
+                Assert.Greater(engaged, 0, "the squad was in contact and nobody had a target");
+                Assert.LessOrEqual(engaged, alive);
+            }
+
+            Assert.IsTrue(sawContact, "no fight happened, so nothing was tested");
+        }
+
+        [Test]
+        public void ATroopWithNoOpponentStopsSwinging()
+        {
+            // A target left over from a previous step is a figure striking at something
+            // that walked away, or died.
+            var run = Run(1, 5, Escort(18));
+
+            for (int step = 0; step < 4000 && run.Outcome == RunOutcome.InProgress; step++)
+            {
+                run.Step();
+                if (run.Combat == null || run.Combat.InContact) continue;
+
+                foreach (var group in run.Squad.Slots)
+                    if (group != null)
+                        Assert.IsNull(group.Target,
+                            "nothing was in contact, yet a troop still had a target");
+            }
+        }
     }
 }

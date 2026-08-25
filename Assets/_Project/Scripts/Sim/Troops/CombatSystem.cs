@@ -211,6 +211,10 @@ namespace Arna.Sim
             {
                 if (group == null || !group.Alive) continue;
 
+                // Cleared up front, so a group that finds nothing this step stops
+                // swinging rather than keeping last step's opponent for ever.
+                group.Target = null;
+
                 float dps = group.DamageAgainst(EnemyKind.Wolf, terrain);
                 if (dps <= 0f) continue;
 
@@ -222,6 +226,7 @@ namespace Arna.Sim
                 float reach = TroopUpgrades.UsableRange(group.AttackRange(terrain), squadSight)
                               + EngagementSlack;
                 var target = NearestEnemyInReach(group, reach);
+                group.Target = target;
                 if (target == null) continue;
 
                 InContact = true;

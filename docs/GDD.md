@@ -179,6 +179,7 @@ Regeln som håller dem ärliga: köpt information får minska *överraskningen*,
 - Max **6 trupper** per bana, en per position.
 - Varje trupp kostar poäng. Budgeten börjar på **12 poäng** i kapitel 1 och växer med progressionen.
 - Trupper har en **leash på 10 m** från sin position — de möter fienden och återvänder sedan.
+- **Varje trupp vänder sig mot sin egen motståndare och slår bara när den har en.** Både riktning och attack var tidigare hela truppens: alla vände sig åt färdriktningen och alla högg i samma stund någon fick kontakt. Sex figurer som slår i luften medan en varg biter i eftertruppen är ingen strid, det är en formering som får kramp.
 
 ### 4.2 Positioner
 

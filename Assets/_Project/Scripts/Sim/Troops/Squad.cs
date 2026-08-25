@@ -26,6 +26,20 @@ namespace Arna.Sim
         /// <summary>Models lost this level. Drives the flawless-victory bonus.</summary>
         public int ModelsLost { get; private set; }
 
+        /// <summary>
+        /// What this group is fighting right now, or null.
+        ///
+        /// The combat step already worked this out and threw it away, and the view was
+        /// left with one fact for the whole escort: somebody is in contact. So every
+        /// troop swung at once, most of them at nothing, all of them still facing the
+        /// way the road went. A fight that reads as a fight needs each figure turned to
+        /// its own opponent and swinging only when it has one.
+        /// </summary>
+        public TrackedEnemy Target;
+
+        /// <summary>Whether this group in particular is fighting, not merely the squad.</summary>
+        public bool Engaged => Target != null;
+
         public TroopGroup(TroopKind kind, FormationSlot slot)
         {
             Kind = kind;

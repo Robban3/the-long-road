@@ -169,7 +169,6 @@ namespace Arna.View
             // Troops march at the caravan's pace, so the column animates as one: when
             // the fen slows the wagons the escort trudges too.
             float pace = run.Caravan.CurrentSpeed;
-            bool fighting = run.Combat != null && run.Combat.InContact;
 
             foreach (var pair in _troops)
             {
@@ -177,9 +176,20 @@ namespace Arna.View
                 pair.Value.gameObject.SetActive(group.Alive);
                 if (!group.Alive) continue;
 
-                Place(pair.Value, new Vector3(group.Position.X, GroundAt(group.Position), group.Position.Y), facing);
+                // Turned to its own opponent, and swinging only when it has one.
+                //
+                // Both used to be squad-wide: everyone faced the way the road went and
+                // everyone attacked the moment anybody was in contact. Six figures
+                // striking the air in the direction of travel while one wolf worried
+                // the rear is not a fight, it is a formation having a seizure.
+                var heading = group.Engaged
+                    ? Aim(group.Position, group.Target.Position, facing)
+                    : facing;
 
-                Animate(pair.Value, fighting ? 0f : pace, fighting, false);
+                Place(pair.Value, new Vector3(group.Position.X, GroundAt(group.Position), group.Position.Y),
+                      heading);
+
+                Animate(pair.Value, group.Engaged ? 0f : pace, group.Engaged, false);
             }
 
             SyncEnemies(run);
@@ -332,7 +342,9 @@ namespace Arna.View
                                         VisualLibrary.HeightOf(animal.Kind));
                 _wildlife[animal] = marker;
                 Place(marker, new Vector3(animal.Position.X, GroundAt(animal.Position),
-                                          animal.Position.Y));
+                                          animal.Position.Y),
+                      Facing(new Vector3(animal.Heading.X, 0f, animal.Heading.Y),
+                             Library.For(animal.Kind).YawOffset));
             }
 
             Debug.Log($"[Arna] {animals.Count} wild animals placed.");
@@ -356,18 +368,31 @@ namespace Arna.View
                 var position = new Vector3(animal.Position.X, GroundAt(animal.Position),
                                            animal.Position.Y);
 
-                if (animal.IsFleeing)
-                    Place(marker, position,
-                          Facing(new Vector3(animal.Heading.X, 0f, animal.Heading.Y),
-                                 Library.For(animal.Kind).YawOffset));
-                else
-                    Place(marker, position);
+                // Turned whether it is fleeing or grazing. Only fleeing was turned
+                // before, which left every grazing animal on the level pointing the same
+                // way — a field of deer in parade order.
+                Place(marker, position,
+                      Facing(new Vector3(animal.Heading.X, 0f, animal.Heading.Y),
+                             Library.For(animal.Kind).YawOffset));
 
                 Animate(marker, animal.IsFleeing ? Wildlife.FleeSpeed : 0f, false, false);
             }
         }
 
         static readonly Color WildlifeColor = new Color(0.58f, 0.46f, 0.30f);
+
+        /// <summary>
+        /// Turns a figure from one point toward another, keeping its current facing if
+        /// the two coincide — a rotation built from a zero vector is a warning and a
+        /// figure snapped to north.
+        /// </summary>
+        static Quaternion Aim(Vec2 from, Vec2 to, Quaternion fallback)
+        {
+            float dx = to.X - from.X, dy = to.Y - from.Y;
+            if (dx * dx + dy * dy < 0.01f) return fallback;
+
+            return Quaternion.LookRotation(new Vector3(dx, 0f, dy), Vector3.up);
+        }
 
         /// <summary>
         /// Points a model along a direction, correcting for which way its own nose
