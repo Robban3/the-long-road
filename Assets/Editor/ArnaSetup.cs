@@ -1120,7 +1120,13 @@ namespace Arna.Editor
                 $"{QuaterniusDir}/Mountain_Single.fbx",
                 $"{QuaterniusDir}/Crate.fbx",
                 "Assets/Quaternius/Knight/Knight.fbx",
-                "Assets/Quaternius/Animals/Wolf.fbx",
+
+                // The ForestAnimals wolf, not the Quaternius one. That folder held
+                // thirteen animals of which this game uses a horse, and the wolf in it
+                // was superseded the day the animal pack arrived — leaving a report
+                // that measured a model nothing draws.
+                "Assets/ForestAnimals/Models/Wolf.fbx",
+
                 "Assets/Quaternius/PiratePack/Prop_Barrel.fbx",
                 "Assets/Quaternius/PiratePack/Prop_Chest_Gold.fbx",
                 "Assets/Quaternius/RPGItems/Bone.fbx"
