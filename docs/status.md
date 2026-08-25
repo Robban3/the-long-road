@@ -570,6 +570,46 @@ Shoulder heights, like the wolf: fox 0.45, boar 0.85, doe 1.1, stag 1.35. Measur
 ear they come out a head too tall, and a deer as tall as a knight reads as wrong long
 before anyone works out why.
 
+### The scouting eagle, as imported
+
+`Eagle_B1` from cgtrader, in `Assets/ThirdParty/Eagle`: the FBX plus five textures
+(`ao`, `diffuseOriginal`, `height`, `normal`, `Opacity_Final` — no metallic or
+smoothness map). Measured rather than assumed:
+
+    Eagle_B1  13.37 x 5.32 x 7.80   baseY=-0.48
+    rig=Generic  clips=4: Fly_01 (6.00s) Fly_02 (5.00s) Fly_03 (8.33s) Fly_04 (1.00s)
+
+Three things follow, and the first is the one that nearly went wrong.
+
+**The folder report's yaw advice was wrong here, and the report has been fixed.** It
+reads the long horizontal axis as the body, nose to tail, which holds for everything
+that walks. On a bird with its wings out the long axis is the *span*: 13.4 across
+against 7.8 nose to tail. Taking the advice would have yawed the eagle ninety degrees
+and had it fly sideways — the exact symptom the report exists to prevent. It now says
+so when a model is half again wider than it is long *and* flatter than it is long, the
+second test being what keeps a horse out of it. Forward on this model is Z, so
+`YawOffset` is 0; whether the nose is +Z or −Z a bounding box cannot say, and 180 is a
+one-line change the first time the bird is drawn.
+
+**It is fitted by wingspan, not by height.** `VisualLibrary.EagleSpan` is 10 m — the
+number the planning render settled, where 21 m read as a dragon and 11 m vanished into
+the canopy, and deliberately not a golden eagle's two. Height is the wrong handle for
+this model: most of its 5.3 vertical is wing dihedral, so fitting by height gives a
+wingspan decided by how far the wings happen to be cocked in the bind pose.
+`RunVisuals.Spawn` takes a `byWidth` flag for it.
+
+**It has no idle.** All four clips are flight, which is correct — a bird in the air has
+no standing still. `AnimatorBuilder` now lists `Fly` last in both the idle and the walk
+name lists, so the same loop answers for Speed 0 and Speed 12, and nothing that owns a
+real idle can lose it to a flight clip.
+
+The bird belongs to the planning map (GDD §3.6) and **is not drawn during a run** —
+`RunVisuals` never spawns it. It is wired into `VisualLibrary` and the actor-fit report
+so that scale and facing are settled now rather than on the day the planning screen is
+built. The opacity map means the feathers are almost certainly cut out of flat
+geometry, so the material will need Alpha Clipping in URP; untested until something
+renders it.
+
 ### The crow and animal packs, as imported
 
 Measured from the folder listing rather than guessed:

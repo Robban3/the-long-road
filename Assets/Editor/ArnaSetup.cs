@@ -208,6 +208,15 @@ namespace Arna.Editor
                 CrowFlockPrefab = One("Assets/Unluck Software/Bird Flocks/Bird Flock Crow/"
                                       + "Prefabs/Crow Flock - Wild Few.prefab"),
 
+                // No yaw offset, and that is a decision rather than a default. The
+                // folder report suggests 90 or -90 here because the model's long
+                // horizontal axis is X — but that heuristic reads the long axis as the
+                // body, nose to tail, which is true of everything that walks and false
+                // of anything with its wings out. On this bird X is the 13.4-unit
+                // wingspan and Z is the 7.8-unit body, so Z is already forward.
+                Eagle = Actor("Assets/ThirdParty/Eagle/Eagle_B1.Fbx",
+                              animator: "Assets/_Project/Animation/Eagle_B1.controller"),
+
                 Wagon = One("Assets/_Project/Models/Wagon.fbx"),
                 WagonTreasure = One("Assets/_Project/Models/WagonTreasure.fbx"),
                 WagonBody = One($"{QuaterniusDir}/Crate.fbx"),
@@ -1066,8 +1075,29 @@ namespace Arna.Editor
                 // nose to tail — so it says which way the model faces, and a model that
                 // faces the wrong way runs sideways at whatever it is chasing. That
                 // reads as a movement bug and is an import one.
-                string along = bounds.size.x > bounds.size.z ? "X (YawOffset 90 or -90)"
-                                                             : "Z (YawOffset 0)";
+                //
+                // On anything with its wings out it is the span instead, and the advice
+                // inverts. The eagle measures 13.4 across against 7.8 nose to tail, and
+                // this line told us to yaw it ninety degrees — which would have had the
+                // bird fly sideways for exactly the reason the paragraph above warns
+                // about. Anything half again wider than it is long is called out rather
+                // than guessed at, because a bounding box cannot tell a wingspan from a
+                // very long horse.
+                float across = Mathf.Max(bounds.size.x, bounds.size.z);
+                float lengthwise = Mathf.Min(bounds.size.x, bounds.size.z);
+
+                // The height test is what keeps a horse out of this. A horse is three
+                // times longer than it is wide too, but it is also taller than it is
+                // wide; a bird with its wings out is flatter than it is long.
+                bool winged = lengthwise > 0.0001f && across / lengthwise > 1.5f
+                              && bounds.size.y < lengthwise;
+
+                string along = winged
+                    ? (bounds.size.x > bounds.size.z
+                        ? "X, but that looks like a wingspan — forward is probably Z (YawOffset 0 or 180)"
+                        : "Z, but that looks like a wingspan — forward is probably X (YawOffset 90 or -90)")
+                    : bounds.size.x > bounds.size.z ? "X (YawOffset 90 or -90)"
+                                                    : "Z (YawOffset 0)";
 
                 Debug.Log($"[Arna]   {Path.GetFileNameWithoutExtension(path)}: " +
                           $"{bounds.size.x:F2} x {bounds.size.y:F2} x {bounds.size.z:F2} " +
@@ -1134,6 +1164,19 @@ namespace Arna.Editor
             };
 
         /// <summary>
+        /// What the game draws by its width rather than its height.
+        ///
+        /// One entry so far. It is a separate list because the number means something
+        /// different — ten metres across, not ten metres tall — and putting a span in a
+        /// column headed Height is how a bird ends up the size of a barn.
+        /// </summary>
+        static (string Name, ActorModel Model, float Width)[] Wide(VisualLibrary models) =>
+            new (string, ActorModel, float)[]
+            {
+                ("Eagle", models.Eagle, VisualLibrary.EagleSpan)
+            };
+
+        /// <summary>
         /// Measures every actor where it lands, before and after it is posed.
         ///
         /// A model is scaled and stood on the ground from its bind-pose bounds,
@@ -1156,6 +1199,13 @@ namespace Arna.Editor
                 cast.Add((entry.Name, visuals.ShowActor(entry.Model, entry.Name, entry.Height, Vector3.zero)));
             foreach (var entry in Enemies(models))
                 cast.Add((entry.Name, visuals.ShowActor(entry.Model, entry.Name, entry.Height, Vector3.zero)));
+
+            // Fitted across rather than up. Reported here and not photographed with the
+            // rest: the character line-up is framed for people, and a ten-metre bird in
+            // it would push the camera back until the knights were specks.
+            foreach (var entry in Wide(models))
+                cast.Add((entry.Name, visuals.ShowActor(entry.Model, entry.Name, entry.Width,
+                                                        Vector3.zero, byWidth: true)));
 
             // Posed before measured. An actor spawned in an editor session stands in
             // whatever pose the file was saved in until something drives its animator,

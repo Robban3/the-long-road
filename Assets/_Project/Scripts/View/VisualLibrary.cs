@@ -140,6 +140,21 @@ namespace Arna.View
         /// </summary>
         public GameObject CrowFlockPrefab;
 
+        /// <summary>
+        /// The scouting eagle of docs/GDD.md §3.6.
+        ///
+        /// Flown over the planning map before the pencil comes out, so it belongs to
+        /// that screen rather than to the run — and that screen does not exist in Unity
+        /// yet. Wired here anyway: an asset that is imported but unreferenced is an
+        /// asset nobody has checked, and the two things worth knowing about a model —
+        /// what it is authored at and which way its nose points — are cheapest to find
+        /// out the day it arrives.
+        ///
+        /// Fitted by <see cref="EagleSpan"/> rather than by height. See the byWidth
+        /// argument on RunVisuals.Spawn for why.
+        /// </summary>
+        public ActorModel Eagle;
+
         [Header("Caravan")]
         /// <summary>Complete carts. When set, the improvised crate-and-wheels build is skipped.</summary>
         public GameObject Wagon;
@@ -217,5 +232,17 @@ namespace Arna.View
 
         /// <summary>Height of a wagon to the top of its hood.</summary>
         public const float WagonHeight = 2.5f;
+
+        /// <summary>
+        /// Wingspan in metres, and deliberately not a golden eagle's.
+        ///
+        /// A real one is a little over two metres across. At two metres over a map
+        /// four tiles to the finger it is a speck, and the whole point of the ability
+        /// is that the player watches where the bird goes. Ten was chosen on the
+        /// planning render, where twenty-one read as a dragon and eleven vanished into
+        /// the canopy — the same argument the map's own note makes: the bird is a
+        /// marker that happens to be shaped like a bird.
+        /// </summary>
+        public const float EagleSpan = 10f;
     }
 }

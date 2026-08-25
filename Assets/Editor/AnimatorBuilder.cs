@@ -23,8 +23,14 @@ namespace Arna.Editor
         const string OutputDir = "Assets/_Project/Animation";
 
         /// <summary>Clip suffixes tried in order for each state, first match wins.</summary>
-        static readonly string[] IdleNames = { "Idle", "Idle_Neutral", "Idle_2", "Eat", "Graze" };
-        static readonly string[] WalkNames = { "Walk", "Trot", "Run", "Gallop" };
+        // "Fly" last in both lists, and in both on purpose. A bird in the air has no
+        // idle: standing still and travelling are the same wingbeat, so the eagle's
+        // flight loop has to answer for both states or the controller has a hole in it
+        // where Speed is zero — and a bird frozen mid-air is worse than no bird.
+        //
+        // Last, so nothing that owns a real idle can lose it to a flight clip.
+        static readonly string[] IdleNames = { "Idle", "Idle_Neutral", "Idle_2", "Eat", "Graze", "Fly" };
+        static readonly string[] WalkNames = { "Walk", "Trot", "Run", "Gallop", "Fly" };
         static readonly string[] AttackNames = { "Sword", "Sword_Slash", "Attack", "Attack_Kick", "Bite", "Punch", "Punch_Right" };
         static readonly string[] DeathNames = { "Death", "Die" };
 
@@ -45,6 +51,10 @@ namespace Arna.Editor
             "Assets/ForestAnimals/Models/DeerFemale.fbx",
             "Assets/ForestAnimals/Models/DeerMale.fbx",
             "Assets/ForestAnimals/Models/Boar.fbx",
+
+            // Four flight clips and nothing else — no idle, no walk, no attack. See the
+            // clip-name lists above for how a controller gets built out of that.
+            "Assets/ThirdParty/Eagle/Eagle_B1.Fbx",
 
             "Assets/Quaternius/ModularMen/Adventurer.fbx",
             "Assets/Quaternius/ModularMen/Farmer.fbx",

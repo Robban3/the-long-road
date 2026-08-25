@@ -354,9 +354,10 @@ namespace Arna.View
         /// the game rather than a separate picture that happens to use the same models.
         /// </summary>
         public Transform ShowActor(ActorModel model, string name, float targetHeight,
-                                   Vector3 position, float speed = 0f)
+                                   Vector3 position, float speed = 0f, bool byWidth = false)
         {
-            var marker = SpawnActor(model, PrimitiveType.Capsule, name, TroopColor, targetHeight);
+            var marker = SpawnActor(model, PrimitiveType.Capsule, name, TroopColor,
+                                    targetHeight, byWidth);
             Place(marker, position);
             Animate(marker, speed, false, false);
             return marker;
@@ -521,10 +522,10 @@ namespace Arna.View
         /// shared across models.
         /// </summary>
         Transform SpawnActor(ActorModel model, PrimitiveType fallback, string name, Color color,
-                             float targetHeight)
+                             float targetHeight, bool byWidth = false)
         {
             var marker = Spawn(model.Prefab, fallback, name, color, targetHeight, null,
-                               model.Hide, model.Unsized);
+                               model.Hide, model.Unsized, byWidth);
 
             if (model.Prefab == null || model.Animator == null) return marker;
 
@@ -677,9 +678,16 @@ namespace Arna.View
             return n.EndsWith(".r") || n.EndsWith("_r") || n.Contains("right") || n.Contains("_r_");
         }
 
+        /// <param name="byWidth">
+        /// Scale to <paramref name="targetHeight"/> metres <i>across</i> rather than
+        /// tall. For anything wider than it is tall, height is the wrong handle: an
+        /// eagle with its wings out is 13.4 units span against 5.3 of vertical, most of
+        /// which is wing dihedral rather than bird, so fitting it by height gives a
+        /// wingspan decided by how far the wings happen to be cocked in the bind pose.
+        /// </param>
         Transform Spawn(GameObject prefab, PrimitiveType fallback, string name, Color color,
                         float targetHeight, Transform parent = null, string[] hide = null,
-                        string[] unsized = null)
+                        string[] unsized = null, bool byWidth = false)
         {
             var host = parent != null ? parent : _root;
 
@@ -711,7 +719,10 @@ namespace Arna.View
             var held = Switch(instance.transform, unsized, false);
 
             float ground = instance.transform.position.y;
-            ModelScaling.Fit(instance, targetHeight, ground);
+
+            if (byWidth) ModelScaling.FitToFootprint(instance, targetHeight, ground);
+            else ModelScaling.Fit(instance, targetHeight, ground);
+
             _standing[instance.transform] = instance.transform.position.y - ground;
 
             foreach (var mesh in held) mesh.SetActive(true);
