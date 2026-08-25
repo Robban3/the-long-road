@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Arna.App;
 using Arna.Sim;
@@ -943,8 +944,47 @@ namespace Arna.Editor
         /// </summary>
         [MenuItem("Arna/Report Folder Dimensions")]
         public static void ReportFolderDimensions()
+            => ReportDimensionsOf(ArgValue("-arnaModelDir") ?? "Assets/Quaternius/StylizedNature");
+
+        /// <summary>
+        /// Measures whatever folder is selected in the Project window.
+        ///
+        /// The same report as above without the command line, and it exists because the
+        /// command line is where this keeps failing. A new pack lands in a folder whose
+        /// name nobody has typed yet; clicking it is one step, and getting batchmode to
+        /// run against a project the editor may or may not be holding is several — with
+        /// the failure mode being a log that stops before it says why.
+        ///
+        /// Select the pack's folder in the Project window, run this, read the Console.
+        /// </summary>
+        [MenuItem("Arna/Report Selected Folder Dimensions")]
+        public static void ReportSelectedFolderDimensions()
         {
-            string folder = ArgValue("-arnaModelDir") ?? "Assets/Quaternius/StylizedNature";
+            var folders = new List<string>();
+
+            foreach (var selected in Selection.objects)
+            {
+                string path = AssetDatabase.GetAssetPath(selected);
+                if (!string.IsNullOrEmpty(path) && AssetDatabase.IsValidFolder(path))
+                    folders.Add(path);
+            }
+
+            if (folders.Count == 0)
+            {
+                Debug.LogWarning("[Arna] Select one or more folders in the Project window first.");
+                return;
+            }
+
+            foreach (string folder in folders) ReportDimensionsOf(folder);
+        }
+
+        static void ReportDimensionsOf(string folder)
+        {
+            if (!AssetDatabase.IsValidFolder(folder))
+            {
+                Debug.LogWarning($"[Arna] {folder} is not a folder in this project");
+                return;
+            }
 
             var guids = AssetDatabase.FindAssets("t:Model", new[] { folder });
             Debug.Log($"[Arna] {folder}: {guids.Length} models");
