@@ -436,6 +436,12 @@ and route drawing makes that signal considerably more important, because it is r
 before the line is drawn rather than during the run. Nothing in any of the four packs is
 a crow.
 
+Placement is done: `Arna.Sim.CrowSignal.Place(map)` returns the flocks, deterministic
+from the level seed and mirrored from the port that measured the numbers. What is left
+is the prefab. It wants a `PropSet Crows` on `BiomeDecor` and a caller in `RunVisuals`
+that turns three of them on a ten-metre ring at 22 m; the planning screen draws the same
+flocks as markers.
+
 **They are two things, and an earlier note here got that half wrong.** It said crows
 should never be a model, because a bird straight down from seventy metres is a few
 pixels. That is true of the planning map and only of it: in the play view the camera is
