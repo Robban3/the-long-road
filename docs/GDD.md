@@ -383,6 +383,21 @@ En trupp som överlever en bana får veteranpoäng. Vid 3 / 8 / 15 poäng: +10 %
 angrepp håller in och eskorten formerar sig — det är den sannare bilden och den
 tydligare: striden blir en händelse i stället för en sträcka långsammare väg.
 
+**Men bara för en strid den faktiskt står i.** Att stanna för *allt* var nära nog
+dödligt: en bågskyttetrupp håller in på sina egna 18 meter och skjuter, kolonnen
+stannade med den, och eftersom förrådsvagnen bara lappar ihop eskorten *utanför* strid
+kunde ingen av parterna bryta kontakten. Bana 1-5 slutade med karavanen förstörd på
+sju procent av rutten efter 228 sekunder — varav tre i rörelse — och bandet som gjorde
+det stod kvar på full hälsa hela tiden. Gränsen är därför **5 meter mätt från truppen**:
+en närstridsangripare stannar på sina 2 meter plus slacken och ligger med god marginal
+innanför, en bågskytt på 19,5 är ingenstans i närheten. Man formerar sig när vargarna
+är på en; man rullar vidare när pilarna kommer ur ett skogsbryn.
+
+Förrådsvagnens läkning följer samma gräns. "Mellan strider" betyder *medan kolonnen
+rullar*, inte *medan absolut ingenting är i kontakt* — det är den regel den skrevs som,
+de två var samma sak ända tills stoppet snävades in. Mätt: kapitel 1 gick från 20
+överlevbara rutter av 30 till 24.
+
 Men partiden mäts på **restiden**, inte på väggklockan. `parTime` härleds ur *ruttens*
 kostnad — hur långt, över vilken mark — så att mäta den mot en klocka som också räknar
 stillastående strid jämför olika saker. Det märktes inte medan strid bara saktade ner
@@ -397,7 +412,12 @@ val. Mätt: sex strider är 27 sekunder stillastående mot en partidsslack på 1
 
 ## 9. Beslutade öppna frågor
 
-**Trupper är grupper, inte enskilda modeller.** De renderas billigare, läser bättre på en telefonskärm och gör skadefördelning enklare att förstå.
+**Trupper är grupper i simuleringen, men ritas som enskilda figurer.** Poolad hälsa och
+en position per grupp är det som gör tolv grupper billiga i 20 Hz på en telefon, och
+skadefördelningen begriplig. Inget av det kräver att gruppen *syns* som en figur — och
+att den gjorde det var ett fel med namn: en vargflock är fem vargar och skärmen visade
+en. Antalet figurer följer nu gruppens kvarvarande modeller, och `Formation` i
+`Arna.Sim` bestämmer var de står, så vy, karta och test får samma svar.
 
 **Silver nollställs mellan banor.** Om det sparades skulle en spelare kunna gå in i en bana redan maxad, och då försvinner hela uppgraderingskurvan som gör varje bana till en egen berättelse. Nollställningen är det som håller bana `47-3` lika spännande som `1-3`.
 

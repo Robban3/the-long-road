@@ -310,7 +310,8 @@ namespace Arna.Tests
             // wolf worried the rear.
             var run = Run(1, 5, Escort(18));
 
-            bool sawContact = false;
+            bool sawContact = false, sawSplit = false;
+
             for (int step = 0; step < 4000 && run.Outcome == RunOutcome.InProgress; step++)
             {
                 run.Step();
@@ -326,11 +327,76 @@ namespace Arna.Tests
                     if (group.Engaged) engaged++;
                 }
 
-                Assert.Greater(engaged, 0, "the squad was in contact and nobody had a target");
                 Assert.LessOrEqual(engaged, alive);
+
+                // Somebody swinging while somebody else is not. That is the whole
+                // claim, and it is not the same as "in contact implies a target":
+                // an attacker can be in contact with nobody able to answer it — an
+                // unrevealed group, or an archer band outside every usable reach —
+                // and a squad standing idle under fire is correct rather than broken.
+                if (engaged > 0 && engaged < alive) sawSplit = true;
             }
 
             Assert.IsTrue(sawContact, "no fight happened, so nothing was tested");
+            Assert.IsTrue(sawSplit, "the escort only ever swung as one body");
+        }
+
+        [Test]
+        public void TheColumnHaltsOnlyForAFightItIsActuallyIn()
+        {
+            // Halting for anything at all made every ranged encounter a siege: the
+            // archers stopped at their own eighteen metres, the column stopped with
+            // them, and since the supply wagon heals only out of contact neither side
+            // could disengage. 1-5 ended with the caravan destroyed at seven percent of
+            // the route, and the band that did it finished untouched.
+            var run = Run(1, 5, Escort(18));
+
+            for (int step = 0; step < 8000 && run.Outcome == RunOutcome.InProgress; step++)
+            {
+                run.Step();
+                if (run.Combat == null || !run.Combat.Halted) continue;
+
+                float nearest = float.MaxValue;
+
+                foreach (var enemy in run.Detection.Enemies)
+                {
+                    // A group destroyed by the return fire in this very step still
+                    // halted the column when the step began, and a post wiped out by
+                    // its blow is still where the fight was. Both stay in the reckoning
+                    // or the check indicts the sim for the order it does things in.
+                    if (!enemy.Awake) continue;
+
+                    foreach (var group in run.Squad.Slots)
+                    {
+                        if (group == null) continue;
+                        float distance = Vec2.Distance(enemy.Position, group.Position);
+                        if (distance < nearest) nearest = distance;
+                    }
+
+                    float toWagons = Vec2.Distance(enemy.Position, run.Caravan.LeadPosition);
+                    if (toWagons < nearest) nearest = toWagons;
+                }
+
+                Assert.LessOrEqual(nearest, CombatSystem.HaltRadius + 0.01f,
+                    $"the column stopped for something {nearest:F1} m away");
+            }
+        }
+
+        [Test]
+        public void AnEscortedColumnGetsThroughTheChapterInsteadOfBeingGroundDown()
+        {
+            // The halt rule is a balance change and not only a picture, so it is checked
+            // as one. Ten levels, one fixed escort, and the question is whether standing
+            // still to fight costs the run.
+            int arrived = 0;
+
+            for (int level = 1; level <= 10; level++)
+                if (Run(1, level, Escort(18)).RunToCompletion() == RunOutcome.Arrived) arrived++;
+
+            // Not all ten: by the end of the chapter one fixed escort is meant to lose
+            // some of them, which is the difficulty curve rather than a bug.
+            Assert.GreaterOrEqual(arrived, 7,
+                $"a full escort survived only {arrived} of the chapter's ten levels");
         }
 
         [Test]

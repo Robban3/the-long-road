@@ -20,8 +20,20 @@ namespace Arna.View
         readonly TileGrid _grid;
         readonly float _heightScale;
         readonly List<Transform> _wagons = new List<Transform>();
-        readonly Dictionary<TroopGroup, Transform> _troops = new Dictionary<TroopGroup, Transform>();
-        readonly Dictionary<TrackedEnemy, Transform> _enemies = new Dictionary<TrackedEnemy, Transform>();
+        /// <summary>
+        /// One entry per group, and inside it one figure per model the group can field.
+        ///
+        /// A group is a pooled health bar in the simulation and was a single figure on
+        /// the screen, which is where "a wolf pack attacked" turned into one wolf
+        /// standing on a hillside. The list is built to the group's full complement and
+        /// never resized: figures beyond the survivors are switched off, so a model
+        /// keeps its place in the formation as the group is whittled down.
+        /// </summary>
+        readonly Dictionary<TroopGroup, List<Transform>> _troops =
+            new Dictionary<TroopGroup, List<Transform>>();
+
+        readonly Dictionary<TrackedEnemy, List<Transform>> _enemies =
+            new Dictionary<TrackedEnemy, List<Transform>>();
         readonly Dictionary<TrackedTrap, Transform> _traps = new Dictionary<TrackedTrap, Transform>();
         readonly Dictionary<WildAnimal, Transform> _wildlife = new Dictionary<WildAnimal, Transform>();
         readonly Dictionary<Color, Material> _materials = new Dictionary<Color, Material>();
@@ -87,9 +99,14 @@ namespace Arna.View
             {
                 if (group == null) continue;
 
-                var marker = SpawnActor(Library.For(group.Kind), PrimitiveType.Capsule,
-                    $"Troop_{group.Slot}_{group.Kind}", TroopColor, VisualLibrary.TroopHeight);
-                _troops[group] = marker;
+                int models = TroopTable.Models(group.Kind);
+                var figures = new List<Transform>(models);
+
+                for (int i = 0; i < models; i++)
+                    figures.Add(SpawnActor(Library.For(group.Kind), PrimitiveType.Capsule,
+                        $"Troop_{group.Slot}_{group.Kind}_{i}", TroopColor, VisualLibrary.TroopHeight));
+
+                _troops[group] = figures;
             }
         }
 
@@ -154,7 +171,8 @@ namespace Arna.View
         public void Sync(LevelRun run)
         {
             var heading = run.Caravan.Heading;
-            var facing = Quaternion.LookRotation(new Vector3(heading.X, 0f, heading.Y), Vector3.up);
+            var road = new Vector3(heading.X, 0f, heading.Y);
+            var facing = Quaternion.LookRotation(road, Vector3.up);
 
             for (int i = 0; i < _wagons.Count; i++)
             {
@@ -173,8 +191,7 @@ namespace Arna.View
             foreach (var pair in _troops)
             {
                 var group = pair.Key;
-                pair.Value.gameObject.SetActive(group.Alive);
-                if (!group.Alive) continue;
+                var figures = pair.Value;
 
                 // Turned to its own opponent, and swinging only when it has one.
                 //
@@ -182,14 +199,35 @@ namespace Arna.View
                 // everyone attacked the moment anybody was in contact. Six figures
                 // striking the air in the direction of travel while one wolf worried
                 // the rear is not a fight, it is a formation having a seizure.
-                var look = group.Engaged
-                    ? Aim(group.Position, group.Target.Position, facing)
-                    : facing;
+                //
+                // Facing follows what the group is watching rather than what it is
+                // hitting, which are not the same thing: a pack is in sight and running
+                // at you for a second or two before anyone can reach it, and a rank
+                // that keeps its back turned through that reads as a bug even though
+                // the arithmetic underneath is correct.
+                var watched = group.Watching;
+                var forward = watched != null
+                    ? Toward(group.Position, watched.Position, road)
+                    : road;
 
-                Place(pair.Value, new Vector3(group.Position.X, GroundAt(group.Position), group.Position.Y),
-                      look);
+                var look = Facing(forward, Library.For(group.Kind).YawOffset);
+                int alive = group.Alive ? group.ModelsAlive : 0;
 
-                Animate(pair.Value, group.Engaged ? 0f : pace, group.Engaged, false);
+                for (int i = 0; i < figures.Count; i++)
+                {
+                    bool standing = i < alive;
+                    figures[i].gameObject.SetActive(standing);
+                    if (!standing) continue;
+
+                    var offset = Formation.Line(i, figures.Count, forward.x, forward.z);
+                    var spot = new Vec2(group.Position.X + offset.X, group.Position.Y + offset.Y);
+
+                    // Each figure stands on its own ground rather than the group's. Over
+                    // four metres of hillside the difference is most of a man's height,
+                    // and a rank levelled to one sample has half of it buried.
+                    Place(figures[i], new Vector3(spot.X, GroundAt(spot), spot.Y), look);
+                    Animate(figures[i], group.Engaged ? 0f : pace, group.Engaged, false);
+                }
             }
 
             SyncEnemies(run);
@@ -205,47 +243,83 @@ namespace Arna.View
             foreach (var enemy in run.Detection.Enemies)
             {
                 bool defeated = run.Combat != null && run.Combat.IsDefeated(enemy);
+                var model = Library.For(enemy.Kind);
 
                 if (!enemy.Revealed || defeated)
                 {
-                    if (_enemies.TryGetValue(enemy, out var hidden)) hidden.gameObject.SetActive(false);
+                    if (_enemies.TryGetValue(enemy, out var hidden))
+                        foreach (var figure in hidden) figure.gameObject.SetActive(false);
                     continue;
                 }
 
-                if (!_enemies.TryGetValue(enemy, out var marker))
+                if (!_enemies.TryGetValue(enemy, out var pack))
                 {
                     float height = enemy.Kind == EnemyKind.Wolf
                         ? VisualLibrary.WolfHeight
                         : VisualLibrary.EnemyHeight;
 
-                    marker = SpawnActor(Library.For(enemy.Kind), PrimitiveType.Sphere,
-                        $"Enemy_{enemy.Kind}", EnemyAwakeColor, height);
-                    _enemies[enemy] = marker;
+                    // One figure per animal or man the group is made of. A wolf pack is
+                    // five wolves on the table and was one wolf on the screen, which is
+                    // not a rendering shortcut so much as a different game: the player
+                    // was being told a pack had found him and shown a stray dog.
+                    int size = EnemyTable.GroupSize(enemy.Kind);
+                    pack = new List<Transform>(size);
+
+                    for (int i = 0; i < size; i++)
+                        pack.Add(SpawnActor(model, PrimitiveType.Sphere,
+                            $"Enemy_{enemy.Kind}_{i}", EnemyAwakeColor, height));
+
+                    _enemies[enemy] = pack;
                 }
 
-                marker.gameObject.SetActive(true);
-                Place(marker, new Vector3(enemy.Position.X, GroundAt(enemy.Position), enemy.Position.Y));
+                // Turned toward the troop it is actually fighting, not toward the head
+                // of the column. A pack that has swung round to maul the rear guard used
+                // to stand side-on to it and stare at the wagons.
+                var quarry = enemy.Engaging;
+                var focus = quarry != null ? quarry.Position : run.Caravan.LeadPosition;
+                var forward = Toward(enemy.Position, focus, Vector3.forward);
+                var look = Facing(forward, model.YawOffset);
 
-                // Face the caravan, which is what the group is coming for.
-                var toCaravan = run.Caravan.LeadPosition - enemy.Position;
-                if (toCaravan.X * toCaravan.X + toCaravan.Y * toCaravan.Y > 0.01f)
-                    marker.rotation = Facing(new Vector3(toCaravan.X, 0f, toCaravan.Y),
-                                             Library.For(enemy.Kind).YawOffset);
-
-                // A group that has closed on the caravan is fighting; one that has woken
-                // but is still crossing the ground is running at it.
-                float rangeToCaravan = Vec2.Distance(enemy.Position, run.Caravan.LeadPosition);
-                bool striking = enemy.Awake && rangeToCaravan < EnemyTable.AttackRange(enemy.Kind) + 6f;
-                float speed = enemy.Awake && !striking
+                // Whether it is biting or still closing is what the combat step decided
+                // this tick, not what the view can guess from a distance and an assumed
+                // slack — those two disagreed, and animals bit the air a metre out.
+                float speed = enemy.Awake && !enemy.Striking
                     ? EnemyTable.Speed(enemy.Kind) * TileGrid.TileSize
                     : 0f;
 
-                Animate(marker, speed, striking, false);
+                int alive = run.Combat != null ? run.Combat.ModelsAlive(enemy) : pack.Count;
 
-                // Colour only survives on primitives; a model keeps its own materials.
-                if (!Library.For(enemy.Kind).HasModel)
-                    Tint(marker, enemy.Awake ? EnemyAwakeColor : EnemyAsleepColor);
+                for (int i = 0; i < pack.Count; i++)
+                {
+                    bool standing = i < alive;
+                    pack[i].gameObject.SetActive(standing);
+                    if (!standing) continue;
+
+                    var offset = Formation.Wedge(i, forward.x, forward.z);
+                    var spot = new Vec2(enemy.Position.X + offset.X, enemy.Position.Y + offset.Y);
+
+                    Place(pack[i], new Vector3(spot.X, GroundAt(spot), spot.Y), look);
+                    Animate(pack[i], speed, enemy.Striking, false);
+
+                    // Colour only survives on primitives; a model keeps its own materials.
+                    if (!model.HasModel)
+                        Tint(pack[i], enemy.Awake ? EnemyAwakeColor : EnemyAsleepColor);
+                }
             }
+        }
+
+        /// <summary>
+        /// The direction from one point to another, falling back when they coincide.
+        ///
+        /// A look rotation built from a zero vector is a Unity warning and a figure
+        /// snapped to north, which is how a whole pack ends up facing the same wrong way
+        /// the instant it arrives on top of what it is attacking.
+        /// </summary>
+        static Vector3 Toward(Vec2 from, Vec2 to, Vector3 fallback)
+        {
+            float dx = to.X - from.X, dy = to.Y - from.Y;
+            if (dx * dx + dy * dy < 0.01f) return fallback;
+            return new Vector3(dx, 0f, dy);
         }
 
         void SyncTraps(LevelRun run)
@@ -380,19 +454,6 @@ namespace Arna.View
         }
 
         static readonly Color WildlifeColor = new Color(0.58f, 0.46f, 0.30f);
-
-        /// <summary>
-        /// Turns a figure from one point toward another, keeping its current facing if
-        /// the two coincide — a rotation built from a zero vector is a warning and a
-        /// figure snapped to north.
-        /// </summary>
-        static Quaternion Aim(Vec2 from, Vec2 to, Quaternion fallback)
-        {
-            float dx = to.X - from.X, dy = to.Y - from.Y;
-            if (dx * dx + dy * dy < 0.01f) return fallback;
-
-            return Quaternion.LookRotation(new Vector3(dx, 0f, dy), Vector3.up);
-        }
 
         /// <summary>
         /// Points a model along a direction, correcting for which way its own nose

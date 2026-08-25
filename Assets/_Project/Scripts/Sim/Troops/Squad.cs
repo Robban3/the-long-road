@@ -37,8 +37,24 @@ namespace Arna.Sim
         /// </summary>
         public TrackedEnemy Target;
 
+        /// <summary>
+        /// The nearest thing coming for this group, whether or not it can be hit yet.
+        ///
+        /// Separate from <see cref="Target"/> because turning and striking are different
+        /// questions with different answers. A spearman reaches two and a half metres
+        /// and a pack crosses twenty before it gets there; tying the turn to the reach
+        /// left the escort watching the road until the wolves were already on it.
+        /// </summary>
+        public TrackedEnemy Threat;
+
         /// <summary>Whether this group in particular is fighting, not merely the squad.</summary>
         public bool Engaged => Target != null;
+
+        /// <summary>
+        /// What this group should be looking at: what it is hitting, or failing that
+        /// what is coming for it. Null means nothing is, and it faces the road.
+        /// </summary>
+        public TrackedEnemy Watching => Target ?? Threat;
 
         public TroopGroup(TroopKind kind, FormationSlot slot)
         {

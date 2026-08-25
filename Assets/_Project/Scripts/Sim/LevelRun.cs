@@ -125,7 +125,7 @@ namespace Arna.Sim
             if (Outcome != RunOutcome.InProgress) return;
 
             ElapsedSeconds += StepSeconds;
-            if (Combat == null || !Combat.InContact) TravelSeconds += StepSeconds;
+            if (Combat == null || !Combat.Halted) TravelSeconds += StepSeconds;
 
             Caravan.Tick(StepSeconds);
 

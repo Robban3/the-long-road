@@ -1,5 +1,5 @@
 <!--
-  Type-checks the engine-independent C# without opening Unity.
+  Builds and runs the engine-independent C# without opening Unity.
 
   Arna.Sim is compiled without engine references on purpose and Arna.Gen only depends
   on it, so both build with a plain compiler. The EditMode tests build too, against the
@@ -11,6 +11,10 @@
   so a file it could not read masked real errors everywhere else, and a wrong argument
   in one test reached a push after a run that looked clean. This reads all of it.
 
+  It runs them too. The shim used to assert nothing, which caught a test that would not
+  compile and missed every test that would fail; Runner.cs reflects over the fixtures
+  and executes them for real.
+
   View, App and Editor still need Unity: they use UnityEngine.
 -->
 <Project Sdk="Microsoft.NET.Sdk">
@@ -21,11 +25,13 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NoWarn>1591;1587;1574;0169;0219;0414;8321</NoWarn>
-    <AssemblyName>ArnaTypecheck</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>ArnaTests</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="NUnitShim.cs" />
+    <Compile Include="Runner.cs" />
     <Compile Include="../../Assets/_Project/Scripts/Sim/**/*.cs" />
     <Compile Include="../../Assets/_Project/Scripts/Gen/**/*.cs" />
     <Compile Include="../../Assets/Tests/EditMode/**/*.cs" />

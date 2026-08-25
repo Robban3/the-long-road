@@ -58,15 +58,29 @@ Tests:
 
     Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testResults <xml>
 
-### Type-checking the C# without Unity
+### Running the C# without Unity
 
     apt-get install -y dotnet-sdk-8.0
-    ./Tools/csharp/typecheck.sh
+    ./Tools/csharp/typecheck.sh            # everything
+    ./Tools/csharp/typecheck.sh Formation  # one fixture
 
 `Arna.Sim` is compiled without engine references on purpose and `Arna.Gen` only depends
-on it, so both build with a plain compiler. The EditMode tests build too, against the
-NUnit stand-in beside that script — it asserts nothing and exists only so a test that
-will not compile is caught here rather than by somebody opening the editor.
+on it, so both build with a plain compiler. The EditMode tests build against the NUnit
+stand-in beside that script — and `Runner.cs` reflects over the fixtures and **executes**
+them.
+
+**It used to assert nothing**, which caught a test that would not compile and missed
+every test that would fail. The first run with real assertions found **seven failures
+sitting on `main`**. Four came from one bug — the column halting for anything at all,
+including an archer band twenty metres off, so that neither side could disengage and
+1-5 ended with the caravan destroyed at seven percent of the route (§8 of the GDD has
+the fix). A fifth was arithmetic: an attacker halted at its reach *plus* the engagement
+slack while a troop reached its reach plus the same slack, leaving a swordsman two
+tenths of a metre short of the wolf biting him — a figure swinging at air, which is
+also what it looked like on screen.
+
+Three remain, listed in §4. The lesson is the mono lesson below, one notch further in:
+a check that reports success without checking is worse than no check.
 
 **Roslyn rather than mono, and the reason is worth keeping.** Mono's compiler cannot
 parse C# local functions, which four of the test files use, and it stops at the first
@@ -81,17 +95,19 @@ only the editor builds them, and every compile error that has reached a push tod
 been in one of those three. The most recent was a local named `heading` inside a method
 that already had one — legal in most languages, CS0136 in C#.
 
-The same bug does block producing a runnable exe, which is worth working around,
-because the simulation can then be *run* here and not merely type-checked. Compile a
-small `Main` against the subset a feature actually needs — `Wildlife`, for instance,
-reaches only Vec2, DeterministicRandom, LevelMap, TileGrid, the terrain tables and
-EncounterLayout — build a `TileGrid` by hand instead of generating one, and run it
-under `mono`. That is how the wildlife numbers below were measured rather than
-guessed.
+A probe is the quickest way to turn a failure into a number: add a `[Test]` that
+prints rather than asserts, run it by name, and delete it. That is how the 228-second
+siege above stopped being a theory — *outcome=CaravanLost elapsed=228s travel=3s
+progress=0.07*, with an untouched archer band standing 13.5 m away — and how the fix
+was confirmed: *outcome=Arrived elapsed=96s travel=51s progress=1.00*.
+
+Before this existed, the same thing was done by compiling a small `Main` against the
+subset a feature reached and running it under `mono`. That is how the wildlife numbers
+below were measured. The runner makes it unnecessary.
 
 This matters more than it looks. Two thirds of the game's logic lives in those two
-assemblies, and without this there is no way to know whether an edit compiles until
-somebody opens the editor. A constant and a method sharing the name `SampleRoutes` sat
+assemblies, and without this there is no way to know whether an edit compiles — let
+alone works — until somebody opens the editor. A constant and a method sharing the name `SampleRoutes` sat
 in `EncounterPlacer` through several commits for exactly that reason — nothing here
 could build it, so nothing caught it. `View`, `App` and `Editor` still need Unity.
 
@@ -165,6 +181,44 @@ gives them. The country is right, the dressing is a sketch. See
 ---
 
 ## 4. Known problems, worst first
+
+**Traps are inert.** Level 1-8 places fourteen of them; a run down its fast corridor
+reveals two and triggers none. The trigger radius is three metres and threat now sits
+across the whole crossable band, so a trap forty metres off the line the player drew is
+scenery. Enemies survived that change because a group has a territory and comes to you;
+a trap has neither. Three EditMode tests have been failing on this and none of them said
+so in those words, because a trap that never fires reads as a squad that took no damage.
+The fix is a placement decision rather than a bug fix — chokepoints a route cannot avoid
+(fords, passes, narrow ground) rather than a scatter over open country — and it is worth
+making deliberately.
+
+One of those three, `TrapsStrikeTheTroopOnPointRatherThanTheWagons`, was *passing* until
+the halt fix, and not for its own reason: it asserts that the troop on point ends the
+level hurt, and the point troop was being hurt by wolves rather than by traps. Once the
+escort could win 1-8 cleanly the assertion had nothing left to lean on. A test that
+passes off the wrong evidence is worth more attention than one that fails.
+
+**Threat sits on slower ground than the map average, on nine levels out of ten.**
+Measured over chapter 1: 1-1 places eighteen groups on ground averaging 0.717 against a
+map average of 0.761, 1-8 lands at 0.671 against 0.761, and only 1-2 comes out ahead.
+`EncounterPlacerTests.ThreatFollowsFastGround` asserts the opposite, one level at a time,
+and it is not sample noise at that spread. The design rule it encodes — the quick way is
+the dangerous way — and the ambush weighting that draws groups toward cover are pulling
+against each other, and which of them should win is a design call, not an implementation
+one.
+
+**Chapter 1 has levels with only one survivable corridor.** With the fixed test escort
+at each level's own budget and enemy strength, 1-6 and 1-8 come out at one route of
+three; the other eight levels give two or three, and every level has at least one. That
+is up from the state this was found in, where 1-5 offered none at all and the caravan
+died at seven percent of the route. `EveryLevelOffersAWayThroughForAnEscortedCaravan`
+wants two, on the argument that a level with one way through is not a route choice. It
+is a tuning question — enemy strength, squad budget, or the threshold itself.
+
+**A fight is now most of a level's wall clock.** 1-1 arrives in 110 s of which 71 are
+spent halted. Par is measured against `TravelSeconds` so the stars are unaffected, but
+two thirds of a level standing still is a thing to look at rather than a number to
+accept.
 
 **Props stood inside each other, and it took a screenshot to notice.** The decorator
 reserved one tile per prop however big the prop was. A mountain is drawn about `size *

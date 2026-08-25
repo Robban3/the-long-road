@@ -36,6 +36,28 @@ namespace Arna.Sim
         /// <summary>The group has noticed the caravan and is attacking.</summary>
         public bool Awake;
 
+        /// <summary>
+        /// The troop group this one is closing on, or null when it is asleep, beaten,
+        /// or the escort is gone and it is going for the wagons.
+        ///
+        /// The combat step picks this every tick and used to throw it away, so the view
+        /// had to guess: it turned every attacker toward the head of the column. A pack
+        /// mauling the rear guard therefore stood side-on to the troops it was biting
+        /// and looked at the wagons instead. Kept here, the picture agrees with the
+        /// fight.
+        /// </summary>
+        public TroopGroup Engaging;
+
+        /// <summary>
+        /// The group is in contact and swinging, rather than still crossing the ground.
+        ///
+        /// Recorded rather than re-derived from distance in the view, which had to
+        /// guess at the engagement slack and got a different answer than the combat
+        /// step did — animals biting a metre before they arrived, or running on the
+        /// spot after they had.
+        /// </summary>
+        public bool Striking;
+
         /// <summary>The player can see the group. Sticky — once seen it stays on the map.</summary>
         public bool Revealed;
 
