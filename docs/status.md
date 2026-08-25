@@ -60,7 +60,7 @@ Tests:
 
 ### Type-checking the C# without Unity
 
-    apt-get install -y mono-mcs
+    apt-get install -y dotnet-sdk-8.0
     ./Tools/csharp/typecheck.sh
 
 `Arna.Sim` is compiled without engine references on purpose and `Arna.Gen` only depends
@@ -68,16 +68,18 @@ on it, so both build with a plain compiler. The EditMode tests build too, agains
 NUnit stand-in beside that script — it asserts nothing and exists only so a test that
 will not compile is caught here rather than by somebody opening the editor.
 
-**Two mono limitations, and the second one has already hidden a real error.** Mono
-cannot parse C# local functions, so four test files are skipped; Unity compiles them
-fine. And mono reports parse errors and then stops, before typing anything — so a file
-it cannot parse masks real errors *everywhere else*. A wrong constructor argument in
-`LevelRunTests` reached a push that way, after a run that looked clean. Hence skipping
-those files rather than tolerating the noise.
+**Roslyn rather than mono, and the reason is worth keeping.** Mono's compiler cannot
+parse C# local functions, which four of the test files use, and it stops at the first
+parse error before typing anything — so a file it could not read masked real errors
+everywhere else. A wrong constructor argument in `LevelRunTests` reached a push that
+way, after a run that reported nothing, and new tests in `CombatTests` were never
+checked at all because that file was one of the skipped four. A tool that quietly
+checks less than it appears to is worse than no tool.
 
-Mono also crashes in its own code generation on the iterator in `DetectionSystem.Query`
-— an IKVM bug, not a project fault. Errors are reported before that, so the script
-greps for `error CS` and the stack trace can be ignored.
+**What it still cannot cover: `View`, `App` and `Editor`.** They use UnityEngine, so
+only the editor builds them, and every compile error that has reached a push today has
+been in one of those three. The most recent was a local named `heading` inside a method
+that already had one — legal in most languages, CS0136 in C#.
 
 The same bug does block producing a runnable exe, which is worth working around,
 because the simulation can then be *run* here and not merely type-checked. Compile a

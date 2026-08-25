@@ -49,6 +49,16 @@ namespace NUnit.Framework
         public static void LessOrEqual(IComparable a, IComparable b, string message = null) { }
         public static void Fail(string message = null) { }
         public static void Pass(string message = null) { }
+        public static void Ignore(string message = null) { }
+        public static void AreSame(object a, object b, string message = null) { }
+        public static void AreNotSame(object a, object b, string message = null) { }
+        public static void IsEmpty(IEnumerable a, string message = null) { }
+        public static void IsNotEmpty(IEnumerable a, string message = null) { }
+        public static void IsEmpty(string a, string message = null) { }
+        public static void Contains(object item, ICollection collection, string message = null) { }
+        public static void IsInstanceOf<T>(object o, string message = null) { }
+        public static void Throws<T>(Action code, string message = null) { }
+        public static void DoesNotThrow(Action code, string message = null) { }
     }
 
     public static class CollectionAssert
@@ -58,5 +68,8 @@ namespace NUnit.Framework
         public static void Contains(IEnumerable a, object item, string message = null) { }
         public static void IsEmpty(IEnumerable a, string message = null) { }
         public static void IsNotEmpty(IEnumerable a, string message = null) { }
+        public static void AllItemsAreUnique(IEnumerable a, string message = null) { }
+        public static void DoesNotContain(IEnumerable a, object item, string message = null) { }
+        public static void AreNotEqual(IEnumerable a, IEnumerable b, string message = null) { }
     }
 }

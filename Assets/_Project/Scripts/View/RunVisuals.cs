@@ -182,12 +182,12 @@ namespace Arna.View
                 // everyone attacked the moment anybody was in contact. Six figures
                 // striking the air in the direction of travel while one wolf worried
                 // the rear is not a fight, it is a formation having a seizure.
-                var heading = group.Engaged
+                var look = group.Engaged
                     ? Aim(group.Position, group.Target.Position, facing)
                     : facing;
 
                 Place(pair.Value, new Vector3(group.Position.X, GroundAt(group.Position), group.Position.Y),
-                      heading);
+                      look);
 
                 Animate(pair.Value, group.Engaged ? 0f : pace, group.Engaged, false);
             }

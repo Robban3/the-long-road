@@ -1,0 +1,34 @@
+<!--
+  Type-checks the engine-independent C# without opening Unity.
+
+  Arna.Sim is compiled without engine references on purpose and Arna.Gen only depends
+  on it, so both build with a plain compiler. The EditMode tests build too, against the
+  NUnit stand-in beside this file — it asserts nothing and exists so a test that will
+  not compile is caught here rather than by somebody opening the editor.
+
+  Roslyn rather than mono. Mono's compiler cannot parse C# local functions, which four
+  of the test files use, and it stops at the first parse error before typing anything —
+  so a file it could not read masked real errors everywhere else, and a wrong argument
+  in one test reached a push after a run that looked clean. This reads all of it.
+
+  View, App and Editor still need Unity: they use UnityEngine.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>1591;1587;1574;0169;0219;0414;8321</NoWarn>
+    <AssemblyName>ArnaTypecheck</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="NUnitShim.cs" />
+    <Compile Include="../../Assets/_Project/Scripts/Sim/**/*.cs" />
+    <Compile Include="../../Assets/_Project/Scripts/Gen/**/*.cs" />
+    <Compile Include="../../Assets/Tests/EditMode/**/*.cs" />
+  </ItemGroup>
+
+</Project>

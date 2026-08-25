@@ -57,3 +57,16 @@ desktop.ini
 
 # Python-verktygen i Tools/
 __pycache__/
+
+# Build output from Tools/csharp/typecheck.sh. The .dll and .obj patterns in
+# .gitattributes send these to Git LFS, so committing them fails the push outright.
+Tools/csharp/bin/
+Tools/csharp/obj/
+
+# Build output from Tools/csharp/typecheck.sh, kept out for a specific reason: the
+# .dll and .obj patterns in .gitattributes send anything matching to Git LFS, and the
+# LFS endpoint is unreachable from some of the environments this is worked on in — so
+# committing build output does not merely add noise, it fails the push outright.
+#
+# Typecheck.csproj itself is force-added: *.csproj above is meant for the ones Unity
+# regenerates inside the project, and this one is a tool that has to be in the repo.
