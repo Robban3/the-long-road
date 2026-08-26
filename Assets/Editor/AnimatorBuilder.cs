@@ -127,18 +127,33 @@ namespace Arna.Editor
         [MenuItem("Arna/Rig For Retargeting")]
         public static void RigForRetargeting()
         {
-            var rigs = new List<string> { ClipSource };
+            var prefabs = AssetDatabase.FindAssets("t:Prefab", new[] { ArmyCharacters });
+
+            if (prefabs.Length == 0)
+            {
+                Debug.LogWarning($"[Arna] No prefabs under {ArmyCharacters}. Either the pack is "
+                                 + "not in this project or that folder is named something else.");
+                return;
+            }
+
+            var rigs = new List<string>();
+            int skinned = 0, boneless = 0;
 
             // The files the characters are actually made of, found through the prefabs
             // rather than listed: a table of prefab-to-FBX would be wrong the first time
             // the pack is updated.
-            foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { ArmyCharacters }))
+            foreach (var guid in prefabs)
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                     AssetDatabase.GUIDToAssetPath(guid));
                 if (prefab == null) continue;
 
-                foreach (var skin in prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                var skins = prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                if (skins.Length == 0) { boneless++; continue; }
+
+                skinned++;
+
+                foreach (var skin in skins)
                 {
                     if (skin.sharedMesh == null) continue;
 
@@ -146,6 +161,29 @@ namespace Arna.Editor
                     if (!string.IsNullOrEmpty(path) && !rigs.Contains(path)) rigs.Add(path);
                 }
             }
+
+            // The finding that decides whether any of this is possible, said before any
+            // of the rest of it.
+            //
+            // A skinned mesh is a mesh bound to a skeleton. A character built without one
+            // is a statue: no bones, so no avatar, so nothing to retarget onto, and no
+            // amount of importer settings will change that. The pack's own description is
+            // careful about this in hindsight — it calls the *bow* fully rigged and never
+            // says the same of the characters.
+            Debug.Log($"[Arna] {prefabs.Length} character prefab(s): {skinned} with a skeleton, "
+                      + $"{boneless} without.");
+
+            if (rigs.Count == 0)
+            {
+                Debug.LogWarning("[Arna] Not one of them is skinned to a skeleton, so they are "
+                                 + "static meshes. There is nothing to animate and nothing to "
+                                 + "retarget onto — no importer setting fixes a model that has "
+                                 + "no bones. The choice is between statues in the new "
+                                 + "silhouettes and the old models that move.");
+                return;
+            }
+
+            rigs.Insert(0, ClipSource);
 
             int changed = 0;
             var broken = new List<string>();
@@ -166,14 +204,21 @@ namespace Arna.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[Arna] {rigs.Count} rig(s) checked, {changed} re-imported as Humanoid. "
-                      + $"The army pack now plays {ArmyController}.");
+            Debug.Log($"[Arna] {rigs.Count} rig(s) checked, {changed} re-imported as Humanoid: "
+                      + $"{string.Join(", ", Names(rigs))}. The army pack plays {ArmyController}.");
 
             if (broken.Count > 0)
                 Debug.LogWarning($"[Arna] Unity could not map these onto a human skeleton: "
-                                 + $"{string.Join(", ", broken)}. They will hold their bind pose "
-                                 + "until the mapping is corrected by hand — select the file, "
+                                 + $"{string.Join(", ", broken)}. They hold their bind pose until "
+                                 + "the mapping is corrected by hand — select the file, "
                                  + "Rig > Configure, and fix whatever is red.");
+        }
+
+        static List<string> Names(List<string> paths)
+        {
+            var names = new List<string>();
+            foreach (string path in paths) names.Add(Path.GetFileNameWithoutExtension(path));
+            return names;
         }
 
         /// <summary>Re-imports a model as a Humanoid rig. Returns whether it had to.</summary>

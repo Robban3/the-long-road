@@ -1339,6 +1339,14 @@ hierarchy, and a rig it cannot read produces an invalid avatar and no error. So 
 is checked afterwards and the failures are named: an invalid one is fixed by hand in Rig >
 Configure, and knowing *which* is most of that work.
 
+**And it can be impossible, which is checked first.** A skinned mesh is a mesh bound to a
+skeleton; a character built without one is a statue. No bones, so no avatar, so nothing to
+retarget onto — and no importer setting fixes a model that has none. The tool counts how
+many of the 52 prefabs carry a skeleton before it changes anything, and says so, because
+that number decides whether the rest is worth doing. The pack's own description is careful
+about this in hindsight: it calls the *bow* fully rigged and never says the same of the
+characters.
+
 ### Finding the army pack's animation, or proving it has none
 
 `Build` reads clips out of one FBX, which is right for every pack here that ships a model
