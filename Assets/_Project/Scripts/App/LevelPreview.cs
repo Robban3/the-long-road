@@ -185,8 +185,17 @@ namespace Arna.App
         Color[] _shown;
         Mesh _overlay;
 
-        /// <summary>Every prop, filed under the tile it stands on, so a reveal is a lookup.</summary>
-        Dictionary<int, List<Transform>> _propsByTile;
+        /// <summary>
+        /// Every prop's renderers, filed under the tile the prop stands on.
+        ///
+        /// Renderers rather than transforms, and gathered once while the fog goes on.
+        /// A reveal repaints a tile's neighbourhood, a neighbourhood is twenty-five
+        /// tiles, and dozens of tiles come due in a frame — walking each prop's
+        /// hierarchy again for every one of those is a few thousand searches and a few
+        /// thousand allocations per frame, on the editor thread, in the scene that was
+        /// already the slow one.
+        /// </summary>
+        Dictionary<int, List<Renderer>> _propsByTile;
 
         /// <summary>
         /// Metres flown, per tile, at the moment the bird is nearest to it — or -1 for
@@ -265,13 +274,16 @@ namespace Arna.App
         double _ticked;
 
         /// <summary>
-        /// The longest step that is taken as a step rather than as a hitch.
+        /// The most one frame is allowed to move her, in seconds.
         ///
         /// A tenth of a second. The bird travels at 40 m/s, so a gap of that length is
-        /// already four metres of sky; anything longer is the editor having gone off to
-        /// do something else, and advancing by it would teleport her rather than move
-        /// her. Dropped instead — a frame not taken looks like nothing, a frame worth
-        /// half a second of flight looks like a fault.
+        /// already four metres of sky, and advancing her by a gap of thirty seconds —
+        /// which is what an editor coming back from a recompile hands over — would
+        /// teleport her rather than move her.
+        ///
+        /// A ceiling rather than a rejection. Rejecting long frames looked reasonable
+        /// and was not: this scene is heavy enough that most frames are long, so almost
+        /// every one was thrown away and the flight barely advanced at all.
         /// </summary>
         const double MaxTick = 0.1;
 
@@ -296,8 +308,18 @@ namespace Arna.App
                 double since = now - _ticked;
                 _ticked = now;
 
-                // The first tick has nothing to measure from, and a hitch is not a step.
-                return since <= 0d || since > MaxTick ? 0f : (float)since;
+                // Clamped, not dropped, and the difference is the whole of whether this
+                // works. The preview scene carries six thousand props and the editor
+                // redraws all of it every tick, so a frame here can easily take longer
+                // than the cap — and dropping those meant dropping nearly all of them.
+                // The bird crawled, the fog crept forward on the occasional fast frame,
+                // and the map came out green in patches.
+                //
+                // Clamping slows playback on a slow machine instead of stalling it. The
+                // first tick still has nothing to measure from.
+                if (since <= 0d) return 0f;
+
+                return (float)(since > MaxTick ? MaxTick : since);
             }
 #endif
             return deltaTime;
@@ -336,7 +358,17 @@ namespace Arna.App
 
             float before = _flown;
             _flown = Mathf.Repeat(_flown + deltaTime * ScoutingAbility.Speed, _flightLength);
-            if (_flown < before) _lapped = true;
+
+            if (_flown < before && !_lapped)
+            {
+                _lapped = true;
+
+                // The one moment worth a line: from here the fog should be off every
+                // tile the flight covers, and "should" is a thing that can be checked.
+                Debug.Log($"[Arna] The eagle has flown the whole flight. Coverage "
+                          + $"{_flight.Coverage} tiles of {_grid.TileCount}; the fog is off "
+                          + $"{_revealed.Count} so far and lifts off the rest this frame.");
+            }
 
             // Walked by distance, not by index. Linear from the start each frame: the
             // path is a couple of hundred points and this runs once, which is cheaper
@@ -483,9 +515,8 @@ namespace Arna.App
 
             // Filed by tile on the way past, because a reveal has to find the props on
             // one tile out of four thousand and cannot walk six thousand props to do it.
-            _propsByTile = new Dictionary<int, List<Transform>>();
+            _propsByTile = new Dictionary<int, List<Renderer>>();
 
-            var block = new MaterialPropertyBlock();
             var shade = new Color(PlanningOverlay.PropLight, PlanningOverlay.PropLight,
                                   PlanningOverlay.PropLight, 1f);
 
@@ -495,21 +526,23 @@ namespace Arna.App
                 int x = Mathf.FloorToInt(at.x / TileGrid.TileSize);
                 int y = Mathf.FloorToInt(at.z / TileGrid.TileSize);
 
+                List<Renderer> standing = null;
+
                 if (map.Grid.InBounds(x, y))
                 {
                     int tile = map.Grid.ToIndex(x, y);
 
-                    if (!_propsByTile.TryGetValue(tile, out var standing))
-                        _propsByTile[tile] = standing = new List<Transform>();
-
-                    standing.Add(prop);
+                    if (!_propsByTile.TryGetValue(tile, out standing))
+                        _propsByTile[tile] = standing = new List<Renderer>();
                 }
 
                 foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
                 {
-                    renderer.GetPropertyBlock(block);
-                    block.SetColor(BaseColor, shade);
-                    renderer.SetPropertyBlock(block);
+                    standing?.Add(renderer);
+
+                    renderer.GetPropertyBlock(_block);
+                    _block.SetColor(BaseColor, shade);
+                    renderer.SetPropertyBlock(_block);
                 }
             }
         }
@@ -641,19 +674,20 @@ namespace Arna.App
             float light = Mathf.Lerp(PlanningOverlay.PropLight, 1f, clarity);
             var shade = new Color(light, light, light, 1f);
 
-            foreach (var prop in standing)
-                foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
-                {
-                    if (clear)
-                    {
-                        renderer.SetPropertyBlock(null);
-                        continue;
-                    }
+            foreach (var renderer in standing)
+            {
+                if (renderer == null) continue;
 
-                    renderer.GetPropertyBlock(_block);
-                    _block.SetColor(BaseColor, shade);
-                    renderer.SetPropertyBlock(_block);
+                if (clear)
+                {
+                    renderer.SetPropertyBlock(null);
+                    continue;
                 }
+
+                renderer.GetPropertyBlock(_block);
+                _block.SetColor(BaseColor, shade);
+                renderer.SetPropertyBlock(_block);
+            }
         }
 
         static readonly int BaseColor = Shader.PropertyToID("_BaseColor");

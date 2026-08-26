@@ -820,6 +820,11 @@ Clarity only ever rises, and that is what makes it cheap. Each neighbour keeps t
 claim anything has made on it, so a reveal costs a fixed twenty-five tiles rather than a
 blur over the whole map every frame.
 
+Props are filed by tile as **renderers**, gathered once while the fog goes on. A reveal
+repaints twenty-five tiles and dozens of tiles come due per frame; walking each prop's
+hierarchy again for every one of those is thousands of searches and thousands of
+allocations per frame, on the editor thread, in the scene that was already the slow one.
+
 The enemy marks follow the same rule and the crows do not. A group is drawn where she
 found it; the crows are free and always visible, which is the whole distinction the
 design rests on (docs/GDD.md §3.4, §3.6).
@@ -894,11 +899,13 @@ lurches while the editor is keeping up perfectly well* — and it hid behind the
 beating, because a gliding bird shows judder far less than a flapping one does.
 
 `Elapsed` reads `EditorApplication.timeSinceStartup` instead, which is a real clock and
-the one thing in the editor that can be trusted to say how long something took. A gap
-longer than `MaxTick = 0.1 s` is dropped rather than stepped: the bird flies at 40 m/s, so
-a tenth of a second is already four metres of sky and anything longer is the editor having
-gone off to do something else. A frame not taken looks like nothing; a frame worth half a
-second of flight looks like a fault.
+the one thing in the editor that can be trusted to say how long something took. A frame
+longer than `MaxTick = 0.1 s` is **clamped to it, not thrown away**, and that distinction
+cost a round on its own: rejecting long frames looked reasonable, but this scene carries
+six thousand props and the editor redraws all of it every tick, so most frames *are*
+long. Nearly every one was rejected, the bird crawled, and the fog lifted in patches on
+whichever frames happened to be quick. A ceiling slows playback on a slow machine;
+a rejection stops it.
 
 Anything else `[ExecuteAlways]` ever animates in the preview has to go through the same
 function. This is not specific to the eagle.
