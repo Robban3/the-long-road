@@ -732,6 +732,45 @@ The general shape of this mistake is worth naming, because it is the second one 
 week. A constant tuned as a *product* breaks silently when either factor moves, and
 nothing fails — it just looks slightly wrong in a way nobody can point at.
 
+### The caravan is three vehicles
+
+`3DreaMax Studio/003_MDVL_WagonsCartsCarriages_Vol_1`. Ten vehicles, each shipped as
+loose parts and one assembled `_Full` prefab; this game wants the assembled ones.
+
+| Role | Prefab | What it looks like from above |
+|---|---|---|
+| Supply | `SM_Supply_Wagon_Full` | Barrels roped to an open bed |
+| War | `SM_War_Wagon_Full` | Shields down both sides |
+| Treasure | `SM_Covered_Wagon_Full` | A canvas hood |
+
+This is what the pack was bought for. `WagonFor` promised three vehicles while the code
+had two — supply and war were one model in different colours, and colour is the first
+thing a moving object loses against a hillside in shadow. The player has to be able to
+tell at a glance which one the bandits are converging on (docs/GDD.md §5), and three
+silhouettes do that where three tints do not.
+
+**The treasure wagon is the arguable one.** `SM_Merchant_Cart_Full` was the other
+candidate and it is a market stall — table cloth, plates, a mug — which reads as
+somewhere a caravan stops rather than as part of one. `SM_Royal_Carriage_Full` looks the
+most valuable and is a passenger coach; a caravan hauling loot uses a covered wagon.
+
+The improvised wagons are deleted with the rest of the old kit: `Wagon.fbx` and
+`WagonTreasure.fbx` were a crate on wheels made before there were any carts. If a role
+ever goes unfilled, `RunVisuals` still assembles one out of a crate and a barrel, which
+is the fallback that was always underneath that one.
+
+**The trap tell is finally what the reference shows.** That reference is a battle map
+called *Övergiven Väg*, and what says so in it is wrecked wagons among the bones — not
+masonry. Masonry means somebody built here; a cart left in a field means somebody died
+here. `Ruins` mixes the pack's hay cart and peasant handcart with Synty's skeleton,
+dropped chest, grave and dead fire. The carts are the same kind of vehicle the player is
+escorting, which is the whole of what the signal says.
+
+**Not yet done: the textures.** The pack ships 2K and 4K PBR, which is not the flat-atlas
+look the rest of the world is drawn in. Two import settings close most of that gap —
+textures down to 1K, smoothness low. What gives a photoreal asset away beside a stylized
+one at forty-six metres is the gloss and the normal map, not the model.
+
 ### What is still to come
 
 Everything under `Assets/Quaternius` is being replaced by three purchased packs:

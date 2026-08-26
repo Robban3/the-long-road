@@ -216,16 +216,28 @@ namespace Arna.Editor
                 Eagle = Actor("Assets/ThirdParty/Eagle/Eagle_B1.Fbx",
                               animator: "Assets/_Project/Animation/Eagle_B1.controller"),
 
-                // The fallback vehicle, used for any role that has no model of its own.
-                Wagon = One("Assets/_Project/Models/Wagon.fbx"),
+                // No general fallback vehicle any more. The improvised wagons that
+                // stood here — Wagon.fbx and WagonTreasure.fbx, a crate on wheels made
+                // before there were any carts — are deleted with the rest of the old
+                // kit. If a role ever goes unfilled, RunVisuals still assembles a cart
+                // out of the crate and barrel below, which is the fallback that was
+                // always underneath this one.
 
-                // One per role. Supply and War still fall through to the model above —
-                // the wagon pack is imported but its prefab paths are not known here, and
-                // a guessed path loads nothing and says nothing (see Load). Three lines
-                // when the folder listing arrives.
-                WagonSupply = null,
-                WagonWar = null,
-                WagonTreasure = One("Assets/_Project/Models/WagonTreasure.fbx"),
+                // One per role, and three silhouettes that cannot be confused from above.
+                //
+                // This is what the wagon pack was bought for (docs/status.md §8): the
+                // supply, war and treasure wagons being three vehicles rather than one
+                // model in three colours. Colour is the first thing a moving object loses
+                // against a hillside in shadow, and the player has to be able to tell at
+                // a glance which one the bandits are converging on (docs/GDD.md §5).
+                //
+                // Barrels roped to an open bed; shields down both sides; a canvas hood.
+                // The merchant's cart was the other candidate for the treasure and it is
+                // a market stall — table cloth, plates, a mug — which reads as somewhere
+                // a caravan stops rather than as part of one.
+                WagonSupply = One($"{WagonDir}/Supply_Wagon/SM_Supply_Wagon_Full.prefab"),
+                WagonWar = One($"{WagonDir}/War_Wagon/SM_War_Wagon_Full.prefab"),
+                WagonTreasure = One($"{WagonDir}/Covered_Wagon/SM_Covered_Wagon_Full.prefab"),
                 // Off the RTS kit and onto Synty with everything else. These are the
                 // improvised wagon — a crate on wheels — and it is a fallback for when
                 // no cart model is loaded, so it still has to match the world it stands
@@ -434,9 +446,23 @@ namespace Arna.Editor
                 // a wrecked cart, bones, a dropped chest. The old marker was one cart
                 // model borrowed from a village pack. Nothing about a wreck should look
                 // tidy, so the set is deliberately mixed.
-                Ruins = Synty("Props", "SM_Prop_Skeleton_Ground_01", "SM_Prop_Chest_Wood_01",
-                              "SM_Prop_Grave_03", "SM_Prop_CampFire_01",
-                              "SM_Prop_Pillar_Broken_01", "SM_Prop_Pillar_Arch_Broken_01"),
+                // The trap tell, and it is finally the thing the reference picture shows:
+                // a cart left where it stopped. That reference is a battle map called
+                // Övergiven Väg — an abandoned road — and what says so in it is wrecked
+                // wagons among the bones, not masonry. Masonry means somebody built
+                // here; a cart in a field means somebody died here.
+                //
+                // Mixed from both packs on purpose. A wreck is the one place tidiness
+                // would be wrong, and the carts are the same kind of vehicle the player
+                // is escorting — which is the whole of what the signal says.
+                Ruins = Mixed(
+                    Load($"{WagonDir}/Hay_Cart", new[] { "SM_Hay_Cart_Full" }),
+                    Load($"{WagonDir}/Peasant_Handcart", new[] { "SM_Peasant_Handcart_Full" }),
+                    Load($"{SyntyNatureDir}/Props", new[]
+                    {
+                        "SM_Prop_Skeleton_Ground_01", "SM_Prop_Chest_Wood_01",
+                        "SM_Prop_Grave_03", "SM_Prop_CampFire_01"
+                    })),
 
                 // Bare earth, gravel and worn grass, laid flat on the ground.
                 //
@@ -496,6 +522,19 @@ namespace Arna.Editor
         /// surfaces, riverbanks and slopes, none of which PolygonNature has at all.
         /// </summary>
         const string SyntyGenericDir = "Assets/Synty/PolygonGeneric/Prefabs";
+
+        /// <summary>
+        /// Medieval Wagons, Carts &amp; Carriages Vol. 1. Ten vehicles, each shipped as
+        /// loose parts and one assembled `_Full` prefab; this game wants the assembled
+        /// ones and nothing else.
+        ///
+        /// It ships 2K and 4K PBR textures, which is not the flat-atlas look the rest of
+        /// the world is drawn in. Two import settings close most of that gap — textures
+        /// down to 1K, smoothness low — and what gives a photoreal asset away beside a
+        /// stylized one at forty-six metres is the gloss and the normal map, not the
+        /// model. Not yet done.
+        /// </summary>
+        const string WagonDir = "Assets/3DreaMax Studio/003_MDVL_WagonsCartsCarriages_Vol_1/Prefabs";
 
         static PropSet Generic(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyGenericDir}/{group}", names));
