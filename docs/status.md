@@ -729,6 +729,26 @@ holds its bind pose while it moves, which looks like the flight being wrong. `Le
 now warns. The likely cause is that `Build Animator Controllers` never got to twelve of
 twelve: that summary was asked for and never came back.
 
+### The trap that produced three false bug reports
+
+`Decor` and `Models` are **serialized fields on components in the scene**. Pulling code
+changes `LoadForestDecor` and `LoadModels`; it does not change what a saved scene already
+holds, and nothing says so. The change is there in the diff and absent on screen, which
+is the most expensive kind of wrong: a wagon that would not grow, lilypads that would not
+shrink, a forest that stayed the old pack's.
+
+`Setup Project` and `Set Up Play Scene` fix it by building a scene from scratch — and
+throw away anything set by hand in the inspector along with it.
+
+`Arna > Refresh Scene Assets` does the same wiring in place, and prints what it wired:
+the wagon height in use and the marsh plants by name. "It did not change" becomes a thing
+that can be checked rather than believed.
+
+Two of the three reports also needed nothing but a `git pull`. Wagon height is a `const`
+read at runtime, so it applies on Play with no rebuild at all; the lilypads live in the
+serialized decor and need the refresh. Different requirements, one symptom — which is
+exactly why the log matters more than the fix.
+
 ### The ground
 
 The terrain is one shader — a vertex colour per type with a grain texture over it — which

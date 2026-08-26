@@ -1689,6 +1689,81 @@ namespace Arna.Editor
         }
 
         /// <summary>
+        /// Re-wires the open scene's model and scenery libraries from code, without
+        /// rebuilding the scene: `Arna > Refresh Scene Assets`.
+        ///
+        /// This exists because of a trap that has now produced three false bug reports
+        /// in a row — a wagon that would not grow, lilypads that would not shrink, a
+        /// forest that stayed the old pack's. `Decor` and `Models` are *serialized
+        /// fields on components in the scene*. Pulling code changes `LoadForestDecor`
+        /// and `LoadModels`; it does not change what a saved scene already holds, and
+        /// nothing says so. The change looks applied in the diff and absent on screen.
+        ///
+        /// `Setup Project` and `Set Up Play Scene` fix it by building a scene from
+        /// scratch, which also throws away whatever was set by hand in the inspector.
+        /// This does the same wiring in place, and prints what it wired so "it did not
+        /// change" becomes a thing that can be checked rather than believed.
+        /// </summary>
+        [MenuItem("Arna/Refresh Scene Assets")]
+        public static void RefreshSceneAssets()
+        {
+            int touched = 0;
+
+            foreach (var runner in UnityEngine.Object.FindObjectsByType<LevelRunner>(
+                         FindObjectsSortMode.None))
+            {
+                runner.Models = LoadModels();
+                runner.Decor = LoadForestDecor();
+                EditorUtility.SetDirty(runner);
+                touched++;
+
+                Debug.Log($"[Arna] {runner.name}: wagons at {VisualLibrary.WagonHeight:0.0} m — "
+                          + $"{Describe(runner.Models.WagonSupply)}, "
+                          + $"{Describe(runner.Models.WagonWar)}, "
+                          + $"{Describe(runner.Models.WagonTreasure)}. "
+                          + $"Marsh plants: {Names(runner.Decor.MarshPlants)}");
+            }
+
+            foreach (var preview in UnityEngine.Object.FindObjectsByType<LevelPreview>(
+                         FindObjectsSortMode.None))
+            {
+                preview.Models = LoadModels();
+                preview.Decor = LoadForestDecor();
+                preview.Rebuild();
+                EditorUtility.SetDirty(preview);
+                touched++;
+
+                Debug.Log($"[Arna] {preview.name}: marsh plants {Names(preview.Decor.MarshPlants)}");
+            }
+
+            if (touched == 0)
+            {
+                Debug.LogWarning("[Arna] No LevelRunner or LevelPreview in the open scene. "
+                                 + "Open PlayLevel or LevelPreview first.");
+                return;
+            }
+
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            EditorSceneManager.SaveOpenScenes();
+
+            Debug.Log($"[Arna] Refreshed {touched} component(s) and saved the scene.");
+        }
+
+        static string Describe(GameObject prefab) => prefab == null ? "—" : prefab.name;
+
+        /// <summary>What a set actually holds, which is the thing worth printing.</summary>
+        static string Names(PropSet set)
+        {
+            if (set == null || !set.Any) return "none";
+
+            var names = new List<string>();
+            foreach (var model in set.Models)
+                if (model != null && !names.Contains(model.name)) names.Add(model.name);
+
+            return string.Join(", ", names);
+        }
+
+        /// <summary>
         /// Builds a material out of the loose textures lying beside a model, and gives it
         /// to the model: `Arna > Wire Loose Textures`, `-arnaModelDir &lt;path&gt;`.
         ///
