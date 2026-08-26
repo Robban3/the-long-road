@@ -775,6 +775,10 @@ namespace Arna.Editor
             var preview = terrainGo.AddComponent<LevelPreview>();
             preview.Decor = LoadForestDecor();
 
+            // The cast, for the eagle. The plan draws one actor and only one: the bird
+            // flying the scouting ability's own flight over the ground it scouts.
+            preview.Models = LoadModels();
+
             preview.RouteMaterial = EnsureRouteMaterial();
             preview.Rebuild();
 

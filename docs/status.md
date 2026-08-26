@@ -844,11 +844,37 @@ name lists, so the same loop answers for Speed 0 and Speed 12, and nothing that 
 real idle can lose it to a flight clip.
 
 The bird belongs to the planning map (GDD §3.6) and **is not drawn during a run** —
-`RunVisuals` never spawns it. It is wired into `VisualLibrary` and the actor-fit report
-so that scale and facing are settled now rather than on the day the planning screen is
-built. The opacity map means the feathers are almost certainly cut out of flat
-geometry, so the material will need Alpha Clipping in URP; untested until something
-renders it.
+`RunVisuals` never spawns it. The opacity map means the feathers are almost certainly
+cut out of flat geometry, so the material will need Alpha Clipping in URP; untested
+until something renders it.
+
+**She flies now.** `LevelPreview` is the planning map in Unity — a top-down render of
+the real world — which is exactly what the eagle is flown over, so that is where she
+went. The path is `ScoutingAbility.Fly(map)`, the same call the game makes when the
+ability is bought: what the plan shows is the flight the level actually has, seeded off
+the map. A bird flying a path invented in the view would be decoration that contradicts
+the game.
+
+Two things had to be got right and neither was obvious.
+
+**The flight is walked by distance, not by index.** `ScoutFlight` samples a Catmull-Rom
+at fixed *parameter* steps, and a curve sampled by parameter is sampled unevenly by
+length — tight turns bunch the points up. Stepping it by index at a constant speed has
+the bird dawdle through the corners and bolt down the straights, which is precisely
+backwards. `LevelPreview` precomputes the distance to each point and walks that.
+
+**The altitude is where the animal is, not where the lowest feather is.** `ShowActor`
+stands a model's feet on the ground it is given, which is right for everything that
+walks and wrong for a bird.
+
+It is driven from `Update` and the animator is stepped by hand, because the component is
+`[ExecuteAlways]`: the plan is looked at in the editor far more often than it is played,
+and a bird that only moves in play mode is a bird nobody sees.
+
+What it does **not** do is lift the overlay. `ScoutFlight` returns the tiles and the
+groups it found; this reads only the path, because the Unity plan has no overlay to lift.
+That is a separate piece, and pretending otherwise would put a bird over a map it is not
+actually scouting.
 
 ### The crow and animal packs, as imported
 
