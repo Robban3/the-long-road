@@ -357,6 +357,17 @@ namespace Arna.View
             { TerrainType.Forest, 0.07f }
         };
 
+        /// <summary>
+        /// How tall a prop has to be before the caravan's line refuses it, in metres.
+        ///
+        /// Two, which sorts the table cleanly: a rock is 2.2 and a boulder 5.5 and a tree
+        /// 7 to 8.5, and all of them are things a loaded wagon goes round. A bush is 1.9
+        /// and grass is 0.7, and both are things it goes over. Nothing here is a guess
+        /// about wheels — it is the same list of sizes the scatter already uses, read for
+        /// what it means.
+        /// </summary>
+        public const float DriveClearance = 2f;
+
         /// <summary>Stones along the water's edge, measured across rather than up.</summary>
         public const float ShoreStoneSize = 2.2f;
         public const int MaxShoreStones = 1600;
@@ -427,12 +438,17 @@ namespace Arna.View
                                    float heightScale = 0f, int maxProps = 600,
                                    float densityScale = 1f,
                                    IReadOnlyCollection<int> ruinSites = null,
-                                   bool horizon = true)
+                                   bool horizon = true,
+                                   IReadOnlyCollection<int> driveLine = null)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
             var rng = new DeterministicRandom(seed ^ 0x5EED10);
             var clear = keepClear == null ? null : new HashSet<int>(keepClear);
+
+            // A set, not the list it arrives as. IReadOnlyCollection has no Contains
+            // worth the name, and this is asked once per prop on every tile of the map.
+            var road = driveLine == null ? null : new HashSet<int>(driveLine);
             int placed = 0;
 
             // Landmarks first, and the tiles they take are then off limits to the
@@ -462,6 +478,20 @@ namespace Arna.View
                     var choice = Pick(decor, terrain, passRng);
                     if (choice.Prefab == null) continue;
                     if (IsBulky(terrain, choice) != bulky) continue;
+
+                    // Nothing the wagons would drive through, on the ground the wagons
+                    // drive over.
+                    //
+                    // Not the same as keeping the line clear, and the difference is the
+                    // whole reason this is a second parameter. `keepClear` empties a tile
+                    // and thins its grass, which draws the route as a swept lane through
+                    // the forest — the thing the corridor version was turned off for.
+                    // This refuses only what a wheel cannot roll over: the grass, the
+                    // flowers, the bushes and the loose stones all stay, so the ground
+                    // still reads as untouched country and the caravan stops passing
+                    // through boulders.
+                    if (road != null && choice.Size >= DriveClearance && road.Contains(i))
+                        continue;
 
                     if (Scatter(parent, grid, passRng, choice, i, heightScale, spread: 1.4f, occupied))
                         placed++;

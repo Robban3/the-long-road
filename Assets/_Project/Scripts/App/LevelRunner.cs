@@ -130,10 +130,14 @@ namespace Arna.App
             _markerRoot = new GameObject("Markers").transform;
             _markerRoot.SetParent(transform, false);
 
-            // Nothing is kept clear here — there is no line to bury, and a forest
-            // should look like a forest.
+            // Nothing is kept *clear* — there is no line to bury, and a forest should
+            // look like a forest. But nothing stands in the wagons' way either: the
+            // route refuses anything two metres or taller, so the grass, flowers,
+            // bushes and loose stones stay where they fall and the boulders and trees
+            // do not stand in the road. See TerrainDecorator.DriveClearance.
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
-                keepClear: null, heightScale: HeightScale, maxProps: MaxProps);
+                keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
+                driveLine: corridor.Tiles);
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
             _visuals.Build(_run);

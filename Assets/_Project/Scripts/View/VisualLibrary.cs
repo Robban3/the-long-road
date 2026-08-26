@@ -252,8 +252,20 @@ namespace Arna.View
         /// </summary>
         public const float WolfHeight = 0.95f;
 
-        /// <summary>Height of a wagon to the top of its hood.</summary>
-        public const float WagonHeight = 2.5f;
+        /// <summary>
+        /// Height of a wagon to the top of its hood.
+        ///
+        /// 3.2 rather than 2.5, and the measure that settles it is the man walking beside
+        /// it. A troop is 1.85 m, so at 2.5 a wagon stood 1.35 times a man — which is a
+        /// handcart, not a vehicle hauling three hundred and fifty silver. At 3.2 it is
+        /// 1.7 times a man, and the column becomes the largest thing on the ground, which
+        /// is what the player is meant to be watching.
+        ///
+        /// It has room to grow into: the wagons trail eight metres apart
+        /// (<see cref="Arna.Sim.Caravan.WagonSpacing"/>), and a covered wagon fitted to
+        /// 3.2 m is about six and a half long.
+        /// </summary>
+        public const float WagonHeight = 3.2f;
 
         /// <summary>
         /// Wingspan in metres, and deliberately not a golden eagle's.

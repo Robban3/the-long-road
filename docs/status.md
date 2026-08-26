@@ -766,6 +766,30 @@ here. `Ruins` mixes the pack's hay cart and peasant handcart with Synty's skelet
 dropped chest, grave and dead fire. The carts are the same kind of vehicle the player is
 escorting, which is the whole of what the signal says.
 
+**The wagons stand 3.2 m rather than 2.5**, and the measure that settles it is the man
+walking beside one. A troop is 1.85 m, so at 2.5 a wagon was 1.35 times a man — a
+handcart, not a vehicle hauling three hundred and fifty silver. At 3.2 it is 1.7 times a
+man and the column is the largest thing on the ground, which is what the player is meant
+to be watching. There is room: the wagons trail 8 m apart and a covered wagon fitted to
+3.2 m is about six and a half long.
+
+**Colliders would not have fixed the caravan driving through boulders.** Nothing drives
+the caravan physically — the simulation computes a position and `RunVisuals` assigns it
+to a transform, so a collider on a rock has nothing to push against. What fixes it is
+not putting the rock there.
+
+`Decorate` takes a `driveLine` now, and it is deliberately *not* `keepClear`. `keepClear`
+empties a tile and thins its grass, which draws the route as a swept lane through the
+forest — the thing corridor-clearing was turned off for. The drive line refuses only what
+a wheel cannot roll over: at or above `DriveClearance`, which is 2 m. That sorts the
+existing size table cleanly without a single new guess — a rock is 2.2, a boulder 5.5, a
+tree 7 to 8.5, all things a loaded wagon goes round; a bush is 1.9 and grass 0.7, both
+things it goes over. The ground still reads as untouched country.
+
+One caveat worth keeping: props are scattered up to 1.4 m from their tile's centre, so
+something on a tile *beside* the line can still drift into it. Widening the line to the
+neighbouring tiles would catch those and would start to look like a road.
+
 **Not yet done: the textures.** The pack ships 2K and 4K PBR, which is not the flat-atlas
 look the rest of the world is drawn in. Two import settings close most of that gap —
 textures down to 1K, smoothness low. What gives a photoreal asset away beside a stylized
