@@ -203,6 +203,21 @@ namespace Arna.Sim
         public Vec2 LeadPosition => PositionAt(_distance);
 
         /// <summary>
+        /// The middle of the column: halfway between the lead wagon and the last one.
+        ///
+        /// Here rather than at the call site, and that is the whole point of it. There
+        /// are **two distance origins** in this class and they are 40 m apart:
+        /// <see cref="DistanceTravelled"/> counts from the start line, because that is
+        /// what the game reports, while <see cref="PositionAt"/> counts along the whole
+        /// path including the run-up behind it. Subtracting half a column from the first
+        /// and handing the result to the second aims the camera fifty-five metres behind
+        /// the caravan — which is exactly what happened, and looked like the camera
+        /// lagging rather than like a unit error.
+        /// </summary>
+        public Vec2 ColumnCentre =>
+            PositionAt(_distance - (_wagons.Length - 1) * WagonSpacing * 0.5f);
+
+        /// <summary>
         /// Unit vector along the route. The formation rotates with it, so the van is
         /// always the front whichever way the road happens to run.
         /// </summary>

@@ -192,6 +192,44 @@ namespace Arna.View
         /// Any that is left unset falls back to <see cref="Wagon"/>, so a pack with
         /// fewer vehicles than this game has roles still produces a caravan.
         /// </summary>
+        /// <summary>
+        /// How far in front of each cart's own measured front its team stands, in metres.
+        ///
+        /// **Three numbers rather than one, because the three carts are not built alike.**
+        /// The front is measured off the model, so a cart with a drawbar modelled on it
+        /// measures out to the end of that bar — which is where the horses are *already*
+        /// meant to stand. Adding a pole to that puts them a pole further on, and the
+        /// covered wagon has a bar where the supply wagon has a bed edge. One constant
+        /// could only ever be right for one of them.
+        ///
+        /// Serialized, so they can be dragged in the inspector against the thing on
+        /// screen instead of guessed at from here and pushed back and forth. The build
+        /// log prints what each one came out as.
+        /// </summary>
+        [Header("Harness")]
+        public float HitchSupply = 0.75f;
+
+        /// <summary>The war wagon's. See <see cref="HitchSupply"/>.</summary>
+        public float HitchWar = 0.75f;
+
+        /// <summary>
+        /// The covered wagon's, and the smallest of the three: this is the one whose
+        /// drawbar is part of the model, so its measured front already reaches most of
+        /// the way to the collar.
+        /// </summary>
+        public float HitchTreasure = 0.1f;
+
+        /// <summary>The hitch distance for one kind of wagon.</summary>
+        public float HitchFor(WagonKind kind)
+        {
+            switch (kind)
+            {
+                case WagonKind.Treasure: return HitchTreasure;
+                case WagonKind.War: return HitchWar;
+                default: return HitchSupply;
+            }
+        }
+
         public GameObject WagonSupply;
 
         /// <summary>The merchant's wagon, distinct so the loot is identifiable on sight.</summary>

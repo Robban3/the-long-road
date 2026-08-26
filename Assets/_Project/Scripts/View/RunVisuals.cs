@@ -173,7 +173,7 @@ namespace Arna.View
                 // rather than on its axle. The wagon itself is what gets moved about,
                 // so the correction has to live in the cart underneath it.
                 cart.localPosition = new Vector3(0f, Standing(cart, Vector3.zero).y, 0f);
-                Harness(wagon, cart);
+                Harness(wagon, cart, kind);
                 return wagon;
             }
 
@@ -201,7 +201,7 @@ namespace Arna.View
                 Tint(wheel.transform, new Color(0.28f, 0.20f, 0.14f));
             }
 
-            Harness(wagon, body);
+            Harness(wagon, body, kind);
             return wagon;
         }
 
@@ -223,18 +223,6 @@ namespace Arna.View
         const float HorseGap = 0.25f;
 
         /// <summary>
-        /// The draught pole: how far the horses' tails clear the cart's front.
-        ///
-        /// Three quarters of a metre. It was two, which is what a pole *is* — but a pole
-        /// runs between the horses and under them, and the traces attach at the collar,
-        /// so what stands clear behind the animals is the swingletree and very little
-        /// else. Two metres of daylight plus a horse measured off a galloping bind pose
-        /// put the team a good five metres in front of the cart, which is not a caravan;
-        /// it is two things travelling in the same direction. The escort walked into the
-        /// gap, which is how it got noticed.
-        /// </summary>
-        const float Harnessed = 0.75f;
-
         /// <summary>
         /// Puts a pair of horses in front of a cart.
         ///
@@ -265,9 +253,14 @@ namespace Arna.View
         readonly List<float> _reach = new List<float>();
         readonly List<float> _rear = new List<float>();
 
-        void Harness(Transform wagon, Transform cart)
+        void Harness(Transform wagon, Transform cart, WagonKind kind)
         {
             if (!Library.Mounted.HasModel) return;
+
+            // Per kind, because the carts are not built alike: one measures out to the
+            // end of a modelled drawbar and another to the edge of its bed. See
+            // VisualLibrary.HitchSupply.
+            float hitch = Library.HitchFor(kind);
 
             // Measured off the cart rather than assumed from its height: the packs put a
             // hay cart and a covered wagon at the same 3.2 m and they are not remotely
@@ -276,6 +269,13 @@ namespace Arna.View
 
             float front = box.max.z - wagon.position.z;
             _rear.Add(wagon.position.z - box.min.z);
+
+            // Printed per wagon, because this is the one measurement in the caravan that
+            // comes from a model rather than from a table, and three models disagree
+            // about it.
+            Debug.Log($"[Arna] {kind} wagon: {cart.name} reaches {front:0.0} m forward and "
+                      + $"{_rear[_rear.Count - 1]:0.0} m back from its centre; hitch {hitch:0.00} m, "
+                      + $"so the team's tails stand at {front + hitch:0.0} m.");
 
             for (int i = 0; i < 2; i++)
             {
@@ -294,7 +294,7 @@ namespace Arna.View
                 horse.localPosition = new Vector3(
                     i == 0 ? -spread : spread,
                     Standing(horse, Vector3.zero).y,
-                    front + Harnessed + VisualLibrary.DraughtHorseLength * 0.5f);
+                    front + hitch + VisualLibrary.DraughtHorseLength * 0.5f);
 
                 _draught.Add(horse);
 

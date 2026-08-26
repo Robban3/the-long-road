@@ -1156,6 +1156,13 @@ down at it.*
 
 Range is the slant distance, so raising the angle at a fixed range moves the camera closer
 to the column *and* higher above it at once — which is exactly the trade being asked for.
+
+**And `Caravan.ColumnCentre` does that arithmetic, not the camera.** There are two distance
+origins in `Caravan` and they are a run-up apart: `DistanceTravelled` counts from the start
+line because that is what the game reports, while `PositionAt` counts along the whole path
+including the 40 m behind it. Subtracting half a column from the first and handing the
+result to the second aimed the camera fifty-five metres behind the caravan — which looks
+like the camera lagging, not like a unit error. A test holds it now.
 A drag still moves the angle: it is kept as a **trim on top of the curve** rather than
 replacing it, so a player who has tilted the camera keeps that tilt through a pinch
 instead of having it snapped away.
@@ -1338,15 +1345,28 @@ present on the other two. `Quad` corrects the winding from the shoelace area rat
 asking six call sites to get it right, and each vertex's normal and colour travel with it
 through that correction.
 
-**The teams stand close to their carts.** The pole is 0.75 m rather than 2, because a
-pole runs *between* the horses and the traces attach at the collar — what stands clear
-behind an animal is the swingletree and little else. And the horse's length is now stated
-(2.6 m) rather than measured: a rigged model's renderer bounds are a box drawn to hold
-every clip in the file, gallop included, so measuring gave half again the length the
-animal standing in front of you occupies. Two metres of daylight plus a horse measured off
-a galloping pose put the team five metres in front of the cart, which is not a caravan but
-two things travelling in the same direction — and the escort walked into the gap, which is
-how it got noticed. Width is still measured, because width barely changes between poses.
+**The teams stand close to their carts, and each cart says how close.** Three things had
+to change and the first two were not enough on their own.
+
+The horse's length is **stated** (2.6 m) rather than measured. A rigged model's renderer
+bounds are a box drawn to hold every clip in the file, gallop included, so measuring gave
+half again the length the animal standing in front of you occupies. Width is still
+measured, because width barely changes between poses.
+
+The pole came down from 2 m, because a pole runs *between* the horses and the traces
+attach at the collar — what stands clear behind an animal is the swingletree and little
+else.
+
+And then there are **three hitch distances, not one**, because the three carts are not
+built alike. The front is measured off the model, so a cart with a drawbar modelled on it
+measures out to the end of that bar — which is where the horses already belong. Add a pole
+to that and they stand a pole further on. The covered wagon has a bar where the supply
+wagon has a bed edge; one constant could only ever be right for one of them.
+
+They are serialized fields (`HitchSupply`, `HitchWar`, `HitchTreasure`), so they can be
+dragged in the inspector against the thing on screen rather than guessed at and pushed
+back and forth over a round trip. `RunVisuals` prints what each cart measured and where
+its team ended up.
 
 **The wagons trail 15 m apart, and the number comes from the horses.** A team's noses
 reach ahead of the wagon they pull by half a cart plus the 2 m draught pole plus a horse,

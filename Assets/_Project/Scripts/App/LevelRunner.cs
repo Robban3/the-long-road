@@ -329,10 +329,7 @@ namespace Arna.App
         /// </summary>
         Vector3 CaravanWorldPosition()
         {
-            float half = (_run.Caravan.Wagons.Count - 1) * Caravan.WagonSpacing * 0.5f;
-            float along = _run.Caravan.DistanceTravelled - half;
-
-            var position = _run.Caravan.PositionAt(along > 0f ? along : 0f);
+            var position = _run.Caravan.ColumnCentre;
             float ground = _levelGrid != null && HeightScale > 0f
                 ? _levelGrid.SurfaceElevation(position.X, position.Y) * HeightScale
                 : 0f;

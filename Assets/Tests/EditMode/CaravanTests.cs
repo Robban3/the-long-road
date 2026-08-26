@@ -42,6 +42,31 @@ namespace Arna.Tests
         }
 
         [Test]
+        public void TheColumnCentreSitsBetweenTheLeadWagonAndTheLast()
+        {
+            // Two distance origins live in Caravan and they are a run-up apart: what the
+            // game reports counts from the start line, what positions are measured along
+            // counts from behind it. Mixing them aimed the camera fifty-five metres
+            // behind the caravan, which looks like the camera lagging rather than like a
+            // unit error — so the arithmetic lives in Caravan and this holds it.
+            var grid = new TileGrid(40, 10);
+            var caravan = new Caravan(grid, StraightRoute(grid, 5, 40));
+
+            for (int i = 0; i < 200; i++) caravan.Tick(0.05f);
+
+            var lead = caravan.WagonPosition(0);
+            var last = caravan.WagonPosition(2);
+            var centre = caravan.ColumnCentre;
+
+            Assert.That(Vec2.Distance(centre, lead), Is.EqualTo(Vec2.Distance(centre, last))
+                                                       .Within(0.5f),
+                "the column's centre is not equally far from either end of the column");
+
+            Assert.Less(Vec2.Distance(centre, lead), Vec2.Distance(lead, last),
+                "the column's centre is not inside the column");
+        }
+
+        [Test]
         public void TheRunUpIsGroundToStandOnRatherThanJourney()
         {
             var grid = new TileGrid(30, 10);
