@@ -58,6 +58,30 @@ Tests:
 
     Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testResults <xml>
 
+### The half of Unity's compile that can be had here
+
+`typecheck.sh` builds Sim, Gen and the tests — everything that compiles without an engine
+— and that leaves **View, App and Editor unchecked**. Those are three quarters of the code
+that draws anything, and for this whole project the only compiler that had ever seen them
+was the one inside Unity, on another machine, after a push. A method defined twice in
+`ArnaSetup` cost a Safe Mode dialog and two round trips to find, and nothing here could
+have caught it.
+
+`unitycheck.sh` hands every one of those files to Roslyn with **no references at all**.
+Most of what comes back is noise — a thousand *type not found* for `UnityEngine` — but the
+errors that do not depend on knowing what a `GameObject` is come back too:
+
+| | |
+|---|---|
+| CS0111 | a method defined twice |
+| CS0101 | a type defined twice |
+| CS0128 | a local declared twice |
+| CS1002, CS1513, CS1525 | the syntax family |
+
+It runs in four seconds and it is not a substitute for Unity's own compile — anything that
+needs to know a type is still invisible. It is the half that can be had before pushing, and
+that half is where this class of mistake lives.
+
 ### Running the C# without Unity
 
     apt-get install -y dotnet-sdk-8.0

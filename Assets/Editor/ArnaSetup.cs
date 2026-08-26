@@ -1486,15 +1486,24 @@ namespace Arna.Editor
             }
         }
 
-        /// <summary>The escort, at the height the game gives them.</summary>
-        static (string Name, ActorModel Model, float Height)[] Troops(VisualLibrary models) =>
-            new (string, ActorModel, float)[]
-            {
-                ("Melee_Knight", models.Melee, VisualLibrary.TroopHeight),
-                ("Ranged_Adventurer", models.Ranged, VisualLibrary.TroopHeight),
-                ("Support_Farmer", models.Support, VisualLibrary.TroopHeight),
-                ("Mounted_Horse", models.Mounted, VisualLibrary.TroopHeight)
-            };
+        /// <summary>
+        /// The escort, at the height the game gives them — one entry per kind now.
+        ///
+        /// It listed the three group models nine kinds used to share, which stopped being
+        /// the cast the moment they were split. Built off the enum rather than written
+        /// out, so a kind added later cannot be forgotten here.
+        /// </summary>
+        static (string Name, ActorModel Model, float Height)[] Troops(VisualLibrary models)
+        {
+            var kinds = (TroopKind[])System.Enum.GetValues(typeof(TroopKind));
+            var cast = new (string, ActorModel, float)[kinds.Length + 1];
+
+            for (int i = 0; i < kinds.Length; i++)
+                cast[i] = ($"{kinds[i]}", models.For(kinds[i]), VisualLibrary.HeightOf(kinds[i]));
+
+            cast[kinds.Length] = ("Draught", models.Draught, VisualLibrary.DraughtHorseHeight);
+            return cast;
+        }
 
         /// <summary>What is waiting on the road, at the height the game gives them.</summary>
         static (string Name, ActorModel Model, float Height)[] Enemies(VisualLibrary models) =>
@@ -1859,7 +1868,7 @@ namespace Arna.Editor
                           + $"{Describe(runner.Models.WagonTreasure)}, drawn by "
                           + $"{Describe(runner.Models.Draught.Prefab)} at "
                           + $"{VisualLibrary.DraughtHorseHeight:0.0} m. "
-                          + $"{Troops(runner.Models)} "
+                          + $"{TroopReport(runner.Models)} "
                           + $"{Rig("draught horse", runner.Models.Draught)}. "
                           + $"Marsh plants: {Names(runner.Decor.MarshPlants)}. "
                           + $"Lilypads: {Names(runner.Decor.Lilypads)} at "
@@ -1905,7 +1914,7 @@ namespace Arna.Editor
         /// leaves a prefab's own animator alone when we have no controller for it, so a
         /// pack that ships its own keeps working.
         /// </summary>
-        static string Troops(VisualLibrary models)
+        static string TroopReport(VisualLibrary models)
         {
             if (models == null) return "no models";
 
