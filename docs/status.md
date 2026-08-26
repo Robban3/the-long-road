@@ -1083,11 +1083,28 @@ follows too, so both roll. A wheel nested inside another wheel is skipped, or it
 turn twice and at twice the speed. If a pack ever ships a cart as one welded mesh there
 is nothing to turn, and the console says so rather than leaving the wagons sliding.
 
+**The wagons trail 12.5 m apart, and the number comes from the horses.** Measured from a
+wagon's own centre: half a cart is about 3.25 m, the draught pole is 2 m, and a horse
+fitted to 2.4 m tall is about 2.6 m nose to tail — so a team's noses reach roughly 7.85 m
+ahead of the wagon it pulls, while the cart behind extends 3.25 m back from its own
+centre. Anything under 11.1 m puts one wagon's horses inside the wagon in front. At the
+old 8 m they were three metres in: **the animals were standing inside the cart ahead and
+could not be seen, which reads as one horse per wagon rather than two.** The remaining
+1.4 m is clear air, so the column reads as vehicles rather than as a train with couplings.
+
+The cart's length is the only input here that comes from a model rather than from
+`Caravan.cs`, so `RunVisuals` prints it at build — half a cart, the team's reach, the
+minimum that implies, and the spacing actually in force. A different cart changes the
+answer and will say so.
+
 **Every wagon has a pair of horses in the traces.** `Quaternius/Animals/Horse.fbx`, the
 same model the mounted troop rides, fitted to 2.4 m rather than the troop's 1.85: a heavy
 horse stands about 1.7 m at the withers, so head up it reaches roughly 2.4, which is
 three quarters of the wagon it pulls. Two abreast rather than one — a single animal in
-front of a six-metre covered wagon looks like it is being punished. They stand 2 m clear
+front of a six-metre covered wagon looks like it is being punished. They stand
+`size.x / 2 + 0.25 m` either side of the centre line rather than at a flat offset: a
+constant is only right for a horse of exactly one width, and any wider and the pair
+interpenetrate and read as one animal with too many legs. They stand 2 m clear
 of the cart's front, which is what a draught pole is, and the cart's front is *measured*
 rather than assumed from its height: the pack puts a hay cart and a covered wagon at the
 same 3.2 m and they are nowhere near the same length. Parented to the wagon, so they

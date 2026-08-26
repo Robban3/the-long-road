@@ -63,8 +63,26 @@ namespace Arna.Sim
         /// <summary>Tiles per second on terrain with no modifier.</summary>
         public const float BaseTilesPerSecond = 2f;
 
-        /// <summary>Metres between wagons along the path.</summary>
-        public const float WagonSpacing = 8f;
+        /// <summary>
+        /// Metres between wagons along the path.
+        ///
+        /// 12.5, and the number comes from what is now hitched to the front of each one.
+        /// Measured from a wagon's own centre: half a cart is about 3.25 m, the draught
+        /// pole is 2 m, and a horse fitted to 2.4 m tall is about 2.6 m nose to tail —
+        /// so a team's noses reach roughly 7.85 m ahead of the wagon they pull, while
+        /// the cart behind them extends 3.25 m back from its own centre. Anything under
+        /// 11.1 m puts one wagon's horses inside the wagon in front of it, and 8 m put
+        /// them three metres in: the animals were standing in the cart ahead and could
+        /// not be seen, which reads as one horse per wagon rather than two.
+        ///
+        /// The remaining 1.4 m is clear air, so the column reads as a column of vehicles
+        /// rather than as a train with couplings.
+        ///
+        /// The measurement is printed at build (see RunVisuals) rather than trusted:
+        /// the cart's length is the one input here taken from a model rather than from
+        /// this file, and a different cart changes it.
+        /// </summary>
+        public const float WagonSpacing = 12.5f;
 
         const float SupplyHp = 400f;
         const float TreasureHp = 350f;

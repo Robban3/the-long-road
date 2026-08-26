@@ -1755,13 +1755,16 @@ namespace Arna.Editor
                 WireLooseTextures();
             }
 
-            // And rebuilt, for the same reason one level down. Which of four flight clips
-            // a bird beats her wings on is decided when the controller is generated, so
-            // the decision sits in that asset and not in the scene: without this, a
-            // refresh would hand back whichever clip was chosen the first time — and the
-            // first time it was a glide.
-            AnimatorBuilder.Build(EagleModel);
-            AssetDatabase.SaveAssets();
+            // Every controller, not just the bird's. What a state plays, and whether the
+            // clip under it loops, is decided when the controller is generated — so both
+            // live in those assets and not in the scene, and a controller generated
+            // before the loop rule existed still has clips that play once and stop. Which
+            // is a horse that takes one stride and then slides, and a knight who swings
+            // once and holds the follow-through for the rest of the level.
+            //
+            // Cheap on the second run: EnsureLooping reimports only when it actually has
+            // something to switch on.
+            AnimatorBuilder.BuildAll();
 
             foreach (var runner in UnityEngine.Object.FindObjectsByType<LevelRunner>(
                          FindObjectsSortMode.None))
@@ -1777,6 +1780,7 @@ namespace Arna.Editor
                           + $"{Describe(runner.Models.WagonTreasure)}, drawn by "
                           + $"{Describe(runner.Models.Mounted.Prefab)} at "
                           + $"{VisualLibrary.DraughtHorseHeight:0.0} m. "
+                          + $"{Rig("draught horse", runner.Models.Mounted)}. "
                           + $"Marsh plants: {Names(runner.Decor.MarshPlants)}. "
                           + $"Lilypads: {Names(runner.Decor.Lilypads)} at "
                           + $"{TerrainDecorator.LilypadWidth:0.0} m across.");
@@ -1794,7 +1798,7 @@ namespace Arna.Editor
                 Debug.Log($"[Arna] {preview.name}: marsh plants {Names(preview.Decor.MarshPlants)}. "
                           + $"Lilypads: {Names(preview.Decor.Lilypads)}. "
                           + $"Mountains on the map: {Names(preview.Decor.Mountains)}. "
-                          + $"{Eagle(preview.Models)}");
+                          + $"{Rig("eagle", preview.Models.Eagle)}");
             }
 
             if (touched == 0)
@@ -1816,39 +1820,37 @@ namespace Arna.Editor
         static string Describe(GameObject prefab) => prefab == null ? "—" : prefab.name;
 
         /// <summary>
-        /// The two things that have gone wrong with the eagle, in one line.
+        /// Every way an actor can be wrong and still look like all the others, in one
+        /// line: textures, controller, each clip's loop flag, and the avatar.
         ///
-        /// Both failures look identical from the outside — a bird that is not right —
-        /// and they have nothing to do with each other. White is a material with no
-        /// texture; a glider is a model with no animator controller. Guessing between
-        /// them has cost two rounds already.
+        /// White is a material with no texture. A glider is a model with no controller.
+        /// A model that moves once and stops is a clip that does not loop. A model that
+        /// reports a state, a normalised time and no movement at all is a Generic rig
+        /// with no avatar. Each of those has been mistaken for the others, so the report
+        /// names all four rather than making anyone guess between them.
         /// </summary>
-        static string Eagle(VisualLibrary models)
+        static string Rig(string what, ActorModel model)
         {
-            if (models == null || !models.Eagle.HasModel) return "eagle: no model";
+            if (!model.HasModel) return $"{what}: no model";
 
-            var eagle = models.Eagle;
-            Paint(eagle, out int slots, out int painted);
+            Paint(model, out int slots, out int painted);
 
-            if (eagle.Animator == null)
-                return $"eagle: {painted} of {slots} material slot(s) textured, "
+            if (model.Animator == null)
+                return $"{what}: {painted} of {slots} material slot(s) textured, "
                        + "no animator controller — run Build Animator Controllers";
 
-            // Every remaining way a bird can be animated and still not move, in one line.
-            // Each of these has looked exactly like the others from the outside, and
-            // guessing between them has now cost three rounds.
             var clips = new List<string>();
-            foreach (var clip in eagle.Animator.animationClips)
+            foreach (var clip in model.Animator.animationClips)
                 clips.Add($"{clip.name} {(clip.isLooping ? "loops" : "PLAYS ONCE")}");
 
-            var rig = eagle.Prefab.GetComponentInChildren<Animator>();
-            string avatar = rig == null ? "NO ANIMATOR ON THE MODEL"
-                : rig.avatar == null ? "NO AVATAR — a Generic rig cannot bind without one"
-                : rig.avatar.isValid ? rig.avatar.name
-                : $"{rig.avatar.name} IS INVALID";
+            var animator = model.Prefab.GetComponentInChildren<Animator>();
+            string avatar = animator == null ? "NO ANIMATOR ON THE MODEL"
+                : animator.avatar == null ? "NO AVATAR — a Generic rig cannot bind without one"
+                : animator.avatar.isValid ? animator.avatar.name
+                : $"{animator.avatar.name} IS INVALID";
 
-            return $"eagle: {painted} of {slots} material slot(s) textured, "
-                   + $"{eagle.Animator.name} [{string.Join(", ", clips)}], avatar {avatar}";
+            return $"{what}: {painted} of {slots} material slot(s) textured, "
+                   + $"{model.Animator.name} [{string.Join(", ", clips)}], avatar {avatar}";
         }
 
         static bool Untextured(ActorModel eagle)

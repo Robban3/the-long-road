@@ -117,6 +117,17 @@ namespace Arna.View
             // Said once, and worth saying: if the pack ships its carts as one welded
             // mesh there are no wheel parts to turn, and the wagons go on sliding with
             // nothing in the console to say why.
+            // The one number in the spacing arithmetic that comes from a model rather
+            // than from Caravan.cs, printed rather than trusted: change the cart and the
+            // spacing has to change with it.
+            if (_wagons.Count > 0)
+                Debug.Log($"[Arna] {_wagons.Count} wagons, {_draught.Count} horses in harness "
+                          + $"({_draught.Count / _wagons.Count} each), "
+                          + $"{_wheels[0].Count} wheels on the first. Half a cart is "
+                          + $"{_cartHalf:0.0} m and the team reaches {_teamReach:0.0} m ahead, "
+                          + $"so wagons need more than {_cartHalf + _teamReach:0.0} m between "
+                          + $"them and have {Caravan.WagonSpacing:0.0}.");
+
             if (_wagons.Count > 0 && _wheels[0].Count == 0)
                 Debug.LogWarning("[Arna] No wheels found under the wagon models, so they will "
                                  + $"slide rather than roll. Parts: {WagonWheels.Parts(_wagons[0])}");
@@ -200,8 +211,20 @@ namespace Arna.View
 
         static readonly Color HorseColor = new Color(0.45f, 0.32f, 0.22f);
 
-        /// <summary>Half the gap between the two horses of a team, in metres.</summary>
-        const float HorseSpread = 0.75f;
+        /// <summary>
+        /// How much clear air is left between the two horses of a team, in metres.
+        ///
+        /// A quarter of a metre, and the rest of the spacing is measured off the horse
+        /// rather than guessed at. It was a flat 0.75 m from the wagon's centre line to
+        /// each animal, which is only correct for a horse exactly 1.5 m wide: any wider
+        /// and the pair interpenetrate and read as one animal with too many legs, which
+        /// is precisely how a team of two comes to look like a team of one.
+        ///
+        /// Horses in harness stand close — the traces hold them there — so the gap is
+        /// small on purpose. It is not the spacing that was wrong, it is having a
+        /// spacing at all instead of a clearance.
+        /// </summary>
+        const float HorseGap = 0.25f;
 
         /// <summary>
         /// The draught pole: how far the horses' tails clear the cart's front.
@@ -229,6 +252,12 @@ namespace Arna.View
         /// facing another way the horses will stand at its side, which is at least a
         /// visible kind of wrong rather than a silent one.
         /// </summary>
+        /// <summary>How far ahead of a wagon's centre its team's noses reach.</summary>
+        float _teamReach;
+
+        /// <summary>Half the first cart's length, for the same reason.</summary>
+        float _cartHalf;
+
         void Harness(Transform wagon, Transform cart)
         {
             if (!Library.Mounted.HasModel) return;
@@ -237,6 +266,7 @@ namespace Arna.View
             // hay cart and a covered wagon at the same 3.2 m and they are not remotely
             // the same length.
             float front = ModelScaling.Measure(cart.gameObject).max.z - wagon.position.z;
+            _cartHalf = front;
 
             for (int i = 0; i < 2; i++)
             {
@@ -244,17 +274,19 @@ namespace Arna.View
                                        $"Horse_{i}", HorseColor,
                                        VisualLibrary.DraughtHorseHeight, parent: wagon);
 
-                // Measured before it is turned, so the number is the horse's length
-                // whichever way its file happens to point.
-                float length = ModelScaling.Measure(horse.gameObject).size.z;
+                // Measured before it is turned, so the numbers are the horse's own
+                // length and width whichever way its file happens to point.
+                var size = ModelScaling.Measure(horse.gameObject).size;
+                float spread = size.x * 0.5f + HorseGap;
 
                 horse.localRotation = Quaternion.Euler(0f, Library.Mounted.YawOffset, 0f);
                 horse.localPosition = new Vector3(
-                    i == 0 ? -HorseSpread : HorseSpread,
+                    i == 0 ? -spread : spread,
                     Standing(horse, Vector3.zero).y,
-                    front + Harnessed + length * 0.5f);
+                    front + Harnessed + size.z * 0.5f);
 
                 _draught.Add(horse);
+                _teamReach = horse.localPosition.z + size.z * 0.5f;
             }
         }
 
