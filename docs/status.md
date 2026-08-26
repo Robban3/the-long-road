@@ -776,6 +776,42 @@ about √5 ≈ 2.2 times slower, and 1 ÷ 2.2 = 0.45. The clip was authored for 
 bird and is being watched on a ten-metre one; it was never going to look right at a speed
 chosen by eye.
 
+### The fog lifts behind the bird, not before her
+
+The map starts grey — all of it — and only ground the eagle has already flown over comes
+out of it. That is the ability, and it was already the *end* state; what was wrong is
+that the whole flight's worth of reveal was applied at build time, before she had flown a
+metre. The map opened with the answer printed on it and the bird was a decoration
+crossing ground that had already told you everything.
+
+`_revealAt` holds, per tile, how far she has flown by the time she is nearest to it —
+taken from the flight the simulation worked out, so what the map ends up showing is
+exactly what the ability grants. Nearest point rather than first sighting: a tile off to
+one side should clear as she draws level with it, not when the edge of her sight first
+clips it. A thousand tiles against a couple of hundred path points, once per rebuild.
+
+`RevealLag = 20 m` is half a second at her 40 m/s, and it is the difference between
+*trailing* and *travelling with*: ground going clear under the bird reads as the bird
+being made of light, ground going clear behind her reads as her having looked at it.
+
+Three details that are each a bug if missed:
+
+- **The lit colours have to be kept.** A mute is not reversible, so `_lit` holds the
+  ground as the terrain builder made it and `_shown` holds what is on the mesh; the fog
+  is the difference, and lifting it over a tile is four colours copied across.
+- **Props are filed by tile** on the way past. A reveal has to find the props on one tile
+  out of four thousand and cannot walk six thousand props to do it.
+- **The last stretch of the flight would never come due.** `_flown` wraps just short of
+  the full length, so `length + lag` is unreachable and the final 20 m stays grey for
+  ever. Once she has been round once, everything she flies over is behind her.
+
+Revealed ground stays revealed when the flight loops. A map that re-fogs every twenty
+seconds is one you cannot plan on, and the second lap has nothing to add.
+
+The enemy marks follow the same rule and the crows do not. A group is drawn where she
+found it; the crows are free and always visible, which is the whole distinction the
+design rests on (docs/GDD.md §3.4, §3.6).
+
 ### The planning map is dressed differently from the world
 
 `LoadPlanDecor` is `LoadForestDecor` with `Mountains` and `Horizon` emptied. Everything

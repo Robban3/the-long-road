@@ -172,6 +172,45 @@ namespace Arna.App
         /// </summary>
         Mesh _markerMesh;
 
+        /// <summary>
+        /// The fog, and what it takes to lift it a piece at a time.
+        ///
+        /// `_lit` is the ground's colours as the terrain builder made them and `_shown`
+        /// is what is on the mesh right now — the fog is the difference between the two,
+        /// and lifting it over a tile is four colours copied from one into the other.
+        /// Keeping the lit copy is the whole trick: a mute is not reversible, so there
+        /// has to be something to reverse *to*.
+        /// </summary>
+        Color[] _lit;
+        Color[] _shown;
+        Mesh _overlay;
+
+        /// <summary>Every prop, filed under the tile it stands on, so a reveal is a lookup.</summary>
+        Dictionary<int, List<Transform>> _propsByTile;
+
+        /// <summary>
+        /// Metres flown, per tile, at the moment the bird is nearest to it — or -1 for
+        /// ground she never reaches.
+        ///
+        /// Taken from the flight the simulation worked out rather than recomputed, so
+        /// what the map ends up showing is exactly what the ability grants. Nearest
+        /// point rather than first sighting: a tile off to one side should come out of
+        /// the fog as she draws level with it, not when the edge of her sight first
+        /// clips it.
+        /// </summary>
+        float[] _revealAt;
+
+        readonly HashSet<int> _revealed = new HashSet<int>();
+
+        /// <summary>Whether the bird has been round the whole flight at least once.</summary>
+        bool _lapped;
+
+        /// <summary>How many enemy marks are drawn, so the marks are rebuilt only on a change.</summary>
+        int _marked;
+
+        /// <summary>Held for the marker rebuilds a progressive reveal asks for.</summary>
+        LevelMap _map;
+
         RunVisuals _cast;
         Transform _eagleRoot;
         Transform _eagle;
@@ -283,7 +322,9 @@ namespace Arna.App
             if (deltaTime <= 0f) return;
             if (_milestones == null || _flightLength <= 0f) return;
 
+            float before = _flown;
             _flown = Mathf.Repeat(_flown + deltaTime * ScoutingAbility.Speed, _flightLength);
+            if (_flown < before) _lapped = true;
 
             // Walked by distance, not by index. Linear from the start each frame: the
             // path is a couple of hundred points and this runs once, which is cheaper
@@ -309,6 +350,8 @@ namespace Arna.App
                                   * Quaternion.Euler(0f, Models.Eagle.YawOffset, 0f);
 
             _cast?.AdvanceAnimators(deltaTime);
+
+            Reveal(_flown);
         }
 
         /// <summary>
@@ -351,10 +394,21 @@ namespace Arna.App
             foreach (var flock in CrowSignal.Place(map))
                 marks.Add(new MapMarkerBuilder.Marker(flock.Tile, CrowMarker, CrowMarkerRadius));
 
+            // Only where she has already been. RevealedEnemies is what the whole flight
+            // finds; _revealed is what it has found so far, and the difference between
+            // them is the difference between a map with the answer printed on it and a
+            // map you watch being drawn.
+            _marked = 0;
+
             if (_flight != null)
                 foreach (int index in _flight.RevealedEnemies)
-                    marks.Add(new MapMarkerBuilder.Marker(map.Encounters.Enemies[index].Tile,
-                                                          EnemyMarker, EnemyMarkerRadius));
+                {
+                    int tile = map.Encounters.Enemies[index].Tile;
+                    if (!_revealed.Contains(tile)) continue;
+
+                    marks.Add(new MapMarkerBuilder.Marker(tile, EnemyMarker, EnemyMarkerRadius));
+                    _marked++;
+                }
 
             _markerMesh = MapMarkerBuilder.Build(map.Grid, marks, HeightScale);
             if (_markerMesh == null) return;
@@ -386,27 +440,35 @@ namespace Arna.App
         /// </summary>
         void ApplyOverlay(Mesh mesh, LevelMap map)
         {
+            _lit = null;
+            _shown = null;
+            _overlay = null;
+            _propsByTile = null;
+
             if (!ShowOverlay || mesh == null) return;
 
-            var seen = _flight != null ? _flight.RevealedTiles : null;
+            _overlay = mesh;
+
             var colours = mesh.colors;
 
             // Four vertices per tile and tiles in order, which is what makes this cheap:
             // no lookup from a vertex back to the ground under it.
             if (colours != null && colours.Length == map.Grid.TileCount * 4)
             {
-                for (int tile = 0; tile < map.Grid.TileCount; tile++)
-                {
-                    if (seen != null && seen.Contains(tile)) continue;
+                _lit = colours;
+                _shown = new Color[colours.Length];
 
-                    int v = tile * 4;
-                    for (int k = 0; k < 4; k++) colours[v + k] = PlanningOverlay.Mute(colours[v + k]);
-                }
+                for (int v = 0; v < colours.Length; v++)
+                    _shown[v] = PlanningOverlay.Mute(colours[v]);
 
-                mesh.SetColors(colours);
+                mesh.SetColors(_shown);
             }
 
             if (_props == null) return;
+
+            // Filed by tile on the way past, because a reveal has to find the props on
+            // one tile out of four thousand and cannot walk six thousand props to do it.
+            _propsByTile = new Dictionary<int, List<Transform>>();
 
             var block = new MaterialPropertyBlock();
             var shade = new Color(PlanningOverlay.PropLight, PlanningOverlay.PropLight,
@@ -418,8 +480,15 @@ namespace Arna.App
                 int x = Mathf.FloorToInt(at.x / TileGrid.TileSize);
                 int y = Mathf.FloorToInt(at.z / TileGrid.TileSize);
 
-                if (!map.Grid.InBounds(x, y)) continue;
-                if (seen != null && seen.Contains(map.Grid.ToIndex(x, y))) continue;
+                if (map.Grid.InBounds(x, y))
+                {
+                    int tile = map.Grid.ToIndex(x, y);
+
+                    if (!_propsByTile.TryGetValue(tile, out var standing))
+                        _propsByTile[tile] = standing = new List<Transform>();
+
+                    standing.Add(prop);
+                }
 
                 foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
                 {
@@ -428,6 +497,79 @@ namespace Arna.App
                     renderer.SetPropertyBlock(block);
                 }
             }
+        }
+
+        /// <summary>
+        /// How far behind the bird the fog lifts, in metres.
+        ///
+        /// Half a second at her 40 m/s. The reveal is meant to trail her rather than
+        /// travel with her: ground going clear under the bird reads as the bird being
+        /// made of light, where ground going clear behind her reads as her having looked
+        /// at it — which is what the ability actually is.
+        /// </summary>
+        const float RevealLag = 20f;
+
+        /// <summary>
+        /// Lifts the fog off everything the bird has flown past.
+        ///
+        /// The map starts grey — all of it — and only ground she has been over comes
+        /// out of it (docs/GDD.md §3.4). That was already the end state; what was wrong
+        /// is that the whole flight's worth of it was applied before she had flown a
+        /// metre, so the map opened with the answer on it and the bird was a decoration
+        /// crossing ground that had already told you everything.
+        ///
+        /// Revealed ground stays revealed when the flight loops. A map that re-fogs
+        /// every twenty seconds is one you cannot plan on, and the second lap has
+        /// nothing to add anyway.
+        /// </summary>
+        void Reveal(float flown)
+        {
+            if (_revealAt == null || _map == null) return;
+
+            // The lag means the last stretch of the flight would never come due: _flown
+            // wraps just short of the full length and never reaches length + lag. Once
+            // she has been round once, everything she flies over is behind her.
+            float reached = _lapped ? _flightLength + RevealLag : flown;
+
+            bool ground = false;
+
+            for (int tile = 0; tile < _revealAt.Length; tile++)
+            {
+                if (_revealAt[tile] < 0f || _revealAt[tile] + RevealLag > reached) continue;
+                if (!_revealed.Add(tile)) continue;
+
+                ground = true;
+
+                if (_shown != null && _lit != null)
+                {
+                    int v = tile * 4;
+                    for (int k = 0; k < 4; k++) _shown[v + k] = _lit[v + k];
+                }
+
+                if (_propsByTile == null) continue;
+                if (!_propsByTile.TryGetValue(tile, out var standing)) continue;
+
+                foreach (var prop in standing)
+                    foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
+                        renderer.SetPropertyBlock(null);   // back to the material's own colour
+            }
+
+            if (!ground) return;
+
+            if (_overlay != null && _shown != null) _overlay.SetColors(_shown);
+
+            // A group is drawn where she found it, so the marks have to follow the fog.
+            // Rebuilt only when the count moves, which is a handful of times a flight.
+            //
+            // Counted exactly the way BuildMarkers counts, or the two could disagree by
+            // one for ever and rebuild the marker mesh on every single frame.
+            int found = 0;
+
+            if (_flight != null)
+                foreach (int index in _flight.RevealedEnemies)
+                    if (_revealed.Contains(_map.Encounters.Enemies[index].Tile)) found++;
+
+            if (found != _marked) BuildMarkers(_map);
         }
 
         static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
@@ -460,9 +602,17 @@ namespace Arna.App
             _cast = null;
             _flight = null;
             _milestones = null;
+            _revealAt = null;
             _flightLength = 0f;
             _flown = 0f;
             _grid = map.Grid;
+            _map = map;
+
+            // Cleared here rather than in ApplyOverlay, because this runs before the
+            // marks are built and they ask what has been revealed.
+            _revealed.Clear();
+            _marked = 0;
+            _lapped = false;
 
             if (!ShowEagle) return;
 
@@ -493,6 +643,37 @@ namespace Arna.App
                                  + Vec2.Distance(_flight.Path[i - 1], _flight.Path[i]);
 
             _flightLength = _milestones[_milestones.Length - 1];
+
+            // A thousand tiles against a couple of hundred path points, once per rebuild.
+            // Cheap enough to do plainly, and plainly is worth more here than clever:
+            // every tile the flight reveals, filed under how far she has flown by the
+            // time she is closest to it.
+            _revealAt = new float[map.Grid.TileCount];
+            for (int i = 0; i < _revealAt.Length; i++) _revealAt[i] = -1f;
+
+            foreach (int tile in _flight.RevealedTiles)
+            {
+                var at = Vec2.FromTile(map.Grid, tile);
+
+                float nearest = float.MaxValue;
+                float when = 0f;
+
+                for (int i = 0; i < _flight.Path.Count; i++)
+                {
+                    float gap = Vec2.Distance(_flight.Path[i], at);
+                    if (gap >= nearest) continue;
+
+                    nearest = gap;
+                    when = _milestones[i];
+                }
+
+                _revealAt[tile] = when;
+            }
+
+            // With the fog switched off there is nothing to lift, so nothing should be
+            // waiting on the bird either: everything she finds is marked from the start.
+            if (!ShowOverlay)
+                foreach (int tile in _flight.RevealedTiles) _revealed.Add(tile);
 
             _eagleRoot = new GameObject("Eagle").transform;
             _eagleRoot.SetParent(transform, false);
