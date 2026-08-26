@@ -233,15 +233,25 @@ namespace Arna.View
         /// <summary>
         /// How tall a skyline peak is.
         ///
-        /// A hundred and thirty was the first answer and it was measured against the
-        /// wrong thing — the frame. What a skyline has to clear is not the top of the
-        /// picture but the **treeline**, and this game's trees stand up to 14.5 m within
-        /// fifty metres of the camera while the peaks are three hundred away. At 130 m
-        /// exactly one peak found a gap in the canopy. At 185 the range stands above it.
+        /// A hundred and five, and getting here took one honest measurement and one
+        /// mistake worth recording.
+        ///
+        /// The height was raised from 130 to 185 because at 130 exactly one peak found a
+        /// gap in the canopy — but that was never a height problem. The range was
+        /// invisible because the fog ended at 320 m and the ring stood at 320, so every
+        /// pixel of it was the colour of the air. Raising the peaks changed nothing and
+        /// the raise was left in, which meant a value chosen for one camera and never
+        /// checked from another.
+        ///
+        /// From a camera near the map's corner the nearest peak is only 192 m away, and
+        /// at 185 m tall it tops out 37° above the eye: not a horizon, a wall. At 105 it
+        /// is 19° from the corner and 11.5° from the middle of the map, which reads as
+        /// distance from anywhere the caravan can stand — and still stands well clear of
+        /// a treeline that tops out around 3°.
         ///
         /// The jitter stays wide on purpose: a row of identical peaks is a saw blade.
         /// </summary>
-        public const float HorizonHeight = 185f;
+        public const float HorizonHeight = 105f;
         public const float HorizonJitterLow = 0.55f;
         public const float HorizonJitterHigh = 1.35f;
         public const float DeadTreeHeight = 9f;

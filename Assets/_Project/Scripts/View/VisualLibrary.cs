@@ -159,8 +159,26 @@ namespace Arna.View
         /// <summary>Complete carts. When set, the improvised crate-and-wheels build is skipped.</summary>
         public GameObject Wagon;
 
+        /// <summary>
+        /// One model per wagon, and the comment below used to promise this while the
+        /// code delivered two.
+        ///
+        /// The supply wagon and the war wagon were the same vehicle in different
+        /// colours, which is the thing the design specifically says is not enough
+        /// (docs/GDD.md §5): a player has to be able to tell at a glance which one the
+        /// bandits are converging on, and colour is what a moving object loses first
+        /// against a hillside in shadow.
+        ///
+        /// Any that is left unset falls back to <see cref="Wagon"/>, so a pack with
+        /// fewer vehicles than this game has roles still produces a caravan.
+        /// </summary>
+        public GameObject WagonSupply;
+
         /// <summary>The merchant's wagon, distinct so the loot is identifiable on sight.</summary>
         public GameObject WagonTreasure;
+
+        /// <summary>The ballista cart. Its silhouette is the reason it is its own model.</summary>
+        public GameObject WagonWar;
 
         public GameObject WagonBody;
         public GameObject WagonCargo;
@@ -171,8 +189,12 @@ namespace Arna.View
         /// </summary>
         public GameObject WagonFor(WagonKind kind)
         {
-            if (kind == WagonKind.Treasure && WagonTreasure != null) return WagonTreasure;
-            return Wagon;
+            switch (kind)
+            {
+                case WagonKind.Treasure: return WagonTreasure != null ? WagonTreasure : Wagon;
+                case WagonKind.War: return WagonWar != null ? WagonWar : Wagon;
+                default: return WagonSupply != null ? WagonSupply : Wagon;
+            }
         }
 
         [Header("World")]

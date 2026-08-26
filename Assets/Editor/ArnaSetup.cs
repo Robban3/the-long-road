@@ -216,7 +216,15 @@ namespace Arna.Editor
                 Eagle = Actor("Assets/ThirdParty/Eagle/Eagle_B1.Fbx",
                               animator: "Assets/_Project/Animation/Eagle_B1.controller"),
 
+                // The fallback vehicle, used for any role that has no model of its own.
                 Wagon = One("Assets/_Project/Models/Wagon.fbx"),
+
+                // One per role. Supply and War still fall through to the model above —
+                // the wagon pack is imported but its prefab paths are not known here, and
+                // a guessed path loads nothing and says nothing (see Load). Three lines
+                // when the folder listing arrives.
+                WagonSupply = null,
+                WagonWar = null,
                 WagonTreasure = One("Assets/_Project/Models/WagonTreasure.fbx"),
                 // Off the RTS kit and onto Synty with everything else. These are the
                 // improvised wagon — a crate on wheels — and it is a fallback for when
@@ -394,15 +402,16 @@ namespace Arna.Editor
                     {
                         "SM_Gen_Env_Background_Mountain_01", "SM_Gen_Env_Background_Mountain_02",
                         "SM_Gen_Env_Background_Mountain_03", "SM_Gen_Env_Mountain_01",
-                        "SM_Gen_Env_Mountain_02", "SM_Gen_Env_Mountain_03",
+                        "SM_Gen_Env_Mountain_02", "SM_Gen_Env_Mountain_03"
 
-                        // Hills in with the peaks, scaled to the same height. A range is
-                        // not all summits — it is shoulders and saddles with summits
-                        // standing out of them, and a ring made only of peaks reads as a
-                        // sawtooth however much the heights are varied. Five rounded
-                        // masses among nine pointed ones is what breaks the row up.
-                        "SM_Gen_Env_Hill_01", "SM_Gen_Env_Hill_02", "SM_Gen_Env_Hill_03",
-                        "SM_Gen_Env_Hill_04", "SM_Gen_Env_Hill_05"
+                        // No SM_Gen_Env_Hill_*. They went in to break up the sawtooth —
+                        // a range is shoulders with summits standing out of them — and
+                        // the argument was right about shape and wrong about everything
+                        // else. A hill in that pack is grass-covered and green, and a
+                        // green mass a hundred metres tall on the skyline is not a
+                        // distant hill, it is a wall of lawn. The Background_Mountain
+                        // prefabs are broader than the Terrain ones and are what the
+                        // shoulders come from now.
                     })),
 
                 // What grows in standing water and at its edge. The fen used to be

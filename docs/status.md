@@ -639,9 +639,22 @@ cost is real: the map's own far edge, 250 m off, goes from 28 % of its colour to
 the middle distance carries less haze than a value tuned for a 300-metre landscape gave
 it. The landscape is 640 metres deep now.
 
-**The range is shoulders with summits standing out of them**, not a row of cones. Five
-of the fourteen prefabs in the mix are `Hill` rather than mountain: a ring made only of
-peaks reads as a sawtooth however much the heights are varied.
+**The range is shoulders with summits standing out of them**, not a row of cones — and
+getting there included one change that had to be taken straight back out. Five `Hill`
+prefabs went into the mix on the argument that a ring of pure peaks reads as a sawtooth.
+The argument was right about shape and wrong about everything else: a hill in that pack
+is grass-covered, and a green mass a hundred metres tall on the skyline is not a distant
+hill, it is a wall of lawn. From a play camera near the map's corner it filled the frame.
+The shoulders come from the broader `Background_Mountain` prefabs instead.
+
+**The height came down from 185 m to 105**, and the reason it was ever 185 is worth
+keeping. It was raised from 130 because at 130 exactly one peak found a gap in the
+canopy — but that was never a height problem. The range was invisible because the fog
+ended at 320 m and the ring stood at 320. Raising the peaks changed nothing, the raise
+was left in, and the result was a value chosen against one camera and never checked from
+another: from the map's corner the nearest peak is 192 m away, and at 185 m tall it tops
+out 37° above the eye. At 105 it is 19° from the corner and 11.5° from the middle of the
+map, and still stands well clear of a treeline that tops out around 3°.
 
 The renderer needed the same lesson and got it late. It drew a horizon peak as one
 `CONE_FINE` with a smaller cone of snow on top — a party hat, and not what Unity draws,

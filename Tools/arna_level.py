@@ -2230,7 +2230,7 @@ BOULDER_WIDTH = 5.5
 # Arna.View.TerrainDecorator for why each number is what it is.
 HORIZON_RADIUS = 320.0
 HORIZON_COUNT = 22
-HORIZON_HEIGHT = 185.0
+HORIZON_HEIGHT = 105.0
 HORIZON_JITTER_LOW, HORIZON_JITTER_HIGH = 0.55, 1.35
 BUSH_HEIGHT = 1.9
 MOUNTAIN_HEIGHT = 20.0
@@ -2252,7 +2252,7 @@ RUIN_CLUSTER_TILES = 6
 SET_SIZES = {
     "pines": 8, "trees": 10, "birch": 5, "dead": 10, "bushes": 8,
     "rocks": 10, "boulders": 7, "cover": 21, "marsh": 9, "mountains": 3,
-    "horizon": 14, "timber": 7, "ruins": 6,
+    "horizon": 9, "timber": 7, "ruins": 6,
     # Empty in the engine too: neither Synty pack has a medieval building. They come
     # back with POLYGON Knights. Kept in the table so the shapes stay symmetrical.
     "houses": 0, "farms": 0, "towers": 0,
