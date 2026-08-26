@@ -138,9 +138,13 @@ namespace Arna.App
             // route refuses anything two metres or taller, so the grass, flowers,
             // bushes and loose stones stay where they fall and the boulders and trees
             // do not stand in the road. See TerrainDecorator.DriveClearance.
+            // The trap-field tell goes in the world, not only on the map. It was passed
+            // in the planning view and not here, so a player read "something went wrong
+            // on this ground" while drawing the route and then drove through country
+            // that said nothing — which is the half where the signal was meant to work.
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
-                driveLine: corridor.Tiles);
+                ruinSites: TrapSigns.Sites(map), driveLine: corridor.Tiles);
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
             _visuals.Build(_run);

@@ -479,8 +479,19 @@ namespace Arna.Editor
                     Load($"{WagonDir}/Peasant_Handcart", new[] { "SM_Peasant_Handcart_Full" }),
                     Load($"{SyntyNatureDir}/Props", new[]
                     {
-                        "SM_Prop_Skeleton_Ground_01", "SM_Prop_Chest_Wood_01",
-                        "SM_Prop_Grave_03", "SM_Prop_CampFire_01"
+                        // The bones the GDD's §5 table calls for. `_Skull_01` twice, so a
+                        // site is as likely to be bones as anything else in the set: the
+                        // table names bone piles and totems as *the* trap-field tell, and
+                        // one skeleton among six props made it the rarest of them.
+                        //
+                        // A pile it is not. The pack has one skeleton and one skull, and
+                        // the decorator places a single prop per site, so what stands
+                        // there is a body or a skull rather than a heap of them. Nor is
+                        // there a totem in either pack — the nearest thing is
+                        // `_TorchStick_01`, which is a torch. The medieval pack arriving
+                        // has archer stakes and banners, which are what a totem wants.
+                        "SM_Prop_Skeleton_Ground_01", "SM_Prop_Skull_01", "SM_Prop_Skull_01",
+                        "SM_Prop_Chest_Wood_01", "SM_Prop_Grave_03", "SM_Prop_CampFire_01"
                     })),
 
                 // Bare earth, gravel and worn grass, laid flat on the ground.

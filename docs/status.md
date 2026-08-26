@@ -1133,6 +1133,20 @@ The improvised wagons are deleted with the rest of the old kit: `Wagon.fbx` and
 ever goes unfilled, `RunVisuals` still assembles one out of a crate and a barrel, which
 is the fallback that was always underneath that one.
 
+**The tell was on the map and not in the world.** `LevelPreview` passed its trap-field
+sites to the decorator and `LevelRunner` did not, so a player read *something went wrong on
+this ground* while drawing the route and then drove through country that said nothing —
+which is the half where the signal was meant to do its work. The placement moved to
+`Sim.TrapSigns` so both views ask the same question of the same rule.
+
+**What is actually in the set, against what the GDD asks for.** §5 names *bone piles and
+totems*. The pack has one skeleton and one skull, and the decorator places a single prop per
+site, so what stands there is a body or a skull rather than a heap of either — `_Skull_01`
+is weighted twice so bones are at least as likely as the chest, the grave and the cold fire.
+**There is no totem in either pack.** The nearest thing is `_TorchStick_01`, which is a
+torch. The medieval pack now arriving ships archer stakes and banners, which are what a
+totem wants.
+
 **The trap tell is finally what the reference shows.** That reference is a battle map
 called *Övergiven Väg*, and what says so in it is wrecked wagons among the bones — not
 masonry. Masonry means somebody built here; a cart left in a field means somebody died
