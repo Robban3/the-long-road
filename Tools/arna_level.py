@@ -2219,11 +2219,13 @@ TREE_JITTER_LOW, TREE_JITTER_HIGH = 0.55, 1.7
 # Small snags yes, giants no.
 DEAD_JITTER_LOW, DEAD_JITTER_HIGH = 0.5, 1.15
 
-TREE_KINDS = ("trees", "pines")
+TREE_KINDS = ("trees", "pines", "birch")
 
 TREE_HEIGHT = 7.0
 PINE_HEIGHT = 8.5
 ROCK_HEIGHT = 2.2
+BOULDER_WIDTH = 5.5
+BUSH_HEIGHT = 1.9
 MOUNTAIN_HEIGHT = 20.0
 DEAD_TREE_HEIGHT = 9.0
 HOUSE_HEIGHT = 6.0
@@ -2241,8 +2243,11 @@ RUIN_CLUSTER_TILES = 6
 
 # Model counts from LoadForestDecor in Assets/Editor/ArnaSetup.cs.
 SET_SIZES = {
-    "trees": 5, "pines": 5, "dead": 5, "rocks": 7, "cover": 18,
-    "mountains": 2, "houses": 5, "farms": 3, "towers": 2, "timber": 4, "ruins": 1,
+    "pines": 8, "trees": 10, "birch": 5, "dead": 8, "bushes": 8,
+    "rocks": 10, "boulders": 7, "cover": 21, "mountains": 3, "timber": 7, "ruins": 6,
+    # Empty in the engine too: neither Synty pack has a medieval building. They come
+    # back with POLYGON Knights. Kept in the table so the shapes stay symmetrical.
+    "houses": 0, "farms": 0, "towers": 0,
 }
 
 COVER_DENSITY = {FOREST: 2.4, PLAINS: 1.7, MARSH: 2.0, MOUNTAIN_PASS: 0.5, ROAD: 0.15}
@@ -2273,11 +2278,13 @@ DENSITY = {FOREST: 0.45, MOUNTAIN_PASS: 0.18, PLAINS: 0.03, MARSH: 0.06, ROAD: 0
 PROP_FOOTPRINT = {
     "mountains": 0.60,   # cone at size * 1.2
     "houses": 0.58,      # roof at size * 1.15
+    "boulders": 0.55,    # measured across already, so most of its width is footprint
     "rocks": 0.50,
-    "boulders": 0.50,
     "ruins": 0.45,
     "trees": 0.43,       # canopy at size * 0.85
+    "birch": 0.30,       # a thinner crown than the round broadleaf
     "pines": 0.31,       # widest whorl at size * 0.62
+    "bushes": 0.45,
     "towers": 0.25,
     "timber": 0.20,
     "dead": 0.12,
@@ -2299,7 +2306,7 @@ BULKY_KINDS = ("mountains",)
 # as long as nothing green could reach a tile's width. The moment spruces were given
 # their real range a 14-metre one had a 4.5-metre canopy, crossed the threshold, and the
 # checker started reading two touching crowns as a tree growing out of a rock.
-CANOPY_KINDS = ("trees", "pines", "dead", "cover")
+CANOPY_KINDS = ("trees", "pines", "birch", "dead", "bushes", "cover", "patches")
 
 
 def prop_footprint(kind: str, size: float) -> float:
@@ -2661,25 +2668,47 @@ def decorate(grid: TileGrid, seed: int, keep_clear=None, height_scale: float = 0
 
 
 def _pick(terrain: int, rng: DeterministicRandom):
+    """Mirrors Arna.View.TerrainDecorator.Pick — a weighted draw, shares in a column.
+
+    The proportions come from the reference pictures. Forest is a spruce forest with
+    other things in it, and a fifth of it is the shrub layer whose absence made the old
+    one read as trunks standing in a lawn.
+    """
+    roll = rng.range_float(0.0, 1.0)
+
+    def one(kind, size, by_width=False):
+        n = SET_SIZES[kind]
+        if n <= 0:
+            return None
+        return (kind, size, by_width, rng.range_int(0, n))
+
     if terrain == FOREST:
-        if rng.chance(0.62):
-            return ("pines", PINE_HEIGHT, False, rng.range_int(0, SET_SIZES["pines"]))
-        return ("trees", TREE_HEIGHT, False, rng.range_int(0, SET_SIZES["trees"]))
+        if roll < 0.44: return one("pines", PINE_HEIGHT)
+        if roll < 0.58: return one("trees", TREE_HEIGHT)
+        if roll < 0.68: return one("birch", TREE_HEIGHT)
+        if roll < 0.88: return one("bushes", BUSH_HEIGHT)
+        if roll < 0.96: return one("rocks", ROCK_HEIGHT)
+        return one("timber", TIMBER_WIDTH, True)
 
     if terrain == MOUNTAIN_PASS:
-        if rng.chance(0.30):
-            return ("mountains", MOUNTAIN_HEIGHT, False, rng.range_int(0, SET_SIZES["mountains"]))
-        return ("rocks", ROCK_HEIGHT, False, rng.range_int(0, SET_SIZES["rocks"]))
+        if roll < 0.26: return one("mountains", MOUNTAIN_HEIGHT)
+        if roll < 0.50: return one("boulders", BOULDER_WIDTH, True)
+        if roll < 0.86: return one("rocks", ROCK_HEIGHT)
+        return one("pines", PINE_HEIGHT)
 
     if terrain == MARSH:
-        if rng.chance(0.55):
-            return ("dead", DEAD_TREE_HEIGHT, False, rng.range_int(0, SET_SIZES["dead"]))
-        return ("rocks", ROCK_HEIGHT, False, rng.range_int(0, SET_SIZES["rocks"]))
+        if roll < 0.52: return one("dead", DEAD_TREE_HEIGHT)
+        if roll < 0.74: return one("bushes", BUSH_HEIGHT)
+        if roll < 0.90: return one("rocks", ROCK_HEIGHT)
+        return one("pines", PINE_HEIGHT)
 
     if terrain in (PLAINS, ROAD):
-        if rng.chance(0.6):
-            return ("rocks", ROCK_HEIGHT, False, rng.range_int(0, SET_SIZES["rocks"]))
-        return ("trees", TREE_HEIGHT, False, rng.range_int(0, SET_SIZES["trees"]))
+        if roll < 0.34: return one("rocks", ROCK_HEIGHT)
+        if roll < 0.56: return one("bushes", BUSH_HEIGHT)
+        if roll < 0.68: return one("boulders", BOULDER_WIDTH, True)
+        if roll < 0.84: return one("trees", TREE_HEIGHT)
+        if roll < 0.94: return one("birch", TREE_HEIGHT)
+        return one("pines", PINE_HEIGHT)
 
     return None
 
@@ -2813,14 +2842,21 @@ def _place_landmarks(props, grid, rng, clear, occupied, height_scale, sites) -> 
         terrain = int(grid.tiles[i])
         choice = None
 
+        # An empty set places nothing, the way an empty PropSet does in the engine.
+        # Houses, farms and watchtowers are empty on purpose: neither Synty pack has a
+        # medieval building, and they come back with POLYGON Knights.
+        def one(kind, size, by_width=False):
+            n = SET_SIZES[kind]
+            return None if n <= 0 else (kind, size, by_width, rng.range_int(0, n))
+
         if terrain == ROAD and rng.chance(0.035):
-            choice = ("houses", HOUSE_HEIGHT, False, rng.range_int(0, SET_SIZES["houses"]))
+            choice = one("houses", HOUSE_HEIGHT)
         elif terrain == PLAINS and _near_road(grid, x, y, 2) and rng.chance(0.16):
-            choice = ("farms", FARM_WIDTH, True, rng.range_int(0, SET_SIZES["farms"]))
+            choice = one("farms", FARM_WIDTH, True)
         elif terrain == MOUNTAIN_PASS and rng.chance(0.012):
-            choice = ("towers", WATCHTOWER_HEIGHT, False, rng.range_int(0, SET_SIZES["towers"]))
+            choice = one("towers", WATCHTOWER_HEIGHT)
         elif terrain == FOREST and rng.chance(0.006):
-            choice = ("timber", TIMBER_WIDTH, True, rng.range_int(0, SET_SIZES["timber"]))
+            choice = one("timber", TIMBER_WIDTH, True)
 
         if choice is None:
             continue

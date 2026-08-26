@@ -39,10 +39,52 @@ namespace Arna.View
     [System.Serializable]
     public sealed class BiomeDecor
     {
-        public PropSet Trees = new PropSet();
+        /// <summary>
+        /// Conifers. The tree this country is mostly made of.
+        ///
+        /// Kept as its own set rather than folded in with the broadleaf because the
+        /// forest is a spruce forest with other things in it, and a single bag drawn
+        /// from evenly is a mixed wood — a different place entirely.
+        /// </summary>
         public PropSet Pines = new PropSet();
+
+        /// <summary>Round-crowned broadleaf. The minority that punctuates the conifers.</summary>
+        public PropSet Trees = new PropSet();
+
+        /// <summary>
+        /// Birch: pale trunks, thin crowns, and the reason there is a third tree set.
+        ///
+        /// Two species read as two species; three read as a wood. It is the cheapest
+        /// variety on this list — the models were already in the pack, unused — and the
+        /// pale trunk is the only light vertical line in a forest otherwise made of dark
+        /// ones, which is what stops a stand of spruce from reading as a texture.
+        /// </summary>
+        public PropSet Birch = new PropSet();
+
         public PropSet DeadTrees = new PropSet();
+
+        /// <summary>
+        /// The layer between the grass and the trees.
+        ///
+        /// Without it a forest is trunks standing in a lawn. Every reference for this
+        /// game has a shrub layer at roughly head height — dense enough to hide a fox,
+        /// short enough to see a caravan over — and its absence is most of why the old
+        /// forest read as a diagram of a forest.
+        /// </summary>
+        public PropSet Bushes = new PropSet();
+
+        /// <summary>Loose stone, ankle to waist. Scattered everywhere.</summary>
         public PropSet Rocks = new PropSet();
+
+        /// <summary>
+        /// The big grey blocks and clusters, taller than a man.
+        ///
+        /// Separate from <see cref="Rocks"/> because they do a different job: a pebble
+        /// is texture and a boulder is a landmark you steer round. Sized across rather
+        /// than up — these are slabs, and fitting a slab by height inflates it.
+        /// </summary>
+        public PropSet Boulders = new PropSet();
+
         public PropSet Mountains = new PropSet();
 
         /// <summary>
@@ -95,8 +137,10 @@ namespace Arna.View
         public PropSet Ruins = new PropSet();
 
         public bool IsEmpty =>
-            !Has(Trees) && !Has(Pines) && !Has(DeadTrees) && !Has(Rocks) && !Has(Mountains) &&
-            !Has(GroundCover) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) && !Has(Timber);
+            !Has(Trees) && !Has(Pines) && !Has(Birch) && !Has(DeadTrees) && !Has(Bushes) &&
+            !Has(Rocks) && !Has(Boulders) && !Has(Mountains) && !Has(GroundCover) &&
+            !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
+            !Has(Timber) && !Has(Ruins);
 
         static bool Has(PropSet set) => set != null && set.Any;
     }
@@ -118,6 +162,18 @@ namespace Arna.View
         public const float TreeHeight = 7f;
         public const float PineHeight = 8.5f;
         public const float RockHeight = 2.2f;
+
+        /// <summary>
+        /// A boulder, measured across rather than up. These are slabs and blocks, wider
+        /// than they are tall, and fitting one by height inflates it into a menhir.
+        /// </summary>
+        public const float BoulderWidth = 5.5f;
+
+        /// <summary>
+        /// A shrub, at about the height of the man walking past it. Tall enough to read
+        /// as cover from the play camera, short enough that the column shows over it.
+        /// </summary>
+        public const float BushHeight = 1.9f;
         public const float MountainHeight = 20f;
         public const float DeadTreeHeight = 9f;
 
@@ -818,49 +874,77 @@ namespace Arna.View
             Reserve(grid, occupied, instance, position.X, position.Y);
         }
 
+        /// <summary>
+        /// What grows on one tile of a given terrain.
+        ///
+        /// A weighted draw rather than a chain of coin flips, because the shares *are*
+        /// the design and a chain of flips hides them: the old version was four nested
+        /// ifs and the actual proportion of one species to another was something you
+        /// worked out with a pencil. Here the numbers are in a column and read down.
+        ///
+        /// The proportions come from the reference pictures. Forest is a spruce forest
+        /// with other things in it — three fifths conifer, broadleaf and birch behind
+        /// it — and a fifth of it is the shrub layer, whose absence is most of why the
+        /// old forest read as trunks standing in a lawn. Plains are stone and shrub with
+        /// the odd tree. The pass is rock and boulder under landform. The marsh is dead
+        /// standing timber.
+        /// </summary>
         static Choice Pick(BiomeDecor decor, TerrainType terrain, DeterministicRandom rng)
         {
+            float roll = rng.Range(0f, 1f);
+
             switch (terrain)
             {
                 case TerrainType.Forest:
-                    // Pines dominate, broadleaf mixed in so the canopy is not uniform.
-                    if (decor.Pines.Any && (rng.Chance(0.62f) || !decor.Trees.Any))
-                        return Tree(decor.Pines, rng, PineHeight);
-
-                    return Tree(decor.Trees, rng, TreeHeight);
+                    if (roll < 0.44f) return Tree(decor.Pines, rng, PineHeight);
+                    if (roll < 0.58f) return Tree(decor.Trees, rng, TreeHeight);
+                    if (roll < 0.68f) return Tree(decor.Birch, rng, TreeHeight);
+                    if (roll < 0.88f) return From(decor.Bushes, rng, BushHeight);
+                    if (roll < 0.96f) return From(decor.Rocks, rng, RockHeight);
+                    return From(decor.Timber, rng, TimberWidth, byWidth: true);
 
                 case TerrainType.MountainPass:
-                    if (decor.Mountains.Any && rng.Chance(0.30f))
-                        return From(decor.Mountains, rng, MountainHeight);
+                    if (roll < 0.26f) return From(decor.Mountains, rng, MountainHeight);
+                    if (roll < 0.50f) return From(decor.Boulders, rng, BoulderWidth, byWidth: true);
+                    if (roll < 0.86f) return From(decor.Rocks, rng, RockHeight);
+                    return Tree(decor.Pines, rng, PineHeight);
 
-                    return From(decor.Rocks, rng, RockHeight);
-
-                // Dead trees belong to the marsh. They are the pack's most legible
-                // model at a glance from above, and standing water killing the trees
-                // is the thing a marsh looks like.
+                // Standing water killing the trees is the thing a marsh looks like, and
+                // a bare trunk is the most legible model in the pack from above.
                 case TerrainType.Marsh:
-                    if (decor.DeadTrees.Any && rng.Chance(0.55f))
+                    if (roll < 0.52f)
                         return Tree(decor.DeadTrees, rng, DeadTreeHeight,
                                     DeadJitterLow, DeadJitterHigh);
-
-                    return From(decor.Rocks, rng, RockHeight);
+                    if (roll < 0.74f) return From(decor.Bushes, rng, BushHeight);
+                    if (roll < 0.90f) return From(decor.Rocks, rng, RockHeight);
+                    return Tree(decor.Pines, rng, PineHeight);
 
                 case TerrainType.Plains:
                 case TerrainType.Road:
-                    if (decor.Rocks.Any && rng.Chance(0.6f))
-                        return From(decor.Rocks, rng, RockHeight);
-
-                    return Tree(decor.Trees, rng, TreeHeight);
+                    if (roll < 0.34f) return From(decor.Rocks, rng, RockHeight);
+                    if (roll < 0.56f) return From(decor.Bushes, rng, BushHeight);
+                    if (roll < 0.68f) return From(decor.Boulders, rng, BoulderWidth, byWidth: true);
+                    if (roll < 0.84f) return Tree(decor.Trees, rng, TreeHeight);
+                    if (roll < 0.94f) return Tree(decor.Birch, rng, TreeHeight);
+                    return Tree(decor.Pines, rng, PineHeight);
 
                 default:
                     return default;
             }
         }
 
+        /// <summary>
+        /// One prop from a set, or nothing when the set is empty.
+        ///
+        /// Empty is ordinary rather than exceptional: the weighted draw asks for a birch
+        /// on a map dressed by a pack that has none, and the honest answer is a bare
+        /// tile. Every caller already treats a null prefab as "place nothing".
+        /// </summary>
         static Choice From(PropSet set, DeterministicRandom rng, float size,
-                           float low = JitterLow, float high = JitterHigh) =>
+                           float low = JitterLow, float high = JitterHigh,
+                           bool byWidth = false) =>
             set != null && set.Any
-                ? new Choice(set, Any(set, rng), size, false, low, high)
+                ? new Choice(set, Any(set, rng), size, byWidth, low, high)
                 : default;
 
         /// <summary>A tree: the wide size spread a stand of them wants, and canopy rules.</summary>

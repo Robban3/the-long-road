@@ -115,6 +115,11 @@ ROOF = np.array([0.42, 0.26, 0.20])
 WHEAT = np.array([0.78, 0.66, 0.30])
 CANVAS = np.array([0.84, 0.80, 0.70])
 
+# Birch and shrub. The birch trunk is the palest thing in the wood on purpose.
+BIRCH_BARK = np.array([0.86, 0.84, 0.78])
+BIRCH_LEAF = np.array([0.52, 0.62, 0.34])
+BUSH_GREEN = np.array([0.30, 0.46, 0.24])
+
 WAGON_COLORS = {
     A.SUPPLY: np.array([0.85, 0.72, 0.42]),
     A.WAR: np.array([0.72, 0.45, 0.35]),
@@ -970,6 +975,29 @@ def build_prop(mesh: Mesh, prop: A.Prop) -> None:
                  (size * 0.05, size * 0.30, size * 0.05), prop.yaw + k * 120,
                  base + np.array([size * 0.08, size * (0.55 + 0.12 * k), size * 0.05]))
 
+    elif prop.kind == "birch":
+        # A pale trunk and a thin crown, which is the whole reason birch is a third
+        # species: it is the only light vertical line in a forest of dark ones.
+        _add(mesh, CYLINDER, BIRCH_BARK, (size * 0.06, size * 0.62, size * 0.06), prop.yaw, base)
+        for i, (offset, width, height) in enumerate(((0.48, 0.44, 0.34), (0.70, 0.34, 0.28))):
+            _add(mesh, CONE, BIRCH_LEAF * (0.94 + 0.08 * i),
+                 (size * width, size * height, size * width), prop.yaw + i * 55,
+                 base + np.array([0.0, size * offset, 0.0]))
+
+    elif prop.kind == "bushes":
+        # Two overlapping domes rather than one. A single dome is a boulder painted
+        # green, and the layer exists to read as foliage at the height of a man.
+        _add(mesh, ROCK, BUSH_GREEN, (size * 1.15, size * 0.85, size * 1.05), prop.yaw, base)
+        _add(mesh, ROCK, BUSH_GREEN * 0.88, (size * 0.75, size * 0.66, size * 0.8),
+             prop.yaw + 50, base + np.array([size * 0.35, size * 0.1, size * 0.2]))
+
+    elif prop.kind == "boulders":
+        # Sized across, so the height is derived rather than given. Slabs are wider
+        # than they are tall and fitting one by height turns it into a menhir.
+        _add(mesh, ROCK, STONE * 1.04, (size, size * 0.62, size * 0.86), prop.yaw, base)
+        _add(mesh, ROCK, STONE * 0.92, (size * 0.5, size * 0.34, size * 0.46),
+             prop.yaw + 65, base + np.array([size * 0.42, 0.0, size * 0.3]))
+
     elif prop.kind in ("rocks", "shore"):
         height = size if prop.kind == "rocks" else size * 0.5
         color = STONE if prop.kind == "rocks" else STONE * 0.72
@@ -1005,9 +1033,14 @@ def build_prop(mesh: Mesh, prop: A.Prop) -> None:
              base + np.array([0.0, size * 0.85, 0.0]))
 
     elif prop.kind == "timber":
-        for k in range(3):
-            _add(mesh, CYLINDER, WOOD_PALE, (size * 0.28, size * 0.9, size * 0.28),
-                 prop.yaw + 90, base + np.array([0.0, size * 0.22 * k, size * 0.1 * k]))
+        # A fallen log and a stump beside it. This drew three upright cylinders — a
+        # stack of cut lumber, from the days when the model was an RTS logging camp —
+        # and after the swap it was standing brown posts scattered through a wood while
+        # the engine drew Synty's logs lying where they fell.
+        _add(mesh, BOX, WOOD_PALE, (size * 0.24, size * 0.24, size * 0.95), prop.yaw,
+             base + np.array([0.0, size * 0.12, 0.0]))
+        _add(mesh, CYLINDER, WOOD_PALE * 0.88, (size * 0.26, size * 0.16, size * 0.26),
+             prop.yaw, base + np.array([size * 0.42, 0.0, size * 0.3]))
 
     elif prop.kind == "ruins":
         # An abandoned cart: the same kind of cart the player is escorting.

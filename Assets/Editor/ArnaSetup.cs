@@ -130,7 +130,6 @@ namespace Arna.Editor
             Debug.Log($"[Arna] Play scene ready at {PlayScenePath}. Open it and press Play.");
         }
 
-        const string QuaterniusDir = "Assets/Quaternius/UltimateFantasyRTS";
 
         /// <summary>
         /// Casts the models against the simulation's roles.
@@ -219,16 +218,24 @@ namespace Arna.Editor
 
                 Wagon = One("Assets/_Project/Models/Wagon.fbx"),
                 WagonTreasure = One("Assets/_Project/Models/WagonTreasure.fbx"),
-                WagonBody = One($"{QuaterniusDir}/Crate.fbx"),
-                WagonCargo = One($"{QuaterniusDir}/Barrel.fbx"),
+                // Off the RTS kit and onto Synty with everything else. These are the
+                // improvised wagon — a crate on wheels — and it is a fallback for when
+                // no cart model is loaded, so it still has to match the world it stands
+                // in. The wagon pack replaces the whole assembly.
+                WagonBody = One($"{SyntyGenericDir}/Props/SM_Gen_Prop_Crate_01.prefab"),
+                WagonCargo = One($"{SyntyGenericDir}/Props/SM_Gen_Prop_Barrel_Wood_01.prefab"),
 
                 // Off the pirate pack and onto the RPG one. Every pirate model shares
                 // a single atlas material per asset, and that atlas is not in this
                 // project — so the chest holding the level's silver was rendering as a
                 // white box. The RPG chest carries its colours in its materials, the
                 // way the swords and bows already do, and reads as gold from the air.
-                SilverCache = One("Assets/Quaternius/RPGItems/Chest_Ingots.fbx"),
-                TrapMarker = One("Assets/Quaternius/RPGItems/Bone.fbx")
+                // Both onto Synty. A cache is a chest somebody hid and a sprung trap is
+                // a skull somebody left: two of the few props in this game the player
+                // is meant to look *at* rather than past, which makes matching the
+                // world they sit in worth more here than anywhere else.
+                SilverCache = One($"{SyntyNatureDir}/Props/SM_Prop_Chest_Wood_01.prefab"),
+                TrapMarker = One($"{SyntyNatureDir}/Props/SM_Prop_Skull_01.prefab")
             };
         }
 
@@ -307,76 +314,93 @@ namespace Arna.Editor
             // and then scales them by their width, which looks like two separate bugs.
             return new BiomeDecor
             {
-                // The country comes from POLYGON Nature now (docs/status.md §8). What is
-                // being matched is the pack's own marketing shot, which the design took
-                // as its target: conifers dominating in many sizes and two greens, a
-                // minority of rounded broadleaf, grey faceted rock in three sizes, and a
-                // floor thick enough that no bare ground shows between the trees.
+                // Everything here is Synty. The old kit is gone, not layered under this
+                // one: two artists' idea of a spruce standing in the same wood is the
+                // seam the whole swap was made to close (docs/status.md §8).
                 //
-                // Rounded broadleaf, and a minority on purpose. In the reference the
-                // spruces carry the picture and the round trees punctuate it — one big
-                // one by the water, a few among the pines. Reverse the proportion and it
-                // stops being a northern forest.
-                Trees = Synty("Trees", "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
-                              "SM_Tree_Round_04", "SM_Tree_Round_05"),
-
-                // Seven silhouettes rather than five, and the sparse variants are the
-                // reason. A stand of identical cones reads as wallpaper however many
-                // sizes it comes in; a thin one next to a full one reads as trees.
+                // Three tree species rather than two. Two read as two species; three
+                // read as a wood, and the birch was already in the pack and unused. The
+                // pale trunk is the only light vertical line in a forest otherwise made
+                // of dark ones.
                 Pines = Synty("Trees", "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02",
                               "SM_Tree_PolyPine_03", "SM_Tree_PolyPine_Sparse_01",
-                              "SM_Tree_PolyPine_Sparse_02", "SM_Tree_Pine_01", "SM_Tree_Pine_02"),
+                              "SM_Tree_PolyPine_Sparse_02", "SM_Tree_PolyPine_Sparse_03",
+                              "SM_Tree_Pine_01", "SM_Tree_Pine_02"),
+
+                Trees = Synty("Trees", "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
+                              "SM_Tree_Round_04", "SM_Tree_Round_05", "SM_Tree_TallRound_01",
+                              "SM_Tree_01", "SM_Tree_02", "SM_Tree_03", "SM_Tree_04"),
+
+                Birch = Synty("Trees", "SM_Tree_Birch_01", "SM_Tree_Birch_02",
+                              "SM_Tree_Birch_03", "SM_Tree_Birch_04", "SM_Tree_Birch_Small_01"),
 
                 // The marsh gets the swamp trees as well as the bare dead ones. A fen
                 // with nothing but grey sticks in it is a diagram of a fen.
                 DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
-                                  "SM_Tree_Pine_Dead_01", "SM_Tree_Swamp_01", "SM_Tree_Swamp_02"),
+                                  "SM_Tree_Pine_Dead_01", "SM_Tree_Generic_Dead_01",
+                                  "SM_Tree_Swamp_01", "SM_Tree_Swamp_02", "SM_Tree_Swamp_03"),
+
+                // The layer between the grass and the trees. Without it a forest is
+                // trunks standing in a lawn, which is what the old one was.
+                Bushes = Synty("Plants", "SM_Plant_Bush_01", "SM_Plant_Bush_02", "SM_Plant_Bush_03",
+                               "SM_Plant_Bush_Leaves_01", "SM_Plant_Bush_Leaves_02",
+                               "SM_Plant_Bush_Leaves_03", "SM_Plant_Hedge_Bush_01",
+                               "SM_Plant_Undergrowth_01"),
 
                 Rocks = Synty("Rocks", "SM_Rock_01", "SM_Rock_02", "SM_Rock_03", "SM_Rock_04",
-                              "SM_Rock_Rounded_01", "SM_Rock_Small_01", "SM_Rock_Small_02"),
+                              "SM_Rock_Rounded_01", "SM_Rock_Small_01", "SM_Rock_Small_02",
+                              "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03"),
 
-                // Grass first and by a wide margin — the same decision as before the
-                // swap, and it survives the change of pack because the reason does. The
-                // floor in the reference is grass with things in it, not a flowerbed
-                // with grass around the edges, so the five grasses are listed twice and
-                // everything showier once.
+                // Slabs and clusters, sized across rather than up. A pebble is texture;
+                // a boulder is something the eye steers round.
+                Boulders = Synty("Rocks", "SM_Rock_Boulder_01", "SM_Rock_Cluster_Large_01",
+                                 "SM_Rock_Cluster_Large_02", "SM_Rock_Cluster_Large_03",
+                                 "SM_Rock_Cluster_Large_04", "SM_Rock_Cluster_Large_05",
+                                 "SM_Rock_Cluster_Large_06"),
+
+                // Grass first and by a wide margin. The floor is grass with things in
+                // it, not a flowerbed with grass round the edges — so the five grasses
+                // are listed twice and everything showier once.
                 //
-                // No SM_Plant_PurpleFlower_01. The last pack taught this: a violet plant
-                // at any weight takes over the middle distance, because violet is the
-                // one colour nothing else on the hillside is.
+                // No SM_Plant_PurpleFlower_01, and the reason outlives the pack it was
+                // learned on: a violet plant at any weight takes over the middle
+                // distance, because violet is the one colour nothing else out there is.
                 GroundCover = Synty("Plants",
                                     "SM_Plant_Grass_01", "SM_Plant_Grass_02", "SM_Plant_Grass_03",
                                     "SM_Plant_Grass_04", "SM_Plant_Grass_05",
                                     "SM_Plant_Grass_01", "SM_Plant_Grass_02", "SM_Plant_Grass_03",
                                     "SM_Plant_Grass_04", "SM_Plant_Grass_05",
                                     "SM_Plant_Fern_01", "SM_Plant_Fern_02", "SM_Plant_Fern_03",
-                                    "SM_Plant_Bush_01", "SM_Plant_Bush_02", "SM_Plant_Bush_03",
-                                    "SM_Plant_Undergrowth_01", "SM_Plant_Flowers_01",
-                                    "SM_Plant_Mushrooms_01", "SM_Plant_Mushrooms_02"),
+                                    "SM_Plant_Fern_Leaves_01", "SM_Plant_Fern_Leaves_02",
+                                    "SM_Plant_Flowers_01", "SM_Plant_FlowerPatch_01",
+                                    "SM_Plant_Mushrooms_01", "SM_Plant_Mushrooms_02",
+                                    "SM_Plant_Mushrooms_03", "SM_Plant_Reeds_01"),
 
-                // Landforms at last, and from the same pack as everything around them.
-                // They used to come from the RTS kit because the old nature kit had
-                // rocks and no mountains — a borrowed ridge on a borrowed skyline, and
-                // the seam showed. POLYGON Nature has three, pale and snow-capped, which
-                // is what the reference puts on its horizon.
                 Mountains = Synty("Terrain", "SM_Terrain_Mountain_01", "SM_Terrain_Mountain_02",
                                   "SM_Terrain_Mountain_03"),
 
+                // Fallen wood on the forest floor, off the nature pack rather than the
+                // RTS kit's stacked lumber. A log lying where it fell is woodland; a
+                // neat stack is an industry, and there is nobody out here to run one.
+                Timber = Synty("Trees", "SM_Tree_Log_01", "SM_Tree_Log_02", "SM_Tree_Stump_01",
+                               "SM_Tree_Stump_02", "SM_Tree_Stump_03", "SM_Tree_Stump_04",
+                               "SM_Tree_Branch_01"),
+
+                // The trap-field tell, and it is now what the reference picture shows:
+                // a wrecked cart, bones, a dropped chest. The old marker was one cart
+                // model borrowed from a village pack. Nothing about a wreck should look
+                // tidy, so the set is deliberately mixed.
+                Ruins = Synty("Props", "SM_Prop_Skeleton_Ground_01", "SM_Prop_Chest_Wood_01",
+                              "SM_Prop_Grave_03", "SM_Prop_CampFire_01",
+                              "SM_Prop_Pillar_Broken_01", "SM_Prop_Pillar_Arch_Broken_01"),
+
                 // Bare earth, gravel and worn grass, laid flat on the ground.
                 //
-                // From PolygonGeneric, which is the only pack here that has ground
-                // surfaces at all — and which was on the deletion list for having a
-                // modern name and a folder full of air conditioners. Its Environment
-                // folder is the piece this project has been missing since the terrain
-                // became a heightmap with one colour per type.
-                //
-                // The riverbank pieces are in the mix on purpose. Every reference for
-                // this game puts gravel and bare mud where water meets land, and until
-                // now the shoreline was grass that stopped.
-                //
-                // Mixing two Synty packs is allowed here and nowhere else: this is
-                // ground, which is seen flat and mostly in shadow, not a spruce standing
-                // beside another artist's spruce. See docs/synty-inventory.md.
+                // From PolygonGeneric, which is the only pack here with ground surfaces
+                // at all — and which was on the deletion list for having a modern name
+                // and a folder full of air conditioners. Mixing two Synty packs is
+                // allowed here and nowhere else: ground is seen flat and mostly in
+                // shadow, not a spruce beside another artist's spruce.
                 GroundPatches = Generic("Environment",
                                         "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
                                         "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04",
@@ -386,28 +410,17 @@ namespace Arna.Editor
                                         "SM_Gen_Env_Ground_Grass_03",
                                         "SM_Gen_Env_Ground_River_Dirt_01",
                                         "SM_Gen_Env_Ground_River_Dirt_02",
-                                        "SM_Gen_Env_Ground_River_Dirt_03"),
+                                        "SM_Gen_Env_Ground_River_Dirt_03")
 
-                // The pack's buildings come in three levels of development. First age,
-                // level one: this is a road through the provinces, not a capital.
-                Houses = Rts("Houses_FirstAge_1_Level1", "Houses_FirstAge_2_Level1",
-                             "Houses_FirstAge_3_Level1", "TowerHouse_FirstAge",
-                             "Windmill_FirstAge"),
-                Farms = Rts("Farm_FirstAge_Level1_Wheat", "Farm_FirstAge_Level2_Wheat",
-                            "Farm_Dirt_Level1"),
-                Watchtowers = Rts("WatchTower_FirstAge_Level1", "WatchTower_FirstAge_Level2"),
-                Timber = Rts("Logs", "Crate_Stack1", "Crate_Stack2", "Barrel"),
-
-                // What is left where a caravan came to grief. A wall segment was the
-                // first attempt and said the wrong thing entirely — a ruin is masonry,
-                // and masonry means somebody built here, not that somebody died here.
-                // An abandoned cart is unmistakable, and it is the same kind of cart
-                // the player is escorting.
-                Ruins = Village("Cart")
+                // Houses, Farms and Watchtowers are left empty, and that is the honest
+                // state rather than an oversight. Neither Synty pack has a medieval
+                // building: PolygonNature has none at all and PolygonGeneric's are
+                // modern city blocks. They come back with POLYGON Knights (§8). An
+                // empty set places nothing, so the map is wilderness until then — which
+                // is what the reference picture is, and arguably what a road through the
+                // provinces should have been all along.
             };
         }
-
-        const string VillageDir = "Assets/Quaternius/MedievalVillage";
 
         /// <summary>
         /// POLYGON Nature, which files its content by kind: Trees, Rocks, Plants,
@@ -416,9 +429,6 @@ namespace Arna.Editor
         /// </summary>
         const string SyntyNaturePack = "Assets/Synty/PolygonNature";
         const string SyntyNatureDir = SyntyNaturePack + "/Prefabs";
-
-        /// <summary>Models from the Z-up RTS scenery pack.</summary>
-        static PropSet Rts(params string[] names) => new PropSet(true, Load(QuaterniusDir, names));
 
         /// <summary>
         /// Prefabs from POLYGON Nature, which is Y-up like every Synty pack.
@@ -445,15 +455,6 @@ namespace Arna.Editor
 
         static PropSet Generic(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyGenericDir}/{group}", names));
-
-        /// <summary>
-        /// Models from the medieval village pack, which is Y-up — measured, not assumed.
-        /// It comes from the same author as the Z-up RTS scenery, and House_1 arrives
-        /// 2.14 x 3.39 x 2.66 with its height along Y. Guessing from the author would
-        /// have laid every building on its side.
-        /// </summary>
-        static PropSet Village(params string[] names) =>
-            new PropSet(false, Load(VillageDir, names));
 
         /// <summary>
         /// Loads scenery by name, preferring a prefab over the raw model.
@@ -1213,7 +1214,7 @@ namespace Arna.Editor
                 $"{SyntyNatureDir}/Rocks/SM_Rock_01.prefab",
                 $"{SyntyNatureDir}/Terrain/SM_Terrain_Mountain_01.prefab",
                 $"{SyntyNatureDir}/Plants/SM_Plant_Grass_01.prefab",
-                $"{QuaterniusDir}/Crate.fbx",
+                $"{SyntyNatureDir}/Trees/SM_Tree_Log_01.prefab",
                 "Assets/Quaternius/Knight/Knight.fbx",
 
                 // The ForestAnimals wolf, not the Quaternius one. That folder held
@@ -1222,9 +1223,8 @@ namespace Arna.Editor
                 // that measured a model nothing draws.
                 "Assets/ForestAnimals/Models/Wolf.fbx",
 
-                "Assets/Quaternius/PiratePack/Prop_Barrel.fbx",
-                "Assets/Quaternius/PiratePack/Prop_Chest_Gold.fbx",
-                "Assets/Quaternius/RPGItems/Bone.fbx"
+                $"{SyntyNatureDir}/Props/SM_Prop_Chest_Wood_01.prefab",
+                $"{SyntyNatureDir}/Props/SM_Prop_Skull_01.prefab"
             };
 
             foreach (var path in names)

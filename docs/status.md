@@ -562,6 +562,52 @@ been measuring models the game stopped drawing; both now point at what is actual
 the ground. `Report Selected Folder Dimensions` also searches `t:Prefab` now, or it
 reports an empty folder for the pack that supplies the entire landscape.
 
+### The scenery layer was rebuilt, not patched
+
+Everything that dresses the world now comes from Synty, and the old kit is deleted
+rather than left underneath. `Assets/Quaternius/UltimateFantasyRTS` (1212 files) and
+`MedievalVillage` (396) are gone; what is left of that folder is characters and their
+gear — Knight, ModularMen, PiratePack, the cavalry horse, and RPGItems for the bow and
+axe — until the army pack arrives.
+
+**Three tree species instead of two, and a shrub layer.** Two species read as two
+species; three read as a wood, and the birch was in the pack already and unused. Its
+pale trunk is the only light vertical line in a forest otherwise made of dark ones. The
+shrub layer matters more: without it a forest is trunks standing in a lawn, which is
+what the old one was, and every reference for this game has foliage at about head
+height.
+
+**`Pick` is a weighted draw now, not a chain of coin flips.** The shares *are* the
+design and the old form hid them — four nested ifs, where working out the proportion of
+one species to another took a pencil. They read down a column now:
+
+| | Forest | Pass | Marsh | Plains / road |
+|---|---|---|---|---|
+| Conifer | 44 % | 14 % | 10 % | 6 % |
+| Broadleaf | 14 % | — | — | 16 % |
+| Birch | 10 % | — | — | 10 % |
+| Shrub | 20 % | — | 22 % | 22 % |
+| Rock | 8 % | 36 % | 16 % | 34 % |
+| Boulder | — | 24 % | — | 12 % |
+| Landform | — | 26 % | — | — |
+| Dead timber | — | — | 52 % | — |
+| Fallen wood | 4 % | — | — | — |
+
+Boulders are a new set and a separate job from rocks: a pebble is texture, a boulder is
+something the eye steers round. Sized across rather than up, because they are slabs and
+fitting a slab by height turns it into a menhir.
+
+**Houses, farms and watchtowers are empty, and that is the honest state.** Neither Synty
+pack has a medieval building — PolygonNature has none and PolygonGeneric's are modern
+city blocks — so an empty set places nothing and the map is wilderness until POLYGON
+Knights. Which is what the reference picture is, and arguably what a road through the
+provinces should have been all along.
+
+The trap tell changed with it. It was one cart borrowed from the village pack; it is now
+a mix of skeleton, dropped chest, grave, dead fire and broken masonry. The reference
+shows a wrecked *wagon*, which neither Synty pack has — the wagon pack does, and that is
+the obvious next move.
+
 ### The ground
 
 The terrain is one shader — a vertex colour per type with a grain texture over it — which
