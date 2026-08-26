@@ -24,8 +24,17 @@ namespace Arna.View
         /// <summary>How much of the muted colour replaces the original.</summary>
         public const float Mix = 0.88f;
 
-        /// <summary>How far the muted version is taken down as well as across.</summary>
-        public const float Darken = 0.88f;
+        /// <summary>
+        /// How far the muted version is taken down as well as across.
+        ///
+        /// 0.70 rather than the map render's 0.88, and the difference is the difference
+        /// between the two pictures. The Python render mutes a *finished image* — ground,
+        /// trees and all — so 0.88 lands on everything equally. Here the ground is muted
+        /// properly and the trees can only be darkened, so at 0.88 the unflown country
+        /// came out as a grey field with a green wood standing on it, and the eye read
+        /// the wood rather than the grey.
+        /// </summary>
+        public const float Darken = 0.70f;
 
         /// <summary>
         /// How much of its own colour a prop keeps under the overlay.
@@ -37,12 +46,19 @@ namespace Arna.View
         /// that <i>multiplies</i> the atlas. Multiplication can darken a green tree and
         /// cannot take the green out of it.
         ///
-        /// So under the overlay the wood goes to a third of its light and stays green. It
-        /// reads as country in shadow, which is close enough to country not yet looked at
-        /// — and the honest fix, a shader that desaturates, is a bigger job than the
-        /// difference is worth today.
+        /// So under the overlay the wood goes to a fifth of its light and stays green,
+        /// which at that darkness is a hue you have to look for rather than one that
+        /// looks back. It reads as country not yet looked at — and the honest fix, a
+        /// shader that desaturates, is a bigger job than the remaining difference is
+        /// worth today.
+        ///
+        /// A third was the first answer and it was not enough. What decides this number
+        /// is not how grey the wood is on its own but whether it is quieter than the
+        /// ground it stands on: the ground goes to luminance and then to 0.70 of it, so
+        /// anything on top that keeps a third of a saturated green is the brightest thing
+        /// in the muted half of the map, which is exactly backwards.
         /// </summary>
-        public const float PropLight = 0.34f;
+        public const float PropLight = 0.20f;
 
         /// <summary>
         /// Mutes one colour: to its own brightness, tinted toward the overlay grey, taken

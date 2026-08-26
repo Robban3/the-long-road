@@ -528,7 +528,7 @@ namespace Arna.App
             int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
                 maxProps: MaxProps, densityScale: DensityScale,
-                ruinSites: RuinSites(map));
+                ruinSites: RuinSites(map), horizon: false);
 
             // Worth printing: a prop that is placed but too small and a prop that was
             // never placed look identical on a map read from seventy metres up.

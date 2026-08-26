@@ -905,6 +905,21 @@ The overlay takes the colour out and leaves the geometry, which is the design ra
 an economy: the terrain is what the player plans against, so hiding it would remove the
 decision instead of the certainty.
 
+**It is greyer than the map render's numbers.** Darken went 0.88 to 0.70 and the prop
+light 0.34 to 0.20, and the reason is that the two pictures are muted at different
+points. The Python render mutes a *finished image* — ground, trees and all — so one
+figure lands on everything equally. Here the ground goes properly to luminance and the
+props can only be darkened, so at the render's values the unflown country came out as a
+grey field with a green wood standing on it, and the eye read the wood rather than the
+grey. What decides the prop figure is not how grey the wood is on its own but whether it
+is quieter than the ground it stands on.
+
+**The skyline is off on the plan.** The ring stands 320 m outside a 256 m map and the
+plan camera looks straight down from far enough up to hold the whole map, so its frustum
+is wider than the ground and the mountains land *around* the map in the frame. A row of
+peaks framing a map is not distance, it is furniture. `Decorate` takes a `horizon` flag
+and the plan passes false.
+
 ### What the plan tells you, and what it makes you pay for
 
 The overlay on its own is only half of it. The point of the ability is that it turns a

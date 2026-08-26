@@ -426,7 +426,8 @@ namespace Arna.View
                                    IReadOnlyCollection<int> keepClear = null,
                                    float heightScale = 0f, int maxProps = 600,
                                    float densityScale = 1f,
-                                   IReadOnlyCollection<int> ruinSites = null)
+                                   IReadOnlyCollection<int> ruinSites = null,
+                                   bool horizon = true)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
@@ -467,7 +468,15 @@ namespace Arna.View
                 }
             }
 
-            placed += PlaceHorizon(parent, grid, rng, decor);
+            // Off for the plan, and the reason is what a plan is.
+            //
+            // The skyline stands three hundred metres outside a map two hundred and
+            // fifty-six across, and the plan camera looks straight down from far enough
+            // up to hold the whole map — so its frustum is wider than the ground, and
+            // the ring lands *around* the map in the frame. A row of mountains framing a
+            // map is not distance, it is furniture: the plan is a map, and the only
+            // thing on it should be the country the route is drawn through.
+            if (horizon) placed += PlaceHorizon(parent, grid, rng, decor);
 
             // Patches before cover, so grass grows over the bare earth rather than the
             // bare earth being laid over the grass.
