@@ -20,6 +20,22 @@ namespace Arna.View
         readonly TileGrid _grid;
         readonly float _heightScale;
         readonly List<Transform> _wagons = new List<Transform>();
+
+        /// <summary>One per wagon, in the same order, turning that wagon's wheels.</summary>
+        readonly List<WagonWheels> _wheels = new List<WagonWheels>();
+
+        /// <summary>
+        /// Where each wagon stood last frame, or nothing on the frame it was built.
+        ///
+        /// The wheels are turned by distance covered, and distance covered is the one
+        /// thing the simulation does not hand over: it gives positions. So it is
+        /// measured here, from one frame to the next, which also means a wagon halted
+        /// in a fight has wheels that are genuinely still rather than idling.
+        /// </summary>
+        readonly List<Vector3?> _wagonWere = new List<Vector3?>();
+
+        /// <summary>Every horse in harness, across all the wagons, for animating.</summary>
+        readonly List<Transform> _draught = new List<Transform>();
         /// <summary>
         /// One entry per group, and inside it one figure per model the group can field.
         ///
@@ -91,7 +107,19 @@ namespace Arna.View
         public void Build(LevelRun run)
         {
             foreach (var wagon in run.Caravan.Wagons)
-                _wagons.Add(BuildWagon(wagon.Kind));
+            {
+                var cart = BuildWagon(wagon.Kind);
+                _wagons.Add(cart);
+                _wagonWere.Add(null);
+                _wheels.Add(WagonWheels.Fit(cart));
+            }
+
+            // Said once, and worth saying: if the pack ships its carts as one welded
+            // mesh there are no wheel parts to turn, and the wagons go on sliding with
+            // nothing in the console to say why.
+            if (_wagons.Count > 0 && _wheels[0].Count == 0)
+                Debug.LogWarning("[Arna] No wheels found under the wagon models, so they will "
+                                 + $"slide rather than roll. Parts: {WagonWheels.Parts(_wagons[0])}");
 
             if (run.Squad == null) return;
 
@@ -138,6 +166,7 @@ namespace Arna.View
                 // rather than on its axle. The wagon itself is what gets moved about,
                 // so the correction has to live in the cart underneath it.
                 cart.localPosition = new Vector3(0f, Standing(cart, Vector3.zero).y, 0f);
+                Harness(wagon, cart);
                 return wagon;
             }
 
@@ -165,7 +194,68 @@ namespace Arna.View
                 Tint(wheel.transform, new Color(0.28f, 0.20f, 0.14f));
             }
 
+            Harness(wagon, body);
             return wagon;
+        }
+
+        static readonly Color HorseColor = new Color(0.45f, 0.32f, 0.22f);
+
+        /// <summary>Half the gap between the two horses of a team, in metres.</summary>
+        const float HorseSpread = 0.75f;
+
+        /// <summary>
+        /// The draught pole: how far the horses' tails clear the cart's front.
+        ///
+        /// Two metres, which is what a pole is. It is not decoration — with the horses
+        /// closer the team reads as pushing the wagon, and the whole picture of a
+        /// caravan depends on the animals being out in front of it.
+        /// </summary>
+        const float Harnessed = 2f;
+
+        /// <summary>
+        /// Puts a pair of horses in front of a cart.
+        ///
+        /// A wagon that moves with nothing pulling it is a wagon that moves by itself,
+        /// which the eye reads long before it works out what is missing. Two abreast
+        /// rather than one: three hundred and fifty silver is a load, and a single
+        /// animal in front of a six-metre covered wagon looks like it is being punished.
+        ///
+        /// Parented to the wagon, so they follow it round every turn the road makes
+        /// without any of this having to run again — and go out with it when it burns.
+        ///
+        /// The cart is taken to face +Z, which is what everything else in this file
+        /// assumes: <see cref="Sync"/> turns the wagon to <c>LookRotation(heading)</c>
+        /// and no yaw correction is applied to the model. If a pack ever ships one
+        /// facing another way the horses will stand at its side, which is at least a
+        /// visible kind of wrong rather than a silent one.
+        /// </summary>
+        void Harness(Transform wagon, Transform cart)
+        {
+            if (!Library.Mounted.HasModel) return;
+
+            // Measured off the cart rather than assumed from its height: the packs put a
+            // hay cart and a covered wagon at the same 3.2 m and they are not remotely
+            // the same length.
+            float front = ModelScaling.Measure(cart.gameObject).max.z - wagon.position.z;
+
+            for (int i = 0; i < 2; i++)
+            {
+                var horse = SpawnActor(Library.Mounted, PrimitiveType.Capsule,
+                                       $"Horse_{i}", HorseColor,
+                                       VisualLibrary.DraughtHorseHeight, parent: wagon);
+
+                // Measured before it is turned, so the number is the horse's length
+                // whichever way its file happens to point.
+                float length = ModelScaling.Measure(horse.gameObject).size.z;
+
+                horse.localRotation = Quaternion.Euler(0f, Library.Mounted.YawOffset, 0f);
+                horse.localPosition = new Vector3(
+                    i == 0 ? -HorseSpread : HorseSpread,
+                    Standing(horse, Vector3.zero).y,
+                    front + Harnessed + length * 0.5f);
+
+                _draught.Add(horse);
+            }
         }
 
         public void Sync(LevelRun run)
@@ -181,12 +271,28 @@ namespace Arna.View
                 if (wagon.Destroyed) continue;
 
                 var position = run.Caravan.WagonPosition(i);
-                Place(_wagons[i], new Vector3(position.X, GroundAt(position), position.Y), facing);
+                var here = new Vector3(position.X, GroundAt(position), position.Y);
+                Place(_wagons[i], here, facing);
+
+                // Across the ground rather than through it. Including the climb would
+                // add the terrain sampler's own jitter to the roll, and on a slope of
+                // any sane grade the difference is under a twentieth.
+                var was = _wagonWere[i];
+                float rolled = was.HasValue
+                    ? new Vector2(here.x - was.Value.x, here.z - was.Value.z).magnitude
+                    : 0f;
+
+                _wagonWere[i] = here;
+                _wheels[i].Roll(rolled);
             }
 
             // Troops march at the caravan's pace, so the column animates as one: when
             // the fen slows the wagons the escort trudges too.
             float pace = run.Caravan.CurrentSpeed;
+
+            // And so do the horses, which is the same argument: a team standing still
+            // in the traces while the wagon behind it moves is worse than no team.
+            foreach (var horse in _draught) Animate(horse, pace, false, false);
 
             foreach (var pair in _troops)
             {
@@ -522,9 +628,9 @@ namespace Arna.View
         /// shared across models.
         /// </summary>
         Transform SpawnActor(ActorModel model, PrimitiveType fallback, string name, Color color,
-                             float targetHeight, bool byWidth = false)
+                             float targetHeight, bool byWidth = false, Transform parent = null)
         {
-            var marker = Spawn(model.Prefab, fallback, name, color, targetHeight, null,
+            var marker = Spawn(model.Prefab, fallback, name, color, targetHeight, parent,
                                model.Hide, model.Unsized, byWidth);
 
             if (model.Prefab == null || model.Animator == null) return marker;

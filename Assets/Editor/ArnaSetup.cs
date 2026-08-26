@@ -448,6 +448,15 @@ namespace Arna.Editor
                                     "SM_Plant_Fern_01", "SM_Plant_Fern_02",
                                     "SM_Plant_Bush_Leaves_01", "SM_Plant_Mushrooms_04"),
 
+                // Back on the water, and back in their own set. Note the pack's own
+                // spelling: two Ls. Loading these by the name they ought to have had is
+                // a silent miss, and a silent miss here looks exactly like the decision
+                // to leave them out.
+                Lilypads = Synty("Plants", "SM_Plant_Lillypad_Small_01",
+                                 "SM_Plant_Lillypad_Small_01",
+                                 "SM_Plant_Lillypad_Large_01", "SM_Plant_Lillypad_Large_02",
+                                 "SM_Plant_Lillypad_Large_03"),
+
                 // Fallen wood on the forest floor, off the nature pack rather than the
                 // RTS kit's stacked lumber. A log lying where it fell is woodland; a
                 // neat stack is an industry, and there is nobody out here to run one.
@@ -1709,6 +1718,15 @@ namespace Arna.Editor
         {
             int touched = 0;
 
+            // A white bird is a material with no texture in it, and that is fixable from
+            // here rather than by asking for another menu item to be run. Done before
+            // anything is wired, so what the components pick up is the mended model.
+            if (Untextured(LoadModels().Eagle))
+            {
+                Debug.Log("[Arna] The eagle's materials carry no textures — wiring them now.");
+                WireLooseTextures();
+            }
+
             foreach (var runner in UnityEngine.Object.FindObjectsByType<LevelRunner>(
                          FindObjectsSortMode.None))
             {
@@ -1720,8 +1738,12 @@ namespace Arna.Editor
                 Debug.Log($"[Arna] {runner.name}: wagons at {VisualLibrary.WagonHeight:0.0} m — "
                           + $"{Describe(runner.Models.WagonSupply)}, "
                           + $"{Describe(runner.Models.WagonWar)}, "
-                          + $"{Describe(runner.Models.WagonTreasure)}. "
-                          + $"Marsh plants: {Names(runner.Decor.MarshPlants)}");
+                          + $"{Describe(runner.Models.WagonTreasure)}, drawn by "
+                          + $"{Describe(runner.Models.Mounted.Prefab)} at "
+                          + $"{VisualLibrary.DraughtHorseHeight:0.0} m. "
+                          + $"Marsh plants: {Names(runner.Decor.MarshPlants)}. "
+                          + $"Lilypads: {Names(runner.Decor.Lilypads)} at "
+                          + $"{TerrainDecorator.LilypadWidth:0.0} m across.");
             }
 
             foreach (var preview in UnityEngine.Object.FindObjectsByType<LevelPreview>(
@@ -1733,7 +1755,8 @@ namespace Arna.Editor
                 EditorUtility.SetDirty(preview);
                 touched++;
 
-                Debug.Log($"[Arna] {preview.name}: marsh plants {Names(preview.Decor.MarshPlants)}");
+                Debug.Log($"[Arna] {preview.name}: marsh plants {Names(preview.Decor.MarshPlants)}. "
+                          + $"Lilypads: {Names(preview.Decor.Lilypads)}. {Eagle(preview.Models)}");
             }
 
             if (touched == 0)
@@ -1750,6 +1773,62 @@ namespace Arna.Editor
         }
 
         static string Describe(GameObject prefab) => prefab == null ? "—" : prefab.name;
+
+        /// <summary>
+        /// The two things that have gone wrong with the eagle, in one line.
+        ///
+        /// Both failures look identical from the outside — a bird that is not right —
+        /// and they have nothing to do with each other. White is a material with no
+        /// texture; a glider is a model with no animator controller. Guessing between
+        /// them has cost two rounds already.
+        /// </summary>
+        static string Eagle(VisualLibrary models)
+        {
+            if (models == null || !models.Eagle.HasModel) return "eagle: no model";
+
+            var eagle = models.Eagle;
+            Paint(eagle, out int slots, out int painted);
+
+            string wings = eagle.Animator == null
+                ? "no animator, so the wings hold still"
+                : eagle.Animator.name;
+
+            return $"eagle: {painted} of {slots} material slot(s) textured, {wings}";
+        }
+
+        static bool Untextured(ActorModel eagle)
+        {
+            if (!eagle.HasModel) return false;
+
+            Paint(eagle, out int slots, out int painted);
+            return slots > 0 && painted == 0;
+        }
+
+        /// <summary>
+        /// How many of a model's material slots have something in them.
+        ///
+        /// `_BaseMap` before `mainTexture`: URP's Lit shader does not answer to the
+        /// built-in name, and a material read through the wrong property reports itself
+        /// as blank whatever is actually wired into it.
+        /// </summary>
+        static void Paint(ActorModel model, out int slots, out int painted)
+        {
+            slots = 0;
+            painted = 0;
+
+            foreach (var renderer in model.Prefab.GetComponentsInChildren<Renderer>(true))
+                foreach (var material in renderer.sharedMaterials)
+                {
+                    slots++;
+                    if (material == null) continue;
+
+                    var texture = material.HasProperty("_BaseMap")
+                        ? material.GetTexture("_BaseMap")
+                        : material.mainTexture;
+
+                    if (texture != null) painted++;
+                }
+        }
 
         /// <summary>What a set actually holds, which is the thing worth printing.</summary>
         static string Names(PropSet set)

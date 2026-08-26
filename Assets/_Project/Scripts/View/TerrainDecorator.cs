@@ -83,6 +83,19 @@ namespace Arna.View
         /// </summary>
         public PropSet MarshPlants = new PropSet();
 
+        /// <summary>
+        /// Pads on open water, and the one set in the whole decorator that is measured
+        /// across rather than up.
+        ///
+        /// They were pulled out of <see cref="MarshPlants"/> because that set is fitted
+        /// by height, and a lilypad has almost none: fitting one to 0.7 m of height
+        /// multiplied the model by some thirty times and took the width along with it,
+        /// which is where the fen full of green rings came from. Kept as its own set
+        /// rather than dropped, because still water with nothing on it reads as a hole
+        /// in the map — and fitted across, where a pad's size is a real measurement.
+        /// </summary>
+        public PropSet Lilypads = new PropSet();
+
         /// <summary>Loose stone, ankle to waist. Scattered everywhere.</summary>
         public PropSet Rocks = new PropSet();
 
@@ -164,8 +177,9 @@ namespace Arna.View
         public bool IsEmpty =>
             !Has(Trees) && !Has(Pines) && !Has(Birch) && !Has(DeadTrees) && !Has(Bushes) &&
             !Has(Rocks) && !Has(Boulders) && !Has(Mountains) && !Has(Horizon) &&
-            !Has(GroundCover) && !Has(MarshPlants) && !Has(GroundPatches) && !Has(Houses) &&
-            !Has(Farms) && !Has(Watchtowers) && !Has(Timber) && !Has(Ruins);
+            !Has(GroundCover) && !Has(MarshPlants) && !Has(Lilypads) &&
+            !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
+            !Has(Timber) && !Has(Ruins);
 
         static bool Has(PropSet set) => set != null && set.Any;
     }
@@ -276,10 +290,32 @@ namespace Arna.View
         /// <b>Ground cover is fitted by height, so nothing flat may go in it.</b> A
         /// lilypad has almost no height, and fitting one to 0.7 m of it multiplies the
         /// whole model by whatever that takes — the width goes with it, and a fen came
-        /// out paved with three-metre discs stacked on each other. Anything flat belongs
-        /// in <see cref="BiomeDecor.GroundPatches"/>, which is fitted across.
+        /// out paved with three-metre discs stacked on each other. Anything flat is
+        /// measured across instead: <see cref="BiomeDecor.GroundPatches"/> for what lies
+        /// on the ground, <see cref="BiomeDecor.Lilypads"/> for what floats on it.
         /// </summary>
         public const float CoverHeight = 0.7f;
+
+        /// <summary>
+        /// How wide a lilypad cluster lies across the water, in metres.
+        ///
+        /// Measured across on purpose — see <see cref="BiomeDecor.Lilypads"/> for what
+        /// measuring one up its height did. A single pad is 20-30 cm and the pack ships
+        /// clusters as well as singles, so the number is for the set rather than for a
+        /// leaf: 1.2 m with the usual quarter either way gives 0.9 m to 1.5 m, which
+        /// puts three or four of them inside one four-metre tile without either
+        /// disappearing at camera distance or reading as a raft.
+        /// </summary>
+        public const float LilypadWidth = 1.2f;
+
+        /// <summary>
+        /// The share of a fen tile's cover that comes out a lilypad rather than a reed.
+        ///
+        /// Only on the water itself, never on the soft margin where the reeds are — a
+        /// pad floats, and one lying in the grass beside a bog is the same category of
+        /// wrong as a reed growing out of open water.
+        /// </summary>
+        public const float LilypadShare = 0.22f;
 
         /// <summary>
         /// How much a scattered prop may vary from its table size.
@@ -793,10 +829,16 @@ namespace Arna.View
 
                 if (!set.Any) continue;
 
+                bool water = grid[i] == TerrainType.Marsh && decor.Lilypads.Any;
+
                 for (int t = 0; t < tufts && placed < MaxGroundCover; t++)
                 {
-                    var choice = new Choice(set, Any(set, rng),
-                                            CoverHeight, byWidth: false, canopy: true);
+                    // A pad rather than a reed, and measured across rather than up.
+                    var choice = water && rng.Chance(LilypadShare)
+                        ? new Choice(decor.Lilypads, Any(decor.Lilypads, rng),
+                                     LilypadWidth, byWidth: true, canopy: true)
+                        : new Choice(set, Any(set, rng),
+                                     CoverHeight, byWidth: false, canopy: true);
 
                     Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.9f);
                     placed++;

@@ -689,8 +689,17 @@ shrub, and swamp trees and stumps added to the dead-timber set.
 **Lilypads paved the fen with three-metre discs stacked on each other.** They were in
 `MarshPlants`, ground cover is fitted by *height*, and a lilypad has almost none — so
 fitting one to 0.7 m of height multiplied the whole model by whatever that took and the
-width went with it. From above it read as craters on craters. They are out: a lilypad
-belongs on open water, and nothing places props on water.
+width went with it. From above it read as craters on craters.
+
+They are back, in `BiomeDecor.Lilypads`, which is the one set in the decorator measured
+**across**: `LilypadWidth = 1.2 m` with the usual quarter either way, so 0.9 m to 1.5 m.
+A single pad is 20–30 cm and the pack ships clusters as well as singles, so the number is
+for the set rather than for a leaf; three or four fit inside a four-metre tile. They go
+on marsh tiles only, never on the soft margin the reeds have — a pad floats, and one
+lying in the grass beside a bog is the same category of wrong as a reed in open water.
+`LilypadShare = 0.22` of a fen tile's cover comes out a pad. Note the pack's own spelling:
+`SM_Plant_Lillypad_*`, two Ls, and loading them by the name they ought to have had is a
+silent miss that looks exactly like the decision to leave them out.
 
 **Ground patches stacked for the same reason from the other direction.** A 7.5 m disc
 covers about three and a half four-metre tiles, so at the plains rate of 0.22 a tile they
@@ -704,7 +713,8 @@ mountains had.
 wing dihedral, so fitting her by height let the bind pose decide the wingspan.
 
 The rule, written where it will be read: **ground cover is fitted by height, so nothing
-flat may go in it.** Anything flat belongs in `GroundPatches`, which is fitted across.
+flat may go in it.** Anything flat is measured across instead — `GroundPatches` for what
+lies on the ground, `Lilypads` for what floats on it.
 
 ### The eagle is white, and it is not the model's fault
 
@@ -723,11 +733,22 @@ flat geometry, and without clipping a bird has rectangular wings.
 It defaults to `Assets/ThirdParty/Eagle` and takes `-arnaModelDir` for anything else,
 which the next cgtrader asset will need.
 
-**The wings not beating is a separate fault with a separate cause.** `SpawnActor`
-attaches no animator when there is no controller to attach, and says nothing — so a bird
-holds its bind pose while it moves, which looks like the flight being wrong. `LevelPreview`
-now warns. The likely cause is that `Build Animator Controllers` never got to twelve of
-twelve: that summary was asked for and never came back.
+**The wings not beating is a separate fault with a separate cause** — two of them, in
+fact, and they look identical from the outside.
+
+The first: `SpawnActor` attaches no animator when there is no controller to attach, and
+said nothing — so a bird holds its bind pose while it moves, which looks like the flight
+being wrong. `LevelPreview` now warns, and `Refresh Scene Assets` reports the controller
+by name alongside how many of the eagle's material slots have a texture in them. White
+and gliding are different faults; guessing between them cost two rounds.
+
+The second, and the one that was actually watched: **the editor does not run a game
+loop.** `[ExecuteAlways]` gets an `Update` when something asks the editor to redraw — a
+mouse crossing the scene view, an inspector edit — and nothing asks while you sit and
+look at it. So the bird advanced in little jerks whenever the pointer moved and was
+frozen the rest of the time, which reads exactly like wings that do not beat.
+`FlyEagle` now calls `EditorApplication.QueuePlayerLoopUpdate()` while there is a bird in
+the air, and only then.
 
 ### The trap that produced three false bug reports
 
@@ -741,8 +762,10 @@ shrink, a forest that stayed the old pack's.
 throw away anything set by hand in the inspector along with it.
 
 `Arna > Refresh Scene Assets` does the same wiring in place, and prints what it wired:
-the wagon height in use and the marsh plants by name. "It did not change" becomes a thing
-that can be checked rather than believed.
+the wagon height in use, the cart and horse models by name, the marsh plants and lilypads
+by name, and the eagle's textures and controller. "It did not change" becomes a thing
+that can be checked rather than believed. It also mends the one fault it can — an eagle
+whose materials carry no textures gets `Wire Loose Textures` run over it on the spot.
 
 Two of the three reports also needed nothing but a `git pull`. Wagon height is a `const`
 read at runtime, so it applies on Play with no rebuild at all; the lilypads live in the
@@ -854,6 +877,38 @@ things it goes over. The ground still reads as untouched country.
 One caveat worth keeping: props are scattered up to 1.4 m from their tile's centre, so
 something on a tile *beside* the line can still drift into it. Widening the line to the
 neighbouring tiles would catch those and would start to look like a road.
+
+**The wheels turn, and they turn by distance covered.** Same root as the colliders:
+nothing drives the caravan physically, so there is no contact, no torque and nothing that
+would make a wheel turn on its own. `WagonWheels` measures how far each wagon moved
+between one `Sync` and the next and rolls its wheels by that — which means a wagon halted
+in a fight has wheels that are genuinely still, and one crawling through the fen has
+wheels that crawl. Tying the spin to time, or to the caravan's nominal speed, drifts out
+of step the first time the ground slows the column.
+
+Nothing in it knows what a wheel looks like. The axle is not read off the model: it is
+the wagon's own right, which is `cross(up, forward)` and therefore the axis a wheel
+rolling forward turns about. The radius is half the wheel's height in the world, because
+a wheel standing on the ground is as tall as it is wide — a measurement that survives
+however the part was exported: rotated, mirrored, scaled, pivot anywhere at all. Parts
+are found by having "wheel" in the name, which both packs are consistent about
+(`SM_Supply_Wagon_Wheel_1`, `SM_Covered_Wagon_Wheel_V2`) and which the improvised cart
+follows too, so both roll. A wheel nested inside another wheel is skipped, or it would
+turn twice and at twice the speed. If a pack ever ships a cart as one welded mesh there
+is nothing to turn, and the console says so rather than leaving the wagons sliding.
+
+**Every wagon has a pair of horses in the traces.** `Quaternius/Animals/Horse.fbx`, the
+same model the mounted troop rides, fitted to 2.4 m rather than the troop's 1.85: a heavy
+horse stands about 1.7 m at the withers, so head up it reaches roughly 2.4, which is
+three quarters of the wagon it pulls. Two abreast rather than one — a single animal in
+front of a six-metre covered wagon looks like it is being punished. They stand 2 m clear
+of the cart's front, which is what a draught pole is, and the cart's front is *measured*
+rather than assumed from its height: the pack puts a hay cart and a covered wagon at the
+same 3.2 m and they are nowhere near the same length. Parented to the wagon, so they
+follow every turn the road makes and go out with it when it burns, and animated at the
+caravan's pace like the escort. The cart is taken to face +Z, which is what everything
+else in `RunVisuals` assumes; a pack that ever ships one facing another way puts its
+horses at its side, which is at least a visible kind of wrong.
 
 **Not yet done: the textures.** The pack ships 2K and 4K PBR, which is not the flat-atlas
 look the rest of the world is drawn in. Two import settings close most of that gap —

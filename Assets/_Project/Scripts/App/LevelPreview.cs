@@ -253,6 +253,18 @@ namespace Arna.App
                                   * Quaternion.Euler(0f, Models.Eagle.YawOffset, 0f);
 
             _cast?.AdvanceAnimators(deltaTime);
+
+#if UNITY_EDITOR
+            // The editor does not run a game loop. [ExecuteAlways] gets an Update when
+            // something asks the editor to redraw — a mouse moving over the scene view,
+            // an inspector edit — and nothing asks while you sit and watch. So the bird
+            // advanced in little jerks whenever the pointer moved and was frozen the
+            // rest of the time, which reads exactly like wings that do not beat.
+            //
+            // Asking for the next tick keeps it going, and only while there is a bird
+            // in the air to keep going for.
+            if (!Application.isPlaying) UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+#endif
         }
 
         /// <summary>

@@ -268,6 +268,18 @@ namespace Arna.View
         public const float WagonHeight = 3.2f;
 
         /// <summary>
+        /// A draught horse to the top of its head.
+        ///
+        /// Taken off the same ruler as the rest: a man is 1.85 m and a heavy horse
+        /// stands about 1.7 m at the withers, so head up it reaches roughly 2.4. That
+        /// puts it at three quarters of the wagon it pulls — the horse's back below the
+        /// cart's rail, its head about level with the hood. Fitted to a man's height
+        /// instead, which is what the mounted troop's horse uses, it would come out as a
+        /// pony leaning into a vehicle nearly twice its size.
+        /// </summary>
+        public const float DraughtHorseHeight = 2.4f;
+
+        /// <summary>
         /// Wingspan in metres, and deliberately not a golden eagle's.
         ///
         /// A real one is a little over two metres across. At two metres over a map
