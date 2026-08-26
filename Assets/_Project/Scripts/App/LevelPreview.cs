@@ -223,8 +223,22 @@ namespace Arna.App
         void FlyEagle(float deltaTime)
         {
             if (_eagle == null || _flight == null || _flight.Path.Count < 2) return;
-            if (deltaTime <= 0f) return;
 
+#if UNITY_EDITOR
+            // Queued before the delta is looked at, and that ordering is the whole of it.
+            //
+            // The editor does not run a game loop. [ExecuteAlways] gets an Update when
+            // something asks the editor to redraw — a mouse crossing the scene view, an
+            // inspector edit — and nothing asks while you sit and look at it. Asking for
+            // the next tick keeps it going.
+            //
+            // Below the delta check it could not: outside play mode Time.deltaTime is
+            // zero until a loop is running, so the one frame that could have started the
+            // loop returned before queueing anything and the bird stayed where it was.
+            if (!Application.isPlaying) UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+#endif
+
+            if (deltaTime <= 0f) return;
             if (_milestones == null || _flightLength <= 0f) return;
 
             _flown = Mathf.Repeat(_flown + deltaTime * ScoutingAbility.Speed, _flightLength);
@@ -253,18 +267,6 @@ namespace Arna.App
                                   * Quaternion.Euler(0f, Models.Eagle.YawOffset, 0f);
 
             _cast?.AdvanceAnimators(deltaTime);
-
-#if UNITY_EDITOR
-            // The editor does not run a game loop. [ExecuteAlways] gets an Update when
-            // something asks the editor to redraw — a mouse moving over the scene view,
-            // an inspector edit — and nothing asks while you sit and watch. So the bird
-            // advanced in little jerks whenever the pointer moved and was frozen the
-            // rest of the time, which reads exactly like wings that do not beat.
-            //
-            // Asking for the next tick keeps it going, and only while there is a bird
-            // in the air to keep going for.
-            if (!Application.isPlaying) UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
-#endif
         }
 
         /// <summary>

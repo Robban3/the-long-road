@@ -639,9 +639,25 @@ namespace Arna.View
             // missing and destroyed objects as null, but null-coalescing bypasses that
             // overload and hands back an object that throws the moment it is used.
             var animator = marker.GetComponentInChildren<Animator>();
-            if (animator == null) animator = marker.gameObject.AddComponent<Animator>();
+
+            if (animator == null)
+            {
+                animator = marker.gameObject.AddComponent<Animator>();
+
+                // Every rig in these packs is Generic, and a Generic rig binds its clips
+                // through an avatar: without one the animator runs, reports a state and
+                // a normalised time, and moves nothing at all. Taken off the model's own
+                // Animator, which is where the importer put it.
+                var rig = model.Prefab.GetComponentInChildren<Animator>();
+                if (rig != null) animator.avatar = rig.avatar;
+            }
 
             animator.runtimeAnimatorController = model.Animator;
+
+            if (animator.avatar == null)
+                Debug.LogWarning($"[Arna] {name} has no avatar, so its clips have nothing to "
+                                 + "bind to and it will hold its bind pose. The model's own "
+                                 + "Animator is missing one — check the rig in the importer.");
 
             // Culling would freeze actors the camera is not looking at, and the
             // simulation keeps moving them regardless.

@@ -119,13 +119,30 @@ namespace Arna.Editor
             var attack = Match(clips, AttackNames);
             var death = Match(clips, DeathNames);
 
-            SortOutTheFlying(clips, modelPath, ref idle, ref walk);
+            SortOutTheFlying(clips, ref idle, ref walk);
+
+            // A reimport destroys the clip objects loaded above, so everything is chosen
+            // again from the new ones.
+            if (EnsureLooping(modelPath, idle, walk, attack))
+            {
+                clips = LoadClips(modelPath);
+                if (clips.Count == 0) return null;
+
+                idle = Match(clips, IdleNames);
+                walk = Match(clips, WalkNames);
+                attack = Match(clips, AttackNames);
+                death = Match(clips, DeathNames);
+
+                SortOutTheFlying(clips, ref idle, ref walk);
+            }
 
             if (idle == null)
             {
                 Debug.LogWarning($"[Arna] No idle clip in {modelPath}");
                 return null;
             }
+
+            ReportFlight(clips, modelPath, idle, walk);
 
             string name = Path.GetFileNameWithoutExtension(modelPath);
             string path = $"{OutputDir}/{name}.controller";
@@ -199,6 +216,62 @@ namespace Arna.Editor
         }
 
         /// <summary>
+        /// Switches loop on for the clips that are meant to run continuously.
+        ///
+        /// **Unity imports every clip with Loop Time off.** A cycle that does not loop
+        /// plays once and holds its last frame, so a wingbeat lasting a second gives one
+        /// beat and then a bird gliding for the rest of the level — which is
+        /// indistinguishable from an animator that never ran at all, and cost a round
+        /// being mistaken for one.
+        ///
+        /// Idle, walk and attack only. **Death must never loop**: it is entered from
+        /// anywhere on a bool that stays true, and a looping death animation is a corpse
+        /// that keeps getting up to die again. Attack loops on purpose — fighting here
+        /// lasts as long as something is in contact, so the swing should repeat.
+        ///
+        /// Written through the importer rather than onto the clip, because a clip is a
+        /// sub-asset of the model file: anything set on it directly is regenerated away
+        /// the next time the file is imported.
+        /// </summary>
+        static bool EnsureLooping(string modelPath, params AnimationClip[] wanted)
+        {
+            if (!(AssetImporter.GetAtPath(modelPath) is ModelImporter importer)) return false;
+
+            var names = new List<string>();
+            foreach (var clip in wanted)
+                if (clip != null) { names.Add(clip.name); names.Add(Bare(clip.name)); }
+
+            if (names.Count == 0) return false;
+
+            // defaultClipAnimations is what the file itself declares, and is what an
+            // untouched model has: reading clipAnimations alone comes back empty and
+            // there is nothing to switch anything on for.
+            var settings = importer.clipAnimations;
+            if (settings == null || settings.Length == 0) settings = importer.defaultClipAnimations;
+            if (settings == null || settings.Length == 0) return false;
+
+            var looped = new List<string>();
+
+            foreach (var setting in settings)
+            {
+                if (setting.loopTime) continue;
+                if (!names.Contains(setting.name) && !names.Contains(Bare(setting.name))) continue;
+
+                setting.loopTime = true;
+                looped.Add(setting.name);
+            }
+
+            if (looped.Count == 0) return false;
+
+            importer.clipAnimations = settings;
+            importer.SaveAndReimport();
+
+            Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(modelPath)}: loop switched on "
+                      + $"for {string.Join(", ", looped)} — they were set to play once.");
+            return true;
+        }
+
+        /// <summary>
         /// Chooses between flight clips, which the name lists cannot do.
         ///
         /// The eagle ships four of them — `Fly_01` at 6 s, `Fly_02` at 5 s, `Fly_03` at
@@ -216,7 +289,7 @@ namespace Arna.Editor
         /// right answer for a bird: hanging on a thermal is what it does when it is not
         /// going anywhere.
         /// </summary>
-        static void SortOutTheFlying(List<AnimationClip> clips, string modelPath,
+        static void SortOutTheFlying(List<AnimationClip> clips,
                                      ref AnimationClip idle, ref AnimationClip walk)
         {
             var flying = clips.FindAll(clip => Contains(Bare(clip.name), "Fly"));
@@ -227,16 +300,32 @@ namespace Arna.Editor
             var calmest = flying[0];
             var busiest = flying[flying.Count - 1];
 
-            var measured = new List<string>();
-            foreach (var clip in flying)
-                measured.Add($"{Bare(clip.name)} {Cadence(clip):0.00}/s");
-
-            Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(modelPath)} flight clips: "
-                      + $"{string.Join(", ", measured)}. Beating on {Bare(busiest.name)}, "
-                      + $"soaring on {Bare(calmest.name)}.");
-
             if (flying.Contains(idle)) idle = calmest;
             if (flying.Contains(walk)) walk = busiest;
+        }
+
+        /// <summary>
+        /// The measurements behind the choice above, said out loud once.
+        ///
+        /// Separate from the choosing because the choosing may run twice — a clip that
+        /// had to be switched to looping is reimported, which destroys every clip object
+        /// and means picking again from the new ones. The numbers are worth one line,
+        /// not two identical ones.
+        /// </summary>
+        static void ReportFlight(List<AnimationClip> clips, string modelPath,
+                                 AnimationClip idle, AnimationClip walk)
+        {
+            var flying = clips.FindAll(clip => Contains(Bare(clip.name), "Fly"));
+            if (flying.Count < 2) return;
+
+            var measured = new List<string>();
+            foreach (var clip in flying)
+                measured.Add($"{Bare(clip.name)} {Cadence(clip):0.00}/s"
+                             + (clip.isLooping ? "" : " (plays once!)"));
+
+            Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(modelPath)} flight clips: "
+                      + $"{string.Join(", ", measured)}. Travelling on {Name(walk)}, "
+                      + $"idling on {Name(idle)}.");
         }
 
         /// <summary>

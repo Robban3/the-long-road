@@ -733,8 +733,11 @@ flat geometry, and without clipping a bird has rectangular wings.
 It defaults to `Assets/ThirdParty/Eagle` and takes `-arnaModelDir` for anything else,
 which the next cgtrader asset will need.
 
-**The wings not beating is a separate fault with a separate cause** — three of them, in
-fact, and they look identical from the outside.
+**The wings not beating is a separate fault with a separate cause** — four of them, in
+fact, and they look identical from the outside. That is the lesson, more than any of the
+four: *animated but not moving* has a handful of unrelated causes and no symptom that
+tells them apart, so the report has to name all of them at once. `Refresh Scene Assets`
+prints textures, controller, every clip's loop flag and the avatar in one line.
 
 The first: `SpawnActor` attaches no animator when there is no controller to attach, and
 said nothing — so a bird holds its bind pose while it moves, which looks like the flight
@@ -760,13 +763,31 @@ is visible rather than inferred.
 That choice lives in the generated controller asset, not in the scene, so `Refresh Scene
 Assets` rebuilds the eagle's controller as well as wiring her textures.
 
-The third, and the one that was actually watched: **the editor does not run a game
+The third: **Unity imports every clip with Loop Time off.** A cycle that does not loop
+plays once and holds its last frame — so a one-second wingbeat gives one beat and then a
+bird gliding for the rest of the level, which is indistinguishable from an animator that
+never ran. `AnimatorBuilder.EnsureLooping` switches it on through the *importer*, because
+a clip is a sub-asset of the model file and anything written onto it directly is
+regenerated away at the next import. Idle, walk and attack only: **death must never
+loop** — it is entered from anywhere on a bool that stays true, and a looping death is a
+corpse that keeps getting up to die again. A reimport destroys the loaded clip objects,
+so everything is chosen again from the new ones afterwards.
+
+The fourth, and the one that was actually watched: **the editor does not run a game
 loop.** `[ExecuteAlways]` gets an `Update` when something asks the editor to redraw — a
 mouse crossing the scene view, an inspector edit — and nothing asks while you sit and
 look at it. So the bird advanced in little jerks whenever the pointer moved and was
 frozen the rest of the time, which reads exactly like wings that do not beat.
 `FlyEagle` now calls `EditorApplication.QueuePlayerLoopUpdate()` while there is a bird in
-the air, and only then.
+the air, and only then — **above** the `deltaTime <= 0` guard rather than below it. Below
+it the call could not start anything: outside play mode `Time.deltaTime` is zero until a
+loop is already running, so the one frame that could have started the loop returned
+before queueing anything.
+
+And a fifth that has not bitten yet but would have: **a Generic rig binds its clips
+through an avatar.** Without one the animator runs, reports a state and a normalised
+time, and moves nothing. `SpawnActor` copies the avatar off the model's own Animator when
+it has to add one, and warns when there is none to copy.
 
 ### The trap that produced three false bug reports
 

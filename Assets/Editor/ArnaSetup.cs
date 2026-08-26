@@ -1800,11 +1800,25 @@ namespace Arna.Editor
             var eagle = models.Eagle;
             Paint(eagle, out int slots, out int painted);
 
-            string wings = eagle.Animator == null
-                ? "no animator, so the wings hold still"
-                : eagle.Animator.name;
+            if (eagle.Animator == null)
+                return $"eagle: {painted} of {slots} material slot(s) textured, "
+                       + "no animator controller — run Build Animator Controllers";
 
-            return $"eagle: {painted} of {slots} material slot(s) textured, {wings}";
+            // Every remaining way a bird can be animated and still not move, in one line.
+            // Each of these has looked exactly like the others from the outside, and
+            // guessing between them has now cost three rounds.
+            var clips = new List<string>();
+            foreach (var clip in eagle.Animator.animationClips)
+                clips.Add($"{clip.name} {(clip.isLooping ? "loops" : "PLAYS ONCE")}");
+
+            var rig = eagle.Prefab.GetComponentInChildren<Animator>();
+            string avatar = rig == null ? "NO ANIMATOR ON THE MODEL"
+                : rig.avatar == null ? "NO AVATAR — a Generic rig cannot bind without one"
+                : rig.avatar.isValid ? rig.avatar.name
+                : $"{rig.avatar.name} IS INVALID";
+
+            return $"eagle: {painted} of {slots} material slot(s) textured, "
+                   + $"{eagle.Animator.name} [{string.Join(", ", clips)}], avatar {avatar}";
         }
 
         static bool Untextured(ActorModel eagle)
