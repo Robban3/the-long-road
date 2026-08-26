@@ -207,7 +207,49 @@ namespace Arna.App
                 Rebuild();
             }
 
-            FlyEagle(Time.deltaTime);
+            FlyEagle(Elapsed(Time.deltaTime));
+        }
+
+        /// <summary>Wall-clock reading at the last tick, outside play mode.</summary>
+        double _ticked;
+
+        /// <summary>
+        /// The longest step that is taken as a step rather than as a hitch.
+        ///
+        /// A tenth of a second. The bird travels at 40 m/s, so a gap of that length is
+        /// already four metres of sky; anything longer is the editor having gone off to
+        /// do something else, and advancing by it would teleport her rather than move
+        /// her. Dropped instead — a frame not taken looks like nothing, a frame worth
+        /// half a second of flight looks like a fault.
+        /// </summary>
+        const double MaxTick = 0.1;
+
+        /// <summary>
+        /// How much time really passed since the last tick.
+        ///
+        /// `Time.deltaTime` means nothing outside play mode — there is no game loop for
+        /// it to measure, and what it hands back is whatever the last one left there. The
+        /// bird was being advanced by a number unrelated to the time she had had, which
+        /// is exactly the shape of the complaint: motion that lags and lurches while the
+        /// editor itself is keeping up perfectly well.
+        ///
+        /// `EditorApplication.timeSinceStartup` is a real clock and is the one thing in
+        /// the editor that can be trusted to say how long anything took.
+        /// </summary>
+        float Elapsed(float deltaTime)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                double now = UnityEditor.EditorApplication.timeSinceStartup;
+                double since = now - _ticked;
+                _ticked = now;
+
+                // The first tick has nothing to measure from, and a hitch is not a step.
+                return since <= 0d || since > MaxTick ? 0f : (float)since;
+            }
+#endif
+            return deltaTime;
         }
 
         /// <summary>

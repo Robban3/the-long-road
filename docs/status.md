@@ -763,14 +763,36 @@ is visible rather than inferred.
 That choice lives in the generated controller asset, not in the scene, so `Refresh Scene
 Assets` rebuilds the eagle's controller as well as wiring her textures.
 
-The beat is played back at `FlightSpeed = 0.8`, on flight states only — nothing that
+The beat is played back at `FlightSpeed = 0.45`, on flight states only — nothing that
 walks is touched, because a troop's stride is tied to how fast the caravan is actually
-moving and slowing the clip would put the feet out of step with the ground. 0.8 is the
-small change that was asked for after watching it. There is a bigger argument behind it
-if it still reads as hurried: the bird is drawn at a ten-metre wingspan against a real
-eagle's two, and wingbeat frequency falls roughly with the square root of length for
-animals of the same shape, so a bird five times over should beat about 2.2 times slower —
-0.45 rather than 0.8. That is a change to make by looking, not by arithmetic.
+moving and slowing the clip would put the feet out of step with the ground.
+
+0.45 comes from the bird's size rather than from taste. A fifth off was tried first, was
+not enough, and was never going to be: the beat is wrong by a factor, not by a margin.
+She is drawn at a ten-metre wingspan against a real eagle's two, because at life size she
+is a speck over a 256 m map. Wingbeat frequency falls roughly with the square root of
+length for animals of the same shape, so a bird very nearly five times over should beat
+about √5 ≈ 2.2 times slower, and 1 ÷ 2.2 = 0.45. The clip was authored for a two-metre
+bird and is being watched on a ten-metre one; it was never going to look right at a speed
+chosen by eye.
+
+### The editor has no clock in it
+
+`Time.deltaTime` means nothing outside play mode. There is no game loop for it to
+measure, and what it returns is whatever the last one left behind. `LevelPreview` was
+advancing the bird by that number, which is the exact shape of *motion that lags and
+lurches while the editor is keeping up perfectly well* — and it hid behind the wings not
+beating, because a gliding bird shows judder far less than a flapping one does.
+
+`Elapsed` reads `EditorApplication.timeSinceStartup` instead, which is a real clock and
+the one thing in the editor that can be trusted to say how long something took. A gap
+longer than `MaxTick = 0.1 s` is dropped rather than stepped: the bird flies at 40 m/s, so
+a tenth of a second is already four metres of sky and anything longer is the editor having
+gone off to do something else. A frame not taken looks like nothing; a frame worth half a
+second of flight looks like a fault.
+
+Anything else `[ExecuteAlways]` ever animates in the preview has to go through the same
+function. This is not specific to the eagle.
 
 The third: **Unity imports every clip with Loop Time off.** A cycle that does not loop
 plays once and holds its last frame — so a one-second wingbeat gives one beat and then a

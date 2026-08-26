@@ -220,20 +220,25 @@ namespace Arna.Editor
         /// <summary>
         /// How fast a flight clip is played back, and only a flight clip.
         ///
-        /// A fifth off, which is the small change that was asked for. There is a bigger
-        /// argument sitting behind it if the beat still reads as hurried: the bird is
-        /// drawn at a ten-metre wingspan against a real eagle's two, because at life
-        /// size she is a speck over a 256 m map (see <c>VisualLibrary.EagleSpan</c>).
-        /// Wingbeat frequency falls roughly with the square root of length for animals
-        /// of the same shape, so a bird five times over should beat about 2.2 times
-        /// slower — 0.45 rather than 0.8. That is a change to make by looking at it,
-        /// not by arithmetic, which is why it is 0.8 today.
+        /// 0.45, and this time from the argument rather than from a cautious nudge. A
+        /// fifth off was tried first, was not enough, and was not going to be: the beat
+        /// is wrong by a factor, not by a margin.
+        ///
+        /// The factor is the bird's size. She is drawn at a ten-metre wingspan against a
+        /// real eagle's two, because at life size she is a speck over a 256 m map (see
+        /// <c>VisualLibrary.EagleSpan</c>). Wingbeat frequency falls roughly with the
+        /// square root of length for animals of the same shape, so a bird very nearly
+        /// five times over should beat about √5 ≈ 2.2 times slower. 1 ÷ 2.2 = 0.45.
+        ///
+        /// Which is the useful thing about it: the clip is authored for a two-metre bird
+        /// and is being watched on a ten-metre one, so it was never going to look right
+        /// at any speed chosen by eye — it looks right at the speed its size asks for.
         ///
         /// Nothing that walks is touched. A troop's stride is tied to how fast the
         /// caravan is actually moving, and slowing the clip would put the feet out of
         /// step with the ground.
         /// </summary>
-        public const float FlightSpeed = 0.8f;
+        public const float FlightSpeed = 0.45f;
 
         static bool IsFlight(AnimationClip clip)
             => clip != null && Contains(Bare(clip.name), "Fly");
