@@ -186,6 +186,16 @@ namespace Arna.Editor
                 // than as two things to assemble.
                 Mounted = Army("MC_Cavalry_LightCavalry"),
 
+                // A horse with a saddle and nobody on it, for the traces. Not the
+                // cavalry model — see VisualLibrary.Draught.
+                Draught = Army("MC_Horse_Saddle"),
+
+                // Red for the bandits. The pack's own faction material rather than a
+                // tint over it — see VisualLibrary.EnemyFaction — and note `Unviersal`,
+                // which is how the pack spells it.
+                EnemyFaction = AssetDatabase.LoadAssetAtPath<Material>(
+                    "Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColorsRed.mat"),
+
                 // The old three, kept as fallbacks for a scene saved before the split.
                 Melee = Actor("Assets/Quaternius/Knight/Knight.fbx",
                               unsized: new[] { "Sword" }),
@@ -1834,10 +1844,10 @@ namespace Arna.Editor
                           + $"{Describe(runner.Models.WagonSupply)}, "
                           + $"{Describe(runner.Models.WagonWar)}, "
                           + $"{Describe(runner.Models.WagonTreasure)}, drawn by "
-                          + $"{Describe(runner.Models.Mounted.Prefab)} at "
+                          + $"{Describe(runner.Models.Draught.Prefab)} at "
                           + $"{VisualLibrary.DraughtHorseHeight:0.0} m. "
                           + $"{Troops(runner.Models)} "
-                          + $"{Rig("draught horse", runner.Models.Mounted)}. "
+                          + $"{Rig("draught horse", runner.Models.Draught)}. "
                           + $"Marsh plants: {Names(runner.Decor.MarshPlants)}. "
                           + $"Lilypads: {Names(runner.Decor.Lilypads)} at "
                           + $"{TerrainDecorator.LilypadWidth:0.0} m across.");

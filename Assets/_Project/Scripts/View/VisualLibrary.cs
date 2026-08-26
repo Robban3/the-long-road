@@ -103,6 +103,16 @@ namespace Arna.View
         public ActorModel Mounted;
 
         /// <summary>
+        /// The horse in the traces, which is **not** the cavalry model.
+        ///
+        /// It used to be: both were `Mounted`, back when that was a bare Quaternius
+        /// horse and the cavalry had nobody on it. The army pack ships its cavalry with
+        /// the rider already mounted, so pointing the wagons at the same field hitches
+        /// six knights to the caravan and has them pull it.
+        /// </summary>
+        public ActorModel Draught;
+
+        /// <summary>
         /// The three that everything used to share, kept as fallbacks.
         ///
         /// A scene saved before the kinds were split still holds these and holds nothing
@@ -135,6 +145,36 @@ namespace Arna.View
         /// this becomes a fallback for anything they do not cover.
         /// </summary>
         public static readonly Color EnemyTint = new Color(0.78f, 0.44f, 0.40f);
+
+        /// <summary>
+        /// The faction material an enemy figure is repainted with.
+        ///
+        /// The army pack ships six of these — black, blue, brown, green, red, yellow —
+        /// and they are the pack's own answer to exactly this question: one palette
+        /// texture per side, so two armies share every mesh and differ only in which
+        /// material draws them. That is better than <see cref="EnemyTint"/> in both
+        /// directions: it is the colour the artist authored rather than a multiply over
+        /// theirs, and a shared material batches where a per-renderer property block
+        /// does not.
+        ///
+        /// **Only the slots that already hold a faction material are swapped.** A
+        /// character carries several — body, weapon, shield — and the pack keeps weapons
+        /// on their own `Weapons.mat`. Repainting every slot would hand the bandits red
+        /// swords.
+        ///
+        /// Left null, <see cref="EnemyTint"/> is used instead, so a project without the
+        /// pack still tells the sides apart.
+        /// </summary>
+        public Material EnemyFaction;
+
+        /// <summary>
+        /// What a faction material is called, so one can be recognised in a slot.
+        ///
+        /// `Unviersal` is the pack's own spelling. Correcting it here would mean matching
+        /// nothing, which is the quietest possible failure: every figure would simply
+        /// stay the colour it shipped as.
+        /// </summary>
+        public const string FactionPrefix = "UnviersalColors";
 
         [Header("Enemies")]
         public ActorModel Wolf;

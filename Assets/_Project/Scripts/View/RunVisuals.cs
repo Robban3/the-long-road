@@ -256,7 +256,10 @@ namespace Arna.View
 
         void Harness(Transform wagon, Transform cart, WagonKind kind)
         {
-            if (!Library.Mounted.HasModel) return;
+            // The draught horse, not the cavalry: the army pack's cavalry comes with a
+            // rider on it, and hitching that to a wagon puts a knight in the traces.
+            var team = Library.Draught.HasModel ? Library.Draught : Library.Mounted;
+            if (!team.HasModel) return;
 
             // Per kind, because the carts are not built alike: one measures out to the
             // end of a modelled drawbar and another to the edge of its bed. See
@@ -280,7 +283,7 @@ namespace Arna.View
 
             for (int i = 0; i < 2; i++)
             {
-                var horse = SpawnActor(Library.Mounted, PrimitiveType.Capsule,
+                var horse = SpawnActor(team, PrimitiveType.Capsule,
                                        $"Horse_{i}", HorseColor,
                                        VisualLibrary.DraughtHorseHeight, parent: wagon);
 
@@ -291,7 +294,7 @@ namespace Arna.View
                 var size = ModelScaling.Measure(horse.gameObject).size;
                 float spread = size.x * 0.5f + HorseGap;
 
-                horse.localRotation = Quaternion.Euler(0f, Library.Mounted.YawOffset, 0f);
+                horse.localRotation = Quaternion.Euler(0f, team.YawOffset, 0f);
                 horse.localPosition = new Vector3(
                     i == 0 ? -spread : spread,
                     Standing(horse, Vector3.zero).y,
@@ -489,7 +492,7 @@ namespace Arna.View
                         // Once, at spawn. A property block set every frame on every
                         // figure of every group is a per-frame cost for a colour that
                         // never changes.
-                        if (model.HasModel) Faction(figure, VisualLibrary.EnemyTint);
+                        if (model.HasModel) Faction(figure);
 
                         pack.Add(figure);
                     }
@@ -740,15 +743,48 @@ namespace Arna.View
         /// a primitive and wrong for a model that came with its own. A property block
         /// leaves the material alone and multiplies what it draws.
         /// </summary>
-        void Faction(Transform figure, Color colour)
+        void Faction(Transform figure)
         {
+            if (Library.EnemyFaction != null)
+            {
+                Repaint(figure, Library.EnemyFaction);
+                return;
+            }
+
             var block = new MaterialPropertyBlock();
 
             foreach (var renderer in figure.GetComponentsInChildren<Renderer>(true))
             {
                 renderer.GetPropertyBlock(block);
-                block.SetColor(BaseColor, colour);
+                block.SetColor(BaseColor, VisualLibrary.EnemyTint);
                 renderer.SetPropertyBlock(block);
+            }
+        }
+
+        /// <summary>
+        /// Swaps a figure's faction material for another, and touches nothing else.
+        ///
+        /// Only slots already holding one are replaced. A character carries several
+        /// materials — body, weapon, shield — and the pack keeps weapons on their own;
+        /// repainting every slot hands the bandits red swords.
+        /// </summary>
+        static void Repaint(Transform figure, Material faction)
+        {
+            foreach (var renderer in figure.GetComponentsInChildren<Renderer>(true))
+            {
+                var slots = renderer.sharedMaterials;
+                bool changed = false;
+
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    if (slots[i] == null) continue;
+                    if (!slots[i].name.StartsWith(VisualLibrary.FactionPrefix)) continue;
+
+                    slots[i] = faction;
+                    changed = true;
+                }
+
+                if (changed) renderer.sharedMaterials = slots;
             }
         }
 
