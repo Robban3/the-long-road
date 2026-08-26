@@ -871,10 +871,26 @@ It is driven from `Update` and the animator is stepped by hand, because the comp
 `[ExecuteAlways]`: the plan is looked at in the editor far more often than it is played,
 and a bird that only moves in play mode is a bird nobody sees.
 
-What it does **not** do is lift the overlay. `ScoutFlight` returns the tiles and the
-groups it found; this reads only the path, because the Unity plan has no overlay to lift.
-That is a separate piece, and pretending otherwise would put a bird over a map it is not
-actually scouting.
+**And the flight now lifts an overlay.** `PlanningOverlay` holds the colour maths — the
+same numbers the map render settled — and `LevelPreview.ApplyOverlay` mutes everything
+outside `ScoutFlight.RevealedTiles`. With no flight the whole map is muted, which is not
+a bug: that is what the plan looks like before the ability is bought. `ShowOverlay` turns
+it off for using the scene the way it was first built, as a harness for judging generator
+output, where an overlay is in the way.
+
+**Two mechanisms for one effect, because the two things are made differently.** The
+ground is a mesh this project builds — four vertices per tile, in tile order, so muting
+it needs no lookup from a vertex back to the ground under it — and its colours go all the
+way to luminance. A tree is somebody else's prefab with somebody else's material, and the
+only handle available without writing a shader is a property block that *multiplies* the
+atlas. Multiplication darkens a green tree and cannot take the green out of it, so under
+the overlay the wood drops to a third of its light and stays green. It reads as country
+in shadow, which is near enough to country not yet looked at. The honest fix is a shader
+that desaturates, and it is a bigger job than the difference is worth today.
+
+The overlay takes the colour out and leaves the geometry, which is the design rather than
+an economy: the terrain is what the player plans against, so hiding it would remove the
+decision instead of the certainty.
 
 ### The crow and animal packs, as imported
 

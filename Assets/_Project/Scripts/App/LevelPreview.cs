@@ -88,6 +88,16 @@ namespace Arna.App
         public bool ShowEagle = true;
 
         /// <summary>
+        /// Lays the grey over everything the eagle has not flown over (docs/GDD.md §3.6).
+        ///
+        /// With no flight this mutes the whole map, which is not a bug: that is what the
+        /// plan looks like before the ability is bought. Turn it off to use this scene
+        /// the way it was originally built — as a harness for judging what the generator
+        /// produced, where an overlay is in the way.
+        /// </summary>
+        public bool ShowOverlay = true;
+
+        /// <summary>
         /// Metres above the ground the bird flies.
         ///
         /// Measured on the plan render, where 14 m put her in the spruce tops and 34 m
@@ -215,6 +225,65 @@ namespace Arna.App
             _cast?.AdvanceAnimators(deltaTime);
         }
 
+        /// <summary>
+        /// Mutes the ground and the scenery over every tile the bird did not reach.
+        ///
+        /// Two different mechanisms for the same effect, because the two things are made
+        /// differently. The ground is a mesh this project builds — four vertices per
+        /// tile, in tile order — so its colours can be pushed all the way to luminance.
+        /// A tree is somebody else's prefab with somebody else's material, and the only
+        /// handle available without writing a shader is a property block that multiplies
+        /// the atlas, which darkens and cannot desaturate. See
+        /// <see cref="PlanningOverlay.PropLight"/>.
+        /// </summary>
+        void ApplyOverlay(Mesh mesh, LevelMap map)
+        {
+            if (!ShowOverlay || mesh == null) return;
+
+            var seen = _flight != null ? _flight.RevealedTiles : null;
+            var colours = mesh.colors;
+
+            // Four vertices per tile and tiles in order, which is what makes this cheap:
+            // no lookup from a vertex back to the ground under it.
+            if (colours != null && colours.Length == map.Grid.TileCount * 4)
+            {
+                for (int tile = 0; tile < map.Grid.TileCount; tile++)
+                {
+                    if (seen != null && seen.Contains(tile)) continue;
+
+                    int v = tile * 4;
+                    for (int k = 0; k < 4; k++) colours[v + k] = PlanningOverlay.Mute(colours[v + k]);
+                }
+
+                mesh.SetColors(colours);
+            }
+
+            if (_props == null) return;
+
+            var block = new MaterialPropertyBlock();
+            var shade = new Color(PlanningOverlay.PropLight, PlanningOverlay.PropLight,
+                                  PlanningOverlay.PropLight, 1f);
+
+            foreach (Transform prop in _props)
+            {
+                var at = prop.position;
+                int x = Mathf.FloorToInt(at.x / TileGrid.TileSize);
+                int y = Mathf.FloorToInt(at.z / TileGrid.TileSize);
+
+                if (!map.Grid.InBounds(x, y)) continue;
+                if (seen != null && seen.Contains(map.Grid.ToIndex(x, y))) continue;
+
+                foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
+                {
+                    renderer.GetPropertyBlock(block);
+                    block.SetColor(BaseColor, shade);
+                    renderer.SetPropertyBlock(block);
+                }
+            }
+        }
+
+        static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
+
         /// <summary>Ground height under a world position, in the plan's own relief scale.</summary>
         float GroundAt(float x, float z)
             => _grid == null ? 0f : _grid.SurfaceElevation(x, z) * HeightScale;
@@ -321,6 +390,10 @@ namespace Arna.App
             BuildProps(map);
             BuildRoutes(map);
             BuildEagle(map);
+
+            // Last, because it reads what the eagle found and repaints what the other
+            // three built.
+            ApplyOverlay(mesh, map);
 
             // ExecuteAlways rebuilds on every inspector change, so the previous mesh
             // has to go or the editor leaks one per keystroke.
