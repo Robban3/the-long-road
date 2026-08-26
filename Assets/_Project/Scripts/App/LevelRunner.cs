@@ -123,8 +123,14 @@ namespace Arna.App
             // map and painting it across the ground here would read as a road that is
             // not there; the start and goal markers likewise came out as coloured
             // patches of grass the caravan happened to be standing on.
+            // The skirt carries the ground on past the boundary. The caravan forms up on
+            // road behind the start line and the start is always within three tiles of
+            // the map's western edge, so that road is off the map by construction — and
+            // the world stopping dead at the boundary read as the edge of a board in any
+            // case. Half as much again as the run-up, so the apron does not end exactly
+            // where the last wagon stands.
             _mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize,
-                null, -1, -1, HeightScale);
+                null, -1, -1, HeightScale, Caravan.RunUp * 1.5f);
             GetComponent<MeshFilter>().sharedMesh = _mesh;
 
             _markerRoot = new GameObject("Markers").transform;

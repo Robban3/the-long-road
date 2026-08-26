@@ -48,8 +48,26 @@ namespace Arna.View
         /// planning view wants; the play view stands the same data up in three
         /// dimensions.
         /// </param>
+        /// <param name="skirt">
+        /// Metres of ground carried on past the map's edge. Zero on the planning map,
+        /// which is a sheet and ends where its ground ends.
+        ///
+        /// The world does not. Two things want this. The obvious one is that the caravan
+        /// forms up on road *behind* the start line — see <see cref="Arna.Sim.Caravan.RunUp"/>
+        /// — and the start is chosen from the leftmost three columns, so that road is off
+        /// the map by construction and had nothing under it. The other is that the ground
+        /// simply stopped at the boundary with three hundred metres of nothing between it
+        /// and the skyline, which reads as the edge of a board.
+        ///
+        /// It is one quad per border tile rather than more map: the colours and corner
+        /// heights of the edge carried outward, flat. Nothing is scattered on it and
+        /// nothing walks on it except the tail of the column at the moment the level
+        /// begins, so bare ground is all it has to be — 252 quads on a 64×64 map against
+        /// the 2 960 tiles that widening the grid by ten would have cost.
+        /// </param>
         public static Mesh Build(TileGrid grid, float tileSize, IReadOnlyList<RouteOverlay> overlays = null,
-                                 int startIndex = -1, int goalIndex = -1, float heightScale = 0f)
+                                 int startIndex = -1, int goalIndex = -1, float heightScale = 0f,
+                                 float skirt = 0f)
         {
             int tiles = grid.TileCount;
             var vertices = new Vector3[tiles * 4];
@@ -170,6 +188,27 @@ namespace Arna.View
                 name = "ArnaTerrain",
                 indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
             };
+
+            if (skirt > 0f)
+            {
+                var moreVertices = new List<Vector3>(vertices);
+                var moreNormals = new List<Vector3>(normals);
+                var moreUvs = new List<Vector2>(uvs);
+                var moreColors = new List<Color>(colors);
+                var moreTriangles = new List<int>(triangles);
+
+                Skirt(grid, tileSize, heightScale, skirt,
+                      moreVertices, moreNormals, moreUvs, moreColors, moreTriangles);
+
+                mesh.SetVertices(moreVertices);
+                mesh.SetNormals(moreNormals);
+                mesh.SetUVs(0, moreUvs);
+                mesh.SetColors(moreColors);
+                mesh.SetTriangles(moreTriangles, 0);
+                mesh.RecalculateBounds();
+                return mesh;
+            }
+
             mesh.SetVertices(vertices);
             mesh.SetNormals(normals);
             mesh.SetUVs(0, uvs);
@@ -177,6 +216,184 @@ namespace Arna.View
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        /// <summary>
+        /// Carries the ground on past the map's edge: one outward quad per border tile,
+        /// and one per corner so the four aprons meet.
+        ///
+        /// Colours and heights come from the same corner functions the tiles use, so the
+        /// seam is invisible — the apron is the edge continued rather than a different
+        /// piece of ground butted against it. Flat outward on purpose: the height field
+        /// has nothing to say beyond its own bounds, and inventing relief out there would
+        /// put hills where the level has no idea whether hills belong.
+        /// </summary>
+        static void Skirt(TileGrid grid, float tileSize, float heightScale, float skirt,
+                          List<Vector3> vertices, List<Vector3> normals, List<Vector2> uvs,
+                          List<Color> colors, List<int> triangles)
+        {
+            for (int x = 0; x < grid.Width; x++)
+            {
+                Apron(grid, tileSize, heightScale, x, 0, 0, -1, skirt,
+                      vertices, normals, uvs, colors, triangles);
+                Apron(grid, tileSize, heightScale, x, grid.Height - 1, 0, 1, skirt,
+                      vertices, normals, uvs, colors, triangles);
+            }
+
+            for (int y = 0; y < grid.Height; y++)
+            {
+                Apron(grid, tileSize, heightScale, 0, y, -1, 0, skirt,
+                      vertices, normals, uvs, colors, triangles);
+                Apron(grid, tileSize, heightScale, grid.Width - 1, y, 1, 0, skirt,
+                      vertices, normals, uvs, colors, triangles);
+            }
+
+            // The corners, where two aprons leave a square of nothing between them.
+            Corner(grid, tileSize, heightScale, 0, 0, -1, -1, skirt,
+                   vertices, normals, uvs, colors, triangles);
+            Corner(grid, tileSize, heightScale, grid.Width - 1, 0, 1, -1, skirt,
+                   vertices, normals, uvs, colors, triangles);
+            Corner(grid, tileSize, heightScale, 0, grid.Height - 1, -1, 1, skirt,
+                   vertices, normals, uvs, colors, triangles);
+            Corner(grid, tileSize, heightScale, grid.Width - 1, grid.Height - 1, 1, 1, skirt,
+                   vertices, normals, uvs, colors, triangles);
+        }
+
+        /// <summary>One border tile's outward quad, on the side <paramref name="dx"/>,
+        /// <paramref name="dy"/> points at.</summary>
+        static void Apron(TileGrid grid, float tileSize, float heightScale, int x, int y,
+                          int dx, int dy, float skirt,
+                          List<Vector3> vertices, List<Vector3> normals, List<Vector2> uvs,
+                          List<Color> colors, List<int> triangles)
+        {
+            // The two corners of the tile that lie on the map's edge: the edge runs
+            // across whichever way the apron points.
+            int ax, ay, bx, by;
+
+            if (dx != 0)
+            {
+                ax = bx = dx > 0 ? x + 1 : x;
+                ay = y;
+                by = y + 1;
+            }
+            else
+            {
+                ay = by = dy > 0 ? y + 1 : y;
+                ax = x;
+                bx = x + 1;
+            }
+
+            var inner0 = Edge(grid, tileSize, heightScale, ax, ay);
+            var inner1 = Edge(grid, tileSize, heightScale, bx, by);
+
+            var out1 = Out(inner1, dx, dy, skirt);
+            var out0 = Out(inner0, dx, dy, skirt);
+
+            var normal0 = Normal(grid, tileSize, heightScale, ax, ay);
+            var normal1 = Normal(grid, tileSize, heightScale, bx, by);
+
+            var colour0 = CornerColour(grid, ax, ay);
+            var colour1 = CornerColour(grid, bx, by);
+
+            // Each vertex carries its own normal and colour round the quad, because the
+            // winding correction below may reorder them.
+            Quad(new[] { inner0, inner1, out1, out0 },
+                 new[] { normal0, normal1, Vector3.up, Vector3.up },
+                 new[] { colour0, colour1, colour1, colour0 },
+                 vertices, normals, uvs, colors, triangles);
+        }
+
+        /// <summary>The square of apron diagonally off a map corner.</summary>
+        static void Corner(TileGrid grid, float tileSize, float heightScale, int x, int y,
+                           int dx, int dy, float skirt,
+                           List<Vector3> vertices, List<Vector3> normals, List<Vector2> uvs,
+                           List<Color> colors, List<int> triangles)
+        {
+            int cx = dx > 0 ? x + 1 : x;
+            int cy = dy > 0 ? y + 1 : y;
+
+            var at = Edge(grid, tileSize, heightScale, cx, cy);
+
+            var alongX = Out(at, dx, 0, skirt);
+            var alongY = Out(at, 0, dy, skirt);
+            var across = Out(at, dx, dy, skirt);
+
+            var colour = CornerColour(grid, cx, cy);
+            var normal = Normal(grid, tileSize, heightScale, cx, cy);
+
+            Quad(new[] { at, alongY, across, alongX },
+                 new[] { normal, Vector3.up, Vector3.up, Vector3.up },
+                 new[] { colour, colour, colour, colour },
+                 vertices, normals, uvs, colors, triangles);
+        }
+
+        static Vector3 Out(Vector3 from, int dx, int dy, float skirt)
+            => new Vector3(from.x + dx * skirt, from.y, from.z + dy * skirt);
+
+        static Vector3 Edge(TileGrid grid, float tileSize, float heightScale, int cornerX, int cornerY)
+            => new Vector3(cornerX * tileSize,
+                           heightScale > 0f ? CornerHeight(grid, cornerX, cornerY, heightScale) : 0f,
+                           cornerY * tileSize);
+
+        static Vector3 Normal(TileGrid grid, float tileSize, float heightScale, int cornerX, int cornerY)
+            => heightScale > 0f
+                ? CornerNormal(grid, cornerX, cornerY, tileSize, heightScale)
+                : Vector3.up;
+
+        /// <summary>The ground colour at a corner, tinted the way the tiles are.</summary>
+        static Color CornerColour(TileGrid grid, int cornerX, int cornerY)
+            => Tint(CornerColor(grid, cornerX, cornerY), cornerX, cornerY);
+
+        /// <summary>
+        /// Appends one quad, wound so it faces up whichever way its corners were listed.
+        ///
+        /// The winding is corrected rather than got right at each call site. There are
+        /// six sides and corners to emit and the sense of "round the quad" flips with
+        /// the direction each one points, so half of them came out facing down and
+        /// invisible — which is a bug that looks like the apron being absent on two
+        /// sides of the map and present on the other two. The shoelace area says which
+        /// way a polygon is wound; matching the tiles' sign is one comparison.
+        /// </summary>
+        static void Quad(Vector3[] points, Vector3[] pointNormals, Color[] pointColours,
+                         List<Vector3> vertices, List<Vector3> normals, List<Vector2> uvs,
+                         List<Color> colors, List<int> triangles)
+        {
+            float area = 0f;
+            for (int i = 0; i < 4; i++)
+            {
+                var from = points[i];
+                var to = points[(i + 1) % 4];
+                area += from.x * to.z - to.x * from.z;
+            }
+
+            // Wound the other way round: swapping one opposite pair reverses it, and
+            // everything that belongs to a vertex travels with it.
+            if (area < 0f)
+            {
+                Swap(points, 1, 3);
+                Swap(pointNormals, 1, 3);
+                Swap(pointColours, 1, 3);
+            }
+
+            int v = vertices.Count;
+
+            for (int i = 0; i < 4; i++)
+            {
+                vertices.Add(points[i]);
+                normals.Add(pointNormals[i]);
+                colors.Add(pointColours[i]);
+                uvs.Add(new Vector2(points[i].x, points[i].z));
+            }
+
+            triangles.Add(v + 0); triangles.Add(v + 2); triangles.Add(v + 1);
+            triangles.Add(v + 0); triangles.Add(v + 3); triangles.Add(v + 2);
+        }
+
+        static void Swap<T>(T[] values, int a, int b)
+        {
+            var held = values[a];
+            values[a] = values[b];
+            values[b] = held;
         }
 
         /// <summary>

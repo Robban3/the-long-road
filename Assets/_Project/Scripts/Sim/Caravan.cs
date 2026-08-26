@@ -90,6 +90,28 @@ namespace Arna.Sim
         /// </summary>
         public const float WagonSpacing = 15f;
 
+        /// <summary>
+        /// Metres of road behind the start line, for the column to form up on.
+        ///
+        /// Without it every wagon begins on the start tile, stacked, and the third one
+        /// is not visible until the first two have driven thirty metres out from under
+        /// it. A caravan that assembles itself out of one point in the first four
+        /// seconds is the first thing a player sees of this game.
+        ///
+        /// 40: the rearmost of three wagons trails 2 × <see cref="WagonSpacing"/> = 30 m,
+        /// and its own team stands about 8 m further back again, so 38 puts the last
+        /// horse's nose on the run-up and 40 leaves it a little air. The lead wagon still
+        /// starts exactly on the start tile and still finishes on the goal: the run-up is
+        /// ground for the tail to stand on, not journey. Everything the game measures —
+        /// <see cref="TotalDistance"/>, <see cref="Progress"/>, <see cref="HasArrived"/> —
+        /// counts from the start line, which is why they take their origin from it.
+        ///
+        /// The start is chosen from the leftmost three columns of the map, so this road
+        /// is off the map by construction. `TerrainMeshBuilder`'s skirt is what puts
+        /// ground under it.
+        /// </summary>
+        public const float RunUp = 40f;
+
         const float SupplyHp = 400f;
         const float TreasureHp = 350f;
         const float WarHp = 450f;
@@ -102,21 +124,57 @@ namespace Arna.Sim
 
         float _distance;
 
+        /// <summary>Distance along the path at which the route proper begins.</summary>
+        readonly float _origin;
+
         public Caravan(TileGrid grid, IReadOnlyList<int> route)
         {
             _grid = grid;
-            _tiles = new int[route.Count];
-            _points = new Vec2[route.Count];
-            _cumulative = new float[route.Count];
 
-            for (int i = 0; i < route.Count; i++)
+            int count = route.Count;
+
+            // One synthetic point behind the start, and only when there is a route to
+            // stand behind. A straight run-up needs no more than one: the segment from
+            // it to the start tile is interpolated like any other.
+            int lead = count > 0 ? 1 : 0;
+
+            _tiles = new int[count + lead];
+            _points = new Vec2[count + lead];
+            _cumulative = new float[count + lead];
+
+            if (lead == 1)
             {
-                _tiles[i] = route[i];
-                _points[i] = Vec2.FromTile(grid, route[i]);
-                _cumulative[i] = i == 0
-                    ? 0f
-                    : _cumulative[i - 1] + Vec2.Distance(_points[i - 1], _points[i]);
+                var first = Vec2.FromTile(grid, route[0]);
+
+                // Backwards along the road's own first step, so the column arrives on
+                // the line it is about to travel rather than joining it from the side.
+                var next = count > 1 ? Vec2.FromTile(grid, route[1]) : new Vec2(first.X + 1f, first.Y);
+
+                float step = Vec2.Distance(first, next);
+
+                float backX = step < 0.0001f ? -1f : (first.X - next.X) / step;
+                float backY = step < 0.0001f ? 0f : (first.Y - next.Y) / step;
+
+                // The tile is the start's. Nothing reads terrain out here — the lead
+                // never stands on it — and a tile index has to be something.
+                _tiles[0] = route[0];
+                _points[0] = new Vec2(first.X + backX * RunUp, first.Y + backY * RunUp);
+                _cumulative[0] = 0f;
             }
+
+            for (int i = 0; i < count; i++)
+            {
+                int at = i + lead;
+
+                _tiles[at] = route[i];
+                _points[at] = Vec2.FromTile(grid, route[i]);
+                _cumulative[at] = at == 0
+                    ? 0f
+                    : _cumulative[at - 1] + Vec2.Distance(_points[at - 1], _points[at]);
+            }
+
+            _origin = lead == 1 ? _cumulative[1] : 0f;
+            _distance = _origin;
 
             _wagons = new[]
             {
@@ -131,10 +189,16 @@ namespace Arna.Sim
         /// <summary>Set to zero by the Halt order, which trades ground for a tighter formation.</summary>
         public float SpeedModifier { get; set; } = 1f;
 
-        public float TotalDistance => _cumulative.Length == 0 ? 0f : _cumulative[_cumulative.Length - 1];
-        public float DistanceTravelled => _distance;
-        public float Progress => TotalDistance <= 0f ? 1f : _distance / TotalDistance;
-        public bool HasArrived => _distance >= TotalDistance;
+        /// <summary>
+        /// The whole path including the run-up, which is what positions are measured
+        /// along. Everything the game reports counts from the start line instead.
+        /// </summary>
+        float PathLength => _cumulative.Length == 0 ? 0f : _cumulative[_cumulative.Length - 1];
+
+        public float TotalDistance => PathLength - _origin;
+        public float DistanceTravelled => _distance - _origin;
+        public float Progress => TotalDistance <= 0f ? 1f : (_distance - _origin) / TotalDistance;
+        public bool HasArrived => _distance >= PathLength;
 
         public Vec2 LeadPosition => PositionAt(_distance);
 
@@ -192,7 +256,7 @@ namespace Arna.Sim
             if (HasArrived || Destroyed || deltaTime <= 0f) return;
 
             _distance += CurrentSpeed * deltaTime;
-            if (_distance > TotalDistance) _distance = TotalDistance;
+            if (_distance > PathLength) _distance = PathLength;
         }
 
         /// <summary>
@@ -210,7 +274,7 @@ namespace Arna.Sim
         {
             if (_points.Length == 0) return Vec2.Zero;
             if (_points.Length == 1 || distanceAlong <= 0f) return _points[0];
-            if (distanceAlong >= TotalDistance) return _points[_points.Length - 1];
+            if (distanceAlong >= PathLength) return _points[_points.Length - 1];
 
             int segment = FindSegment(distanceAlong);
             float segmentStart = _cumulative[segment];
@@ -227,7 +291,7 @@ namespace Arna.Sim
         {
             if (_tiles.Length == 0) return 0;
             if (distanceAlong <= 0f) return _tiles[0];
-            if (distanceAlong >= TotalDistance) return _tiles[_tiles.Length - 1];
+            if (distanceAlong >= PathLength) return _tiles[_tiles.Length - 1];
             return _tiles[FindSegment(distanceAlong)];
         }
 

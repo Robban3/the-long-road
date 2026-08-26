@@ -15,6 +15,50 @@ namespace Arna.Tests
         }
 
         [Test]
+        public void TheColumnIsAlreadyStrungOutWhenTheLevelBegins()
+        {
+            // Every wagon used to start on the start tile, stacked, because trailing
+            // positions were clamped to the head of the route. The third one did not
+            // appear until the first two had driven thirty metres out from under it —
+            // a caravan assembling itself out of one point, in the first four seconds
+            // of the game.
+            var grid = new TileGrid(30, 10);
+            var caravan = new Caravan(grid, StraightRoute(grid, 5, 30));
+
+            var lead = caravan.WagonPosition(0);
+            var second = caravan.WagonPosition(1);
+            var third = caravan.WagonPosition(2);
+
+            Assert.That(Vec2.Distance(lead, second), Is.EqualTo(Caravan.WagonSpacing).Within(0.5f),
+                "the second wagon does not trail the first by a wagon's spacing");
+            Assert.That(Vec2.Distance(second, third), Is.EqualTo(Caravan.WagonSpacing).Within(0.5f),
+                "the third wagon does not trail the second by a wagon's spacing");
+
+            // Behind the start line, not ahead of it: the run-up is ground to stand on
+            // and not journey, so nobody has been moved along the route to make room.
+            Assert.Less(third.X, lead.X, "the column is not behind its own lead");
+            Assert.AreEqual(Vec2.FromTile(grid, grid.ToIndex(0, 5)), lead,
+                "the lead wagon does not start on the start tile");
+        }
+
+        [Test]
+        public void TheRunUpIsGroundToStandOnRatherThanJourney()
+        {
+            var grid = new TileGrid(30, 10);
+            var route = StraightRoute(grid, 5, 30);
+            var caravan = new Caravan(grid, route);
+
+            // 29 steps of one tile: the road the caravan is asked to travel, with the
+            // run-up excluded from every number the game reports.
+            float road = 29f * TileGrid.TileSize;
+
+            Assert.That(caravan.TotalDistance, Is.EqualTo(road).Within(0.01f),
+                "the run-up was counted as part of the journey");
+            Assert.That(caravan.DistanceTravelled, Is.EqualTo(0f).Within(0.01f));
+            Assert.That(caravan.Progress, Is.EqualTo(0f).Within(0.001f));
+        }
+
+        [Test]
         public void TheCaravanStartsAtTheRouteHeadAndReachesTheEnd()
         {
             var grid = new TileGrid(30, 10);

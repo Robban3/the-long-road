@@ -1106,6 +1106,34 @@ follows too, so both roll. A wheel nested inside another wheel is skipped, or it
 turn twice and at twice the speed. If a pack ever ships a cart as one welded mesh there
 is nothing to turn, and the console says so rather than leaving the wagons sliding.
 
+**The column starts strung out, on road behind the start line.** Every wagon used to
+begin on the start tile, stacked, because a trailing position was clamped to the head of
+the route — so the third wagon did not appear until the first two had driven thirty
+metres out from under it. A caravan assembling itself out of a single point is the first
+thing a player sees of this game.
+
+`Caravan.RunUp` is 40 m of path added *before* the route: the rearmost of three wagons
+trails 2 × 15 = 30 m and its own team stands about 8 m further back, so 38 puts the last
+horse's nose on the run-up and 40 leaves it air. The lead still starts exactly on the
+start tile and still finishes on the goal — **the run-up is ground to stand on, not
+journey.** `TotalDistance`, `DistanceTravelled`, `Progress` and `HasArrived` all take
+their origin from the start line, which is why the change moved no test.
+
+The start is chosen from the leftmost three columns of the map, so this road is off the
+map by construction. `TerrainMeshBuilder`'s **skirt** puts ground under it: one outward
+quad per border tile, colours and corner heights carried on from the edge, flat. 252
+quads on a 64×64 map against the 2 960 tiles that widening the grid by ten would have
+cost. It fixes a second thing that was never a bug report: the ground used to stop dead
+at the boundary with three hundred metres of nothing between it and the skyline, which
+reads as the edge of a board.
+
+One trap in it worth keeping written down: **the sense of "round the quad" flips with the
+direction each apron points**, so half of them came out wound backwards, facing down and
+invisible — a bug that looks like the apron being absent on two sides of the map and
+present on the other two. `Quad` corrects the winding from the shoelace area rather than
+asking six call sites to get it right, and each vertex's normal and colour travel with it
+through that correction.
+
 **The wagons trail 15 m apart, and the number comes from the horses.** A team's noses
 reach ahead of the wagon they pull by half a cart plus the 2 m draught pole plus a horse,
 while the cart behind extends half its own length back. Anything less than the sum puts
