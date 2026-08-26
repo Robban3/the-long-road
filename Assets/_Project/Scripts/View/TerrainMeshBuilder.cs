@@ -25,6 +25,22 @@ namespace Arna.View
     /// </summary>
     public static class TerrainMeshBuilder
     {
+        /// <summary>
+        /// How far the ground is carried on past the map's edge, in metres.
+        ///
+        /// The caravan forms up on <see cref="Arna.Sim.Caravan.RunUp"/> metres of road
+        /// behind the start line and the start is always within three tiles of the
+        /// map's western edge, so that road is off the map by construction and needs
+        /// ground under it. Eight metres more than the run-up, so the apron does not end
+        /// exactly where the last wagon stands.
+        ///
+        /// It is a constant here rather than an argument at the call site because two
+        /// things have to agree about it: what draws the ground, and what keeps the
+        /// skyline off it (<c>TerrainDecorator.PlaceHorizon</c>). They disagreed once,
+        /// and the range ended up standing on the apron.
+        /// </summary>
+        public const float SkirtWidth = Arna.Sim.Caravan.RunUp + 8f;
+
         /// <summary>A set of tiles to paint over the terrain, such as one corridor.</summary>
         public struct RouteOverlay
         {

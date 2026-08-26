@@ -218,7 +218,10 @@ namespace Arna.View
         public const float BushHeight = 1.9f;
 
         /// <summary>
-        /// Metres from the map's centre to the ring of skyline peaks.
+        /// The radius the ring would like to stand at, in metres from the map's centre.
+        ///
+        /// A preference rather than a rule: <c>PlaceHorizon</c> pushes any peak further
+        /// out when its own footprint would otherwise reach back over the drawn ground.
         ///
         /// The map is 256 m across, so its corners are 181 m out. At 320 the ring clears
         /// them by well over a hundred metres, which is enough that the peaks read as
@@ -234,15 +237,24 @@ namespace Arna.View
         /// `CameraOrbit` allows 12°, where the frame reaches 13° above horizontal — and
         /// it is one of the few things the orbit control actually pays out.
         /// </summary>
-        public const float HorizonRadius = 320f;
+        public const float HorizonRadius = 380f;
+
+        /// <summary>
+        /// Clear air between the furthest drawn ground and the foot of the range.
+        ///
+        /// Forty metres. It is not a look, it is the difference between country that
+        /// continues and a wall at the end of the field.
+        /// </summary>
+        public const float HorizonClearance = 40f;
 
         /// <summary>
         /// Peaks in the ring.
         ///
-        /// Twenty-two of them at 300 m is one every 86 metres, and each is about 1.2
-        /// times its height across — so at <see cref="HorizonHeight"/> they overlap by
-        /// most of their width and read as a continuous range rather than as a row of
-        /// separate cones, which is what a skyline is.
+        /// Twenty-two of them at 380 m is one every 108 metres, and each is about 1.2
+        /// times its height across — so at <see cref="HorizonHeight"/> they still overlap
+        /// and read as a continuous range rather than as a row of separate cones, which
+        /// is what a skyline is. The clearance rule pushes some further out than others,
+        /// which breaks the ring's evenness on purpose: a range is not a fence.
         /// </summary>
         public const int HorizonCount = 22;
 
@@ -724,19 +736,21 @@ namespace Arna.View
             float centreX = grid.Width * TileGrid.TileSize * 0.5f;
             float centreZ = grid.Height * TileGrid.TileSize * 0.5f;
 
+            // The furthest drawn ground: the map's own corner, carried out by the skirt
+            // in both directions at once, which is what makes a corner the far point.
+            float ground = Mathf.Sqrt(
+                (centreX + TerrainMeshBuilder.SkirtWidth) * (centreX + TerrainMeshBuilder.SkirtWidth) +
+                (centreZ + TerrainMeshBuilder.SkirtWidth) * (centreZ + TerrainMeshBuilder.SkirtWidth));
+
             for (int i = 0; i < HorizonCount; i++)
             {
                 // Evenly spaced and then nudged, rather than placed at random angles.
                 // Random angles clump, and a clump on a skyline is a gap somewhere else
                 // — which reads as the range having been forgotten on one side.
                 float angle = (i + rng.Range(-0.3f, 0.3f)) / HorizonCount * Mathf.PI * 2f;
-                float radius = HorizonRadius * rng.Range(0.88f, 1.18f);
+                float wanted = HorizonRadius * rng.Range(0.88f, 1.18f);
 
                 var instance = Object.Instantiate(Any(decor.Horizon, rng), parent);
-
-                instance.transform.position = new Vector3(
-                    centreX + Mathf.Cos(angle) * radius, 0f,
-                    centreZ + Mathf.Sin(angle) * radius);
 
                 instance.transform.rotation = decor.Horizon.ZUp
                     ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
@@ -744,6 +758,28 @@ namespace Arna.View
 
                 ModelScaling.Fit(instance, HorizonHeight * rng.Range(HorizonJitterLow,
                                                                     HorizonJitterHigh), 0f);
+
+                // Placed by its own edge rather than by its centre, and this is the
+                // whole of why the caravan kept driving into a mountain.
+                //
+                // A peak is *fitted by height* and the pack's are much wider than they
+                // are tall, so how far its foot sticks out from the point it stands on is
+                // a fact about the model and not about the radius chosen here. At 320 m a
+                // wide one reached back to within 197 m of the centre — and once the
+                // ground grew a skirt, out to 249 m at the corners, the range was standing
+                // on the map's own apron with the road running under it.
+                //
+                // So the radius is a preference and the measurement is the floor: far
+                // enough that this peak's own footprint clears the furthest drawn ground.
+                // Whatever the pack ships, and whatever the skirt becomes, it holds.
+                float radius = Mathf.Max(wanted, ground + FootprintRadius(instance)
+                                                 + HorizonClearance);
+
+                // Only x and z. Fit has already stood it on y = 0.
+                instance.transform.position = new Vector3(
+                    centreX + Mathf.Cos(angle) * radius,
+                    instance.transform.position.y,
+                    centreZ + Mathf.Sin(angle) * radius);
 
                 if (skyline == null) continue;
 

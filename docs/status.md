@@ -850,6 +850,28 @@ Three changes, none of them to the mesh:
   wrong as a lilypad lying in grass. Pads floating over the seam do for the water's edge
   what the trees do for the forest's.
 
+### The skyline is placed by its own edge, not by a radius
+
+The caravan drove into a mountain a second time, and the reason is the same shape as the
+first: **a peak is fitted by height and the pack's are much wider than they are tall**,
+so how far its foot sticks out from the point it stands on is a fact about the model, not
+about the radius the ring was given.
+
+At `HorizonRadius = 320` with the jitter band, the nearest peak stood 282 m out and
+reached back to within 197 m of the centre. The map's own corner is 181 m out, so it just
+about held — until the ground grew a skirt and reached 249 m at the corners. The range
+was then standing on the map's own apron, with the road running underneath it.
+
+`PlaceHorizon` measures each peak's footprint after fitting it and pushes it out to
+whichever is greater: the radius it would like, or `furthest ground + its own footprint +
+HorizonClearance`. The radius became a preference and the measurement became the floor,
+so it holds whatever the pack ships and whatever the skirt becomes later. It also breaks
+the ring's evenness, which is a gain: a range is not a fence.
+
+`TerrainMeshBuilder.SkirtWidth` is a constant rather than an argument for the same
+reason. Two things have to agree about how far the ground goes — what draws it, and what
+keeps the skyline off it — and they disagreed once.
+
 ### Mountains are on the skyline and nowhere else
 
 The caravan drove into one. A twenty-metre hill standing on a tile the column has to walk
