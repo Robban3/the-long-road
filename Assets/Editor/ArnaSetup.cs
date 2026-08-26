@@ -429,11 +429,24 @@ namespace Arna.Editor
                 // What grows in standing water and at its edge. The fen used to be
                 // dressed in the meadow's grass and ferns, which made it a meadow that
                 // happens to slow you down.
+                // No lilypads, and the reason is a rule rather than a preference.
+                //
+                // They were in here and they came out as three-metre discs stacked on
+                // each other across the fen — the craters-on-craters look. Ground cover
+                // is fitted by *height*, and a lilypad is flat: fitting something with
+                // almost no height to 0.7 m of it multiplies the whole model by whatever
+                // that takes, and the width goes with it. The eagle taught this once
+                // already, from the other end — most of her vertical extent was wing
+                // dihedral, so fitting her by height let the bind pose set the wingspan.
+                //
+                // Anything flat has to be fitted across, the way GroundPatches is. A
+                // lilypad also belongs on open water rather than on marsh ground, and
+                // there is nothing placing props on water, so it is out on both counts.
                 MarshPlants = Synty("Plants", "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
                                     "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
-                                    "SM_Plant_Lillypad_Small_01", "SM_Plant_Lillypad_Large_01",
-                                    "SM_Plant_Fern_01", "SM_Plant_Bush_Leaves_01",
-                                    "SM_Plant_Mushrooms_04"),
+                                    "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
+                                    "SM_Plant_Fern_01", "SM_Plant_Fern_02",
+                                    "SM_Plant_Bush_Leaves_01", "SM_Plant_Mushrooms_04"),
 
                 // Fallen wood on the forest floor, off the nature pack rather than the
                 // RTS kit's stacked lumber. A log lying where it fell is woodland; a
@@ -1688,6 +1701,124 @@ namespace Arna.Editor
         /// leaves us a real palette to tune per biome later, which is the harder
         /// reason to do it this way rather than overriding at runtime.
         /// </summary>
+        /// <summary>
+        /// Builds a material out of the loose textures lying beside a model, and gives it
+        /// to the model: `Arna > Wire Loose Textures`, `-arnaModelDir &lt;path&gt;`.
+        ///
+        /// <see cref="RestyleModelMaterials"/> cannot do this and it is worth being clear
+        /// why. That one <b>extracts</b> textures that are embedded inside an FBX. The
+        /// eagle's are not embedded: cgtrader ships the model in one archive and five
+        /// PNGs in another, and what arrives in Unity is a mesh whose material slots
+        /// point at nothing. A slot pointing at nothing renders pure white, which is
+        /// exactly the failure the comment in RestyleModelMaterials warns about — the
+        /// same symptom reached from the opposite direction.
+        ///
+        /// Alpha clipping is switched on when an opacity map is found. Feathers, leaves
+        /// and hair are cut out of flat geometry, and without clipping a bird is drawn
+        /// with rectangular wings.
+        /// </summary>
+        [MenuItem("Arna/Wire Loose Textures")]
+        public static void WireLooseTextures()
+        {
+            string folder = ArgValue("-arnaModelDir") ?? "Assets/ThirdParty/Eagle";
+
+            if (!AssetDatabase.IsValidFolder(folder))
+            {
+                Debug.LogWarning($"[Arna] {folder} is not a folder in this project.");
+                return;
+            }
+
+            var textures = new System.Collections.Generic.List<Texture2D>();
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { folder }))
+                textures.Add(AssetDatabase.LoadAssetAtPath<Texture2D>(
+                    AssetDatabase.GUIDToAssetPath(guid)));
+
+            if (textures.Count == 0)
+            {
+                Debug.LogWarning($"[Arna] No textures in {folder}. Nothing to wire.");
+                return;
+            }
+
+            // Matched by what the file is called, because that is all there is to go on
+            // and every pack names them the same way. Diffuse first and by exclusion:
+            // "Eagle_B1_diffuseOriginal" contains neither "normal" nor "height", and a
+            // rule looking for the word "diffuse" alone misses half the packs out there.
+            var albedo = Pick(textures, "diffuse", "albedo", "basecolor", "base_color", "_d");
+            var normal = Pick(textures, "normal", "_n", "nrm");
+            var opacity = Pick(textures, "opacity", "alpha", "_a");
+
+            if (albedo == null)
+            {
+                Debug.LogWarning($"[Arna] No albedo texture found in {folder}. "
+                                 + $"Saw: {string.Join(", ", textures.ConvertAll(t => t.name))}");
+                return;
+            }
+
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) throw new InvalidOperationException("URP Lit shader not found.");
+
+            var material = new Material(shader) { name = Path.GetFileName(folder) };
+            material.SetTexture("_BaseMap", albedo);
+            material.SetFloat("_Smoothness", 0.05f);
+
+            if (normal != null)
+            {
+                material.SetTexture("_BumpMap", normal);
+                material.EnableKeyword("_NORMALMAP");
+            }
+
+            if (opacity != null)
+            {
+                material.SetFloat("_AlphaClip", 1f);
+                material.SetFloat("_Cutoff", 0.5f);
+                material.EnableKeyword("_ALPHATEST_ON");
+                material.renderQueue = 2450;
+            }
+
+            string materialPath = $"{folder}/{material.name}.mat";
+            AssetDatabase.CreateAsset(material, materialPath);
+
+            // Remapped on the importer rather than assigned to the instance, so it
+            // survives a reimport — which a material dragged onto a prefab does not.
+            int wired = 0;
+            foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { folder }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!(AssetImporter.GetAtPath(path) is ModelImporter importer)) continue;
+
+                importer.materialImportMode = ModelImporterMaterialImportMode.ImportStandard;
+                importer.materialLocation = ModelImporterMaterialLocation.External;
+
+                foreach (var slot in AssetDatabase.LoadAllAssetsAtPath(path))
+                {
+                    if (!(slot is Material old)) continue;
+
+                    importer.AddRemap(new AssetImporter.SourceAssetIdentifier(old), material);
+                    wired++;
+                }
+
+                importer.SaveAndReimport();
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Debug.Log($"[Arna] {material.name}: albedo={albedo.name} "
+                      + $"normal={normal?.name ?? "—"} opacity={opacity?.name ?? "—"} "
+                      + $"→ {wired} material slot(s) remapped. Alpha clip {(opacity != null ? "on" : "off")}.");
+        }
+
+        static Texture2D Pick(System.Collections.Generic.List<Texture2D> textures,
+                              params string[] wanted)
+        {
+            foreach (string want in wanted)
+                foreach (var texture in textures)
+                    if (texture.name.IndexOf(want, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return texture;
+
+            return null;
+        }
+
         [MenuItem("Arna/Restyle Model Materials")]
         public static void RestyleModelMaterials()
         {

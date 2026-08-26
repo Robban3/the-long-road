@@ -270,7 +270,15 @@ namespace Arna.View
         /// </summary>
         public const int MaxLandmarks = 18;
 
-        /// <summary>Height of a grass tuft or a fern, in metres.</summary>
+        /// <summary>
+        /// Height of a grass tuft or a fern, in metres.
+        ///
+        /// <b>Ground cover is fitted by height, so nothing flat may go in it.</b> A
+        /// lilypad has almost no height, and fitting one to 0.7 m of it multiplies the
+        /// whole model by whatever that takes — the width goes with it, and a fen came
+        /// out paved with three-metre discs stacked on each other. Anything flat belongs
+        /// in <see cref="BiomeDecor.GroundPatches"/>, which is fitted across.
+        /// </summary>
         public const float CoverHeight = 0.7f;
 
         /// <summary>
@@ -315,8 +323,19 @@ namespace Arna.View
         /// </summary>
         public const int MaxGroundCover = 4000;
 
-        /// <summary>Width of a ground patch in metres. Roughly two tiles across.</summary>
-        public const float PatchWidth = 7.5f;
+        /// <summary>
+        /// Width of a ground patch in metres.
+        ///
+        /// 5.2 rather than 7.5, and the arithmetic says why the first number could not
+        /// work. A 7.5 m disc covers about three and a half four-metre tiles, so at the
+        /// plains rate of 0.22 a tile it laid patches over 77 % of the ground and on a
+        /// road tile, at 0.55 and the plan's density scale, 265 % — every patch on top of
+        /// two others. Seen from above that is not worn ground, it is craters on craters.
+        ///
+        /// At 5.2 a patch covers about one and two thirds tiles, which with the
+        /// no-stacking rule below leaves bare earth in pieces rather than in sheets.
+        /// </summary>
+        public const float PatchWidth = 5.2f;
 
         /// <summary>
         /// How much fall a tile may have before it is refused a patch, in metres.
@@ -650,6 +669,16 @@ namespace Arna.View
 
             int placed = 0;
 
+            // Patches keep their own ground, separately from the props'.
+            //
+            // Without it they stack, and stacked flat pieces at slightly different
+            // heights are the worst artefact on this list: from above they read as
+            // craters on craters, and each one makes the next one look deliberate.
+            // Sharing `occupied` would have been wrong in both directions — a patch is
+            // not something a tree may not grow in, and a tree is not something bare
+            // earth may not appear under.
+            var patched = new HashSet<int>();
+
             for (int i = 0; i < grid.TileCount && placed < MaxGroundPatches; i++)
             {
                 if (!PatchDensity.TryGetValue(grid[i], out float density)) continue;
@@ -658,15 +687,48 @@ namespace Arna.View
                 if (!rng.Chance(density * densityScale)) continue;
                 if (Fall(grid, i, heightScale) > PatchMaxFall) continue;
 
+                // The whole footprint, not the centre tile. A 5.2 m disc reaches into its
+                // neighbours, and checking only the middle lets two patches overlap by
+                // most of their area while both believe they are alone.
+                if (!PatchGroundFree(grid, patched, i)) continue;
+
                 var choice = new Choice(decor.GroundPatches, Any(decor.GroundPatches, rng),
                                         PatchWidth, byWidth: true, canopy: true);
 
                 if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.2f,
                             occupied: null, lift: PatchLift))
+                {
+                    ReservePatch(grid, patched, i);
                     placed++;
+                }
             }
 
             return placed;
+        }
+
+        /// <summary>Tiles a patch claims, measured out from the one it stands on.</summary>
+        const int PatchReach = 1;
+
+        static bool PatchGroundFree(TileGrid grid, HashSet<int> patched, int tile)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            for (int dy = -PatchReach; dy <= PatchReach; dy++)
+                for (int dx = -PatchReach; dx <= PatchReach; dx++)
+                    if (grid.InBounds(x + dx, y + dy) &&
+                        patched.Contains(grid.ToIndex(x + dx, y + dy))) return false;
+
+            return true;
+        }
+
+        static void ReservePatch(TileGrid grid, HashSet<int> patched, int tile)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            for (int dy = -PatchReach; dy <= PatchReach; dy++)
+                for (int dx = -PatchReach; dx <= PatchReach; dx++)
+                    if (grid.InBounds(x + dx, y + dy))
+                        patched.Add(grid.ToIndex(x + dx, y + dy));
         }
 
         /// <summary>How far the ground falls across one tile, corner to corner.</summary>

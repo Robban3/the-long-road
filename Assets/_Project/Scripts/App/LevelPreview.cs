@@ -428,6 +428,16 @@ namespace Arna.App
                 return;
             }
 
+            // Said out loud, because a bird with no controller is a bird that glides:
+            // SpawnActor attaches no animator when there is none to attach, and the
+            // result is a model holding its bind pose while it moves across the map.
+            // Which looks like the flight being wrong rather than the wings being absent.
+            if (Models.Eagle.Animator == null)
+                Debug.LogWarning("[Arna] The eagle has no animator controller, so her wings "
+                                 + "will not beat. Run Arna > Build Animator Controllers and "
+                                 + "check the summary says 12 of 12 — if it names Eagle_B1, "
+                                 + "the warning above it says why.");
+
             _flight = ScoutingAbility.Fly(map);
             if (_flight.Path.Count < 2) return;
 

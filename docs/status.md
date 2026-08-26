@@ -684,6 +684,51 @@ marsh plants against 3435 ordinary tufts.
 The marsh scatter changed with it — 30 % marsh plants where it used to be the generic
 shrub, and swamp trees and stumps added to the dead-timber set.
 
+### Three things that were flat, and one rule
+
+**Lilypads paved the fen with three-metre discs stacked on each other.** They were in
+`MarshPlants`, ground cover is fitted by *height*, and a lilypad has almost none — so
+fitting one to 0.7 m of height multiplied the whole model by whatever that took and the
+width went with it. From above it read as craters on craters. They are out: a lilypad
+belongs on open water, and nothing places props on water.
+
+**Ground patches stacked for the same reason from the other direction.** A 7.5 m disc
+covers about three and a half four-metre tiles, so at the plains rate of 0.22 a tile they
+covered 77 % of the ground, and on a road tile at 0.55 with the plan's density scale,
+265 % — every patch on top of two others. They are 5.2 m now and keep their own reserved
+ground, checked over the whole footprint rather than the centre tile: two patches
+overlapping by most of their area while both believe they are alone is the same bug the
+mountains had.
+
+**The eagle was the same rule read from the other end** — most of her vertical extent is
+wing dihedral, so fitting her by height let the bind pose decide the wingspan.
+
+The rule, written where it will be read: **ground cover is fitted by height, so nothing
+flat may go in it.** Anything flat belongs in `GroundPatches`, which is fitted across.
+
+### The eagle is white, and it is not the model's fault
+
+`RestyleModelMaterials` **extracts** textures embedded inside an FBX. The eagle's are not
+embedded: cgtrader ships the model in one archive and five PNGs in another, so what
+arrives in Unity is a mesh whose material slots point at nothing — and a slot pointing at
+nothing renders pure white, which is the failure that method's own comment warns about,
+reached from the opposite direction.
+
+`Arna > Wire Loose Textures` builds a URP material from the loose files beside a model
+and remaps it onto the importer, so it survives a reimport in a way a material dragged
+onto a prefab does not. Albedo, normal and opacity are matched by filename. Alpha
+clipping goes on when an opacity map is found: feathers, leaves and hair are cut out of
+flat geometry, and without clipping a bird has rectangular wings.
+
+It defaults to `Assets/ThirdParty/Eagle` and takes `-arnaModelDir` for anything else,
+which the next cgtrader asset will need.
+
+**The wings not beating is a separate fault with a separate cause.** `SpawnActor`
+attaches no animator when there is no controller to attach, and says nothing — so a bird
+holds its bind pose while it moves, which looks like the flight being wrong. `LevelPreview`
+now warns. The likely cause is that `Build Animator Controllers` never got to twelve of
+twelve: that summary was asked for and never came back.
+
 ### The ground
 
 The terrain is one shader — a vertex colour per type with a grain texture over it — which
