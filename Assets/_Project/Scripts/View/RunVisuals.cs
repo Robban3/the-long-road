@@ -117,16 +117,12 @@ namespace Arna.View
             // Said once, and worth saying: if the pack ships its carts as one welded
             // mesh there are no wheel parts to turn, and the wagons go on sliding with
             // nothing in the console to say why.
-            // The one number in the spacing arithmetic that comes from a model rather
-            // than from Caravan.cs, printed rather than trusted: change the cart and the
-            // spacing has to change with it.
             if (_wagons.Count > 0)
                 Debug.Log($"[Arna] {_wagons.Count} wagons, {_draught.Count} horses in harness "
                           + $"({_draught.Count / _wagons.Count} each), "
-                          + $"{_wheels[0].Count} wheels on the first. Half a cart is "
-                          + $"{_cartHalf:0.0} m and the team reaches {_teamReach:0.0} m ahead, "
-                          + $"so wagons need more than {_cartHalf + _teamReach:0.0} m between "
-                          + $"them and have {Caravan.WagonSpacing:0.0}.");
+                          + $"{_wheels[0].Count} wheels on the first.");
+
+            CheckSpacing();
 
             if (_wagons.Count > 0 && _wheels[0].Count == 0)
                 Debug.LogWarning("[Arna] No wheels found under the wagon models, so they will "
@@ -252,11 +248,18 @@ namespace Arna.View
         /// facing another way the horses will stand at its side, which is at least a
         /// visible kind of wrong rather than a silent one.
         /// </summary>
-        /// <summary>How far ahead of a wagon's centre its team's noses reach.</summary>
-        float _teamReach;
-
-        /// <summary>Half the first cart's length, for the same reason.</summary>
-        float _cartHalf;
+        /// <summary>
+        /// Per wagon, how far its team's noses reach ahead of its centre, and how far
+        /// its own cart extends behind it.
+        ///
+        /// Kept per wagon rather than as one figure because the carts are not the same
+        /// length — a supply wagon is an open bed with barrels roped along it and a
+        /// covered wagon is a hooped canvas, and one uniform spacing is only as good as
+        /// the worst pair it has to hold apart. Which pair that is, is a fact about the
+        /// models, so it is measured and printed rather than assumed.
+        /// </summary>
+        readonly List<float> _reach = new List<float>();
+        readonly List<float> _rear = new List<float>();
 
         void Harness(Transform wagon, Transform cart)
         {
@@ -265,8 +268,10 @@ namespace Arna.View
             // Measured off the cart rather than assumed from its height: the packs put a
             // hay cart and a covered wagon at the same 3.2 m and they are not remotely
             // the same length.
-            float front = ModelScaling.Measure(cart.gameObject).max.z - wagon.position.z;
-            _cartHalf = front;
+            var box = ModelScaling.Measure(cart.gameObject);
+
+            float front = box.max.z - wagon.position.z;
+            _rear.Add(wagon.position.z - box.min.z);
 
             for (int i = 0; i < 2; i++)
             {
@@ -286,8 +291,55 @@ namespace Arna.View
                     front + Harnessed + size.z * 0.5f);
 
                 _draught.Add(horse);
-                _teamReach = horse.localPosition.z + size.z * 0.5f;
+
+                if (i == 0) _reach.Add(horse.localPosition.z + size.z * 0.5f);
             }
+        }
+
+        /// <summary>
+        /// Checks the caravan's spacing against the vehicles actually in it.
+        ///
+        /// <see cref="Caravan.WagonSpacing"/> is one number in the simulation and the
+        /// carts it has to hold apart are three different models, so the arithmetic
+        /// behind that number can only be finished here. A pair is tight when the
+        /// following wagon's horses reach further forward than the gap leaves them: the
+        /// team ends up inside the cart in front, which is invisible rather than obviously
+        /// broken — the animals do not vanish, they are simply drawn behind planking.
+        ///
+        /// Printed every time and warned about when it fails, because the failure looks
+        /// like "that wagon only has one horse" and not like a spacing problem at all.
+        /// </summary>
+        void CheckSpacing()
+        {
+            if (_reach.Count == 0 || _rear.Count == 0) return;
+
+            float worst = 0f;
+            int pair = 0;
+
+            // Pair i is the gap between wagon i in front and wagon i + 1 behind it.
+            for (int i = 0; i + 1 < _wagons.Count; i++)
+            {
+                if (i >= _rear.Count || i + 1 >= _reach.Count) break;
+
+                float needed = _rear[i] + _reach[i + 1];
+                if (needed <= worst) continue;
+
+                worst = needed;
+                pair = i;
+            }
+
+            string detail = $"the tightest pair is wagon {pair + 1} to {pair + 2}, which needs "
+                            + $"{worst:0.0} m; the caravan uses {Caravan.WagonSpacing:0.0}";
+
+            if (worst > Caravan.WagonSpacing)
+            {
+                Debug.LogWarning($"[Arna] The wagons are too close together: {detail}. The "
+                                 + "following team is drawn inside the cart in front of it, "
+                                 + "which looks like a missing horse. Raise Caravan.WagonSpacing.");
+                return;
+            }
+
+            Debug.Log($"[Arna] Wagon spacing: {detail}.");
         }
 
         public void Sync(LevelRun run)

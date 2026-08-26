@@ -850,22 +850,45 @@ Three changes, none of them to the mesh:
   wrong as a lilypad lying in grass. Pads floating over the seam do for the water's edge
   what the trees do for the forest's.
 
+### Mountains are on the skyline and nowhere else
+
+The caravan drove into one. A twenty-metre hill standing on a tile the column has to walk
+over is a wall in the road, and no amount of route-clearing fixes it: `driveLine` refuses
+props on the line itself, but a mountain placed on a tile *beside* it overhangs the road
+anyway.
+
+They are off the map entirely — `BiomeDecor.Mountains` is gone, not emptied. **A pass is
+the ground between the mountains**, which is boulders, scree and the trees that manage on
+it, so that is what dresses `MountainPass` now; the mountains' 26 % went to the boulders,
+which are what reads as high country from inside it. The range lives in `Horizon`, three
+hundred metres beyond the map's edge, where it is looked at rather than walked into.
+
+**And it is painted flat grey** (`SkylineGrey`, a pale cold blue-grey). Distant ground is
+not a smaller copy of near ground: air between you and it scatters the light, so it loses
+its colour and moves toward the sky's. That is why a range twenty miles off is blue-grey
+however green its trees are — and why the pack's grass-covered mountains read as a green
+wall at the edge of the field rather than as distance. Painting them out is not a
+stylisation, it is the one cue that says how far away they are.
+
+One flat material for the whole range, made in code rather than loaded. At three hundred
+metres a texture is smaller than a pixel, so it costs bandwidth to deliver noise — and
+one shared material means the twenty-two peaks batch instead of pulling the pack's atlas
+twenty-two times.
+
+The two-pass scatter stays even though nothing is bulky any more: the castle and the keep
+are coming and they are exactly that — a thing that decides what may stand near it rather
+than one that fits around what is already there.
+
 ### The planning map is dressed differently from the world
 
-`LoadPlanDecor` is `LoadForestDecor` with `Mountains` and `Horizon` emptied. Everything
-else — every tree, rock, bush, reed and lilypad — is the same set the play view uses, so
-the map is the country seen from above rather than a diagram of it.
+`LoadPlanDecor` is `LoadForestDecor` with `Horizon` emptied. Everything else — every
+tree, rock, bush, reed and lilypad — is the same set the play view uses, so the map is
+the country seen from above rather than a diagram of it.
 
-Those two sets come out because they hide the thing the map is for. A mountain is fitted
-to 20 m of height and the pack's are far wider than they are tall, so one covers about
-eighty metres of a map that is 256 across. From the side that is a landmark. From
-directly above it is a green dome over a fifth of the width, with a shadow beside it over
-as much again, and the ground underneath — which is the whole of what a player reads in
-order to draw a route — is not there. The terrain colour already says where the pass is;
-the model adds nothing to that and takes the map away.
-
-This is a view difference, not a preference. The play camera keeps both: from 46 m back
-and 32 m up, a mountain is a mountain.
+The skyline comes out because it stands three hundred metres beyond the map's edge, which
+is exactly what it is for from inside the world and exactly what is wrong with it on a
+map: a ring of peaks around the sheet, drawn outside the ground being read, with nothing
+to say about the route.
 
 ### The preview kept every generation it had ever built
 
@@ -1083,19 +1106,31 @@ follows too, so both roll. A wheel nested inside another wheel is skipped, or it
 turn twice and at twice the speed. If a pack ever ships a cart as one welded mesh there
 is nothing to turn, and the console says so rather than leaving the wagons sliding.
 
-**The wagons trail 12.5 m apart, and the number comes from the horses.** Measured from a
-wagon's own centre: half a cart is about 3.25 m, the draught pole is 2 m, and a horse
-fitted to 2.4 m tall is about 2.6 m nose to tail — so a team's noses reach roughly 7.85 m
-ahead of the wagon it pulls, while the cart behind extends 3.25 m back from its own
-centre. Anything under 11.1 m puts one wagon's horses inside the wagon in front. At the
-old 8 m they were three metres in: **the animals were standing inside the cart ahead and
-could not be seen, which reads as one horse per wagon rather than two.** The remaining
-1.4 m is clear air, so the column reads as vehicles rather than as a train with couplings.
+**The wagons trail 15 m apart, and the number comes from the horses.** A team's noses
+reach ahead of the wagon they pull by half a cart plus the 2 m draught pole plus a horse,
+while the cart behind extends half its own length back. Anything less than the sum puts
+one wagon's horses inside the wagon in front — and **that failure is invisible rather
+than obviously broken**: the animals do not disappear, they are drawn behind planking. At
+the original 8 m they were three metres in, which reads as one horse per wagon rather
+than two.
 
-The cart's length is the only input here that comes from a model rather than from
-`Caravan.cs`, so `RunVisuals` prints it at build — half a cart, the team's reach, the
-minimum that implies, and the spacing actually in force. A different cart changes the
-answer and will say so.
+12.5 was the first correction, worked out for a covered wagon, and it was still tight at
+the head of the column — because **the three carts are not the same length** and the
+supply wagon leads. One spacing is only as good as the worst pair it has to hold apart,
+and which pair that is, is a fact about the models rather than about `Caravan.cs`.
+
+So it is not left as arithmetic. `RunVisuals.CheckSpacing` measures every pair against
+the models actually loaded, prints the tightest, and warns with the figure needed when
+the constant is short of it:
+
+```
+[Arna] Wagon spacing: the tightest pair is wagon 1 to 2, which needs 13.4 m;
+       the caravan uses 15.0.
+```
+
+That is the general shape of this whole class of problem, and it has now come up four
+times in a row: a number derived from a model has to be *checked against the model*, in
+the place where the model is loaded, or it is a guess wearing arithmetic.
 
 **Every wagon has a pair of horses in the traces.** `Quaternius/Animals/Horse.fbx`, the
 same model the mounted troop rides, fitted to 2.4 m rather than the troop's 1.85: a heavy

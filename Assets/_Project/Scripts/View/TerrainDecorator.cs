@@ -109,19 +109,6 @@ namespace Arna.View
         public PropSet Boulders = new PropSet();
 
         /// <summary>
-        /// Hills standing on the map itself, in mountain-pass terrain.
-        ///
-        /// **Left empty for the planning map**, and that is a view difference rather
-        /// than a preference. One is fitted to 20 m of height and the pack's are much
-        /// wider than they are tall, so it covers something like eighty metres of a map
-        /// two hundred and fifty-six across: from the side a landmark, from directly
-        /// above a green dome over a fifth of the width with a shadow beside it over as
-        /// much again, and the ground the player is reading in order to draw a route
-        /// simply not there. The terrain colour already says where the pass is.
-        /// </summary>
-        public PropSet Mountains = new PropSet();
-
-        /// <summary>
         /// The skyline: mountains standing outside the map, seen and never reached.
         ///
         /// The world used to end at the map edge with a flat sky colour behind it, and
@@ -130,9 +117,14 @@ namespace Arna.View
         /// what they buy is not scenery — it is the sense that the country continues,
         /// which is the whole premise of a game about a road through it.
         ///
-        /// These are not <see cref="Mountains"/>. Those are props standing *on* the map
-        /// in mountain-pass terrain, twenty metres against a fourteen-metre spruce — a
-        /// hill among trees. A skyline is a different job and wants a different size.
+        /// **This is now the only place mountains appear.** They used to stand on the map
+        /// as well, in mountain-pass terrain, and a twenty-metre hill on a tile the
+        /// caravan has to walk over is a wall in the road: the column drove straight into
+        /// one. A pass is the ground *between* the mountains anyway — boulders, scree and
+        /// the trees that manage on it — so that is what dresses it, and the range is
+        /// here, where it is looked at rather than walked into.
+        ///
+        /// They are painted flat grey. See <see cref="Skyline"/>.
         /// </summary>
         public PropSet Horizon = new PropSet();
 
@@ -187,7 +179,7 @@ namespace Arna.View
 
         public bool IsEmpty =>
             !Has(Trees) && !Has(Pines) && !Has(Birch) && !Has(DeadTrees) && !Has(Bushes) &&
-            !Has(Rocks) && !Has(Boulders) && !Has(Mountains) && !Has(Horizon) &&
+            !Has(Rocks) && !Has(Boulders) && !Has(Horizon) &&
             !Has(GroundCover) && !Has(MarshPlants) && !Has(Lilypads) &&
             !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
             !Has(Timber) && !Has(Ruins);
@@ -224,7 +216,6 @@ namespace Arna.View
         /// as cover from the play camera, short enough that the column shows over it.
         /// </summary>
         public const float BushHeight = 1.9f;
-        public const float MountainHeight = 20f;
 
         /// <summary>
         /// Metres from the map's centre to the ring of skyline peaks.
@@ -683,10 +674,52 @@ namespace Arna.View
         /// same side of the same level, so a player who learns a level learns its
         /// skyline too, and the shot the screenshots take is the shot they saw.
         /// </summary>
+        /// <summary>
+        /// The skyline's colour: a pale, cold grey.
+        ///
+        /// Distant ground is not a smaller copy of near ground. Air between you and it
+        /// scatters the light, so it loses its colour and moves toward the sky's — which
+        /// is why a range twenty miles off is blue-grey however green its trees are, and
+        /// why the pack's grass-covered mountains read as a green wall at the edge of
+        /// the field rather than as distance. Painting them out is not a stylisation; it
+        /// is the one cue that says how far away they are.
+        /// </summary>
+        public static readonly Color SkylineGrey = new Color(0.56f, 0.60f, 0.66f);
+
+        static Material _skyline;
+
+        /// <summary>
+        /// One flat material for the whole range, made rather than loaded.
+        ///
+        /// Flat on purpose: at three hundred metres a texture is smaller than a pixel,
+        /// so it costs bandwidth to deliver noise. One shared material also means the
+        /// twenty-two peaks batch instead of pulling the pack's atlas twenty-two times.
+        /// </summary>
+        static Material Skyline()
+        {
+            // Explicit null check rather than ??: a material destroyed by a domain reload
+            // reports itself null through Unity's operator and is handed straight back
+            // by the coalescing one, which then throws the moment it is assigned.
+            if (_skyline != null) return _skyline;
+
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) return null;
+
+            _skyline = new Material(shader) { name = "Skyline" };
+            _skyline.SetColor(BaseColorId, SkylineGrey);
+            _skyline.SetFloat("_Smoothness", 0f);
+
+            return _skyline;
+        }
+
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+
         static int PlaceHorizon(Transform parent, TileGrid grid, DeterministicRandom rng,
                                 BiomeDecor decor)
         {
             if (!decor.Horizon.Any) return 0;
+
+            var skyline = Skyline();
 
             float centreX = grid.Width * TileGrid.TileSize * 0.5f;
             float centreZ = grid.Height * TileGrid.TileSize * 0.5f;
@@ -711,6 +744,11 @@ namespace Arna.View
 
                 ModelScaling.Fit(instance, HorizonHeight * rng.Range(HorizonJitterLow,
                                                                     HorizonJitterHigh), 0f);
+
+                if (skyline == null) continue;
+
+                foreach (var renderer in instance.GetComponentsInChildren<Renderer>(true))
+                    renderer.sharedMaterial = skyline;
             }
 
             return HorizonCount;
@@ -1027,14 +1065,17 @@ namespace Arna.View
         }
 
         /// <summary>
-        /// Whether this is one of the props big enough to swallow what is already there.
+        /// Whether this is one of the props big enough to swallow what is already there,
+        /// and so has to claim its ground before anything else is scattered near it.
         ///
-        /// Mountains and nothing else, for now. Everything else is within a tile or two
-        /// of the ground it was placed on, and the ordering only matters for the thing
-        /// that is not.
+        /// **Nothing qualifies today.** The mountains that did are off the map and on
+        /// the skyline. The two passes stay because the castle and the keep are coming
+        /// and they are exactly this: a thing that decides what can stand near it,
+        /// rather than a thing that has to fit around what is already there.
         /// </summary>
-        static bool IsBulky(TerrainType terrain, Choice choice)
-            => terrain == TerrainType.MountainPass && choice.Size >= MountainHeight * 0.9f;
+        const float BulkySize = 14f;
+
+        static bool IsBulky(TerrainType terrain, Choice choice) => choice.Size >= BulkySize;
 
         /// <summary>
         /// Places the things that were built rather than grown.
@@ -1240,9 +1281,15 @@ namespace Arna.View
                     if (roll < 0.96f) return From(decor.Rocks, rng, RockHeight);
                     return From(decor.Timber, rng, TimberWidth, byWidth: true);
 
+                // No whole mountains. A twenty-metre hill standing on a tile the caravan
+                // has to walk over is a wall in the road — the column drove straight into
+                // one — and a mountain is not what a pass looks like anyway: a pass is
+                // the ground *between* the mountains, which is boulders, scree and the
+                // trees that manage on it. The range belongs on the skyline, where
+                // Horizon puts it. Its share went to the boulders, which are the thing
+                // that reads as high country from inside it.
                 case TerrainType.MountainPass:
-                    if (roll < 0.26f) return From(decor.Mountains, rng, MountainHeight);
-                    if (roll < 0.50f) return From(decor.Boulders, rng, BoulderWidth, byWidth: true);
+                    if (roll < 0.40f) return From(decor.Boulders, rng, BoulderWidth, byWidth: true);
                     if (roll < 0.86f) return From(decor.Rocks, rng, RockHeight);
                     return Tree(decor.Pines, rng, PineHeight);
 

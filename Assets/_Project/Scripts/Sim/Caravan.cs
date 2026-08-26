@@ -66,23 +66,29 @@ namespace Arna.Sim
         /// <summary>
         /// Metres between wagons along the path.
         ///
-        /// 12.5, and the number comes from what is now hitched to the front of each one.
-        /// Measured from a wagon's own centre: half a cart is about 3.25 m, the draught
-        /// pole is 2 m, and a horse fitted to 2.4 m tall is about 2.6 m nose to tail —
-        /// so a team's noses reach roughly 7.85 m ahead of the wagon they pull, while
-        /// the cart behind them extends 3.25 m back from its own centre. Anything under
-        /// 11.1 m puts one wagon's horses inside the wagon in front of it, and 8 m put
-        /// them three metres in: the animals were standing in the cart ahead and could
-        /// not be seen, which reads as one horse per wagon rather than two.
+        /// 15, and the number comes from what is hitched to the front of each one.
         ///
-        /// The remaining 1.4 m is clear air, so the column reads as a column of vehicles
-        /// rather than as a train with couplings.
+        /// Measured from a wagon's own centre: a team's noses reach ahead of the wagon
+        /// they pull by half a cart plus the draught pole plus a horse, while the cart
+        /// behind them extends half its own length backwards. Anything less than the sum
+        /// puts one wagon's horses inside the wagon in front — and that failure is
+        /// invisible rather than obviously broken, because the animals do not vanish,
+        /// they are simply drawn behind planking. At the original 8 m they were three
+        /// metres in, which reads as one horse per wagon rather than two.
         ///
-        /// The measurement is printed at build (see RunVisuals) rather than trusted:
-        /// the cart's length is the one input here taken from a model rather than from
-        /// this file, and a different cart changes it.
+        /// **The three carts are not the same length**, so one spacing is only as good
+        /// as the worst pair it has to hold apart, and which pair that is, is a fact
+        /// about the models rather than about this file. 12.5 was worked out for a
+        /// covered wagon and was still tight at the head of the column, where the longer
+        /// supply wagon is. 15 carries that, and a horse whose measured length runs long
+        /// because a rigged model's bounds cover every clip it can play — a galloping
+        /// pose included.
+        ///
+        /// It is not left as arithmetic: `RunVisuals.CheckSpacing` measures each pair
+        /// against the models actually loaded, prints the tightest, and warns with the
+        /// figure needed when this constant is short of it.
         /// </summary>
-        public const float WagonSpacing = 12.5f;
+        public const float WagonSpacing = 15f;
 
         const float SupplyHp = 400f;
         const float TreasureHp = 350f;

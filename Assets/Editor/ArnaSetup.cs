@@ -397,9 +397,6 @@ namespace Arna.Editor
                                     "SM_Plant_Mushrooms_01", "SM_Plant_Mushrooms_02",
                                     "SM_Plant_Mushrooms_03", "SM_Plant_Reeds_01"),
 
-                Mountains = Synty("Terrain", "SM_Terrain_Mountain_01", "SM_Terrain_Mountain_02",
-                                  "SM_Terrain_Mountain_03"),
-
                 // The skyline. Both packs' mountains together, because a range is meant
                 // to vary along its length and this is the one place mixing them cannot
                 // show: they are three hundred metres off, in silhouette, and no two
@@ -536,25 +533,20 @@ namespace Arna.Editor
         /// What the planning map is dressed with: the world's scenery, minus the two
         /// sets that hide the thing the map is for.
         ///
-        /// A mountain is fitted to 20 m of height and the pack's are far wider than they
-        /// are tall, so one covers something like eighty metres of a map that is two
-        /// hundred and fifty-six across. Seen from the side that is a landmark. Seen from
-        /// directly above it is a green dome over a fifth of the width, with a shadow
-        /// beside it over as much again — and the ground underneath, which is the whole
-        /// of what the player is reading in order to draw a route, is simply not there.
+        /// The skyline stands three hundred metres beyond the map's edge, which is exactly
+        /// what it is for from inside the world and exactly what is wrong with it on a
+        /// map: a ring of peaks around the sheet, drawn outside the ground the player is
+        /// reading, with nothing to say about the route. Seen from directly above, a
+        /// mountain is a dome with a shadow beside it and no information in either.
         ///
-        /// The terrain colour already says where the pass is. The model adds nothing to
-        /// that and takes the map away, so the map does without it, exactly as it does
-        /// without the skyline.
-        ///
-        /// This is a plain view difference and not a preference: the play camera keeps
-        /// both, because from 46 m back and 32 m up a mountain is a mountain.
+        /// A plain view difference and not a preference: the play camera keeps the range,
+        /// because from 46 m back and 32 m up a mountain on the skyline is the thing that
+        /// says the country goes on past the level.
         /// </summary>
         static BiomeDecor LoadPlanDecor()
         {
             var decor = LoadForestDecor();
 
-            decor.Mountains = new PropSet();
             decor.Horizon = new PropSet();
 
             return decor;
@@ -1797,7 +1789,7 @@ namespace Arna.Editor
 
                 Debug.Log($"[Arna] {preview.name}: marsh plants {Names(preview.Decor.MarshPlants)}. "
                           + $"Lilypads: {Names(preview.Decor.Lilypads)}. "
-                          + $"Mountains on the map: {Names(preview.Decor.Mountains)}. "
+                          + $"Skyline: {Names(preview.Decor.Horizon)}. "
                           + $"{Rig("eagle", preview.Models.Eagle)}");
             }
 
