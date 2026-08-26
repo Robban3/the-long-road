@@ -108,6 +108,17 @@ namespace Arna.View
         /// </summary>
         public PropSet Boulders = new PropSet();
 
+        /// <summary>
+        /// Hills standing on the map itself, in mountain-pass terrain.
+        ///
+        /// **Left empty for the planning map**, and that is a view difference rather
+        /// than a preference. One is fitted to 20 m of height and the pack's are much
+        /// wider than they are tall, so it covers something like eighty metres of a map
+        /// two hundred and fifty-six across: from the side a landmark, from directly
+        /// above a green dome over a fifth of the width with a shadow beside it over as
+        /// much again, and the ground the player is reading in order to draw a route
+        /// simply not there. The terrain colour already says where the pass is.
+        /// </summary>
         public PropSet Mountains = new PropSet();
 
         /// <summary>

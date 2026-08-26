@@ -532,6 +532,34 @@ namespace Arna.Editor
         /// at life size. The up axis is the part a pack can get wrong in a way nothing
         /// downstream can correct.
         /// </summary>
+        /// <summary>
+        /// What the planning map is dressed with: the world's scenery, minus the two
+        /// sets that hide the thing the map is for.
+        ///
+        /// A mountain is fitted to 20 m of height and the pack's are far wider than they
+        /// are tall, so one covers something like eighty metres of a map that is two
+        /// hundred and fifty-six across. Seen from the side that is a landmark. Seen from
+        /// directly above it is a green dome over a fifth of the width, with a shadow
+        /// beside it over as much again — and the ground underneath, which is the whole
+        /// of what the player is reading in order to draw a route, is simply not there.
+        ///
+        /// The terrain colour already says where the pass is. The model adds nothing to
+        /// that and takes the map away, so the map does without it, exactly as it does
+        /// without the skyline.
+        ///
+        /// This is a plain view difference and not a preference: the play camera keeps
+        /// both, because from 46 m back and 32 m up a mountain is a mountain.
+        /// </summary>
+        static BiomeDecor LoadPlanDecor()
+        {
+            var decor = LoadForestDecor();
+
+            decor.Mountains = new PropSet();
+            decor.Horizon = new PropSet();
+
+            return decor;
+        }
+
         static PropSet Synty(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyNatureDir}/{group}", names));
 
@@ -843,7 +871,7 @@ namespace Arna.Editor
             terrainGo.AddComponent<MeshRenderer>().sharedMaterial = terrainMaterial;
 
             var preview = terrainGo.AddComponent<LevelPreview>();
-            preview.Decor = LoadForestDecor();
+            preview.Decor = LoadPlanDecor();
 
             // The cast, for the eagle. The plan draws one actor and only one: the bird
             // flying the scouting ability's own flight over the ground it scouts.
@@ -1758,13 +1786,15 @@ namespace Arna.Editor
                          FindObjectsSortMode.None))
             {
                 preview.Models = LoadModels();
-                preview.Decor = LoadForestDecor();
+                preview.Decor = LoadPlanDecor();
                 preview.Rebuild();
                 EditorUtility.SetDirty(preview);
                 touched++;
 
                 Debug.Log($"[Arna] {preview.name}: marsh plants {Names(preview.Decor.MarshPlants)}. "
-                          + $"Lilypads: {Names(preview.Decor.Lilypads)}. {Eagle(preview.Models)}");
+                          + $"Lilypads: {Names(preview.Decor.Lilypads)}. "
+                          + $"Mountains on the map: {Names(preview.Decor.Mountains)}. "
+                          + $"{Eagle(preview.Models)}");
             }
 
             if (touched == 0)

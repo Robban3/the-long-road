@@ -776,6 +776,23 @@ about √5 ≈ 2.2 times slower, and 1 ÷ 2.2 = 0.45. The clip was authored for 
 bird and is being watched on a ten-metre one; it was never going to look right at a speed
 chosen by eye.
 
+### The planning map is dressed differently from the world
+
+`LoadPlanDecor` is `LoadForestDecor` with `Mountains` and `Horizon` emptied. Everything
+else — every tree, rock, bush, reed and lilypad — is the same set the play view uses, so
+the map is the country seen from above rather than a diagram of it.
+
+Those two sets come out because they hide the thing the map is for. A mountain is fitted
+to 20 m of height and the pack's are far wider than they are tall, so one covers about
+eighty metres of a map that is 256 across. From the side that is a landmark. From
+directly above it is a green dome over a fifth of the width, with a shadow beside it over
+as much again, and the ground underneath — which is the whole of what a player reads in
+order to draw a route — is not there. The terrain colour already says where the pass is;
+the model adds nothing to that and takes the map away.
+
+This is a view difference, not a preference. The play camera keeps both: from 46 m back
+and 32 m up, a mountain is a mountain.
+
 ### The preview kept every generation it had ever built
 
 `_props`, `_routes`, `_markers` and `_eagleRoot` are private fields with no
