@@ -733,7 +733,7 @@ flat geometry, and without clipping a bird has rectangular wings.
 It defaults to `Assets/ThirdParty/Eagle` and takes `-arnaModelDir` for anything else,
 which the next cgtrader asset will need.
 
-**The wings not beating is a separate fault with a separate cause** — two of them, in
+**The wings not beating is a separate fault with a separate cause** — three of them, in
 fact, and they look identical from the outside.
 
 The first: `SpawnActor` attaches no animator when there is no controller to attach, and
@@ -742,7 +742,25 @@ being wrong. `LevelPreview` now warns, and `Refresh Scene Assets` reports the co
 by name alongside how many of the eagle's material slots have a texture in them. White
 and gliding are different faults; guessing between them cost two rounds.
 
-The second, and the one that was actually watched: **the editor does not run a game
+The second: **she was flying on the wrong clip.** The eagle ships four — `Fly_01` 6 s,
+`Fly_02` 5 s, `Fly_03` 8.33 s, `Fly_04` 1 s — and they are not interchangeable: some of a
+bird's flying is beating and some of it is soaring. Both name lists end in `"Fly"`, both
+matched `Fly_01`, and `Fly_01` is a glide. So she was textured, moving, animated, and had
+wings that did not beat — three fixes deep into a fault that was none of them.
+
+Length looks like the tell and is not: a one-second clip is probably one wingbeat, but a
+six-second one may be six. `AnimatorBuilder.Cadence` measures instead — the sum of every
+rotation curve's absolute change, per second of clip, with the root left out, because a
+soaring bird banking across the sky moves its root more than a flapping one moves it at
+all and counting the root picks exactly the wrong clip. The busiest clip drives the
+travelling state, the calmest the idle, which is also right for a bird: hanging on a
+thermal is what it does when it is going nowhere. The numbers are logged, so a wrong pick
+is visible rather than inferred.
+
+That choice lives in the generated controller asset, not in the scene, so `Refresh Scene
+Assets` rebuilds the eagle's controller as well as wiring her textures.
+
+The third, and the one that was actually watched: **the editor does not run a game
 loop.** `[ExecuteAlways]` gets an `Update` when something asks the editor to redraw — a
 mouse crossing the scene view, an inspector edit — and nothing asks while you sit and
 look at it. So the bird advanced in little jerks whenever the pointer moved and was

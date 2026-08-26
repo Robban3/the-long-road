@@ -24,11 +24,15 @@ namespace Arna.Editor
 
         /// <summary>Clip suffixes tried in order for each state, first match wins.</summary>
         // "Fly" last in both lists, and in both on purpose. A bird in the air has no
-        // idle: standing still and travelling are the same wingbeat, so the eagle's
-        // flight loop has to answer for both states or the controller has a hole in it
+        // idle: standing still and travelling are the same kind of thing, so the eagle's
+        // flight clips have to answer for both states or the controller has a hole in it
         // where Speed is zero — and a bird frozen mid-air is worse than no bird.
         //
         // Last, so nothing that owns a real idle can lose it to a flight clip.
+        //
+        // Which flight clip is not settled here. Both lists end in "Fly", so both match
+        // the same one, and the eagle has four of them — a soar and a wingbeat among
+        // them. See SortOutTheFlying, which measures them instead of reading their names.
         static readonly string[] IdleNames = { "Idle", "Idle_Neutral", "Idle_2", "Eat", "Graze", "Fly" };
         static readonly string[] WalkNames = { "Walk", "Trot", "Run", "Gallop", "Fly" };
         static readonly string[] AttackNames = { "Sword", "Sword_Slash", "Attack", "Attack_Kick", "Bite", "Punch", "Punch_Right" };
@@ -53,7 +57,8 @@ namespace Arna.Editor
             "Assets/ForestAnimals/Models/Boar.fbx",
 
             // Four flight clips and nothing else — no idle, no walk, no attack. See the
-            // clip-name lists above for how a controller gets built out of that.
+            // clip-name lists above for how a controller gets built out of that, and
+            // SortOutTheFlying for which of the four ends up under each state.
             "Assets/ThirdParty/Eagle/Eagle_B1.Fbx",
 
             "Assets/Quaternius/ModularMen/Adventurer.fbx",
@@ -113,6 +118,8 @@ namespace Arna.Editor
             var walk = Match(clips, WalkNames);
             var attack = Match(clips, AttackNames);
             var death = Match(clips, DeathNames);
+
+            SortOutTheFlying(clips, modelPath, ref idle, ref walk);
 
             if (idle == null)
             {
@@ -189,6 +196,80 @@ namespace Arna.Editor
 
             EditorUtility.SetDirty(controller);
             return controller;
+        }
+
+        /// <summary>
+        /// Chooses between flight clips, which the name lists cannot do.
+        ///
+        /// The eagle ships four of them — `Fly_01` at 6 s, `Fly_02` at 5 s, `Fly_03` at
+        /// 8.33 s, `Fly_04` at 1 s — and they are emphatically not interchangeable: some
+        /// of a bird's flying is beating and some of it is soaring. Both lists end in
+        /// "Fly", both matched `Fly_01`, and `Fly_01` turns out to be a glide. So the
+        /// bird was textured, moving, animated, and had wings that did not beat, which
+        /// is three fixes deep into a fault that was never any of them.
+        ///
+        /// Length looks like the tell and is not one: a one-second clip is probably a
+        /// single wingbeat, but a six-second one may be six of them. What settles it is
+        /// how much the skeleton actually moves per second, which is a thing that can be
+        /// measured rather than guessed at — see <see cref="Cadence"/>. The busiest clip
+        /// drives the travelling state and the calmest one the idle, which is also the
+        /// right answer for a bird: hanging on a thermal is what it does when it is not
+        /// going anywhere.
+        /// </summary>
+        static void SortOutTheFlying(List<AnimationClip> clips, string modelPath,
+                                     ref AnimationClip idle, ref AnimationClip walk)
+        {
+            var flying = clips.FindAll(clip => Contains(Bare(clip.name), "Fly"));
+            if (flying.Count < 2) return;
+
+            flying.Sort((a, b) => Cadence(a).CompareTo(Cadence(b)));
+
+            var calmest = flying[0];
+            var busiest = flying[flying.Count - 1];
+
+            var measured = new List<string>();
+            foreach (var clip in flying)
+                measured.Add($"{Bare(clip.name)} {Cadence(clip):0.00}/s");
+
+            Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(modelPath)} flight clips: "
+                      + $"{string.Join(", ", measured)}. Beating on {Bare(busiest.name)}, "
+                      + $"soaring on {Bare(calmest.name)}.");
+
+            if (flying.Contains(idle)) idle = calmest;
+            if (flying.Contains(walk)) walk = busiest;
+        }
+
+        /// <summary>
+        /// How much a clip's skeleton turns per second of it.
+        ///
+        /// Summed off the rotation curves, because that is what a wingbeat is, and with
+        /// the root left out: a soaring bird banking across the sky moves its root more
+        /// than a flapping one moves it at all, so counting the root would pick exactly
+        /// the wrong clip. The absolute value matters not at all — only the ordering
+        /// between clips out of the same file, which is why raw quaternion components
+        /// are fine to add up.
+        /// </summary>
+        static float Cadence(AnimationClip clip)
+        {
+            if (clip == null || clip.length < 0.01f) return 0f;
+
+            float turned = 0f;
+
+            foreach (var binding in AnimationUtility.GetCurveBindings(clip))
+            {
+                if (string.IsNullOrEmpty(binding.path)) continue;
+                if (binding.propertyName.IndexOf("Rotation", System.StringComparison.Ordinal) < 0
+                    && binding.propertyName.IndexOf("Euler", System.StringComparison.Ordinal) < 0)
+                    continue;
+
+                var curve = AnimationUtility.GetEditorCurve(clip, binding);
+                if (curve == null || curve.length < 2) continue;
+
+                for (int i = 1; i < curve.length; i++)
+                    turned += Mathf.Abs(curve[i].value - curve[i - 1].value);
+            }
+
+            return turned / clip.length;
         }
 
         static void Transition(AnimatorState from, AnimatorState to,

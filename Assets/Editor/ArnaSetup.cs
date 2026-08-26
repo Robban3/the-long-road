@@ -213,7 +213,7 @@ namespace Arna.Editor
                 // body, nose to tail, which is true of everything that walks and false
                 // of anything with its wings out. On this bird X is the 13.4-unit
                 // wingspan and Z is the 7.8-unit body, so Z is already forward.
-                Eagle = Actor("Assets/ThirdParty/Eagle/Eagle_B1.Fbx",
+                Eagle = Actor(EagleModel,
                               animator: "Assets/_Project/Animation/Eagle_B1.controller"),
 
                 // No general fallback vehicle any more. The improvised wagons that
@@ -1727,6 +1727,14 @@ namespace Arna.Editor
                 WireLooseTextures();
             }
 
+            // And rebuilt, for the same reason one level down. Which of four flight clips
+            // a bird beats her wings on is decided when the controller is generated, so
+            // the decision sits in that asset and not in the scene: without this, a
+            // refresh would hand back whichever clip was chosen the first time — and the
+            // first time it was a glide.
+            AnimatorBuilder.Build(EagleModel);
+            AssetDatabase.SaveAssets();
+
             foreach (var runner in UnityEngine.Object.FindObjectsByType<LevelRunner>(
                          FindObjectsSortMode.None))
             {
@@ -1771,6 +1779,9 @@ namespace Arna.Editor
 
             Debug.Log($"[Arna] Refreshed {touched} component(s) and saved the scene.");
         }
+
+        /// <summary>The cgtrader bird. Note the capital F: the archive shipped it that way.</summary>
+        const string EagleModel = "Assets/ThirdParty/Eagle/Eagle_B1.Fbx";
 
         static string Describe(GameObject prefab) => prefab == null ? "—" : prefab.name;
 
