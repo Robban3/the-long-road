@@ -82,6 +82,26 @@ namespace Arna.Sim
         public const int Count = 34;
 
         /// <summary>
+        /// How many animals stand together where the ground allows it.
+        ///
+        /// Deer are drawn in twos and threes and the boar and the fox are not, which is
+        /// both true of them and the thing that makes them visible. Thirty-four animals
+        /// over a 256-metre map is one per nineteen hundred square metres: from a camera
+        /// that sees perhaps a hundred metres by sixty, that is two or three in frame,
+        /// each on its own, each hidden behind the next tree.
+        ///
+        /// Grouped, the same thirty-four make a dozen sightings instead of thirty-four
+        /// misses. A herd is seen where a single deer is not — three animals moving
+        /// together read as one event large enough to notice, and the eye is far better
+        /// at catching a group than an individual.
+        /// </summary>
+        public const int HerdMin = 2;
+        public const int HerdMax = 4;
+
+        /// <summary>Metres a herd's members stand from the ground the herd was placed on.</summary>
+        public const float HerdSpread = 5f;
+
+        /// <summary>
         /// How often a forest tile is accepted at all.
         ///
         /// Counting animals was measuring the wrong thing. At twenty-six placed evenly,
@@ -152,16 +172,35 @@ namespace Arna.Sim
                 if (NearAnEnemy(map, x, y)) continue;
                 if (grid[tile] == TerrainType.Forest && !rng.Chance(ForestShare)) continue;
 
-                var home = Vec2.FromTile(grid, tile);
-                float facing = rng.Range(0f, (float)(2.0 * Math.PI));
+                var found = Vec2.FromTile(grid, tile);
+                var kind = Pick(grid[tile], rng);
 
-                animals.Add(new WildAnimal
+                // Deer keep company. A boar is a boar and a fox hunts alone, which is
+                // true of them and also keeps the herd from becoming the only thing on
+                // the map.
+                int herd = kind == WildlifeKind.DeerFemale || kind == WildlifeKind.DeerMale
+                    ? rng.Range(HerdMin, HerdMax + 1)
+                    : 1;
+
+                for (int i = 0; i < herd && animals.Count < Count; i++)
                 {
-                    Kind = Pick(grid[tile], rng),
-                    Home = home,
-                    Position = home,
-                    Heading = new Vec2((float)Math.Sin(facing), (float)Math.Cos(facing))
-                });
+                    // The first stands where the ground was chosen; the rest around it.
+                    var home = i == 0
+                        ? found
+                        : new Vec2(found.X + rng.Range(-HerdSpread, HerdSpread),
+                                   found.Y + rng.Range(-HerdSpread, HerdSpread));
+
+                    float facing = rng.Range(0f, (float)(2.0 * Math.PI));
+
+                    animals.Add(new WildAnimal
+                    {
+                        // A herd is does and one stag rather than a row of stags.
+                        Kind = i == 0 ? kind : Companion(kind, rng),
+                        Home = home,
+                        Position = home,
+                        Heading = new Vec2((float)Math.Sin(facing), (float)Math.Cos(facing))
+                    });
+                }
             }
 
             return animals;
@@ -252,6 +291,20 @@ namespace Arna.Sim
         }
 
         /// <summary>Deer in the open, foxes and boar under cover. Roughly true, and it reads.</summary>
+        /// <summary>
+        /// What stands beside the animal a herd was founded on.
+        ///
+        /// Does, mostly. A field of stags is a trophy room; one set of antlers among
+        /// three hinds is a herd, and it is the antlers that carry from a distance.
+        /// </summary>
+        static WildlifeKind Companion(WildlifeKind founder, DeterministicRandom rng)
+        {
+            if (founder != WildlifeKind.DeerFemale && founder != WildlifeKind.DeerMale)
+                return founder;
+
+            return rng.Chance(0.8f) ? WildlifeKind.DeerFemale : WildlifeKind.DeerMale;
+        }
+
         static WildlifeKind Pick(TerrainType terrain, DeterministicRandom rng)
         {
             if (terrain == TerrainType.Forest)

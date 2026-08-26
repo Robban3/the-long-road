@@ -1106,6 +1106,94 @@ The general shape of this mistake is worth naming, because it is the second one 
 week. A constant tuned as a *product* breaks silently when either factor moves, and
 nothing fails — it just looks slightly wrong in a way nobody can point at.
 
+### The escort stands beside the column, not in the traces
+
+The six posts were six points on a six-metre circle around the lead wagon, sixty degrees
+apart. That was right when a caravan was one wagon and became wrong without anyone
+changing it: once the teams were hitched, slot 0 — dead ahead at six metres — stood
+**between the lead horses and the cart they pull**, and the escort walked through the
+traces.
+
+The circle is a rectangle now. The van walks at 10 m, clear of a team whose noses reach
+about eight; the two flank pairs stand 6 m out to the side, where left and right mean
+left and right; the rearguard follows 10 m behind. `Posts` is an explicit table rather
+than an angle, because there is nothing regular about the shape a column wants.
+
+**It is tighter than the column is long, on purpose.** Posting the rear pair back beside
+the third wagon is the truthful arrangement and it lost 1-6 on every route: six troops
+strung over forty-five metres cannot support each other, so a pack that finds the
+rearguard fights it two against five while the van is half a level away. A 10 m pair
+spacing still lost it; 5 m holds. The escort is a fighting unit before it is a cordon,
+and the spacing is what the combat can carry rather than what the column measures.
+
+`FormationSpan` replaces `FormationRadius` in the test that catches a wandering troop, and
+that test now measures against the **nearest wagon** rather than the lead one — otherwise
+it calls the rearguard a deserter for standing where it is posted.
+
+### The camera looks at the middle of the column
+
+`FollowDistance` 46 → 56 and `FollowHeight` 32 → 39, which keeps the 34.8° pitch every
+screenshot in these notes was taken at. More importantly the camera aims at the column's
+**middle** rather than at its lead wagon: three wagons at 15 m with a team in front of
+each is better than forty metres from the lead horses' noses to the last cart's tail, and
+aiming at the front put the third wagon off the bottom of the screen. You could see it by
+pinching out, which is not the same as it being in the shot.
+
+### The dead lie where they fell
+
+A wolf used to vanish the instant its share of the pooled health ran out, which reads as a
+rendering glitch rather than as a kill — and the animator has had a Death state built for
+it since the controllers were generated, with nothing ever asking for it.
+
+A figure past the group's live count now plays `Dead` and is left where it is. It keeps
+its last position because nothing places it again, and the index is a stable death mark:
+`alive` only ever falls, so figure *i* is dead for good once it passes it and a body
+cannot come back to life on a later frame. Beaten groups are no longer switched off
+wholesale either — what a player is owed after winning a fight is the evidence of it. The
+same applies to our own dead.
+
+### Wolves hunt in a ring, not a queue
+
+A wedge is right while a pack is running — lead animal at the point, the rest fanning back
+— and wrong the moment it arrives, because **a wedge is one animal deep at the front**.
+Five wolves in a wedge means one wolf reaches the troop and four wait their turn a metre
+and a half behind it: on screen, the thing the player was told is a pack, attacking one at
+a time.
+
+`Formation.Ring` spreads them over five sixths of a circle centred on the way the group
+faces, at `PackRing = 2.5 m` — just inside a wolf's 2 m reach, so every animal on the ring
+is at the fight rather than walking toward it. Not the whole circle: a pack that encloses
+its quarry perfectly has one animal directly behind it and reads as a diagram, where a
+sixth left open is both what a real pack does and what lets the player see the fight
+instead of a wheel of backs. Each animal turns to face the middle of the ring, or the far
+side fights with its back to the quarry.
+
+### The animals were under the grass
+
+`CoverHeight` is 0.7 m — every tuft, fern and reed on the map is fitted to it — and a fox
+was drawn at 0.45. It was placed correctly on thirty-four tiles of every level and was
+*invisible as arithmetic*. A doe at 1.1 m stood a hand above it, from a camera 46 m back
+and 32 m up.
+
+They are drawn at roughly twice life now: fox 0.95, doe 1.5, stag 1.75, boar 1.2 — the
+same call the eagle got and for the same reason. An animal here is a resource the player
+can choose to take, and a thing that cannot be seen is not a choice. The ceiling is the
+man walking past: a troop is 1.85 m and the stag stops below his head.
+
+**And the deer stand in twos and threes.** Thirty-four animals over a 256-metre map is one
+per nineteen hundred square metres — two or three in frame, each alone, each behind the
+next tree. Grouped, the same thirty-four make a dozen sightings instead of thirty-four
+misses: the eye is far better at catching a group than an individual, and a herd is one
+event large enough to notice. Does mostly, with the occasional stag, because a field of
+stags is a trophy room and it is the antlers that carry from a distance. The boar and the
+fox stay solitary, which is true of them and keeps the herd from being the only thing on
+the map.
+
+The warning was rewritten with it. It fired only when *all four* models were missing —
+the one case that was never the problem — and it names them one at a time now, because
+"no animals", "one model missing" and "animals too small to see" look identical from the
+outside and are fixed in three different places.
+
 ### The caravan is three vehicles
 
 `3DreaMax Studio/003_MDVL_WagonsCartsCarriages_Vol_1`. Ten vehicles, each shipped as
@@ -1224,6 +1312,16 @@ invisible — a bug that looks like the apron being absent on two sides of the m
 present on the other two. `Quad` corrects the winding from the shoelace area rather than
 asking six call sites to get it right, and each vertex's normal and colour travel with it
 through that correction.
+
+**The teams stand close to their carts.** The pole is 0.75 m rather than 2, because a
+pole runs *between* the horses and the traces attach at the collar — what stands clear
+behind an animal is the swingletree and little else. And the horse's length is now stated
+(2.6 m) rather than measured: a rigged model's renderer bounds are a box drawn to hold
+every clip in the file, gallop included, so measuring gave half again the length the
+animal standing in front of you occupies. Two metres of daylight plus a horse measured off
+a galloping pose put the team five metres in front of the cart, which is not a caravan but
+two things travelling in the same direction — and the escort walked into the gap, which is
+how it got noticed. Width is still measured, because width barely changes between poses.
 
 **The wagons trail 15 m apart, and the number comes from the horses.** A team's noses
 reach ahead of the wagon they pull by half a cart plus the 2 m draught pole plus a horse,

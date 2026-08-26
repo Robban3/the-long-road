@@ -115,14 +115,34 @@ namespace Arna.View
         /// to the ear comes out a head too tall, and a deer as tall as a knight reads as
         /// wrong long before anyone works out why.
         /// </summary>
+        /// <summary>
+        /// How tall a wild animal is drawn, in metres.
+        ///
+        /// **Not life size, and for a reason that can be measured: the grass is 0.7 m.**
+        /// `TerrainDecorator.CoverHeight` is what every tuft, fern and reed on the map is
+        /// fitted to, and a fox is 0.45 m at the shoulder. It was placed correctly on
+        /// thirty-four tiles of a level and was *under the ground cover* — invisible not
+        /// as a bug but as arithmetic. A doe at 1.1 m stood a hand above it, from a camera
+        /// 46 m back and 32 m up.
+        ///
+        /// So they are drawn at roughly twice life, the same call the eagle got and for
+        /// the same reason: she is a ten-metre bird against a real two, "a marker that
+        /// happens to be shaped like a bird". An animal in this game is a resource the
+        /// player can choose to take (docs/GDD.md §3.5) and a thing that cannot be seen
+        /// is not a choice.
+        ///
+        /// The ceiling is the man walking past. A troop is 1.85 m, and a stag at 1.85
+        /// would read as the largest thing on the map after the wagons — so the stag is
+        /// the tallest of these and still stops below a man's head.
+        /// </summary>
         public static float HeightOf(WildlifeKind kind)
         {
             switch (kind)
             {
-                case WildlifeKind.Fox: return 0.45f;
-                case WildlifeKind.DeerFemale: return 1.1f;
-                case WildlifeKind.DeerMale: return 1.35f;
-                default: return 0.85f;
+                case WildlifeKind.Fox: return 0.95f;
+                case WildlifeKind.DeerFemale: return 1.5f;
+                case WildlifeKind.DeerMale: return 1.75f;
+                default: return 1.2f;
             }
         }
 
@@ -278,6 +298,22 @@ namespace Arna.View
         /// pony leaning into a vehicle nearly twice its size.
         /// </summary>
         public const float DraughtHorseHeight = 2.4f;
+
+        /// <summary>
+        /// How long a draught horse is, nose to tail, at that height.
+        ///
+        /// Stated rather than measured, and that is the fix rather than a shortcut. A
+        /// rigged model's renderer bounds are a box drawn to hold **every clip in the
+        /// file** — this horse has a gallop in it, legs at full stretch — so measuring
+        /// the instance gave a length half again what the animal standing in front of
+        /// you occupies. The team was then placed by that inflated figure and ended up
+        /// most of a horse-length too far in front of the cart, with a gap the escort
+        /// promptly walked into.
+        ///
+        /// 2.6 m: a heavy horse is about 2.4 m from chest to rump and the head carries
+        /// it a little past that.
+        /// </summary>
+        public const float DraughtHorseLength = 2.6f;
 
         /// <summary>
         /// Wingspan in metres, and deliberately not a golden eagle's.

@@ -48,13 +48,28 @@ namespace Arna.App
         /// was a few grey specks against nine-metre trees — technically correct and
         /// useless for judging anything.
         /// </summary>
-        [Range(15f, 400f)] public float FollowDistance = 46f;
+        /// <summary>
+        /// Metres the camera trails the middle of the column.
+        ///
+        /// Fifty-six rather than forty-six, and the ten is the caravan getting longer.
+        /// Three wagons trailing fifteen metres apart put the last cart thirty metres
+        /// behind the first, and the teams and the escort carry it past forty; at
+        /// forty-six the frame held about two thirds of that. The pitch is kept by
+        /// raising the height with it, so the view angle is the one that was chosen
+        /// rather than a flatter one that came free with the distance.
+        /// </summary>
+        [Range(15f, 400f)] public float FollowDistance = 56f;
 
         /// <summary>
         /// High enough to see over the canopy. At twenty-two metres the camera sat
         /// inside the forest and half the frame was the back of a tree.
         /// </summary>
-        [Range(8f, 300f)] public float FollowHeight = 32f;
+        /// <summary>
+        /// Metres above the column. Raised with <see cref="FollowDistance"/> so the pitch
+        /// stays the 34.8° every screenshot in the design notes was taken at: 39 ÷ 56 is
+        /// 32 ÷ 46 to within a tenth of a degree.
+        /// </summary>
+        [Range(8f, 300f)] public float FollowHeight = 39f;
 
         /// <summary>
         /// Lets the player pinch to zoom and drag to swing the camera round.
@@ -302,9 +317,22 @@ namespace Arna.App
             AimCamera();
         }
 
+        /// <summary>
+        /// What the camera looks at: the middle of the column, not the front of it.
+        ///
+        /// The caravan used to be one wagon and a half and the lead was as good a point
+        /// as any. It is now three wagons at fifteen metres with a team in front of each
+        /// — better than forty metres from the lead horses' noses to the last cart's
+        /// tail — and aiming at the lead wagon put the third one off the bottom of the
+        /// screen. You could see it by pinching out, which is not the same as it being
+        /// in the shot.
+        /// </summary>
         Vector3 CaravanWorldPosition()
         {
-            var position = _run.Caravan.LeadPosition;
+            float half = (_run.Caravan.Wagons.Count - 1) * Caravan.WagonSpacing * 0.5f;
+            float along = _run.Caravan.DistanceTravelled - half;
+
+            var position = _run.Caravan.PositionAt(along > 0f ? along : 0f);
             float ground = _levelGrid != null && HeightScale > 0f
                 ? _levelGrid.SurfaceElevation(position.X, position.Y) * HeightScale
                 : 0f;

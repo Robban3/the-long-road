@@ -226,12 +226,23 @@ namespace Arna.Tests
             var run = Run(1, 6, Escort());
             run.RunToCompletion();
 
+            // From the nearest wagon rather than from the lead one. The column is three
+            // wagons over thirty metres and the escort is spread down its length, so
+            // measuring everyone against the front wagon would call the rearguard a
+            // deserter for standing where it is posted.
             foreach (var group in run.Squad.Slots)
             {
                 if (group == null) continue;
-                float fromCaravan = Vec2.Distance(group.Position, run.Caravan.LeadPosition);
-                Assert.LessOrEqual(fromCaravan, Squad.FormationRadius + 0.5f,
-                    $"the {group.Kind} wandered {fromCaravan:F1} m from the column");
+
+                float nearest = float.MaxValue;
+                for (int i = 0; i < run.Caravan.Wagons.Count; i++)
+                {
+                    float d = Vec2.Distance(group.Position, run.Caravan.WagonPosition(i));
+                    if (d < nearest) nearest = d;
+                }
+
+                Assert.LessOrEqual(nearest, Squad.FormationSpan + 0.5f,
+                    $"the {group.Kind} wandered {nearest:F1} m from the column");
             }
         }
 

@@ -171,8 +171,44 @@ namespace Arna.Sim
     /// </summary>
     public sealed class Squad
     {
-        /// <summary>Metres from the caravan's centre to a post.</summary>
+        /// <summary>
+        /// Metres from the caravan's centre to a post, and the yardstick the pack
+        /// formations are measured against.
+        /// </summary>
         public const float FormationRadius = 6f;
+
+        /// <summary>
+        /// How far to the side of the column a flank post stands.
+        ///
+        /// Six. A cart is about two and a half metres across, so this leaves nearly five
+        /// metres of clear ground between a troop and the wheel beside it — a fight on
+        /// the flank is a fight beside the caravan rather than inside it.
+        /// </summary>
+        public const float FlankOffset = 6f;
+
+        /// <summary>
+        /// How far ahead of the lead wagon the van walks.
+        ///
+        /// Ten metres, and the number is the horses. The lead team's noses reach about
+        /// eight metres in front of the cart it pulls, and the van used to stand at six —
+        /// **between the horses and the wagon**, which is where a driver would least like
+        /// to find his own escort. Ten clears the animals with a little air and no more:
+        /// twelve was tried and cost the escort 1-6 on every route, because a point that
+        /// far out meets each group alone.
+        /// </summary>
+        public const float VanLead = 10f;
+
+        /// <summary>How far behind the last cart's tail the rearguard walks.</summary>
+        public const float RearTrail = 5f;
+
+        /// <summary>
+        /// The furthest any post stands from the nearest wagon.
+        ///
+        /// Not a setting — the largest of the offsets below, kept as one number so that
+        /// "a troop wandered off" can be asserted against something that follows the
+        /// formation when the formation changes.
+        /// </summary>
+        public const float FormationSpan = VanLead + 1f;
 
         /// <summary>How far a troop will chase before returning to its post.</summary>
         public const float Leash = 10f;
@@ -280,6 +316,53 @@ namespace Arna.Sim
         /// the column is travelling — so the van is always the front, whichever
         /// direction the route happens to run.
         /// </summary>
+        /// <summary>
+        /// Where each post stands, along the column and to the side of it.
+        ///
+        /// Indexed by <see cref="FormationSlot"/>: Van, RightVan, RightRear, Rear,
+        /// LeftRear, LeftVan. X is metres along the direction of travel, Y is metres to
+        /// the right of it.
+        ///
+        /// **The posts used to be six points on a six-metre circle**, evenly spaced at
+        /// sixty degrees. That was right when a caravan was one wagon and became wrong
+        /// without anyone changing it: slot 0, dead ahead at six metres, ended up
+        /// standing **between the lead horses and the cart they pull** once the teams
+        /// were hitched, and the escort walked through the traces.
+        ///
+        /// The circle is a rectangle now. The van walks ahead of the horses, the two
+        /// flank pairs stand out to the side where left and right mean left and right,
+        /// and the rearguard follows behind. It is still a tight arrangement — see
+        /// <see cref="PairSpacing"/> for why it does not stretch to the column's real
+        /// length.
+        /// </summary>
+        /// <summary>
+        /// How far apart the van pair and the rear pair stand along the column.
+        ///
+        /// Five metres, which is deliberately far less than the thirty the column spans.
+        ///
+        /// Posting the rear pair back beside the third wagon is the truthful arrangement
+        /// and it lost 1-6 on **every** route: six troops strung over forty-five metres
+        /// cannot support each other, so a pack that finds the rearguard fights it two
+        /// against five while the van is half a level away. Ten still lost it. **The
+        /// escort is a fighting unit before it is a cordon**, and the spacing is what the
+        /// combat can carry rather than what the column measures.
+        ///
+        /// What this arrangement does buy is the thing that was actually wrong: nobody
+        /// stands between a wagon and the horses pulling it, and left and right mean left
+        /// and right.
+        /// </summary>
+        const float PairSpacing = 5f;
+
+        static readonly Vec2[] Posts =
+        {
+            new Vec2(VanLead, 0f),                            // Van
+            new Vec2(0f, FlankOffset),                        // RightVan
+            new Vec2(-PairSpacing, FlankOffset),              // RightRear
+            new Vec2(-PairSpacing - RearTrail, 0f),           // Rear
+            new Vec2(-PairSpacing, -FlankOffset),             // LeftRear
+            new Vec2(0f, -FlankOffset)                        // LeftVan
+        };
+
         public void UpdatePositions(Vec2 centre, Vec2 heading)
         {
             float hx = heading.X, hy = heading.Y;
@@ -287,20 +370,20 @@ namespace Arna.Sim
             if (length < 0.0001f) { hx = 1f; hy = 0f; }
             else { hx /= length; hy /= length; }
 
+            // Right of the heading. Checked against the case that matters rather than
+            // reasoned about: facing +Z, right must come out +X — (0,1) gives (1,0).
+            float rx = hy, ry = -hx;
+
             for (int i = 0; i < _slots.Length; i++)
             {
                 var group = _slots[i];
                 if (group == null) continue;
 
-                // Slot 0 is dead ahead, then every 60 degrees clockwise.
-                double angle = i * Math.PI / 3.0;
-                float cos = (float)Math.Cos(angle);
-                float sin = (float)Math.Sin(angle);
+                var post = Posts[i];
 
-                float ox = hx * cos - hy * sin;
-                float oy = hx * sin + hy * cos;
-
-                group.Position = new Vec2(centre.X + ox * FormationRadius, centre.Y + oy * FormationRadius);
+                group.Position = new Vec2(
+                    centre.X + hx * post.X + rx * post.Y,
+                    centre.Y + hy * post.X + ry * post.Y);
             }
         }
     }

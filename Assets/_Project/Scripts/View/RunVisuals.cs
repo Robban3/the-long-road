@@ -225,11 +225,15 @@ namespace Arna.View
         /// <summary>
         /// The draught pole: how far the horses' tails clear the cart's front.
         ///
-        /// Two metres, which is what a pole is. It is not decoration — with the horses
-        /// closer the team reads as pushing the wagon, and the whole picture of a
-        /// caravan depends on the animals being out in front of it.
+        /// Three quarters of a metre. It was two, which is what a pole *is* — but a pole
+        /// runs between the horses and under them, and the traces attach at the collar,
+        /// so what stands clear behind the animals is the swingletree and very little
+        /// else. Two metres of daylight plus a horse measured off a galloping bind pose
+        /// put the team a good five metres in front of the cart, which is not a caravan;
+        /// it is two things travelling in the same direction. The escort walked into the
+        /// gap, which is how it got noticed.
         /// </summary>
-        const float Harnessed = 2f;
+        const float Harnessed = 0.75f;
 
         /// <summary>
         /// Puts a pair of horses in front of a cart.
@@ -279,8 +283,10 @@ namespace Arna.View
                                        $"Horse_{i}", HorseColor,
                                        VisualLibrary.DraughtHorseHeight, parent: wagon);
 
-                // Measured before it is turned, so the numbers are the horse's own
-                // length and width whichever way its file happens to point.
+                // Width is measured and length is stated, and the difference is not an
+                // inconsistency. Width across a horse barely changes between poses;
+                // length does — the bounds hold every clip in the file, gallop included
+                // — so the measured figure put the team a horse-length too far forward.
                 var size = ModelScaling.Measure(horse.gameObject).size;
                 float spread = size.x * 0.5f + HorseGap;
 
@@ -288,11 +294,12 @@ namespace Arna.View
                 horse.localPosition = new Vector3(
                     i == 0 ? -spread : spread,
                     Standing(horse, Vector3.zero).y,
-                    front + Harnessed + size.z * 0.5f);
+                    front + Harnessed + VisualLibrary.DraughtHorseLength * 0.5f);
 
                 _draught.Add(horse);
 
-                if (i == 0) _reach.Add(horse.localPosition.z + size.z * 0.5f);
+                if (i == 0)
+                    _reach.Add(horse.localPosition.z + VisualLibrary.DraughtHorseLength * 0.5f);
             }
         }
 
@@ -406,8 +413,14 @@ namespace Arna.View
                 for (int i = 0; i < figures.Count; i++)
                 {
                     bool standing = i < alive;
-                    figures[i].gameObject.SetActive(standing);
-                    if (!standing) continue;
+
+                    // The same for our own: a man who is killed lies where he fell. See
+                    // the note in SyncEnemies.
+                    if (!standing)
+                    {
+                        Animate(figures[i], 0f, false, true);
+                        continue;
+                    }
 
                     var offset = Formation.Line(i, figures.Count, forward.x, forward.z);
                     var spot = new Vec2(group.Position.X + offset.X, group.Position.Y + offset.Y);
@@ -435,10 +448,22 @@ namespace Arna.View
                 bool defeated = run.Combat != null && run.Combat.IsDefeated(enemy);
                 var model = Library.For(enemy.Kind);
 
-                if (!enemy.Revealed || defeated)
+                // Never seen: nothing is drawn. Wiped out: the bodies stay.
+                //
+                // A group that has been beaten used to be switched off wholesale, so a
+                // fight ended with the ground it was fought on completely empty. What a
+                // player is owed after winning is the evidence of it.
+                if (!enemy.Revealed)
                 {
                     if (_enemies.TryGetValue(enemy, out var hidden))
                         foreach (var figure in hidden) figure.gameObject.SetActive(false);
+                    continue;
+                }
+
+                if (defeated)
+                {
+                    if (_enemies.TryGetValue(enemy, out var fallen))
+                        foreach (var figure in fallen) Animate(figure, 0f, false, true);
                     continue;
                 }
 
@@ -479,16 +504,47 @@ namespace Arna.View
 
                 int alive = run.Combat != null ? run.Combat.ModelsAlive(enemy) : pack.Count;
 
+                // A wedge while it runs and a ring once it arrives, and the switch is
+                // the whole difference between a pack and a queue. A wedge is one animal
+                // deep at the point: five wolves in one means the lead reaches the troop
+                // and four wait their turn a metre and a half behind. On screen that is
+                // the thing the player was told is a pack, attacking one at a time.
                 for (int i = 0; i < pack.Count; i++)
                 {
                     bool standing = i < alive;
-                    pack[i].gameObject.SetActive(standing);
-                    if (!standing) continue;
 
-                    var offset = Formation.Wedge(i, forward.x, forward.z);
+                    // Left where it fell, playing its death, rather than deleted.
+                    //
+                    // A wolf that vanishes the instant its share of the pooled health
+                    // runs out reads as a rendering glitch, not as a kill — and the
+                    // animator has had a Death state built for it since the controllers
+                    // were generated, with nothing ever asking for it. The figure keeps
+                    // its last position because nothing places it again: `alive` only
+                    // falls, so index i is dead for good once it passes it, and a body
+                    // cannot come back to life on a later frame.
+                    if (!standing)
+                    {
+                        Animate(pack[i], 0f, false, true);
+                        continue;
+                    }
+
+                    var offset = enemy.Striking
+                        ? Formation.Ring(i, alive, forward.x, forward.z)
+                        : Formation.Wedge(i, forward.x, forward.z);
+
                     var spot = new Vec2(enemy.Position.X + offset.X, enemy.Position.Y + offset.Y);
 
-                    Place(pack[i], new Vector3(spot.X, GroundAt(spot), spot.Y), look);
+                    // Each animal turns to face the middle of the ring rather than all of
+                    // them facing the way the group is, or the far side of the pack
+                    // fights with its back to the quarry.
+                    var turn = enemy.Striking
+                        ? Facing(Toward(spot, new Vec2(enemy.Position.X + forward.x * Formation.PackRing,
+                                                       enemy.Position.Y + forward.z * Formation.PackRing),
+                                        forward),
+                                 model.YawOffset)
+                        : look;
+
+                    Place(pack[i], new Vector3(spot.X, GroundAt(spot), spot.Y), turn);
                     Animate(pack[i], speed, enemy.Striking, false);
 
                     // Colour only survives on primitives; a model keeps its own materials.
@@ -593,12 +649,19 @@ namespace Arna.View
         {
             if (animals == null) return;
 
-            // Said out loud, because "no animals" and "animals with no model" look the
-            // same from the outside and are fixed in different places.
-            if (Library.Fox.Prefab == null && Library.DeerFemale.Prefab == null
-                && Library.DeerMale.Prefab == null && Library.Boar.Prefab == null)
-                Debug.LogWarning("[Arna] No wildlife models loaded — the scene predates them. "
-                                 + "Run Arna > Build Animator Controllers, then Set Up Play Scene.");
+            // Named one by one, because "no animals", "one pack missing" and "animals
+            // too small to see" look identical from the outside and are fixed in three
+            // different places. The old warning fired only when *all four* were missing,
+            // which is the one case that was never the problem.
+            var missing = new List<string>();
+            if (Library.Fox.Prefab == null) missing.Add("fox");
+            if (Library.DeerFemale.Prefab == null) missing.Add("doe");
+            if (Library.DeerMale.Prefab == null) missing.Add("stag");
+            if (Library.Boar.Prefab == null) missing.Add("boar");
+
+            if (missing.Count > 0)
+                Debug.LogWarning($"[Arna] No model for: {string.Join(", ", missing)}. Those are "
+                                 + "drawn as coloured capsules. Run Arna > Refresh Scene Assets.");
 
             foreach (var animal in animals)
             {
@@ -612,7 +675,22 @@ namespace Arna.View
                              Library.For(animal.Kind).YawOffset));
             }
 
-            Debug.Log($"[Arna] {animals.Count} wild animals placed.");
+            int fox = 0, doe = 0, stag = 0, boar = 0;
+            foreach (var animal in animals)
+                switch (animal.Kind)
+                {
+                    case WildlifeKind.Fox: fox++; break;
+                    case WildlifeKind.DeerFemale: doe++; break;
+                    case WildlifeKind.DeerMale: stag++; break;
+                    default: boar++; break;
+                }
+
+            // The heights too, because the reason they could not be seen was arithmetic
+            // rather than absence: a fox stood 0.45 m in grass fitted to 0.70.
+            Debug.Log($"[Arna] {animals.Count} wild animals: {fox} fox at "
+                      + $"{VisualLibrary.HeightOf(WildlifeKind.Fox):0.00} m, {doe} does, "
+                      + $"{stag} stags at {VisualLibrary.HeightOf(WildlifeKind.DeerMale):0.00} m, "
+                      + $"{boar} boar. The grass is {TerrainDecorator.CoverHeight:0.00} m.");
         }
 
         /// <summary>
