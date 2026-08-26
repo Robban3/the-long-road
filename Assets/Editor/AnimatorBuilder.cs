@@ -69,7 +69,24 @@ namespace Arna.Editor
 
         /// <summary>The medieval army pack, and the controller its characters share.</summary>
         public const string ArmyPack = "Assets/Stylized_Medieval_Army_Pack";
-        public const string ArmyController = OutputDir + "/Army.controller";
+        public const string ArmyCharacters = ArmyPack + "/Prefabs - Characters";
+
+        /// <summary>
+        /// Where the army pack's characters get their animation from.
+        ///
+        /// **The pack ships none.** `Build Army Animator` searched every asset under it
+        /// and found not one clip: 22 FBXs of meshes, 52 prefabs assembled from them, and
+        /// nothing that moves. So its characters borrow the knight's, which is what
+        /// Humanoid retargeting is for — a clip described in terms of a human skeleton
+        /// rather than of bone names plays on any human skeleton, including one from
+        /// another artist.
+        ///
+        /// `Rig For Retargeting` is what makes that possible, and has to be run once.
+        /// </summary>
+        public const string ArmyController = OutputDir + "/Knight.controller";
+
+        /// <summary>The file the borrowed clips come out of.</summary>
+        public const string ClipSource = "Assets/Quaternius/Knight/Knight.fbx";
 
         /// <summary>
         /// Builds the one controller every character in the army pack uses.
@@ -85,6 +102,102 @@ namespace Arna.Editor
         /// the top of this file; nothing found means the pack ships no animation, and
         /// the way out is Humanoid retargeting off a pack that does.
         /// </summary>
+        /// <summary>
+        /// Makes the army pack's characters and the knight into Humanoid rigs, so one can
+        /// play the other's animation: `Arna > Rig For Retargeting`.
+        ///
+        /// The army pack has 52 characters and no animation whatsoever. Every other pack
+        /// here ships a model and its clips in one file, and this project has always read
+        /// them straight out of it — bone name to bone name, which only ever works within
+        /// one file. Humanoid is Unity's way round that: the importer maps a skeleton onto
+        /// a standard human one, a clip is stored as *what a human did* rather than as
+        /// what these particular bones did, and it then plays on any other rig that has
+        /// been mapped the same way.
+        ///
+        /// Two halves, and both are needed. The clips must be re-imported as humanoid,
+        /// which is the knight's file; and every rig that is to play them must have an
+        /// avatar, which is the army pack's meshes.
+        ///
+        /// **It can fail, and it fails quietly.** Unity maps bones by guessing from their
+        /// names and hierarchy, and a rig it cannot read produces an invalid avatar and
+        /// no error. So every avatar is checked afterwards and named — an invalid one has
+        /// to be fixed by hand in the importer's Configure screen, and knowing which is
+        /// most of that work.
+        /// </summary>
+        [MenuItem("Arna/Rig For Retargeting")]
+        public static void RigForRetargeting()
+        {
+            var rigs = new List<string> { ClipSource };
+
+            // The files the characters are actually made of, found through the prefabs
+            // rather than listed: a table of prefab-to-FBX would be wrong the first time
+            // the pack is updated.
+            foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { ArmyCharacters }))
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    AssetDatabase.GUIDToAssetPath(guid));
+                if (prefab == null) continue;
+
+                foreach (var skin in prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    if (skin.sharedMesh == null) continue;
+
+                    string path = AssetDatabase.GetAssetPath(skin.sharedMesh);
+                    if (!string.IsNullOrEmpty(path) && !rigs.Contains(path)) rigs.Add(path);
+                }
+            }
+
+            int changed = 0;
+            var broken = new List<string>();
+
+            foreach (string path in rigs)
+            {
+                if (Humanoid(path)) changed++;
+                if (!Mapped(path)) broken.Add(Path.GetFileNameWithoutExtension(path));
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            // The clips are humanoid now, so the controller has to be built from them
+            // again: the old one holds the generic versions, which retarget onto nothing.
+            Build(ClipSource);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Debug.Log($"[Arna] {rigs.Count} rig(s) checked, {changed} re-imported as Humanoid. "
+                      + $"The army pack now plays {ArmyController}.");
+
+            if (broken.Count > 0)
+                Debug.LogWarning($"[Arna] Unity could not map these onto a human skeleton: "
+                                 + $"{string.Join(", ", broken)}. They will hold their bind pose "
+                                 + "until the mapping is corrected by hand — select the file, "
+                                 + "Rig > Configure, and fix whatever is red.");
+        }
+
+        /// <summary>Re-imports a model as a Humanoid rig. Returns whether it had to.</summary>
+        static bool Humanoid(string path)
+        {
+            if (!(AssetImporter.GetAtPath(path) is ModelImporter importer)) return false;
+            if (importer.animationType == ModelImporterAnimationType.Human) return false;
+
+            importer.animationType = ModelImporterAnimationType.Human;
+            importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+            importer.SaveAndReimport();
+
+            return true;
+        }
+
+        /// <summary>Whether the importer managed to build a usable human avatar.</summary>
+        static bool Mapped(string path)
+        {
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                if (asset is Avatar avatar) return avatar.isValid && avatar.isHuman;
+
+            return false;
+        }
+
         [MenuItem("Arna/Build Army Animator")]
         public static void BuildArmyAnimator()
         {
@@ -99,9 +212,19 @@ namespace Arna.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            if (controller != null)
-                Debug.Log($"[Arna] The army pack's characters now share {ArmyController}. "
-                          + "Run Arna > Refresh Scene Assets to hand it to them.");
+            if (controller == null)
+            {
+                Debug.Log($"[Arna] Nothing to build, which is the answer: the pack has no "
+                          + $"animation of its own, so its characters borrow the knight's "
+                          + $"through {ArmyController}. Run Arna > Rig For Retargeting once, "
+                          + "then Refresh Scene Assets.");
+                return;
+            }
+
+            Debug.LogWarning($"[Arna] The army pack turned out to have clips after all, and they "
+                             + $"are in {OutputDir}/Army.controller. Point "
+                             + "AnimatorBuilder.ArmyController at it — borrowing the knight's "
+                             + "was only ever the answer to it having none.");
         }
 
         [MenuItem("Arna/Build Animator Controllers")]

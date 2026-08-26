@@ -1236,6 +1236,13 @@ same call the eagle got and for the same reason. An animal here is a resource th
 can choose to take, and a thing that cannot be seen is not a choice. The ceiling is the
 man walking past: a troop is 1.85 m and the stag stops below his head.
 
+**The cap counts sightings, not animals.** Grouping the deer broke it the other way: a
+deer draw places two to four where a fox or a boar places one, so the deer ate the budget.
+Measured on a run — 21 does and 8 stags against 2 foxes and 3 boar, a level of deer with a
+rumour of anything else, and the terrain that was supposed to decide the mix deciding
+nothing. `Sightings = 16` is what is fixed now; `Count = 44` stays as the ceiling, because
+a draw call budget does not care how the animals were chosen.
+
 **And the deer stand in twos and threes.** Thirty-four animals over a 256-metre map is one
 per nineteen hundred square metres — two or three in frame, each alone, each behind the
 next tree. Grouped, the same thirty-four make a dozen sightings instead of thirty-four
@@ -1287,6 +1294,37 @@ the draught teams at 2.4.
 those and nothing in the new fields, and `Models` is serialized on the scene component —
 pulling code does not change a saved scene, and that has produced enough false bug reports
 in this project to be worth one field each.
+
+### The army pack has no animation, so it borrows the knight's
+
+`Build Army Animator` searched every asset under the pack and found **not one clip**: 22
+FBXs of meshes, 52 prefabs assembled from them, and nothing that moves. That is the answer
+the search was built to get, and it rules out the cheap fix.
+
+Every other pack here ships a model and its clips in one file, and this project has always
+read them straight out of it — bone name to bone name, which only ever works inside one
+file. **Humanoid is Unity's way round that.** The importer maps a skeleton onto a standard
+human one; a clip is then stored as *what a human did* rather than as what these particular
+bones did, and it plays on any other rig mapped the same way.
+
+`Arna > Rig For Retargeting` does both halves, and both are needed:
+
+- the **clips** are re-imported as humanoid, which is the knight's file, and the controller
+  is rebuilt from them — the old one holds the generic versions, which retarget onto nothing
+- every **rig** that is to play them gets an avatar, which is the army pack's meshes, found
+  by asking each prefab's skinned mesh which file it lives in rather than by keeping a
+  prefab-to-FBX table that would be wrong the first time the pack is updated
+
+`ActorModel.Rig` carries the avatar, because the prefab and the file its skeleton comes from
+are not the same asset. `SpawnActor` assigns it when the animator has none. **A retargeted
+clip without an avatar has nothing to map onto**: the animator runs, reports a state and a
+normalised time, and the model stands still — the failure that looks most like no animation
+at all.
+
+**It can fail, and it fails quietly.** Unity maps bones by guessing from their names and
+hierarchy, and a rig it cannot read produces an invalid avatar and no error. So every avatar
+is checked afterwards and the failures are named: an invalid one is fixed by hand in Rig >
+Configure, and knowing *which* is most of that work.
 
 ### Finding the army pack's animation, or proving it has none
 

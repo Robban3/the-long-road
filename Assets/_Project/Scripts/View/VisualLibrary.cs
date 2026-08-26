@@ -17,6 +17,22 @@ namespace Arna.View
         public RuntimeAnimatorController Animator;
 
         /// <summary>
+        /// The skeleton the clips are played on.
+        ///
+        /// Only needed when the clips came from somewhere else. A Generic rig playing
+        /// animation out of its own file binds by transform path and wants nothing here;
+        /// a **retargeted** clip is described in terms of a human skeleton rather than of
+        /// bone names, and without an avatar to map that onto there is nothing for it to
+        /// move. It runs, reports a state and a normalised time, and the model stands
+        /// still — which is the failure that looks most like no animation at all.
+        ///
+        /// Carried on the model rather than read off the prefab because the two are not
+        /// the same asset: the army pack's characters are prefabs assembled from meshes,
+        /// and the avatar belongs to the mesh's file.
+        /// </summary>
+        public Avatar Rig;
+
+        /// <summary>
         /// Weapon fitted into the right hand. The character packs ship weapons as
         /// separate models rather than attached, so a knight straight out of the box
         /// walks into battle empty-handed.

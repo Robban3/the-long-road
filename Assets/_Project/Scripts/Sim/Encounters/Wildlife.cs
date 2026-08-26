@@ -79,7 +79,23 @@ namespace Arna.Sim
         /// Thirty-four, with <see cref="ForestShare"/> keeping most of them out from
         /// under the canopy, puts about fifteen where they can actually be seen.
         /// </summary>
-        public const int Count = 34;
+        public const int Count = 44;
+
+        /// <summary>
+        /// How many separate sightings the level places, before herds are counted.
+        ///
+        /// The cap used to be on **animals**, and grouping the deer broke it: a deer draw
+        /// places two to four where a fox or a boar places one, so the deer ate the
+        /// budget. Measured on a run: 21 does and 8 stags against 2 foxes and 3 boar —
+        /// a level of deer with a rumour of anything else, and the terrain that was
+        /// supposed to decide the mix decided nothing.
+        ///
+        /// Counting sightings instead puts the choice back where `Pick` makes it: sixteen
+        /// pieces of ground get an animal, and what kind depends on what the ground is.
+        /// <see cref="Count"/> stays as the hard ceiling, because a draw call budget does
+        /// not care how the animals were chosen.
+        /// </summary>
+        public const int Sightings = 16;
 
         /// <summary>
         /// How many animals stand together where the ground allows it.
@@ -161,7 +177,10 @@ namespace Arna.Sim
             var grid = map.Grid;
             var rng = new DeterministicRandom(map.Seed ^ 0x1EAF);
 
-            for (int attempt = 0; attempt < Count * 40 && animals.Count < Count; attempt++)
+            int sightings = 0;
+
+            for (int attempt = 0; attempt < Sightings * 40
+                                  && sightings < Sightings && animals.Count < Count; attempt++)
             {
                 int tile = rng.Range(0, grid.TileCount);
                 grid.ToCoords(tile, out int x, out int y);
@@ -181,6 +200,8 @@ namespace Arna.Sim
                 int herd = kind == WildlifeKind.DeerFemale || kind == WildlifeKind.DeerMale
                     ? rng.Range(HerdMin, HerdMax + 1)
                     : 1;
+
+                sightings++;
 
                 for (int i = 0; i < herd && animals.Count < Count; i++)
                 {

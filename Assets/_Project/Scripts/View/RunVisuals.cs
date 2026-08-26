@@ -55,6 +55,9 @@ namespace Arna.View
         readonly Dictionary<Color, Material> _materials = new Dictionary<Color, Material>();
         readonly Dictionary<Transform, Animator> _animators = new Dictionary<Transform, Animator>();
 
+        /// <summary>Models already complained about, so a warning is said once and not per figure.</summary>
+        readonly HashSet<string> _warned = new HashSet<string>();
+
         /// <summary>How far each model's origin sits above its own feet, after scaling.</summary>
         readonly Dictionary<Transform, float> _standing = new Dictionary<Transform, float>();
 
@@ -884,10 +887,25 @@ namespace Arna.View
 
             animator.runtimeAnimatorController = model.Animator;
 
-            if (animator.avatar == null)
-                Debug.LogWarning($"[Arna] {name} has no avatar, so its clips have nothing to "
-                                 + "bind to and it will hold its bind pose. The model's own "
-                                 + "Animator is missing one — check the rig in the importer.");
+            // The skeleton, when the clips came from another file. See ActorModel.Rig.
+            if (animator.avatar == null && model.Rig != null) animator.avatar = model.Rig;
+
+            // Once per model, and hedged, because it was neither.
+            //
+            // A Generic rig does not always need an avatar: Unity will bind a generic
+            // clip by transform path when the clip and the model come from the same
+            // file, which is exactly the case for every animal in this project. The
+            // wolf has been animating perfectly all along and this fired on every one
+            // of the five in every pack, every time a pack spawned. A warning that
+            // cries wolf about a wolf is worse than no warning.
+            //
+            // It still earns its place for the case it was written for — a *retargeted*
+            // clip, which needs an avatar and silently does nothing without one.
+            if (animator.avatar == null && _warned.Add(model.Prefab.name))
+                Debug.LogWarning($"[Arna] {model.Prefab.name} has no avatar. That is fine for a "
+                                 + "Generic rig playing clips out of its own file, and fatal "
+                                 + "for one playing clips retargeted from another — if it holds "
+                                 + "its bind pose, this is why.");
 
             // Culling would freeze actors the camera is not looking at, and the
             // simulation keeps moving them regardless.

@@ -196,13 +196,18 @@ namespace Arna.Editor
                 EnemyFaction = AssetDatabase.LoadAssetAtPath<Material>(
                     "Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColorsRed.mat"),
 
-                // The old three, kept as fallbacks for a scene saved before the split.
-                Melee = Actor("Assets/Quaternius/Knight/Knight.fbx",
-                              unsized: new[] { "Sword" }),
-                Ranged = Actor("Assets/Quaternius/ModularMen/Adventurer.fbx",
-                               "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f),
-                Support = Actor("Assets/Quaternius/ModularMen/Farmer.fbx",
-                                "Assets/Quaternius/RPGItems/Axe_small.fbx", 0.6f),
+                // The old three are **not loaded**, and the empty fields are the point.
+                //
+                // They were left pointing at Quaternius as a safety net, and a safety net
+                // under a swap is a way of not noticing the swap failed: every kind whose
+                // army prefab did not load quietly fell back to a knight, an adventurer
+                // or a farmer, and the old escort walked on as though nothing had changed.
+                //
+                // Empty, a kind with no model draws a coloured capsule, which is the
+                // project's oldest rule about this — a missing pack should degrade the
+                // picture visibly rather than substitute something that looks deliberate.
+                // The fields stay because a scene saved before the split still holds
+                // models in them; nothing puts any there now.
 
                 // From ForestAnimals rather than Quaternius: the pack ships the model
                 // and a URP prefab, and the wolf is the only enemy on level 1-1
@@ -367,6 +372,7 @@ namespace Arna.Editor
             {
                 Prefab = prefab,
                 Animator = controller,
+                Rig = AvatarFor(prefab),
                 Weapon = weaponPath == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(weaponPath),
                 WeaponLength = weaponLength,
 
@@ -380,6 +386,37 @@ namespace Arna.Editor
                 Hide = hide,
                 Unsized = unsized
             };
+        }
+
+        /// <summary>
+        /// The avatar a model's clips would be retargeted onto.
+        ///
+        /// Two places to look, and the second is the one that matters here. A model whose
+        /// own Animator carries an avatar has already answered the question. A prefab
+        /// assembled from meshes has not: the avatar belongs to the **file the mesh came
+        /// from**, which nothing in this project names — so it is found by asking the
+        /// mesh which asset it lives in, rather than by keeping a table of prefab-to-FBX
+        /// that would be wrong the first time the pack is updated.
+        /// </summary>
+        static Avatar AvatarFor(GameObject prefab)
+        {
+            if (prefab == null) return null;
+
+            var own = prefab.GetComponentInChildren<Animator>(true);
+            if (own != null && own.avatar != null) return own.avatar;
+
+            foreach (var skin in prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (skin.sharedMesh == null) continue;
+
+                string path = AssetDatabase.GetAssetPath(skin.sharedMesh);
+                if (string.IsNullOrEmpty(path)) continue;
+
+                foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                    if (asset is Avatar avatar) return avatar;
+            }
+
+            return null;
         }
 
         static GameObject One(string path)
@@ -1849,10 +1886,11 @@ namespace Arna.Editor
             // something to switch on.
             AnimatorBuilder.BuildAll();
 
-            // And the army pack's shared one, built by looking rather than from a list:
-            // nothing in this project knows where that pack keeps its animation, or
-            // whether it has any. See AnimatorBuilder.BuildArmyAnimator.
-            AnimatorBuilder.BuildArmyAnimator();
+            // And then the borrowing. The army pack has 52 characters and no animation
+            // whatsoever, so its rigs and the knight's are both re-imported as Humanoid
+            // and the knight's clips are played on their skeletons. It costs nothing on
+            // the second run: a rig already Humanoid is left alone.
+            AnimatorBuilder.RigForRetargeting();
 
             foreach (var runner in UnityEngine.Object.FindObjectsByType<LevelRunner>(
                          FindObjectsSortMode.None))

@@ -20,9 +20,24 @@ namespace Arna.Tests
         [Test]
         public void EveryLevelIsInhabited()
         {
+            // A range rather than a number, because the count stopped being one when the
+            // deer were grouped: a sighting places one animal or a herd of two to four,
+            // so how many animals a level ends with depends on how much of it is the kind
+            // of ground deer stand on. Sixteen sightings is the thing that is fixed.
+            //
+            // The floor is what the rule is actually about — a level with a handful of
+            // animals on it is a level where hunting is not a decision — and the ceiling
+            // is the draw call budget, which is what Wildlife.Count is for.
             for (int level = 1; level <= 10; level++)
-                Assert.AreEqual(Wildlife.Count, Wildlife.Populate(Level(1, level)).Count,
-                    $"level 1-{level}");
+            {
+                int placed = Wildlife.Populate(Level(1, level)).Count;
+
+                Assert.GreaterOrEqual(placed, Wildlife.Sightings,
+                    $"level 1-{level} placed {placed} animals across {Wildlife.Sightings} sightings, "
+                    + "which means most of them found nowhere to stand");
+
+                Assert.LessOrEqual(placed, Wildlife.Count, $"level 1-{level}");
+            }
         }
 
         [Test]
