@@ -166,12 +166,14 @@ namespace Arna.Editor
 
             var idleState = machine.AddState("Idle");
             idleState.motion = idle;
+            idleState.speed = IsFlight(idle) ? FlightSpeed : 1f;
             machine.defaultState = idleState;
 
             if (walk != null)
             {
                 var walkState = machine.AddState("Walk");
                 walkState.motion = walk;
+                walkState.speed = IsFlight(walk) ? FlightSpeed : 1f;
 
                 // Threshold sits well below a walking pace so the column does not
                 // shuffle between idle and walk while creeping through a marsh.
@@ -214,6 +216,27 @@ namespace Arna.Editor
             EditorUtility.SetDirty(controller);
             return controller;
         }
+
+        /// <summary>
+        /// How fast a flight clip is played back, and only a flight clip.
+        ///
+        /// A fifth off, which is the small change that was asked for. There is a bigger
+        /// argument sitting behind it if the beat still reads as hurried: the bird is
+        /// drawn at a ten-metre wingspan against a real eagle's two, because at life
+        /// size she is a speck over a 256 m map (see <c>VisualLibrary.EagleSpan</c>).
+        /// Wingbeat frequency falls roughly with the square root of length for animals
+        /// of the same shape, so a bird five times over should beat about 2.2 times
+        /// slower — 0.45 rather than 0.8. That is a change to make by looking at it,
+        /// not by arithmetic, which is why it is 0.8 today.
+        ///
+        /// Nothing that walks is touched. A troop's stride is tied to how fast the
+        /// caravan is actually moving, and slowing the clip would put the feet out of
+        /// step with the ground.
+        /// </summary>
+        public const float FlightSpeed = 0.8f;
+
+        static bool IsFlight(AnimationClip clip)
+            => clip != null && Contains(Bare(clip.name), "Fly");
 
         /// <summary>
         /// Switches loop on for the clips that are meant to run continuously.
@@ -325,7 +348,7 @@ namespace Arna.Editor
 
             Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(modelPath)} flight clips: "
                       + $"{string.Join(", ", measured)}. Travelling on {Name(walk)}, "
-                      + $"idling on {Name(idle)}.");
+                      + $"idling on {Name(idle)}, both at {FlightSpeed:0.00}x.");
         }
 
         /// <summary>

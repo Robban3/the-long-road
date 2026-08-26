@@ -763,6 +763,15 @@ is visible rather than inferred.
 That choice lives in the generated controller asset, not in the scene, so `Refresh Scene
 Assets` rebuilds the eagle's controller as well as wiring her textures.
 
+The beat is played back at `FlightSpeed = 0.8`, on flight states only — nothing that
+walks is touched, because a troop's stride is tied to how fast the caravan is actually
+moving and slowing the clip would put the feet out of step with the ground. 0.8 is the
+small change that was asked for after watching it. There is a bigger argument behind it
+if it still reads as hurried: the bird is drawn at a ten-metre wingspan against a real
+eagle's two, and wingbeat frequency falls roughly with the square root of length for
+animals of the same shape, so a bird five times over should beat about 2.2 times slower —
+0.45 rather than 0.8. That is a change to make by looking, not by arithmetic.
+
 The third: **Unity imports every clip with Loop Time off.** A cycle that does not loop
 plays once and holds its last frame — so a one-second wingbeat gives one beat and then a
 bird gliding for the rest of the level, which is indistinguishable from an animator that
