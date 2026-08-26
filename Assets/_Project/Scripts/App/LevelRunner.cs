@@ -160,7 +160,7 @@ namespace Arna.App
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
                 ruinSites: TrapSigns.Sites(map), driveLine: corridor.Tiles,
-                campSites: TrapSigns.Camps(map));
+                campSites: CampSignal.Tiles(map));
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
             _visuals.Build(_run);

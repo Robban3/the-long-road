@@ -25,32 +25,6 @@ namespace Arna.Sim
     /// </summary>
     public static class TrapSigns
     {
-        /// <summary>
-        /// Ground near each enemy group, for pitching a camp on. **Never their own tile.**
-        ///
-        /// The first version put the tent where the men are, on the argument that a camp
-        /// is what a band lives in and so marking them with it is honest. That argument
-        /// is wrong, and wrong in the way this project has been caught by twice before:
-        /// enemies are drawn only once revealed, and a tent standing on an unrevealed
-        /// group hands over the position the whole detection system exists to keep
-        /// hidden. A signal you can read exactly is not a signal, it is an answer.
-        ///
-        /// So it follows the same rule as the trap signs, for the same reason and through
-        /// the same code: near enough to be worth noticing, far enough that noticing it
-        /// tells you to be careful rather than where to step. Which is also truer — a
-        /// camp is where a band sleeps, not where it stands watch.
-        /// </summary>
-        public static List<int> Camps(LevelMap map)
-        {
-            var enemies = map?.Encounters?.Enemies;
-            if (enemies == null || enemies.Count == 0) return null;
-
-            var tiles = new List<int>();
-            foreach (var enemy in enemies) tiles.Add(enemy.Tile);
-
-            return Near(map, tiles, map.Seed ^ 0x0CA3);
-        }
-
         /// <summary>Trap fields are grouped into neighbourhoods this many tiles across.</summary>
         public const int ClusterTiles = 6;
 

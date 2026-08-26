@@ -296,13 +296,68 @@ namespace Arna.Tests
                 var traps = new HashSet<int>();
                 foreach (var trap in map.Encounters.Traps) traps.Add(trap.Tile);
 
-                foreach (int site in TrapSigns.Camps(map) ?? new List<int>())
-                    Assert.IsFalse(enemies.Contains(site),
+                foreach (var camp in CampSignal.Place(map))
+                    Assert.IsFalse(enemies.Contains(camp.Tile),
                         $"level 1-{level}: a camp stands on the group it belongs to");
 
                 foreach (int site in TrapSigns.Sites(map) ?? new List<int>())
                     Assert.IsFalse(traps.Contains(site),
                         $"level 1-{level}: a ruin stands on the trap it warns about");
+            }
+        }
+
+        [Test]
+        public void SomeCampsAreEmpty()
+        {
+            // A camp the player can trust turns route drawing into route reading. This
+            // is the same argument the crows make and the same test: enough of them lie
+            // that one cannot be treated as proof, and few enough that reading one is
+            // still worth doing.
+            int truthful = 0, empty = 0;
+
+            for (int level = 1; level <= 10; level++)
+                foreach (var camp in CampSignal.Place(Level(1, level)))
+                    if (camp.Truthful) truthful++; else empty++;
+
+            Assert.Greater(truthful, 0, "no camp on any level of chapter 1 has anyone near it");
+            Assert.Greater(empty, 0, "not one camp in a whole chapter is a feint");
+
+            // A third, give or take the rounding on ten small samples. Below a fifth the
+            // feint is a rumour; above half the signal is noise and nobody reads it.
+            float lying = empty / (float)(truthful + empty);
+
+            Assert.That(lying, Is.EqualTo(CampSignal.FalseShare).Within(0.15f),
+                $"{empty} of {truthful + empty} camps are empty");
+        }
+
+        [Test]
+        public void AnEmptyCampIsGenuinelyEmpty()
+        {
+            // A feint that happens to have a group behind it is not a feint, it is a
+            // signal that was right by accident — and it would teach the player the
+            // opposite of the lesson.
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = Level(1, level);
+
+                foreach (var camp in CampSignal.Place(map))
+                {
+                    if (camp.Truthful) continue;
+
+                    map.Grid.ToCoords(camp.Tile, out int cx, out int cy);
+
+                    foreach (var enemy in map.Encounters.Enemies)
+                    {
+                        map.Grid.ToCoords(enemy.Tile, out int ex, out int ey);
+
+                        float dx = cx - ex, dy = cy - ey;
+                        float distance = (float)System.Math.Sqrt(dx * dx + dy * dy);
+
+                        Assert.Greater(distance, CampSignal.HintTiles,
+                            $"level 1-{level}: an empty camp has a group {distance:F1} tiles away, "
+                            + "which is inside what a camp claims");
+                    }
+                }
             }
         }
 

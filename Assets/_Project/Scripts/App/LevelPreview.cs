@@ -931,7 +931,7 @@ namespace Arna.App
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
                 maxProps: MaxProps, densityScale: DensityScale,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
-                campSites: TrapSigns.Camps(map));
+                campSites: CampSignal.Tiles(map));
 
             // Worth printing: a prop that is placed but too small and a prop that was
             // never placed look identical on a map read from seventy metres up.

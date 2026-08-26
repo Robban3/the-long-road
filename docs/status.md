@@ -952,6 +952,31 @@ against something that does not, which is what makes distance read as distance r
 as a painted wall. Same grey as the peaks, because two ranges in one colour read as one
 range receding.
 
+### The camp is a feint
+
+It is the third soft signal and the one with the strongest claim. Crows are birds that
+might be over anything and a bone pile is old, but a standing camp says *men, here,
+recently*. **That is exactly why it has to be able to lie** — a camp the player can trust
+turns route drawing into route reading.
+
+An abandoned camp is better fiction than a lying bird. The crows lie one time in five and
+the story is that birds circle carrion, not soldiers; a camp needs no story at all, because
+bands move and the tents they leave are the most ordinary thing in a country full of bands.
+So `CampSignal.FalseShare` is **one in three**, the most any of the three signals lies, and
+it is still worth reading: random ground has a group within four tiles about a fifth of the
+time, and a camp says two thirds. A large update, and one camp in three a feint — enough
+that nobody can treat one as proof and stop scouting.
+
+`PerGroup = 0.34` is lower than the crows' half on purpose. **The two signals stack**, and
+both marking the same group is not twice the information — it is one group with two signs
+on it, and a player who learns to look for the pair gets certainty back through the side
+door.
+
+The empty ones are placed where nothing is within the radius a camp claims, because a feint
+that happens to have a group behind it is not a feint but a signal that was right by
+accident — and it teaches the opposite of the lesson. Two tests hold that: one on the ratio,
+one on every empty camp being genuinely empty.
+
 **The camp nearly shipped a third information leak.** The first version pitched the tent on
 the group's own tile, on the argument that a camp is what a band lives in. That is wrong in
 the way this project has been caught twice: enemies are drawn only once revealed, and a tent
