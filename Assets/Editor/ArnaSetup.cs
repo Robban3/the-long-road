@@ -336,7 +336,15 @@ namespace Arna.Editor
         /// </summary>
         const string ArmyDir = "Assets/Stylized_Medieval_Army_Pack/Prefabs - Characters";
 
-        static ActorModel Army(string name) => Actor($"{ArmyDir}/{name}.prefab");
+        /// <summary>
+        /// One of the army pack's characters, pointed at the one controller they share.
+        ///
+        /// Shared because they share a skeleton — 52 characters assembled from 22 meshes
+        /// — so a clip that binds to one binds to all of them. Without this `Actor` looks
+        /// for a controller named after each prefab and finds nothing, fifty-two times.
+        /// </summary>
+        static ActorModel Army(string name)
+            => Actor($"{ArmyDir}/{name}.prefab", animator: AnimatorBuilder.ArmyController);
 
         static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f,
                                 string[] hide = null, string[] unsized = null,
@@ -1831,6 +1839,11 @@ namespace Arna.Editor
             // Cheap on the second run: EnsureLooping reimports only when it actually has
             // something to switch on.
             AnimatorBuilder.BuildAll();
+
+            // And the army pack's shared one, built by looking rather than from a list:
+            // nothing in this project knows where that pack keeps its animation, or
+            // whether it has any. See AnimatorBuilder.BuildArmyAnimator.
+            AnimatorBuilder.BuildArmyAnimator();
 
             foreach (var runner in UnityEngine.Object.FindObjectsByType<LevelRunner>(
                          FindObjectsSortMode.None))

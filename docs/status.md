@@ -1264,6 +1264,35 @@ those and nothing in the new fields, and `Models` is serialized on the scene com
 pulling code does not change a saved scene, and that has produced enough false bug reports
 in this project to be worth one field each.
 
+### Finding the army pack's animation, or proving it has none
+
+`Build` reads clips out of one FBX, which is right for every pack here that ships a model
+and its animation in the same file. The army pack does not: its 22 FBXs are meshes, its 52
+characters are prefabs assembled from them, and whatever animation it has is somewhere else
+in the folder — possibly `.anim` assets, possibly sub-assets of a rig file this project
+never names.
+
+`BuildFromFolder` searches by type instead, so it finds them either way — and **finding
+nothing is itself the answer**, to a question that was otherwise going to cost a round trip
+and a guess. Three outcomes, and the console says which:
+
+- **clips found and matched** → the troops move, and `Arna > Build Army Animator` has just
+  built the controller they share
+- **clips found and unmatched** → the names need adding to `IdleNames` and its neighbours,
+  which are lists to extend rather than rules
+- **nothing found** → the pack ships no animation, and the way out is Humanoid retargeting:
+  set both this pack's rigs and a pack that *does* have clips to Humanoid, and Unity will
+  play one on the other
+
+One controller for the whole pack rather than one per character, because they share a
+skeleton — 52 characters out of 22 meshes — so a clip that binds to one binds to all, and
+52 identical controllers would be 52 assets saying the same thing.
+
+`Loop` came with it. `EnsureLooping` goes through the model importer, which is right for a
+clip that is a sub-asset of an FBX and impossible for one that is not: a standalone `.anim`
+has no importer to ask, and its loop flag lives in the clip's own settings. Death is left
+alone in both, for the same reason.
+
 ### The bandits come from the same pack, and are told apart twice
 
 **By rank first.** They are levy — the ragged end — where the escort is man-at-arms and

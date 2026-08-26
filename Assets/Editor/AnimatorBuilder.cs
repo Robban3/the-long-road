@@ -67,6 +67,43 @@ namespace Arna.Editor
             "Assets/Quaternius/PiratePack/Characters_Henry.fbx"
         };
 
+        /// <summary>The medieval army pack, and the controller its characters share.</summary>
+        public const string ArmyPack = "Assets/Stylized_Medieval_Army_Pack";
+        public const string ArmyController = OutputDir + "/Army.controller";
+
+        /// <summary>
+        /// Builds the one controller every character in the army pack uses.
+        ///
+        /// Separate from `Build Animator Controllers` because it answers a different
+        /// question. That one walks a list of models this project knows the animation
+        /// lives inside; this one goes looking, because with the army pack nobody knows
+        /// yet whether there is any animation at all — its 22 FBXs are meshes and its
+        /// characters are prefabs assembled from them.
+        ///
+        /// Whatever it says is worth reading. Clips found and matched means the troops
+        /// move; clips found and unmatched means the names need adding to the lists at
+        /// the top of this file; nothing found means the pack ships no animation, and
+        /// the way out is Humanoid retargeting off a pack that does.
+        /// </summary>
+        [MenuItem("Arna/Build Army Animator")]
+        public static void BuildArmyAnimator()
+        {
+            if (!AssetDatabase.IsValidFolder(ArmyPack))
+            {
+                Debug.LogWarning($"[Arna] {ArmyPack} is not in this project.");
+                return;
+            }
+
+            var controller = BuildFromFolder("Army", ArmyPack);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            if (controller != null)
+                Debug.Log($"[Arna] The army pack's characters now share {ArmyController}. "
+                          + "Run Arna > Refresh Scene Assets to hand it to them.");
+        }
+
         [MenuItem("Arna/Build Animator Controllers")]
         public static void BuildAll()
         {
@@ -105,6 +142,65 @@ namespace Arna.Editor
 
         static string Name(AnimationClip clip) => clip == null ? "—" : clip.name;
 
+        /// <summary>
+        /// Builds one controller from every clip in a folder, wherever they live.
+        ///
+        /// <see cref="Build"/> reads clips out of one FBX, which is right for the packs
+        /// that ship a model and its animation in the same file. The medieval army pack
+        /// does not: its 22 FBXs are meshes, its characters are prefabs assembled from
+        /// them, and whatever animation it has is somewhere else in the folder —
+        /// possibly `.anim` assets, possibly sub-assets of a rig file this project never
+        /// names. Searching by type finds them either way, and finding nothing is itself
+        /// the answer to a question that was otherwise going to cost a round trip.
+        ///
+        /// One controller for the whole pack rather than one per character. They share a
+        /// skeleton — the pack builds 52 characters out of 22 meshes — so a clip that
+        /// binds to one binds to all of them, and 52 identical controllers would be 52
+        /// assets saying the same thing.
+        /// </summary>
+        public static AnimatorController BuildFromFolder(string name, string folder)
+        {
+            if (!AssetDatabase.IsValidFolder(folder))
+            {
+                Debug.LogWarning($"[Arna] {folder} is not a folder in this project.");
+                return null;
+            }
+
+            var clips = new List<AnimationClip>();
+            var seen = new HashSet<string>();
+
+            foreach (var guid in AssetDatabase.FindAssets("t:AnimationClip", new[] { folder }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+
+                foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                {
+                    if (!(asset is AnimationClip clip)) continue;
+                    if (clip.name.StartsWith("__preview")) continue;
+                    if (!seen.Add($"{path}:{clip.name}")) continue;
+
+                    clips.Add(clip);
+                }
+            }
+
+            if (clips.Count == 0)
+            {
+                Debug.LogWarning($"[Arna] No animation clips anywhere under {folder}. The pack "
+                                 + "ships none, so its characters will hold their bind pose. "
+                                 + "The way out is Humanoid retargeting — set both this pack's "
+                                 + "rigs and a pack that does have clips to Humanoid, and Unity "
+                                 + "will play one on the other.");
+                return null;
+            }
+
+            var names = new List<string>();
+            foreach (var clip in clips) names.Add(clip.name);
+
+            Debug.Log($"[Arna] {clips.Count} clip(s) under {folder}: {string.Join(", ", names)}");
+
+            return Assemble(name, $"{folder} (folder)", clips);
+        }
+
         public static AnimatorController Build(string modelPath)
         {
             var clips = LoadClips(modelPath);
@@ -136,15 +232,36 @@ namespace Arna.Editor
                 SortOutTheFlying(clips, ref idle, ref walk);
             }
 
+            ReportFlight(clips, modelPath, idle, walk);
+
+            return Assemble(Path.GetFileNameWithoutExtension(modelPath), modelPath, clips);
+        }
+
+        /// <summary>
+        /// Turns a heap of clips into the four states this project drives, and writes the
+        /// controller.
+        ///
+        /// Split out of <see cref="Build"/> so the same four states can be assembled from
+        /// clips found anywhere — one FBX, or a whole pack folder. Which clip fills which
+        /// state is the only decision in here, and it is made the same way either way.
+        /// </summary>
+        static AnimatorController Assemble(string name, string source, List<AnimationClip> clips)
+        {
+            var idle = Match(clips, IdleNames);
+            var walk = Match(clips, WalkNames);
+            var attack = Match(clips, AttackNames);
+            var death = Match(clips, DeathNames);
+
+            SortOutTheFlying(clips, ref idle, ref walk);
+
             if (idle == null)
             {
-                Debug.LogWarning($"[Arna] No idle clip in {modelPath}");
+                Debug.LogWarning($"[Arna] No idle clip in {source}. Nothing here is named "
+                                 + "anything this project recognises as standing still — see "
+                                 + "IdleNames, which is a list to add to rather than a rule.");
                 return null;
             }
 
-            ReportFlight(clips, modelPath, idle, walk);
-
-            string name = Path.GetFileNameWithoutExtension(modelPath);
             string path = $"{OutputDir}/{name}.controller";
 
             // Said out loud, because a controller built from the wrong clips and one
@@ -152,6 +269,8 @@ namespace Arna.Editor
             // difference only shows up as an animal standing still in a running game.
             Debug.Log($"[Arna] {name}: idle={Name(idle)} walk={Name(walk)} "
                       + $"attack={Name(attack)} death={Name(death)}  ({clips.Count} clips)");
+
+            Loop(idle, walk, attack);
 
             AssetDatabase.DeleteAsset(path);
             var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
@@ -242,6 +361,37 @@ namespace Arna.Editor
 
         static bool IsFlight(AnimationClip clip)
             => clip != null && Contains(Bare(clip.name), "Fly");
+
+        /// <summary>
+        /// Switches loop on for clips that are their own assets.
+        ///
+        /// <see cref="EnsureLooping"/> goes through the model importer, which is right
+        /// for a clip that is a sub-asset of an FBX and impossible for one that is not:
+        /// a standalone `.anim` has no importer to ask. Its loop flag lives in the clip's
+        /// own settings instead.
+        ///
+        /// Death is left alone here for the same reason it is there — a looping death is
+        /// a corpse that keeps getting up to die again.
+        /// </summary>
+        static void Loop(params AnimationClip[] clips)
+        {
+            foreach (var clip in clips)
+            {
+                if (clip == null || clip.isLooping) continue;
+
+                // Sub-assets of a model are the importer's to change, and it has already
+                // had its chance by the time this runs.
+                string path = AssetDatabase.GetAssetPath(clip);
+                if (AssetImporter.GetAtPath(path) is ModelImporter) continue;
+
+                var settings = AnimationUtility.GetAnimationClipSettings(clip);
+                settings.loopTime = true;
+                AnimationUtility.SetAnimationClipSettings(clip, settings);
+
+                EditorUtility.SetDirty(clip);
+                Debug.Log($"[Arna] loop switched on for {clip.name}, which was set to play once.");
+            }
+        }
 
         /// <summary>
         /// Switches loop on for the clips that are meant to run continuously.
