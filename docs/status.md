@@ -639,6 +639,19 @@ cost is real: the map's own far edge, 250 m off, goes from 28 % of its colour to
 the middle distance carries less haze than a value tuned for a 300-metre landscape gave
 it. The landscape is 640 metres deep now.
 
+**The range is shoulders with summits standing out of them**, not a row of cones. Five
+of the fourteen prefabs in the mix are `Hill` rather than mountain: a ring made only of
+peaks reads as a sawtooth however much the heights are varied.
+
+The renderer needed the same lesson and got it late. It drew a horizon peak as one
+`CONE_FINE` with a smaller cone of snow on top — a party hat, and not what Unity draws,
+where the model is an irregular faceted landform. It is a broad rocky shoulder with two
+or three off-centre summits now, varied per peak from its own position so no two in the
+ring are the same mountain. The snow caps had to be nested properly as well: at 0.40 of
+the span they overhung a cone that is only 0.27 of the span wide at that height, so every
+summit wore a brim. A cone of radius `span` has radius `span * (1 - y / tall)` at height
+`y`; a cap starting at 0.60 of the height may be at most 0.40 of the span across.
+
 **None of it is visible at the default camera, and that is geometry rather than tuning.**
 The play view sits 46 m back and 32 m up: 34.8° of pitch with a 50° field, so the frame
 spans from 9.8° *below* horizontal to 59.8° below. A horizon is at 0°. Nothing on it can

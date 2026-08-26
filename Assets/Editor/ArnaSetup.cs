@@ -394,7 +394,15 @@ namespace Arna.Editor
                     {
                         "SM_Gen_Env_Background_Mountain_01", "SM_Gen_Env_Background_Mountain_02",
                         "SM_Gen_Env_Background_Mountain_03", "SM_Gen_Env_Mountain_01",
-                        "SM_Gen_Env_Mountain_02", "SM_Gen_Env_Mountain_03"
+                        "SM_Gen_Env_Mountain_02", "SM_Gen_Env_Mountain_03",
+
+                        // Hills in with the peaks, scaled to the same height. A range is
+                        // not all summits — it is shoulders and saddles with summits
+                        // standing out of them, and a ring made only of peaks reads as a
+                        // sawtooth however much the heights are varied. Five rounded
+                        // masses among nine pointed ones is what breaks the row up.
+                        "SM_Gen_Env_Hill_01", "SM_Gen_Env_Hill_02", "SM_Gen_Env_Hill_03",
+                        "SM_Gen_Env_Hill_04", "SM_Gen_Env_Hill_05"
                     })),
 
                 // What grows in standing water and at its edge. The fen used to be

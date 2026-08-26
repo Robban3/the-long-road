@@ -1013,12 +1013,49 @@ def build_prop(mesh: Mesh, prop: A.Prop) -> None:
         _add(mesh, ROCK, color, (size, height, size), prop.yaw, base)
 
     elif prop.kind == "horizon":
-        # A skyline peak, three hundred metres off the map. Pale and snow-capped: at
-        # that distance air takes the colour out of rock, which is why a range on a
-        # horizon reads as blue-grey and a boulder at your feet does not.
-        _add(mesh, CONE_FINE, HORIZON_STONE, (size * 1.15, size, size * 1.15), prop.yaw, base)
-        _add(mesh, CONE_FINE, HORIZON_SNOW, (size * 0.44, size * 0.30, size * 0.44),
-             prop.yaw, base + np.array([0.0, size * 0.72, 0.0]))
+        # A massif rather than a cone.
+        #
+        # This was one CONE_FINE with a smaller cone of snow on it, and it read as a
+        # party hat — which is not what Unity draws. There the model is one of Synty's
+        # mountain meshes, an irregular faceted landform, and a renderer that answers
+        # "cone" is lying about the silhouette in exactly the way the standing timber and
+        # the sky-coloured stone were.
+        #
+        # Built as a broad rocky shoulder with two or three summits of different heights
+        # standing off-centre on it. A ridge is what a range looks like from twenty
+        # minutes away; a single apex is what a volcano looks like from anywhere.
+        _add(mesh, ROCK, HORIZON_STONE * 0.94, (size * 1.55, size * 0.52, size * 1.35),
+             prop.yaw, base)
+
+        # Varied per peak from its own position, so no two in the ring are the same
+        # mountain and the same seed always gives the same range.
+        wobble = (math.sin(prop.x * 0.37) + math.cos(prop.z * 0.29)) * 0.5
+
+        for k, (lean, span, rise) in enumerate(
+                ((0.00, 1.02, 1.00), (0.34, 0.76, 0.74), (-0.30, 0.62, 0.58))):
+            tall = rise * (1.0 + wobble * 0.12)
+            offset = np.array([size * (lean + wobble * 0.05) * 0.55, 0.0,
+                               size * (lean * 0.4 - wobble * 0.07) * 0.55])
+
+            _add(mesh, CONE_FINE, HORIZON_STONE * (1.0 - 0.05 * k),
+                 (size * span, size * tall, size * span * 0.88),
+                 prop.yaw + k * 47, base + offset)
+
+            # Snow on the two that carry it. A cap on every summit of every peak is a
+            # meringue; a cap on the ones that reach reads as a snow line.
+            #
+            # The cap has to sit *inside* the cone, and the first version did not: it was
+            # 0.40 of the span wide at a height where the peak itself is only 0.27,
+            # giving every summit an overhanging brim — a row of hats floating over the
+            # range. A cone of radius `span` and height `tall` has radius
+            # span * (1 - y / tall) at height y, so a cap starting at 0.60 of the height
+            # may be at most 0.40 of the span across. 0.37 leaves it a little proud of
+            # the rock, which is what a snow line does.
+            if k < 2:
+                _add(mesh, CONE_FINE, HORIZON_SNOW,
+                     (size * span * 0.37, size * tall * 0.40, size * span * 0.33),
+                     prop.yaw + k * 47,
+                     base + offset + np.array([0.0, size * tall * 0.60, 0.0]))
 
     elif prop.kind == "marsh":
         # Reeds: a fan of thin blades, taller than grass and thinner. Lit from above
@@ -1029,7 +1066,14 @@ def build_prop(mesh: Mesh, prop: A.Prop) -> None:
                  normals=(0.0, 1.0, 0.0))
 
     elif prop.kind == "mountains":
-        _add(mesh, CONE_FINE, MOUNTAIN_STONE, (size * 1.2, size, size * 1.2), prop.yaw, base)
+        # The same argument at a twentieth of the size: a rocky base with the summit
+        # standing off its centre, rather than one cone on the map.
+        _add(mesh, ROCK, MOUNTAIN_STONE * 0.95, (size * 1.35, size * 0.44, size * 1.2),
+             prop.yaw, base)
+        _add(mesh, CONE_FINE, MOUNTAIN_STONE, (size * 1.0, size, size * 0.9),
+             prop.yaw + 25, base + np.array([size * 0.12, 0.0, -size * 0.08]))
+        _add(mesh, CONE_FINE, MOUNTAIN_STONE * 0.93, (size * 0.62, size * 0.66, size * 0.58),
+             prop.yaw - 40, base + np.array([-size * 0.34, 0.0, size * 0.22]))
 
     elif prop.kind == "cover":
         # Foliage cards, lit as though they faced the sky: a grass blade has no side
