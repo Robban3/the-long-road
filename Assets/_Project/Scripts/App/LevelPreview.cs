@@ -98,6 +98,27 @@ namespace Arna.App
         public bool ShowOverlay = true;
 
         /// <summary>
+        /// Colours for the two things the plan marks (docs/GDD.md §3.4, §3.5).
+        ///
+        /// Red for a group the eagle found, because that is the one fact on this screen
+        /// worth interrupting the picture for. Near-black for a circling flock: crows are
+        /// a hint and not an answer, and a hint that shouts is an answer.
+        /// </summary>
+        public Color EnemyMarker = new Color(0.90f, 0.20f, 0.16f, 0.92f);
+        public Color CrowMarker = new Color(0.10f, 0.10f, 0.12f, 0.85f);
+
+        /// <summary>
+        /// Marker sizes in metres.
+        ///
+        /// The map is 256 m across and read from seventy up, so these are chosen against
+        /// the picture rather than against the world: a group's mark is about six metres
+        /// wide, which is a fifth of a wagon's length and perfectly legible from there,
+        /// and would be absurd standing on the ground.
+        /// </summary>
+        public float EnemyMarkerRadius = 2.9f;
+        public float CrowMarkerRadius = 1.1f;
+
+        /// <summary>
         /// Metres above the ground the bird flies.
         ///
         /// Measured on the plan render, where 14 m put her in the spruce tops and 34 m
@@ -141,6 +162,15 @@ namespace Arna.App
         Mesh _mesh;
         Transform _props;
         Transform _routes;
+
+        Transform _markers;
+
+        /// <summary>
+        /// Held so it can be destroyed. A mesh built in code is not owned by the object
+        /// that draws it, and this component rebuilds on every inspector keystroke — one
+        /// abandoned mesh per character typed, for the lifetime of the editor session.
+        /// </summary>
+        Mesh _markerMesh;
 
         RunVisuals _cast;
         Transform _eagleRoot;
@@ -223,6 +253,73 @@ namespace Arna.App
                                   * Quaternion.Euler(0f, Models.Eagle.YawOffset, 0f);
 
             _cast?.AdvanceAnimators(deltaTime);
+        }
+
+        /// <summary>
+        /// Marks what the player is allowed to know (docs/GDD.md §3.4, §3.6).
+        ///
+        /// Two different kinds of knowledge, and the difference between them is most of
+        /// the design.
+        ///
+        /// <b>The crows are always drawn.</b> They cost nothing, they are visible from
+        /// the first moment, and one in five is lying — so what they buy is a shortlist
+        /// of ground worth worrying about, never an answer. The wrecks and bone piles
+        /// the decorator scatters over trap fields do the same job in the same spirit;
+        /// they are already there, as scenery.
+        ///
+        /// <b>Groups are drawn only where the eagle flew.</b> That is what the ability
+        /// is: a quarter of the country turned from *something is out there* into *four
+        /// of them are standing here*, which is the difference between a worry and a
+        /// route drawn around it. Unflown ground keeps its crows and keeps its silence.
+        /// </summary>
+        void BuildMarkers(LevelMap map)
+        {
+            if (_markers != null)
+            {
+                if (Application.isPlaying) Destroy(_markers.gameObject);
+                else DestroyImmediate(_markers.gameObject);
+
+                _markers = null;
+            }
+
+            if (_markerMesh != null)
+            {
+                if (Application.isPlaying) Destroy(_markerMesh);
+                else DestroyImmediate(_markerMesh);
+
+                _markerMesh = null;
+            }
+
+            if (RouteMaterial == null) return;
+
+            var marks = new List<MapMarkerBuilder.Marker>();
+
+            // Truthful and lying flocks are marked identically, and that is the design
+            // rather than an oversight: a signal you can tell is false is not a false
+            // positive, it is a second true one.
+            foreach (var flock in CrowSignal.Place(map))
+                marks.Add(new MapMarkerBuilder.Marker(flock.Tile, CrowMarker, CrowMarkerRadius));
+
+            if (_flight != null)
+                foreach (int index in _flight.RevealedEnemies)
+                    marks.Add(new MapMarkerBuilder.Marker(map.Encounters.Enemies[index].Tile,
+                                                          EnemyMarker, EnemyMarkerRadius));
+
+            _markerMesh = MapMarkerBuilder.Build(map.Grid, marks, HeightScale);
+            if (_markerMesh == null) return;
+
+            var go = new GameObject("Markers");
+            go.transform.SetParent(transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = _markerMesh;
+
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = RouteMaterial;
+
+            // A mark on a map neither casts nor catches shadow. It is not in the world.
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+
+            _markers = go.transform;
         }
 
         /// <summary>
@@ -390,6 +487,9 @@ namespace Arna.App
             BuildProps(map);
             BuildRoutes(map);
             BuildEagle(map);
+
+            // After the eagle, because what it marks is what she found.
+            BuildMarkers(map);
 
             // Last, because it reads what the eagle found and repaints what the other
             // three built.

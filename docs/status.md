@@ -892,6 +892,30 @@ The overlay takes the colour out and leaves the geometry, which is the design ra
 an economy: the terrain is what the player plans against, so hiding it would remove the
 decision instead of the certainty.
 
+### What the plan tells you, and what it makes you pay for
+
+The overlay on its own is only half of it. The point of the ability is that it turns a
+worry into a route, and that needs two kinds of mark, drawn under different rules.
+
+**The crows are always there.** `CrowSignal` puts a flock over ground near a group, one
+in five of them lying, and the plan marks every flock the same whether it is telling the
+truth or not — a signal you can tell is false is not a false positive, it is a second
+true one. Free, visible from the first moment, and never an answer: what they buy is a
+shortlist of country worth worrying about. The wrecked carts and bone piles the decorator
+scatters over trap fields do the same job in the same spirit, as scenery rather than as
+marks.
+
+**Groups are marked only where the eagle flew.** That is the whole of the ability: a
+quarter of the country turning from *something is out there* into *four of them are
+standing here*, which is the difference between a worry and a line drawn around it.
+Unflown ground keeps its crows and keeps its silence.
+
+`MapMarkerBuilder` draws both as flat discs through the same unlit material the routes
+use — a mark on a map is not a thing in the world, and a marker that darkens because it
+lies on a north slope is a marker saying something about the slope. One mesh for all of
+them: twelve groups and eighty flocks should not cost ninety draw calls to say so. The
+overlay does not touch them, so a red group over muted ground stays red.
+
 ### The crow and animal packs, as imported
 
 Measured from the folder listing rather than guessed:
