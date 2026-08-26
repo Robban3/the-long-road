@@ -71,6 +71,12 @@ namespace Arna.Sim
             get { int n = 0; foreach (var t in _traps) if (t.IsLive) n++; return n; }
         }
 
+        /// <summary>Traps that have gone off. The one number that says a trap field worked.</summary>
+        public int TriggeredCount
+        {
+            get { int n = 0; foreach (var t in _traps) if (t.Triggered) n++; return n; }
+        }
+
         public int DisarmedCount
         {
             get { int n = 0; foreach (var t in _traps) if (t.Disarmed) n++; return n; }

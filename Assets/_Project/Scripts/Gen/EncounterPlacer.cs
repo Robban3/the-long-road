@@ -45,11 +45,77 @@ namespace Arna.Gen
         /// <summary>Travel cost kept clear at both ends, so nothing waits in the first strides.</summary>
         public const float SafeEndCost = 8f;
 
-        public const float GroupSpacingTiles = 5f;
-        public const float TrapSpacingTiles = 3f;
+        /// <summary>
+        /// The same rule in tiles, across the ground rather than along a path.
+        ///
+        /// Both are needed. Cost alone lets a group stand four tiles from the start on a
+        /// road, because eight of cost is two and a half tiles at ×1.25; distance alone
+        /// would let one sit just behind a ridge that takes half a minute to walk round.
+        /// </summary>
+        public const int SafeEndTiles = 5;
 
-        /// <summary>Share of the budget spent on traps before the recipe's density scales it.</summary>
-        public const float TrapBudgetShare = 0.25f;
+        public const float GroupSpacingTiles = 5f;
+
+        /// <summary>
+        /// Tiles between traps. Two rather than three, because a throat has to be laid
+        /// *across* — one trap in a five-tile gap is a trap you walk round.
+        /// </summary>
+        public const float TrapSpacingTiles = 2f;
+
+        /// <summary>
+        /// How much detour, as a share of the fastest crossing, still counts as a way
+        /// through when measuring how wide the country is at a given depth.
+        ///
+        /// Eight percent. A tile costing more than that to route through is not another
+        /// way past a chokepoint, it is the long way round the level.
+        /// </summary>
+        public const float ThroatSlack = 0.08f;
+
+        /// <summary>
+        /// Slices the crossing is cut into when looking for its narrow points.
+        ///
+        /// Forty-eight over a route of sixty to a hundred tiles is a slice every tile or
+        /// two — fine enough to find a ford, coarse enough that one tile of noise does
+        /// not read as a chokepoint.
+        /// </summary>
+        public const int ThroatSlices = 48;
+
+        /// <summary>
+        /// Share of the budget spent on traps before the recipe's density scales it.
+        ///
+        /// 0.18, down from 0.25, and the reason is a familiar one: **the share was tuned
+        /// against a placement that could not spend it.** The old scatter competed for
+        /// tiles with everything else in one occupancy set and at three tiles' spacing,
+        /// so it routinely ran out of legal ground before it ran out of allowance. Laying
+        /// them at the throats, on their own occupancy, at two tiles, spends the lot —
+        /// and the same number therefore buys noticeably more trap and less enemy than it
+        /// used to. Chapter 2 started shipping levels that could not put five groups on
+        /// every drawn route.
+        ///
+        /// A constant tuned as a product of two things breaks silently when either moves.
+        /// This is the third time that has happened here.
+        /// </summary>
+        public const float TrapBudgetShare = 0.18f;
+
+        /// <summary>
+        /// The share of the trap allowance laid at the crossing's narrow points. The
+        /// rest is strewn over the band by terrain, as all of it used to be.
+        ///
+        /// Two thirds, and both parts earn their place.
+        ///
+        /// **All-scattered was what there was**, and it does not work: a trap has a
+        /// three-metre trigger and no territory, so on a band of three thousand tiles it
+        /// is scenery. Level 1-8 laid fourteen and a run down its fast corridor revealed
+        /// two and fired none.
+        ///
+        /// **All-at-the-throats works and reads as placed.** Every trap on ground every
+        /// route crosses is a level that has been *arranged*, and a player learns within
+        /// three levels that the ford is always mined — which turns a hazard into a
+        /// checklist. The scattered third is what keeps that from being a rule: some
+        /// traps are simply out there, in the marsh and the woods, and the ones you
+        /// stumble on are the ones that make you keep a scout.
+        /// </summary>
+        public const float ThroatShare = 0.65f;
 
         /// <summary>
         /// Reach of a group with no territory of its own, in tiles. The widest detect
@@ -115,8 +181,23 @@ namespace Arna.Gen
             int budget = recipe.EnemyBudget;
 
             budget -= GuardTheFords(grid, band, recipe, rng, layout, occupied, budget);
-            budget -= ScatterTraps(grid, band, recipe, rng, layout, occupied, budget);
-            ScatterEnemies(grid, band, recipe, rng, layout, occupied, budget);
+
+            // Traps keep their own occupancy, and this is not tidiness.
+            //
+            // Sharing one set meant a trap reserved ground against *groups* as well, at
+            // the group's spacing of five tiles — and now that traps go to the throats,
+            // that is a five-tile hole punched in the enemy placement at exactly the
+            // tiles every route converges on. Measured straight after the throat change:
+            // 1-1 fell to two groups on a drawn route against a promise of five, and the
+            // repair loop could not put it back because the ground it wanted was
+            // reserved by a pit.
+            //
+            // A group standing on a trap is the one overlap worth refusing, and traps go
+            // down first, so groups still check the trap tiles themselves.
+            var mined = new HashSet<int>();
+
+            budget -= LayTraps(grid, band, corridors, recipe, rng, layout, mined, budget);
+            ScatterEnemies(grid, band, recipe, rng, layout, occupied, mined, budget);
 
             AssignTerritories(grid, layout);
             TallySilver(layout, recipe);
@@ -163,20 +244,51 @@ namespace Arna.Gen
                     if (float.IsInfinity(total) || total > limit) continue;
                     if (band.FromStart[i] < SafeEndCost || band.FromGoal[i] < SafeEndCost) continue;
 
-                    float speed = TerrainTable.Speed(grid[i]);
-                    if (speed <= 0f) continue;
+                    // And in a straight line as well as in travel cost. The two are not
+                    // the same thing and only the second was checked: eight of cost is
+                    // two and a half tiles on a road, so a group could stand four tiles
+                    // from the start and satisfy it. That is inside the distance the
+                    // rule is written in — being ambushed before the caravan has moved
+                    // is not a decision the player could have made differently — and it
+                    // held only by luck of ordering until the trap change disturbed it.
+                    if (Near(grid, i, startIndex) || Near(grid, i, goalIndex)) continue;
 
-                    // Threat follows speed. This is the corridor rule — the quick way is
-                    // the dangerous way — restated per tile, which is the only form of it
-                    // that survives the player drawing their own line.
+                    if (TerrainTable.Speed(grid[i]) <= 0f) continue;
+
+                    // Threat follows cover, and nothing else. This used to be
+                    // `speed * AmbushWeight` — the corridor rule, the quick way is the
+                    // dangerous way, restated per tile — and the two factors pull against
+                    // each other: docs/GDD.md §3.1 puts its highest ambush weight on the
+                    // forest at 1.5, which is also among the slowest ground at ×0.70.
+                    // Multiplied by speed, the forest scored 1.05 and the open plain
+                    // 0.80, so groups drifted out of the cover the table sends them to.
+                    //
+                    // Speed against safety is not lost with it. The road carries that on
+                    // its own: fastest ground on the map at ×1.25, and second most
+                    // dangerous at 1.2. Taking it is still a trade.
                     band.Tiles.Add(i);
-                    band.Weight[i] = speed * TerrainTable.AmbushWeight(grid[i]);
+                    band.Weight[i] = TerrainTable.AmbushWeight(grid[i]);
                 }
 
                 return band.Tiles.Count == 0 ? null : band;
             }
 
             public bool Contains(int tile) => Weight[tile] > 0f;
+
+            /// <summary>
+            /// Whether a tile is within <see cref="SafeEndTiles"/> of one of the ends,
+            /// measured across the ground rather than along a path.
+            /// </summary>
+            static bool Near(TileGrid grid, int tile, int end)
+            {
+                grid.ToCoords(tile, out int x, out int y);
+                grid.ToCoords(end, out int ex, out int ey);
+
+                int dx = x - ex;
+                int dy = y - ey;
+
+                return dx * dx + dy * dy < SafeEndTiles * SafeEndTiles;
+            }
         }
 
         /// <summary>
@@ -327,21 +439,77 @@ namespace Arna.Gen
         }
 
         /// <summary>
-        /// Traps over the band, thickest where the ground hides them: the marsh.
+        /// Traps at the crossing's narrow points, not scattered over the country.
         ///
-        /// Traps take a share of the budget rather than a per-tile chance. The chance
-        /// was written for a corridor of seventy tiles and the band is three thousand,
-        /// so carried over unchanged it laid thirty-five traps and left the enemies
-        /// nothing — the level became a minefield with four guards in it.
+        /// The old version spread them by <see cref="TerrainTable.TrapDensity"/> across
+        /// the whole threat band, and a band is three thousand tiles. Level 1-8 laid
+        /// fourteen; a run down its fast corridor revealed two and triggered none. A trap
+        /// has a three-metre trigger and no territory — unlike a group, which comes to
+        /// you — so a trap forty metres off the line the player drew is scenery. Three
+        /// tests failed on that and none of them said so in those words, because a trap
+        /// that never fires reads as a squad that took no damage.
+        ///
+        /// It also left three of the game's own answers with no question. The scout
+        /// reveals traps at 10 m, the sapper disarms in 2 s, the shield-bearer absorbs
+        /// the damage — "three different answers to the same problem" (docs/GDD.md §7.2)
+        /// — and the marching order exists so that order 0 walks into traps first and
+        /// order 3 crosses a trap field last (§4.2). None of that is reachable content
+        /// while traps do not fire.
+        ///
+        /// So they go where the country is narrow, and narrowness is measured rather
+        /// than guessed at. Both travel fields are already built: a tile's *detour* is
+        /// `FromStart + FromGoal - Fastest`, which is zero on an ideal crossing and grows
+        /// as you go round. Cut the crossing into slices by depth, count the tiles in
+        /// each slice whose detour is inside <see cref="ThroatSlack"/>, and that count is
+        /// how many ways past there are at that depth. The smallest counts are the fords,
+        /// the passes and the dry line through a bog — the places every route has to
+        /// share whichever line the player draws.
+        ///
+        /// Terrain only flavours it. `TrapDensity` picks *which* tile of a throat, and
+        /// the geometry picks the throat — which is why the ford's low density in §3.1
+        /// no longer keeps traps off the most unavoidable ground on the map.
         /// </summary>
-        static int ScatterTraps(TileGrid grid, ThreatBand band, LevelRecipe recipe,
-                                DeterministicRandom rng, EncounterLayout layout,
-                                HashSet<int> occupied, int budget)
+        static int LayTraps(TileGrid grid, ThreatBand band, IReadOnlyList<Corridor> corridors,
+                            LevelRecipe recipe, DeterministicRandom rng, EncounterLayout layout,
+                            HashSet<int> occupied, int budget)
         {
             int allowance = (int)(budget * TrapBudgetShare * recipe.TrapDensity);
             if (allowance <= 0) return 0;
 
+            int spent = 0;
+
+            foreach (var throat in Throats(grid, band, Crossed(grid, corridors)))
+            {
+                if (spent >= allowance * ThroatShare) break;
+
+                foreach (int tile in throat.Tiles)
+                {
+                    if (spent >= allowance * ThroatShare) break;
+                    spent += Lay(grid, rng, layout, occupied, tile, allowance - spent);
+                }
+            }
+
+            // Its own share, not the leftovers. Handing the strew whatever the throats
+            // could not spend makes the total depend on how much legal ground the throats
+            // happened to have, which is how 1-7 went from three survivable routes to
+            // none between one run and the next without the allowance changing at all.
+            spent += Strew(grid, band, rng, layout, occupied,
+                           (int)(allowance * (1f - ThroatShare)));
+
+            return spent;
+        }
+
+        /// <summary>
+        /// The other third: traps out in the country, by terrain, the way all of them
+        /// used to be placed. See <see cref="ThroatShare"/> for why both halves exist.
+        /// </summary>
+        static int Strew(TileGrid grid, ThreatBand band, DeterministicRandom rng,
+                         EncounterLayout layout, HashSet<int> occupied, int allowance)
+        {
+            if (allowance <= 0) return 0;
+
             var scored = new List<KeyValuePair<float, int>>();
+
             foreach (int tile in band.Tiles)
             {
                 if (occupied.Contains(tile)) continue;
@@ -351,38 +519,173 @@ namespace Arna.Gen
 
                 scored.Add(new KeyValuePair<float, int>(density * rng.Range(0.5f, 1.5f), tile));
             }
+
             scored.Sort((a, b) => b.Key.CompareTo(a.Key));
 
             int spent = 0;
             foreach (var entry in scored)
             {
                 if (spent >= allowance) break;
-
-                int tile = entry.Value;
-                if (occupied.Contains(tile)) continue;
-                if (!SpacedEnough(grid, tile, occupied, TrapSpacingTiles)) continue;
-
-                var kind = rng.Chance(0.6f) ? TrapKind.Pit : TrapKind.Log;
-                int cost = TrapTable.Points(kind);
-                if (spent + cost > allowance) continue;
-
-                layout.Traps.Add(new TrapPlacement
-                {
-                    Tile = tile,
-                    Kind = kind,
-                    Origin = PlacementOrigin.Scattered
-                });
-                occupied.Add(tile);
-                spent += cost;
+                spent += Lay(grid, rng, layout, occupied, entry.Value, allowance - spent);
             }
 
             return spent;
         }
 
+        /// <summary>
+        /// Puts one trap on a tile if it will take one, and returns what it cost.
+        ///
+        /// Six pits to four log traps. A pit is the cheaper lesson — 80 damage and two
+        /// seconds pinned — and the log trap is the one that punishes a bunched column,
+        /// five metres of it at 120 (docs/GDD.md §7.2).
+        /// </summary>
+        static int Lay(TileGrid grid, DeterministicRandom rng, EncounterLayout layout,
+                       HashSet<int> occupied, int tile, int left)
+        {
+            if (occupied.Contains(tile)) return 0;
+            if (!SpacedEnough(grid, tile, occupied, TrapSpacingTiles)) return 0;
+
+            var kind = rng.Chance(0.6f) ? TrapKind.Pit : TrapKind.Log;
+
+            int cost = TrapTable.Points(kind);
+            if (cost > left) return 0;
+
+            layout.Traps.Add(new TrapPlacement
+            {
+                Tile = tile,
+                Kind = kind,
+                Origin = PlacementOrigin.Scattered
+            });
+
+            occupied.Add(tile);
+            return cost;
+        }
+
+        /// <summary>One narrow point of the crossing, and the tiles that make it up.</summary>
+        struct Throat
+        {
+            public int Ways;
+            public List<int> Tiles;
+        }
+
+        /// <summary>
+        /// The crossing's narrow points, narrowest first, with each one's tiles ordered
+        /// by how central they are and how well the ground hides a trap.
+        ///
+        /// The centre first matters: a throat is laid across from the middle outward, so
+        /// that a budget which runs out has closed the line anyone would actually walk
+        /// rather than decorated its edges.
+        /// </summary>
+        /// <summary>
+        /// How many of the offered corridors pass over or beside each tile.
+        ///
+        /// The throats alone were not enough, and the way they failed is worth keeping.
+        /// A throat is narrow ground on the *ideal* crossing — the one the travel fields
+        /// describe — and the three corridors a player is offered are generated lines
+        /// that only roughly follow it. So the traps landed in the right stretch of
+        /// country and a tile or two off the road: on 1-8 with a lone shieldbearer, not
+        /// one trap was so much as *seen*, and with a scout in the squad they were seen
+        /// and never trodden on. A three-metre trigger on a four-metre tile does not
+        /// forgive being one tile out.
+        ///
+        /// Counted with a tile of slack, because a route runs corner to corner and a
+        /// trap beside the line still catches the column's flank.
+        /// </summary>
+        static int[] Crossed(TileGrid grid, IReadOnlyList<Corridor> corridors)
+        {
+            var crossed = new int[grid.TileCount];
+            if (corridors == null) return crossed;
+
+            var counted = new HashSet<int>();
+
+            foreach (var corridor in corridors)
+            {
+                counted.Clear();
+
+                foreach (int tile in corridor.Tiles)
+                {
+                    grid.ToCoords(tile, out int x, out int y);
+
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            if (!grid.IsPassable(x + dx, y + dy)) continue;
+                            counted.Add(grid.ToIndex(x + dx, y + dy));
+                        }
+                }
+
+                // Once per corridor however many of its tiles touch this one.
+                foreach (int tile in counted) crossed[tile]++;
+            }
+
+            return crossed;
+        }
+
+        static List<Throat> Throats(TileGrid grid, ThreatBand band, int[] crossed)
+        {
+            var slices = new List<int>[ThroatSlices];
+            float slack = band.Fastest * ThroatSlack;
+
+            foreach (int tile in band.Tiles)
+            {
+                float detour = band.FromStart[tile] + band.FromGoal[tile] - band.Fastest;
+                if (detour > slack) continue;
+
+                int slice = (int)(band.FromStart[tile] / band.Fastest * ThroatSlices);
+                if (slice < 0) slice = 0;
+                if (slice >= ThroatSlices) slice = ThroatSlices - 1;
+
+                (slices[slice] ?? (slices[slice] = new List<int>())).Add(tile);
+            }
+
+            var throats = new List<Throat>();
+
+            for (int i = 0; i < ThroatSlices; i++)
+            {
+                if (slices[i] == null || slices[i].Count == 0) continue;
+
+                var tiles = slices[i];
+
+                // Dead centre of the throat first, and among equals the ground that hides
+                // a trap best. TrapDensity is a multiplier on how tempting a tile is, so
+                // it is applied to the detour rather than compared against it: bare
+                // ground has to be twice as central as a bog to be chosen over it.
+                tiles.Sort((a, b) => Score(grid, band, crossed, a)
+                                    .CompareTo(Score(grid, band, crossed, b)));
+
+                throats.Add(new Throat { Ways = tiles.Count, Tiles = tiles });
+            }
+
+            throats.Sort((a, b) => a.Ways.CompareTo(b.Ways));
+            return throats;
+        }
+
+        /// <summary>
+        /// Lower is a better place for a trap: on the most roads, then central, then on
+        /// the ground that hides one best.
+        ///
+        /// Roads first and by a wide margin. A trap on ground all three corridors cross
+        /// is one nobody routes around; a trap on perfect ambush ground that no offered
+        /// route touches is scenery, which is what the whole scatter used to be.
+        /// </summary>
+        static float Score(TileGrid grid, ThreatBand band, int[] crossed, int tile)
+        {
+            float density = TerrainTable.TrapDensity(grid[tile]);
+
+            // A tile the ground refuses outright stays refused, however central it is.
+            if (density <= 0f) return float.MaxValue;
+
+            float detour = band.FromStart[tile] + band.FromGoal[tile] - band.Fastest;
+
+            // A whole rank per corridor: three beats two beats one, before anything else
+            // is looked at, and the rest decides ties within a rank.
+            return -crossed[tile] * 1000f + (detour + 1f) / density;
+        }
+
         /// <summary>The rest of the budget, over the band, weighted by how fast the ground is.</summary>
         static void ScatterEnemies(TileGrid grid, ThreatBand band, LevelRecipe recipe,
                                    DeterministicRandom rng, EncounterLayout layout,
-                                   HashSet<int> occupied, int budget)
+                                   HashSet<int> occupied, HashSet<int> mined, int budget)
         {
             if (budget <= 0) return;
 
@@ -400,6 +703,10 @@ namespace Arna.Gen
 
                 int tile = entry.Value;
                 if (occupied.Contains(tile)) continue;
+
+                // The tile itself, not its neighbourhood: a group has no business
+                // standing in a pit, and every business standing beside one.
+                if (mined.Contains(tile)) continue;
                 if (!SpacedEnough(grid, tile, occupied, GroupSpacingTiles)) continue;
 
                 var kind = PickAffordable(recipe.EnemyPool, rng, budget);
@@ -765,7 +1072,15 @@ namespace Arna.Gen
                     if (distance < nearest) nearest = distance;
                 }
 
-                scored.Add((nearest, tile));
+                // Emptiness decides where, and cover decides which of the empty places.
+                //
+                // The loop used to sort on distance alone, and it is the last thing to
+                // touch the layout — so on a level needing several repairs it undid the
+                // cover-seeking of the scatter it was correcting, and the level shipped
+                // with its groups standing in the open. Weighted rather than sorted after,
+                // because a tile that is twice as empty should still win over one that
+                // merely hides better.
+                scored.Add((nearest * band.Weight[tile], tile));
             }
 
             scored.Sort((a, b) => a.Distance != b.Distance
@@ -847,9 +1162,6 @@ namespace Arna.Gen
 
             TallySilver(layout, recipe);
         }
-
-        /// <summary>Tiles at either end left clear, so nothing is waiting before the caravan moves.</summary>
-        const int SafeEndTiles = 6;
 
         static int FreeTileOn(IReadOnlyList<int> route, HashSet<int> occupied)
         {

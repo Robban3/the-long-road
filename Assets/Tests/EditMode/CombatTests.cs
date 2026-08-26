@@ -254,19 +254,27 @@ namespace Arna.Tests
         [Test]
         public void ThePointTroopTakesTheTrapNotTheWagons()
         {
+            // A whole escort with the shieldbearer on point, not a shieldbearer alone.
+            // Alone it does not get to the traps: 1-8 destroys a one-man escort at seven
+            // percent of the route, twenty metres from the nearest pit, and the test then
+            // reports on a trap system it never reached.
             var squad = new Squad(18);
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
 
             var run = Run(1, 8, squad);
-            float wagonsBefore = 0f;
-            foreach (var wagon in run.Caravan.Wagons) wagonsBefore += wagon.Hp;
-
             run.RunToCompletion();
 
-            if (run.Traps.Traps.Count == 0) Assert.Ignore("this seed placed no traps on the fast route");
+            Assert.Greater(run.Traps.TriggeredCount, 0, "no trap was ever trodden on");
+            Assert.Greater(run.Traps.RevealedCount, 0, "no trap was ever spotted");
 
-            Assert.Greater(squad[FormationSlot.Van].ModelsLost + 1, 0);
-            Assert.Greater(run.Traps.RevealedCount, 0);
+            // Damage dealt, not health missing: see the note on TrapDamageToTroops.
+            Assert.Greater(run.TrapDamageToTroops, 0f, "the trap damage went nowhere");
+            Assert.AreEqual(0f, run.TrapDamageToWagons,
+                "a trap struck the wagons past a shieldbearer on point");
         }
 
         [Test]

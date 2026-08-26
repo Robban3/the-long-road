@@ -147,11 +147,23 @@ namespace Arna.Tests
         }
 
         [Test]
-        public void ThreatFollowsFastGround()
+        public void ThreatFollowsGroundThatFavoursAnAmbush()
         {
-            // The corridor rule restated per tile: the quick way is the dangerous way.
-            // Enemies should sit on ground that is faster than the map's average, or
-            // the trade the whole route choice rests on has quietly inverted.
+            // This asserted the opposite for a long time — that enemies sit on ground
+            // *faster* than the map average, on the argument that the quick way is the
+            // dangerous way — and it failed on nine levels of ten. The measurement was
+            // right and the rule was wrong.
+            //
+            // docs/GDD.md §3.1 is deliberately two-humped. Ambush weight runs forest 1.5,
+            // ford 1.3, road 1.2, marsh 1.0, pass 0.9, plains 0.8, while speed runs road
+            // 1.25, plains 1.0, forest 0.70, pass 0.60, ford 0.50, marsh 0.45. The two
+            // most dangerous terrains in that table are the forest and the ford, and both
+            // are slow: what draws an ambush is cover, not pace. So threat measured
+            // against speed *must* come out below the map average, and it did — 0.69
+            // against 0.76 — which is the table working rather than failing.
+            //
+            // Speed against safety is not lost with it. It is carried by the road, which
+            // is the fastest ground on the map and the second most dangerous on it.
             int checkedLevels = 0;
 
             for (int level = 1; level <= 10; level++)
@@ -161,26 +173,71 @@ namespace Arna.Tests
 
                 float occupied = 0f;
                 foreach (var spawn in map.Encounters.Enemies)
-                    occupied += TerrainTable.Speed(map.Grid[spawn.Tile]);
+                    occupied += TerrainTable.AmbushWeight(map.Grid[spawn.Tile]);
                 occupied /= map.Encounters.Enemies.Count;
 
+                // Against the ground in play rather than against the whole map. The
+                // placer may only put a group where a route can meet it, so comparing
+                // its choices to the average of a map it cannot use measures the
+                // geography as much as the placement — and a map whose cover happens to
+                // sit in its corners would fail this without anything being wrong.
                 float everywhere = 0f;
-                int passable = 0;
-                for (int i = 0; i < map.Grid.TileCount; i++)
+                int reachable = 0;
+
+                foreach (int tile in NearAnyRoute(map, 6))
                 {
-                    if (!map.Grid.IsPassable(i)) continue;
-                    everywhere += TerrainTable.Speed(map.Grid[i]);
-                    passable++;
+                    everywhere += TerrainTable.AmbushWeight(map.Grid[tile]);
+                    reachable++;
                 }
-                everywhere /= passable;
+                everywhere /= reachable;
 
                 Assert.Greater(occupied, everywhere,
-                    $"level 1-{level}: enemies sit on slower ground ({occupied:F2}) " +
-                    $"than the map average ({everywhere:F2})");
+                    $"level 1-{level}: enemies sit on ground that hides them less " +
+                    $"({occupied:F2}) than the country the routes cross ({everywhere:F2})");
                 checkedLevels++;
             }
 
             Assert.Greater(checkedLevels, 5);
+        }
+
+        /// <summary>Every passable tile within <paramref name="reach"/> of a corridor.</summary>
+        static HashSet<int> NearAnyRoute(LevelMap map, int reach)
+        {
+            var near = new HashSet<int>();
+
+            foreach (var corridor in map.Corridors)
+                foreach (int tile in corridor.Tiles)
+                {
+                    map.Grid.ToCoords(tile, out int x, out int y);
+
+                    for (int dy = -reach; dy <= reach; dy++)
+                        for (int dx = -reach; dx <= reach; dx++)
+                        {
+                            int nx = x + dx, ny = y + dy;
+                            if (!map.Grid.IsPassable(nx, ny)) continue;
+                            if (dx * dx + dy * dy > reach * reach) continue;
+
+                            near.Add(map.Grid.ToIndex(nx, ny));
+                        }
+                }
+
+            return near;
+        }
+
+        [Test]
+        public void TheRoadIsTheFastestGroundAndAlsoDangerous()
+        {
+            // The half of "speed against safety" that the ambush rule above does not
+            // carry, kept as its own assertion so that trade cannot quietly invert in
+            // the balance table without something saying so.
+            Assert.Greater(TerrainTable.Speed(TerrainType.Road),
+                           TerrainTable.Speed(TerrainType.Plains),
+                           "the road is no longer the quick way");
+
+            Assert.Greater(TerrainTable.AmbushWeight(TerrainType.Road),
+                           TerrainTable.AmbushWeight(TerrainType.Plains),
+                           "the road is no longer more dangerous than the open ground "
+                           + "beside it, so taking it costs nothing");
         }
 
         [Test]

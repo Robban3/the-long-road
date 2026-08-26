@@ -197,6 +197,7 @@ namespace Arna.Sim
                 if (point != null && point.Alive)
                 {
                     point.TakeDamage(damage);
+                    TrapDamageToTroops += damage;
                     continue;
                 }
 
@@ -204,10 +205,28 @@ namespace Arna.Sim
                 {
                     if (wagon.Destroyed) continue;
                     wagon.ApplyDamage(damage);
+                    TrapDamageToWagons += damage;
                     break;
                 }
             }
         }
+
+        /// <summary>
+        /// What the traps actually did, kept because the health left at the end does not
+        /// say.
+        ///
+        /// Two tests asserted that the troop on point finishes a trapped route hurt, and
+        /// both were wrong to. A priest in the column heals between fights, so on a level
+        /// the escort wins comfortably the van is back at full health by the goal — six
+        /// traps went off on 1-8 and the point troop arrived at 660 of 660. One of those
+        /// tests then *passed* for a while because wolves were hurting the troop instead,
+        /// which is worse than failing: it was reporting on the trap system and measuring
+        /// something else entirely.
+        ///
+        /// A running total cannot be healed away.
+        /// </summary>
+        public float TrapDamageToTroops { get; private set; }
+        public float TrapDamageToWagons { get; private set; }
 
         /// <summary>
         /// An engineer defuses revealed traps within reach as the column passes, and is

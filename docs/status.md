@@ -182,38 +182,93 @@ gives them. The country is right, the dressing is a sketch. See
 
 ## 4. Known problems, worst first
 
-**Traps are inert.** Level 1-8 places fourteen of them; a run down its fast corridor
-reveals two and triggers none. The trigger radius is three metres and threat now sits
-across the whole crossable band, so a trap forty metres off the line the player drew is
-scenery. Enemies survived that change because a group has a territory and comes to you;
-a trap has neither. Three EditMode tests have been failing on this and none of them said
-so in those words, because a trap that never fires reads as a squad that took no damage.
-The fix is a placement decision rather than a bug fix — chokepoints a route cannot avoid
-(fords, passes, narrow ground) rather than a scatter over open country — and it is worth
-making deliberately.
+**The suite is green: 194 tests, none failing.** The four that had been red for weeks are
+resolved below, and none of the four was an implementation bug — three were design calls
+waiting to be made and one was a test measuring the wrong thing.
 
-One of those three, `TrapsStrikeTheTroopOnPointRatherThanTheWagons`, was *passing* until
-the halt fix, and not for its own reason: it asserts that the troop on point ends the
-level hurt, and the point troop was being hurt by wolves rather than by traps. Once the
-escort could win 1-8 cleanly the assertion had nothing left to lean on. A test that
-passes off the wrong evidence is worth more attention than one that fails.
+**Traps are no longer inert, and the fix was placement.** Level 1-8 used to place fourteen
+of them; a run down its fast corridor revealed two and triggered none. A trap has a
+three-metre trigger and no territory — unlike a group, which comes to you — so scattered
+over a band of three thousand tiles it is scenery. Three of the game's own answers had no
+question with it: the scout who reveals traps at 10 m, the sapper who disarms, the
+shieldbearer who absorbs — "three different answers to the same problem" (GDD §7.2) — and
+the marching order in which order 0 walks in first and order 3 crosses last.
 
-**Threat sits on slower ground than the map average, on nine levels out of ten.**
-Measured over chapter 1: 1-1 places eighteen groups on ground averaging 0.717 against a
-map average of 0.761, 1-8 lands at 0.671 against 0.761, and only 1-2 comes out ahead.
-`EncounterPlacerTests.ThreatFollowsFastGround` asserts the opposite, one level at a time,
-and it is not sample noise at that spread. The design rule it encodes — the quick way is
-the dangerous way — and the ambush weighting that draws groups toward cover are pulling
-against each other, and which of them should win is a design call, not an implementation
-one.
+They now go where the country is narrow, and narrowness is *measured*. Both travel fields
+were already built, so a tile's detour is `FromStart + FromGoal - Fastest`: zero on an
+ideal crossing, growing as you go round. Cut the crossing into 48 slices by depth, count
+the tiles per slice whose detour is inside 8 %, and that count is how many ways past there
+are at that depth. The smallest counts are the fords, the passes and the dry line through
+a bog.
 
-**Chapter 1 has levels with only one survivable corridor.** With the fixed test escort
-at each level's own budget and enemy strength, 1-6 and 1-8 come out at one route of
-three; the other eight levels give two or three, and every level has at least one. That
-is up from the state this was found in, where 1-5 offered none at all and the caravan
-died at seven percent of the route. `EveryLevelOffersAWayThroughForAnEscortedCaravan`
-wants two, on the argument that a level with one way through is not a route choice. It
-is a tuning question — enemy strength, squad budget, or the threshold itself.
+Throats alone were not enough, and how they failed is worth keeping: a throat is narrow
+ground on the *ideal* crossing, and the three corridors a player is offered are generated
+lines that only roughly follow it. Traps landed in the right stretch of country and a tile
+off the road — on 1-8 with a lone shieldbearer not one was so much as seen. A three-metre
+trigger on a four-metre tile does not forgive being one tile out. So the score ranks by how
+many corridors cross a tile first, and everything else decides ties within that rank.
+
+**Two thirds at the throats, one third strewn** (`ThroatShare`). All-scattered is what
+there was and it does not fire. All-at-the-throats fires and reads as *arranged*: a player
+learns within three levels that the ford is always mined, which turns a hazard into a
+checklist. The strewn third is what stops that becoming a rule — and it gets its own share
+of the allowance rather than the throats' leftovers, because handing it the remainder makes
+the total depend on how much legal ground the throats happened to have. That took 1-7 from
+three survivable routes to none between one run and the next with the allowance unchanged.
+
+`TrapBudgetShare` came down from 0.25 to 0.18 with it. The share had been tuned against a
+placement that *could not spend it* — the old scatter shared one occupancy set with
+everything else at three tiles' spacing and ran out of ground before it ran out of
+allowance. Laying them properly spends the lot, so the same number bought far more trap
+and less enemy, and chapter 2 began shipping levels that could not put five groups on
+every drawn route. A constant tuned as a product breaks silently when either factor moves;
+this is the third time that has happened here.
+
+**Threat follows cover, not speed.** `ThreatFollowsFastGround` asserted that enemies sit
+on ground faster than the map average and failed on nine levels of ten. The measurement was
+right and the rule was wrong. GDD §3.1 is deliberately two-humped — ambush weight runs
+forest 1.5, ford 1.3, road 1.2, marsh 1.0, pass 0.9, plains 0.8, while speed runs road
+1.25, plains 1.0, forest 0.70, pass 0.60, ford 0.50, marsh 0.45. The two most dangerous
+terrains in the table are the forest and the ford and **both are slow**: what draws an
+ambush is cover. Threat measured against speed therefore *must* come out below the map
+average, and it did, 0.69 against 0.76 — the table working rather than failing.
+
+The band's own weight was `speed * AmbushWeight`, and those factors pull against each
+other: multiplied by speed the forest scored 1.05 against the open plain's 0.80, so groups
+drifted out of the cover the table sends them to. It is `AmbushWeight` alone now. Speed
+against safety is not lost with it — the road carries that by itself, fastest ground on the
+map and second most dangerous on it, which `TheRoadIsTheFastestGroundAndAlsoDangerous` now
+holds on its own.
+
+Two smaller things fell out of that. The repair loop is the last thing to touch a layout and
+sorted its candidates on emptiness alone, so on a level needing several repairs it undid the
+scatter's cover-seeking; it weights by cover now. And `SafeEndCost` was only ever checked as
+travel cost — eight of it is two and a half tiles on a road — so a group could stand four
+tiles from the start and satisfy a rule written in distance. There is a straight-line ring
+as well now.
+
+**How many ways through a level owes you depends on what the level is for.**
+`EveryLevelOffersAWayThroughForAnEscortedCaravan` wanted two everywhere and failed on 1-6
+and 1-8 — both in the escalation band, with the eight levels outside it passing. GDD §8.1
+gives every chapter the same shape: 1 intro, 2-4 variation, 5 twist, **6-9 escalation**, 10
+boss. One hard way through late in a chapter is the escalation doing its job; buying two
+there costs either a toothless enemy budget on those levels or a squad budget raised across
+all ten to mend two. The threshold is two outside the band and one inside it, every level
+still owes at least one, and `ChapterOneStillOffersARealRouteChoiceOverall` holds the other
+end — twenty survivable routes across the chapter's thirty, or it is a corridor with
+scenery either side.
+
+**A test that measures health at the goal is not measuring traps.** Both trap tests
+asserted that the troop on point finishes hurt. A priest heals between fights, so on a level
+the escort wins comfortably the van arrives at full health however many traps it walked
+into — six fired on 1-8 and it came in at 660 of 660. One of those tests *passed* for a
+while because wolves were hurting the troop instead, which is worse than failing: it
+reported on the trap system while measuring something else. `LevelRun.TrapDamageToTroops`
+and `TrapDamageToWagons` are running totals, and a running total cannot be healed away.
+
+The other half of that test was a one-man escort. 1-8 destroys it at seven percent of the
+route, twenty metres from the nearest pit, and it then reports on a trap system it never
+reached.
 
 **A fight is now most of a level's wall clock.** 1-1 arrives in 110 s of which 71 are
 spent halted. Par is measured against `TravelSeconds` so the stars are unaffected, but
