@@ -776,6 +776,29 @@ about √5 ≈ 2.2 times slower, and 1 ÷ 2.2 = 0.45. The clip was authored for 
 bird and is being watched on a ten-metre one; it was never going to look right at a speed
 chosen by eye.
 
+### The preview kept every generation it had ever built
+
+`_props`, `_routes`, `_markers` and `_eagleRoot` are private fields with no
+`[SerializeField]`, so Unity does not serialize them. Opening the scene hands them all
+back null while the GameObjects they point at are sitting in it exactly where they were
+saved — and the rebuild `OnEnable` asks for then builds a second `Props` beside the first
+and leaves it. Every save keeps another generation.
+
+That is the whole of "why is there scenery outside the map and a mountain in the middle
+of it": a horizon ring built before the planning view stopped asking for one, orphaned by
+a scene load, saved back in by the next thing that saved the scene, and from then on
+untouchable by any code change — `horizon: false` cannot remove a prop that no longer
+belongs to anything.
+
+`LevelPreview.Clear(name)` removes a build root **by name**, and every stray copy of it,
+before each rebuild. Serializing the fields would have mended the reference and not the
+strays already in the scene; this mends both. It says how many it cleared, once, so the
+next accumulation of this kind is visible rather than inferred from the picture.
+
+The general shape is worth naming: **an editor-time builder must clear by identity in the
+scene, not by a reference in the component.** Anything `[ExecuteAlways]` generates lives
+longer than the field that made it.
+
 ### The editor has no clock in it
 
 `Time.deltaTime` means nothing outside play mode. There is no game loop for it to

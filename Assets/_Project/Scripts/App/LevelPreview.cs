@@ -330,13 +330,8 @@ namespace Arna.App
         /// </summary>
         void BuildMarkers(LevelMap map)
         {
-            if (_markers != null)
-            {
-                if (Application.isPlaying) Destroy(_markers.gameObject);
-                else DestroyImmediate(_markers.gameObject);
-
-                _markers = null;
-            }
+            Clear("Markers");
+            _markers = null;
 
             if (_markerMesh != null)
             {
@@ -458,12 +453,7 @@ namespace Arna.App
             // The root, not the bird inside it. Destroying only the actor left its empty
             // parent behind, and this component rebuilds on every inspector keystroke —
             // one abandoned GameObject per character typed into the level field.
-            if (_eagleRoot != null)
-            {
-                if (Application.isPlaying) Destroy(_eagleRoot.gameObject);
-                else DestroyImmediate(_eagleRoot.gameObject);
-            }
-
+            Clear("Eagle");
             _eagleRoot = null;
             _eagle = null;
 
@@ -578,13 +568,60 @@ namespace Arna.App
         /// three routes drawn on the ground disappear under a closed canopy, and the
         /// one thing the player came to this view to do is compare them.
         /// </summary>
+
+        /// <summary>
+        /// Removes a build root by name, and every stray copy of it.
+        ///
+        /// By name rather than by reference, because the references cannot be trusted:
+        /// `_props`, `_routes`, `_markers` and `_eagleRoot` are private fields with no
+        /// [SerializeField] on them, so Unity does not serialize them. Opening the scene
+        /// hands them all back null while the GameObjects they pointed at are sitting in
+        /// it exactly where they were saved — and the rebuild that `OnEnable` asks for
+        /// then builds a second `Props` beside the first and leaves it there.
+        ///
+        /// It compounds, and it compounds invisibly: every save keeps every generation
+        /// the scene has ever built. That is where the mountain in the middle of the map
+        /// came from, and where the scenery beyond the map's edge came from — a horizon
+        /// ring built before the planning view stopped asking for one, orphaned by a
+        /// scene load and then saved back into the scene by the next thing that saved it.
+        ///
+        /// Serializing the fields would mend the reference and not the strays already
+        /// there. This mends both, on every rebuild, for good.
+        /// </summary>
+        int Clear(string name)
+        {
+            int removed = 0;
+
+            // Backwards: destroying a child immediately reindexes the ones after it.
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                var child = transform.GetChild(i);
+                if (child.name != name) continue;
+
+                if (Application.isPlaying) Destroy(child.gameObject);
+                else DestroyImmediate(child.gameObject);
+
+                removed++;
+            }
+
+            return removed;
+        }
+
         void BuildProps(LevelMap map)
         {
-            if (_props != null)
-            {
-                if (Application.isPlaying) Destroy(_props.gameObject);
-                else DestroyImmediate(_props.gameObject);
-            }
+            // Asked before the clearing, not after. DestroyImmediate makes a reference
+            // read as null the moment it runs, so counting afterwards would report the
+            // root this rebuild legitimately replaced as one more stray every time.
+            bool had = _props != null;
+
+            int strays = Clear("Props") - (had ? 1 : 0);
+            _props = null;
+
+            if (strays > 0)
+                Debug.LogWarning($"[Arna] {strays} abandoned prop root(s) cleared out of the "
+                                 + "preview. They were built by an earlier run, orphaned by a "
+                                 + "scene load and saved back into the scene — see "
+                                 + "LevelPreview.Clear.");
 
             if (Decor == null || Decor.IsEmpty) return;
 
@@ -610,12 +647,8 @@ namespace Arna.App
         /// </summary>
         void BuildRoutes(LevelMap map)
         {
-            if (_routes != null)
-            {
-                if (Application.isPlaying) Destroy(_routes.gameObject);
-                else DestroyImmediate(_routes.gameObject);
-                _routes = null;
-            }
+            Clear("Routes");
+            _routes = null;
 
             if (!ShowCorridors || map.Corridors == null || RouteMaterial == null) return;
 
