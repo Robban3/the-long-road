@@ -193,12 +193,79 @@ namespace Arna.View
         /// </summary>
         public PropSet Markers = new PropSet();
 
+        /// <summary>
+        /// The surface of open water, laid over the tiles that are water.
+        ///
+        /// **The one set here that replaces a tile with a shape.** Everything else on
+        /// this list dresses ground that the mesh already draws; a river is drawn *by*
+        /// the mesh, as a band of blue vertex colour, and a band of tiles running at any
+        /// angle other than square is a staircase of four-metre squares. Reeds and pads
+        /// hide that staircase, which was the fix that could be had without new models.
+        /// A water plane is the fix: a surface with its own edge, laid on top, which does
+        /// not care where the tile boundaries are.
+        /// </summary>
+        public PropSet Water = new PropSet();
+
+        /// <summary>Where a route crosses water: a plank bridge, a stepping course.</summary>
+        public PropSet Fords = new PropSet();
+
+        /// <summary>
+        /// Rock faces for the tiles the map calls cliff.
+        ///
+        /// `TerrainType.Cliff` has existed since the generator was written and has never
+        /// had a single prop on it — it is impassable, so nothing walks there and nothing
+        /// was ever put there, and what the player sees is a patch of differently
+        /// coloured ground they cannot cross for no visible reason. A cliff should look
+        /// like the reason.
+        /// </summary>
+        public PropSet Cliffs = new PropSet();
+
+        /// <summary>
+        /// A tent, a weapon rack, a banner: what an enemy group lives in.
+        ///
+        /// Groups have a territory in the simulation and stand on bare grass in the view,
+        /// so a band of raiders reads as men who happen to be standing there. A camp is
+        /// the same soft signal as the wreck at a trap field and the crows overhead — it
+        /// says *somebody lives here* in the language the design already speaks
+        /// (docs/GDD.md §2), rather than by drawing a marker.
+        /// </summary>
+        public PropSet Camps = new PropSet();
+
+        /// <summary>Willows, for the ground beside water. Nothing else here belongs there.</summary>
+        public PropSet Willows = new PropSet();
+
+        /// <summary>
+        /// Stone the water has piled up, for its margins.
+        ///
+        /// The shoreline was strewn with the general <see cref="Rocks"/> set, which is
+        /// loose stone scattered anywhere. The pack has piles and *curved* piles, made to
+        /// follow a waterline — the difference between stones that happen to be near a
+        /// river and stones a river put there.
+        /// </summary>
+        public PropSet Shore = new PropSet();
+
+        /// <summary>
+        /// One piece of scenery standing behind everything: the far range.
+        ///
+        /// The skyline is 22 separate peaks — 22 draw calls and a few thousand triangles
+        /// for something that is never nearer than 400 m, never seen from the side, and
+        /// never moves relative to anything. The pack ships `SM_MountainSkybox_01` for
+        /// exactly this: one mesh, one draw call, the whole horizon.
+        ///
+        /// It does not replace the ring. It stands **behind** it, so the near peaks give
+        /// parallax against a backdrop that does not — which is what makes distance read
+        /// as distance rather than as a painted wall. The ring can then be thinned, which
+        /// is where the draw calls come back.
+        /// </summary>
+        public PropSet Backdrop = new PropSet();
+
         public bool IsEmpty =>
             !Has(Trees) && !Has(Pines) && !Has(Birch) && !Has(DeadTrees) && !Has(Bushes) &&
             !Has(Rocks) && !Has(Boulders) && !Has(Horizon) &&
             !Has(GroundCover) && !Has(MarshPlants) && !Has(Lilypads) &&
             !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
-            !Has(Timber) && !Has(Ruins) && !Has(Markers);
+            !Has(Timber) && !Has(Ruins) && !Has(Markers) && !Has(Water) && !Has(Fords) &&
+            !Has(Cliffs) && !Has(Camps) && !Has(Willows) && !Has(Shore) && !Has(Backdrop);
 
         static bool Has(PropSet set) => set != null && set.Any;
     }
@@ -315,6 +382,45 @@ namespace Arna.View
         /// a camera 47 m up, short enough not to compete with a fourteen-metre spruce.
         /// </summary>
         public const float MarkerHeight = 3f;
+
+        /// <summary>
+        /// How far across a water plane is laid, in metres.
+        ///
+        /// A tile and a half. The planes overlap on purpose — a surface that stops
+        /// exactly at a tile boundary reproduces the staircase it was brought in to
+        /// hide, and a river is continuous. Overlapping ones read as one sheet.
+        /// </summary>
+        public const float WaterWidth = TileGrid.TileSize * 1.5f;
+
+        /// <summary>
+        /// How far a water plane sits above the ground under it.
+        ///
+        /// Twelve centimetres. Level with the bed it z-fights, which is the ugliest
+        /// failure in rendering and the most distracting; higher than this and the sheet
+        /// visibly floats over its own bank.
+        /// </summary>
+        public const float WaterLift = 0.12f;
+
+        /// <summary>How wide a crossing is laid across a ford, in metres.</summary>
+        public const float FordWidth = 6f;
+
+        /// <summary>How tall a cliff face stands.</summary>
+        public const float CliffHeight = 12f;
+
+        /// <summary>A tent, at a bit over the height of the man who sleeps in it.</summary>
+        public const float CampHeight = 2.6f;
+
+        /// <summary>
+        /// A willow, which is shorter than the spruce it stands among.
+        ///
+        /// Ten metres against a spruce's fourteen, because a willow leans out over water
+        /// rather than up out of a wood, and one drawn to a conifer's height beside a
+        /// stream is the only tree on the map you would notice from the map.
+        /// </summary>
+        public const float WillowHeight = 10f;
+
+        /// <summary>How many tiles from water a willow will take root.</summary>
+        public const int WillowReach = 2;
 
         /// <summary>
         /// How many landmarks a map may carry. A hard cap rather than density alone,
@@ -541,7 +647,8 @@ namespace Arna.View
                                    float densityScale = 1f,
                                    IReadOnlyCollection<int> ruinSites = null,
                                    bool horizon = true,
-                                   IReadOnlyCollection<int> driveLine = null)
+                                   IReadOnlyCollection<int> driveLine = null,
+                                   IReadOnlyCollection<int> campSites = null)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
@@ -608,7 +715,11 @@ namespace Arna.View
             // the ring lands *around* the map in the frame. A row of mountains framing a
             // map is not distance, it is furniture: the plan is a map, and the only
             // thing on it should be the country the route is drawn through.
-            if (horizon) placed += PlaceHorizon(parent, grid, rng, decor);
+            if (horizon)
+            {
+                placed += PlaceBackdrop(parent, grid, decor);
+                placed += PlaceHorizon(parent, grid, rng, decor);
+            }
 
             // Patches before cover, so grass grows over the bare earth rather than the
             // bare earth being laid over the grass.
@@ -618,6 +729,196 @@ namespace Arna.View
             placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
                                        heightScale, densityScale);
             placed += PlaceShoreline(parent, grid, rng, decor, occupied, heightScale, densityScale);
+
+            // The water goes on last, over everything laid on its bed. Nothing claims
+            // ground for it: reeds stand in the shallows and pads float on the surface,
+            // and a sheet that reserved its tiles would have cleared both away.
+            placed += PlaceWater(parent, grid, rng, decor, heightScale);
+            placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale);
+            placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale);
+            placed += PlaceWillows(parent, grid, rng, decor, occupied, heightScale, densityScale);
+            placed += PlaceCamps(parent, grid, rng, decor, occupied, heightScale, campSites);
+
+            return placed;
+        }
+
+        /// <summary>
+        /// Lays a surface over the tiles that are water.
+        ///
+        /// See <see cref="BiomeDecor.Water"/> for why this is the only set that replaces
+        /// a tile rather than dressing one. The planes are laid a tile and a half across
+        /// and overlap, because a sheet that stopped at the tile boundary would reproduce
+        /// the staircase it is here to hide.
+        ///
+        /// Flat, and level with itself rather than with the bed. Water finds its own
+        /// level: a plane tilted to follow the ground under it is the one thing that
+        /// would give the trick away.
+        /// </summary>
+        static int PlaceWater(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, float heightScale)
+        {
+            if (!decor.Water.Any) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] != TerrainType.Water) continue;
+
+                var at = Vec2.FromTile(grid, i);
+                float bed = grid.SurfaceElevation(at.X, at.Y) * heightScale;
+
+                var instance = Object.Instantiate(Any(decor.Water, rng), parent);
+
+                instance.transform.position = new Vector3(at.X, bed + WaterLift, at.Y);
+
+                // Turned in quarter turns only. A water plane is a square with a texture
+                // on it, and an odd angle shows its corners against the tile grid it is
+                // covering.
+                instance.transform.rotation = Quaternion.Euler(0f, rng.Range(0, 4) * 90f, 0f);
+
+                ModelScaling.FitToFootprint(instance, WaterWidth, bed + WaterLift);
+                placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>
+        /// Puts a crossing on the ford tiles, one per crossing rather than one per tile.
+        ///
+        /// A ford is a terrain type the route planner treats as a chokepoint — every
+        /// corridor tends to use the same one, which is why the traps go there — and it
+        /// has never had anything on it. What the player sees is water that is somehow
+        /// passable, with nothing to say why. A plank bridge says it.
+        /// </summary>
+        static int PlaceFords(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, HashSet<int> occupied, float heightScale)
+        {
+            if (!decor.Fords.Any) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] != TerrainType.Ford) continue;
+                if (occupied.Contains(i)) continue;
+
+                // One per crossing. A ford is several tiles wide and a bridge on each of
+                // them is a pier, not a crossing.
+                if (!SpacedEnough(grid, i, occupied, 4f)) continue;
+
+                var choice = new Choice(decor.Fords, Any(decor.Fords, rng), FordWidth,
+                                        byWidth: true);
+
+                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 0.4f, occupied))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>
+        /// Stands rock on the tiles the map calls cliff.
+        ///
+        /// They are impassable, so nothing has ever been placed there and nothing walks
+        /// there — and the result is a patch of differently coloured ground the player
+        /// cannot cross for no visible reason. A cliff should look like the reason it is
+        /// one.
+        /// </summary>
+        static int PlaceCliffs(Transform parent, TileGrid grid, DeterministicRandom rng,
+                               BiomeDecor decor, HashSet<int> occupied, float heightScale)
+        {
+            if (!decor.Cliffs.Any) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && placed < MaxLandmarks * 3; i++)
+            {
+                if (grid[i] != TerrainType.Cliff) continue;
+                if (occupied.Contains(i)) continue;
+                if (!SpacedEnough(grid, i, occupied, 2f)) continue;
+
+                var choice = new Choice(decor.Cliffs, Any(decor.Cliffs, rng), CliffHeight,
+                                        byWidth: false);
+
+                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.2f, occupied))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>
+        /// Willows on the ground beside water, and nowhere else.
+        ///
+        /// The scatter puts spruce and oak wherever the terrain table says forest, which
+        /// takes no notice of a river running through it. A willow leaning over water is
+        /// the one tree whose place is decided by something other than the biome.
+        /// </summary>
+        static int PlaceWillows(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                BiomeDecor decor, HashSet<int> occupied,
+                                float heightScale, float densityScale)
+        {
+            if (!decor.Willows.Any) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && placed < MaxLandmarks * 2; i++)
+            {
+                if (grid[i] == TerrainType.Water || grid[i] == TerrainType.Cliff) continue;
+                if (occupied.Contains(i)) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+                if (!WithinReachOfWater(grid, x, y, WillowReach)) continue;
+                if (!rng.Chance(0.22f * densityScale)) continue;
+
+                var choice = new Choice(decor.Willows, Any(decor.Willows, rng), WillowHeight,
+                                        byWidth: false, TreeJitterLow, TreeJitterHigh, canopy: true);
+
+                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.2f, occupied))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        static bool WithinReachOfWater(TileGrid grid, int x, int y, int reach)
+        {
+            for (int dy = -reach; dy <= reach; dy++)
+                for (int dx = -reach; dx <= reach; dx++)
+                    if (IsWater(grid, x + dx, y + dy)) return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Pitches a camp on the ground an enemy group holds.
+        ///
+        /// One prop per site rather than a cluster, for the same reason the trap fields
+        /// get one ruin: a band of raiders is *one* thing that is there, and six tents
+        /// would read as a village. See <see cref="BiomeDecor.Camps"/>.
+        /// </summary>
+        static int PlaceCamps(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                              IReadOnlyCollection<int> sites)
+        {
+            if (sites == null || !decor.Camps.Any) return 0;
+
+            int placed = 0;
+
+            foreach (int tile in sites)
+            {
+                if (tile < 0 || tile >= grid.TileCount) continue;
+                if (occupied.Contains(tile)) continue;
+
+                var choice = new Choice(decor.Camps, Any(decor.Camps, rng), CampHeight,
+                                        byWidth: false);
+
+                if (Scatter(parent, grid, rng, choice, tile, heightScale, spread: 1.6f, occupied))
+                    placed++;
+            }
+
             return placed;
         }
 
@@ -633,7 +934,9 @@ namespace Arna.View
                                   BiomeDecor decor, HashSet<int> occupied,
                                   float heightScale, float densityScale)
         {
-            if (!decor.Rocks.Any) return 0;
+            // The piles if the pack has them, the general stones if not.
+            var stones = decor.Shore.Any ? decor.Shore : decor.Rocks;
+            if (!stones.Any) return 0;
 
             int placed = 0;
 
@@ -648,7 +951,7 @@ namespace Arna.View
                 int stones = 3 + rng.Range(0, 4);
                 for (int s = 0; s < stones && placed < MaxShoreStones; s++)
                 {
-                    var choice = new Choice(decor.Rocks, Any(decor.Rocks, rng), ShoreStoneSize,
+                    var choice = new Choice(stones, Any(stones, rng), ShoreStoneSize,
                                             byWidth: true);
 
                     Scatter(parent, grid, rng, choice, i, heightScale, spread: 2.0f);
@@ -750,6 +1053,47 @@ namespace Arna.View
         }
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+
+        /// <summary>
+        /// Stands one backdrop behind the whole map. See <see cref="BiomeDecor.Backdrop"/>.
+        ///
+        /// Centred on the map and scaled to swallow it whole, so it surrounds the player
+        /// whichever way they look. It is painted the same grey as the peaks in front of
+        /// it: two ranges at different distances in the same colour read as one range
+        /// receding, where two colours read as two pieces of scenery.
+        /// </summary>
+        static int PlaceBackdrop(Transform parent, TileGrid grid, BiomeDecor decor)
+        {
+            if (!decor.Backdrop.Any || decor.Backdrop.Models[0] == null) return 0;
+
+            float centreX = grid.Width * TileGrid.TileSize * 0.5f;
+            float centreZ = grid.Height * TileGrid.TileSize * 0.5f;
+
+            var instance = Object.Instantiate(decor.Backdrop.Models[0], parent);
+
+            instance.transform.position = new Vector3(centreX, 0f, centreZ);
+            instance.transform.rotation = decor.Backdrop.ZUp
+                ? Quaternion.Euler(-90f, 0f, 0f)
+                : Quaternion.identity;
+
+            ModelScaling.FitToFootprint(instance, BackdropWidth, 0f);
+
+            var skyline = Skyline();
+            if (skyline != null)
+                foreach (var renderer in instance.GetComponentsInChildren<Renderer>(true))
+                    renderer.sharedMaterial = skyline;
+
+            return 1;
+        }
+
+        /// <summary>
+        /// How wide the backdrop is laid, in metres.
+        ///
+        /// Sixteen hundred: four times the radius the peak ring stands at, so it is well
+        /// behind every one of them from every point on the map. It is a backdrop, and a
+        /// backdrop that anything can get level with is a wall.
+        /// </summary>
+        public const float BackdropWidth = 1600f;
 
         static int PlaceHorizon(Transform parent, TileGrid grid, DeterministicRandom rng,
                                 BiomeDecor decor)

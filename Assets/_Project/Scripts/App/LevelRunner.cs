@@ -159,7 +159,8 @@ namespace Arna.App
             // that said nothing — which is the half where the signal was meant to work.
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
-                ruinSites: TrapSigns.Sites(map), driveLine: corridor.Tiles);
+                ruinSites: TrapSigns.Sites(map), driveLine: corridor.Tiles,
+                campSites: TrapSigns.Camps(map));
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
             _visuals.Build(_run);

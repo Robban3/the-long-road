@@ -25,6 +25,32 @@ namespace Arna.Sim
     /// </summary>
     public static class TrapSigns
     {
+        /// <summary>
+        /// Ground near each enemy group, for pitching a camp on. **Never their own tile.**
+        ///
+        /// The first version put the tent where the men are, on the argument that a camp
+        /// is what a band lives in and so marking them with it is honest. That argument
+        /// is wrong, and wrong in the way this project has been caught by twice before:
+        /// enemies are drawn only once revealed, and a tent standing on an unrevealed
+        /// group hands over the position the whole detection system exists to keep
+        /// hidden. A signal you can read exactly is not a signal, it is an answer.
+        ///
+        /// So it follows the same rule as the trap signs, for the same reason and through
+        /// the same code: near enough to be worth noticing, far enough that noticing it
+        /// tells you to be careful rather than where to step. Which is also truer — a
+        /// camp is where a band sleeps, not where it stands watch.
+        /// </summary>
+        public static List<int> Camps(LevelMap map)
+        {
+            var enemies = map?.Encounters?.Enemies;
+            if (enemies == null || enemies.Count == 0) return null;
+
+            var tiles = new List<int>();
+            foreach (var enemy in enemies) tiles.Add(enemy.Tile);
+
+            return Near(map, tiles, map.Seed ^ 0x0CA3);
+        }
+
         /// <summary>Trap fields are grouped into neighbourhoods this many tiles across.</summary>
         public const int ClusterTiles = 6;
 
@@ -36,23 +62,34 @@ namespace Arna.Sim
             var traps = map?.Encounters?.Traps;
             if (traps == null || traps.Count == 0) return null;
 
-            // "Never on one" is the whole of the tell, and it was once said and not done:
-            // the offset is drawn from [-3, 3] in both axes, which includes (0, 0), and
-            // nothing checked the trap tiles. A sign marked a trap exactly, on one of
-            // nine sites on 1-5.
-            var mined = new HashSet<int>();
-            foreach (var trap in traps) mined.Add(trap.Tile);
+            var tiles = new List<int>();
+            foreach (var trap in traps) tiles.Add(trap.Tile);
 
-            var rng = new DeterministicRandom(map.Seed ^ 0x2117);
+            return Near(map, tiles, map.Seed ^ 0x2117);
+        }
+
+        /// <summary>
+        /// Ground beside the given tiles: one site per neighbourhood, offset by a few
+        /// tiles, and never on one of them.
+        ///
+        /// The rule both signals share. "Never on one" is the whole of the tell, and it
+        /// was once said and not done: the offset is drawn from [-3, 3] in both axes,
+        /// which includes (0, 0), and nothing checked the marked tiles. A sign marked a
+        /// trap exactly, on one of nine sites on 1-5.
+        /// </summary>
+        static List<int> Near(LevelMap map, List<int> marked, int seed)
+        {
+            var avoid = new HashSet<int>(marked);
+            var rng = new DeterministicRandom(seed);
             var neighbourhoods = new HashSet<int>();
             var sites = new List<int>();
 
-            foreach (var trap in traps)
+            foreach (int tile in marked)
             {
-                map.Grid.ToCoords(trap.Tile, out int x, out int y);
+                map.Grid.ToCoords(tile, out int x, out int y);
 
-                // One sign per neighbourhood. A field of six traps is one thing that
-                // happened, not six.
+                // One per neighbourhood. A field of six traps is one thing that happened,
+                // not six; a band of raiders sleeps in one camp.
                 int cell = (y / ClusterTiles) * map.Grid.Width + x / ClusterTiles;
                 if (!neighbourhoods.Add(cell)) continue;
 
@@ -66,7 +103,7 @@ namespace Arna.Sim
                     if (terrain == TerrainType.Water || terrain == TerrainType.Cliff) continue;
 
                     int site = map.Grid.ToIndex(nx, ny);
-                    if (mined.Contains(site)) continue;
+                    if (avoid.Contains(site)) continue;
 
                     sites.Add(site);
                     break;
@@ -75,5 +112,6 @@ namespace Arna.Sim
 
             return sites;
         }
+
     }
 }

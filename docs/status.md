@@ -908,6 +908,59 @@ The enemy marks follow the same rule and the crows do not. A group is drawn wher
 found it; the crows are free and always visible, which is the whole distinction the
 design rests on (docs/GDD.md §3.4, §3.6).
 
+### Nine things the packs had and the game did not
+
+All of them were sitting in `docs/synty-inventory.md` marked *unused* or *candidate*.
+
+**Water is now a surface, not a colour.** `SM_River_Plane_01` laid over every water tile,
+a tile and a half across so the planes overlap — a sheet that stopped at the tile boundary
+would reproduce the staircase it is there to hide. It sits `WaterLift = 0.12 m` above the
+bed: level with it, it z-fights; higher, it floats. Flat and level with itself rather than
+following the ground, because water finds its own level and a tilted plane is the one thing
+that would give the trick away. **This is the only set in the decorator that replaces a tile
+rather than dressing one**, and it is the real answer to the blocky watercourses — the reeds
+and pads were the fix that could be had without new models.
+
+**The fen is dressed with actual swamp plants.** `SM_Swamp_Root_01..02` and
+`SM_Terrain_Swamp_Growth_01..03` were unused in `Terrain/` while the marsh was being dressed
+out of the general plant folder with ferns and mushrooms, which grow in a wood.
+
+**Fords have a crossing on them.** `SM_Prop_Bridge_Curved_01`, one per ford rather than one
+per tile — a ford is several tiles wide and a bridge on each is a pier. Fords are where the
+traps go, because every corridor uses them; they had nothing on them but water you could
+somehow walk through.
+
+**Cliffs look like the reason they are impassable.** `TerrainType.Cliff` has existed since
+the generator was written and never had a single prop: a patch of differently coloured
+ground the player cannot cross, for no visible reason.
+
+**Willows stand beside water and nowhere else.** The scatter puts spruce and oak wherever
+the terrain table says forest, which takes no notice of a river running through it. 10 m
+against a spruce's 14, because a willow leans out over water rather than up out of a wood.
+
+**The shoreline gets stone a river put there** rather than stone that happens to be near
+one — `SM_Rock_Pile_Curved_01..02` are made to follow a waterline.
+
+**Enemy camps.** A tent, a rack, a banner near each group: a band of raiders stood on bare
+grass and read as men who happen to be there.
+
+**And one mesh behind the whole horizon.** `SM_MountainSkybox_01` — the inventory has called
+it the biggest thing not yet used since the day it was written. The peak ring is 22 draw
+calls for something never nearer than 400 m and never seen from the side. The backdrop does
+not replace it: it stands **behind** it at 1600 m across, so the near peaks give parallax
+against something that does not, which is what makes distance read as distance rather than
+as a painted wall. Same grey as the peaks, because two ranges in one colour read as one
+range receding.
+
+**The camp nearly shipped a third information leak.** The first version pitched the tent on
+the group's own tile, on the argument that a camp is what a band lives in. That is wrong in
+the way this project has been caught twice: enemies are drawn only once revealed, and a tent
+on an unrevealed group hands over the position the detection system exists to hide. It uses
+the trap signs' rule now, through the same code — near enough to notice, far enough that
+noticing says *be careful* rather than *step here* — which is also truer, since a camp is
+where a band sleeps and not where it stands watch. `NoSignalMarksTheThingItIsAboutExactly`
+holds both signals at once.
+
 ### The water was the one boundary with nothing growing on it
 
 A river is drawn as tiles, so a river running at any angle other than square is a

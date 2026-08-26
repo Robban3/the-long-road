@@ -554,11 +554,22 @@ namespace Arna.Editor
                 // Anything flat has to be fitted across, the way GroundPatches is. A
                 // lilypad also belongs on open water rather than on marsh ground, and
                 // there is nothing placing props on water, so it is out on both counts.
-                MarshPlants = Synty("Plants", "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
-                                    "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
-                                    "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
-                                    "SM_Plant_Fern_01", "SM_Plant_Fern_02",
-                                    "SM_Plant_Bush_Leaves_01", "SM_Plant_Mushrooms_04"),
+                // Reeds, and the pack's actual swamp growth beside them. The roots and
+                // growth were sitting unused in Terrain/ while the fen was dressed out of
+                // the general plant folder — ferns and mushrooms, which grow in a wood.
+                MarshPlants = Mixed(
+                    Load($"{SyntyNatureDir}/Plants", new[]
+                    {
+                        "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
+                        "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
+                        "SM_Plant_Fern_01", "SM_Plant_Bush_Leaves_01"
+                    }),
+                    Load($"{SyntyNatureDir}/Terrain", new[]
+                    {
+                        "SM_Swamp_Root_01", "SM_Swamp_Root_02",
+                        "SM_Terrain_Swamp_Growth_01", "SM_Terrain_Swamp_Growth_02",
+                        "SM_Terrain_Swamp_Growth_03"
+                    })),
 
                 // Back on the water, and back in their own set. Note the pack's own
                 // spelling: two Ls. Loading these by the name they ought to have had is
@@ -594,6 +605,43 @@ namespace Arna.Editor
                 // which is what separates an ambush site from an accident.
                 Markers = ArmyScenery("Standing_Banner", "ArcherStake_1_Pref",
                                       "ArcherStake_3_Pref", "ArcherStake_5_Pref"),
+
+                // The surface of the water, which is the one prop here that replaces a
+                // tile instead of dressing one. See BiomeDecor.Water.
+                Water = Synty("Terrain", "SM_River_Plane_01", "SM_Gen_Env_Water_Plane_01"),
+
+                // A crossing on the ford tiles. Every corridor tends to use the same
+                // ford — it is why the traps go there — and it has never had anything on
+                // it but water you could somehow walk through.
+                Fords = Synty("Props", "SM_Prop_Bridge_Curved_01"),
+
+                // Rock for the tiles the map calls cliff, which have been impassable and
+                // featureless since the generator was written.
+                Cliffs = Mixed(
+                    Load($"{SyntyGenericDir}/Environment", new[]
+                    {
+                        "SM_Gen_Env_Cliff_01", "SM_Gen_Env_Cliff_02", "SM_Gen_Env_Cliff_03",
+                        "SM_Gen_Env_Cliff_04", "SM_Gen_Env_Dirt_Cliff_01",
+                        "SM_Gen_Env_Dirt_Cliff_03", "SM_Gen_Env_Dirt_Cliff_05"
+                    })),
+
+                // What a band of raiders lives in. One per group, not a village.
+                Camps = ArmyScenery("Tent", "WeaponRack", "Standing_Banner", "Table_1"),
+
+                // The one tree whose place is decided by water rather than by biome.
+                Willows = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
+                                "SM_Tree_Willow_Large_01"),
+
+                // Stone a river put there, rather than stone that happens to be near
+                // one — the curved piles are made to follow a waterline.
+                // One mesh for the whole far horizon, standing behind the peak ring.
+                // The inventory has called this the biggest thing not yet used since the
+                // day it was written.
+                Backdrop = Synty("Terrain", "SM_MountainSkybox_01"),
+
+                Shore = Synty("Rocks", "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03",
+                              "SM_Rock_Pile_04", "SM_Rock_Pile_05",
+                              "SM_Rock_Pile_Curved_01", "SM_Rock_Pile_Curved_02"),
 
                 Ruins = Mixed(
                     Load($"{WagonDir}/Hay_Cart", new[] { "SM_Hay_Cart_Full" }),

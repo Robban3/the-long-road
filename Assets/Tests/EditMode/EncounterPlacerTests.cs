@@ -279,6 +279,34 @@ namespace Arna.Tests
         }
 
         [Test]
+        public void NoSignalMarksTheThingItIsAboutExactly()
+        {
+            // Both soft signals in the game are near what they are about and never on it,
+            // and this holds both at once. A camp on an enemy's own tile hands over a
+            // position the detection system exists to hide; a ruin on a trap does the
+            // same for the trap. A signal you can read exactly is not a signal, it is an
+            // answer — and this project has shipped that leak twice.
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = Level(1, level);
+
+                var enemies = new HashSet<int>();
+                foreach (var enemy in map.Encounters.Enemies) enemies.Add(enemy.Tile);
+
+                var traps = new HashSet<int>();
+                foreach (var trap in map.Encounters.Traps) traps.Add(trap.Tile);
+
+                foreach (int site in TrapSigns.Camps(map) ?? new List<int>())
+                    Assert.IsFalse(enemies.Contains(site),
+                        $"level 1-{level}: a camp stands on the group it belongs to");
+
+                foreach (int site in TrapSigns.Sites(map) ?? new List<int>())
+                    Assert.IsFalse(traps.Contains(site),
+                        $"level 1-{level}: a ruin stands on the trap it warns about");
+            }
+        }
+
+        [Test]
         public void NothingWaitsInTheFirstStrides()
         {
             // Being ambushed before the caravan has moved is not a decision the player
