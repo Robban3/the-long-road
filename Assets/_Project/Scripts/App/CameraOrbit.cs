@@ -15,16 +15,22 @@ namespace Arna.App
     public sealed class CameraOrbit
     {
         /// <summary>
-        /// The view everything in this game was calibrated against.
+        /// The view everything in this game is calibrated against: 62 m away at the
+        /// angle <see cref="PitchFor"/> gives that range, which is 41 m back and 46 m up.
         ///
-        /// 46 m back and 32 m up is 56 m away at 34.8° down, and every judgement in the
-        /// design notes — how big a crow reads, how tall a deer should be, whether a
-        /// silhouette survives — was made from here. Moving the camera is the player's
-        /// to do; coming back to this is one button, because this is the view the game
-        /// is balanced for.
+        /// It used to be 56 m at 34.8°, and 34.8° is a low angle — the camera sat almost
+        /// as far behind the column as above it. That was survivable while the caravan
+        /// was one wagon and stopped being so once it was three with teams: you were
+        /// looking at the *back* of the thing you were meant to be reading, and the
+        /// country it was crossing was edge-on.
+        ///
+        /// Range is the slant distance, so raising the angle at a fixed range moves the
+        /// camera closer to the column *and* higher above it at the same time, which is
+        /// exactly the trade wanted here.
         /// </summary>
-        public const float DefaultPitch = 34.8f;
-        public const float DefaultRange = 56f;
+        public const float DefaultRange = 62f;
+
+        public static readonly float DefaultPitch = PitchFor(DefaultRange);
 
         /// <summary>
         /// Nearest the camera may come. Closer than this and the caravan fills the frame
@@ -52,13 +58,44 @@ namespace Arna.App
         /// </summary>
         public const float MaxPitch = 68f;
 
-        public float Pitch { get; private set; } = DefaultPitch;
+        /// <summary>
+        /// The angle the camera takes at each end of the zoom, and the reason zooming in
+        /// stopped putting the player behind the caravan.
+        ///
+        /// A pinch used to change range at a fixed angle. At 34.8° and the closest range
+        /// that put the camera 20 m behind the column and 14 m above it — level with the
+        /// wagons, looking at their backs, with the road ahead hidden behind them. Zoom
+        /// is not a dolly; **what a player means by "closer" is "let me look at this",
+        /// and looking at something on the ground means looking down at it.**
+        ///
+        /// So the angle rides the range. Close in it is 62°, near enough overhead to see
+        /// the whole column and the ground either side of it; far out it is 30°, low and
+        /// wide, which is the view that shows where the road is going. A drag still moves
+        /// the angle — it is kept as a trim on top of this rather than replacing it, so
+        /// a player who has tilted the camera keeps that tilt through a pinch instead of
+        /// having it snapped away.
+        /// </summary>
+        public const float SteepPitch = 62f;
+        public const float ShallowPitch = 30f;
+
+        /// <summary>The angle that goes with a range, before the player's own trim.</summary>
+        public static float PitchFor(float range)
+        {
+            float t = (Clamp(range, MinRange, MaxRange) - MinRange) / (MaxRange - MinRange);
+            return SteepPitch + (ShallowPitch - SteepPitch) * t;
+        }
+
+        /// <summary>How far the player has tilted the camera off the angle its range gives.</summary>
+        float _trim;
+
+        public float Pitch => Clamp(PitchFor(Range) + _trim, MinPitch, MaxPitch);
+
         public float Range { get; private set; } = DefaultRange;
 
         /// <summary>Degrees around the caravan, measured from directly behind it.</summary>
         public float Yaw { get; private set; }
 
-        public bool IsDefault => Math.Abs(Pitch - DefaultPitch) < 0.05f
+        public bool IsDefault => Math.Abs(_trim) < 0.05f
                                  && Math.Abs(Range - DefaultRange) < 0.05f
                                  && Math.Abs(Yaw) < 0.05f;
 
@@ -72,12 +109,17 @@ namespace Arna.App
         public void Orbit(float yawDegrees, float pitchDegrees)
         {
             Yaw = Wrap(Yaw + yawDegrees);
-            Pitch = Clamp(Pitch + pitchDegrees, MinPitch, MaxPitch);
+
+            // Trimmed against the range's own angle, and clamped by where that angle can
+            // still be pushed — so a drag has the same effect wherever the zoom is, and
+            // dragging to the limit and pinching out does not leave the camera stuck flat.
+            float wanted = Clamp(Pitch + pitchDegrees, MinPitch, MaxPitch);
+            _trim = wanted - PitchFor(Range);
         }
 
         public void Reset()
         {
-            Pitch = DefaultPitch;
+            _trim = 0f;
             Range = DefaultRange;
             Yaw = 0f;
         }

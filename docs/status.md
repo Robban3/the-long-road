@@ -1130,14 +1130,39 @@ and the spacing is what the combat can carry rather than what the column measure
 that test now measures against the **nearest wagon** rather than the lead one — otherwise
 it calls the rearguard a deserter for standing where it is posted.
 
-### The camera looks at the middle of the column
+### The camera looks down at the column, and at the middle of it
 
-`FollowDistance` 46 → 56 and `FollowHeight` 32 → 39, which keeps the 34.8° pitch every
-screenshot in these notes was taken at. More importantly the camera aims at the column's
-**middle** rather than at its lead wagon: three wagons at 15 m with a team in front of
-each is better than forty metres from the lead horses' noses to the last cart's tail, and
-aiming at the front put the third wagon off the bottom of the screen. You could see it by
-pinching out, which is not the same as it being in the shot.
+Two changes, and the second is the one that matters.
+
+It aims at the column's **middle** rather than at its lead wagon. Three wagons at 15 m
+with a team in front of each is better than forty metres from the lead horses' noses to
+the last cart's tail, and aiming at the front put the third wagon off the bottom of the
+screen. Being able to pinch out and see it is not the same as it being in the shot.
+
+**And the angle rides the zoom.** A pinch used to change range at a fixed pitch, and
+34.8° is a low angle — the camera sat about as far behind the column as above it. At the
+closest range that put it 20 m behind and 14 m up: level with the wagons, looking at their
+backs, the road ahead hidden behind them. Zoom is not a dolly. *What a player means by
+"closer" is "let me look at this", and looking at something on the ground means looking
+down at it.*
+
+`PitchFor` runs the angle from 62° at `MinRange` to 30° at `MaxRange`, so:
+
+| Range | Pitch | Behind | Above |
+|---|---|---|---|
+| 24 m | 62° | 11 m | 21 m |
+| 62 m (default) | 49° | 40 m | 47 m |
+| 120 m | 30° | 104 m | 60 m |
+
+Range is the slant distance, so raising the angle at a fixed range moves the camera closer
+to the column *and* higher above it at once — which is exactly the trade being asked for.
+A drag still moves the angle: it is kept as a **trim on top of the curve** rather than
+replacing it, so a player who has tilted the camera keeps that tilt through a pinch
+instead of having it snapped away.
+
+`FollowDistance`/`FollowHeight` are 40 and 47, which is the orbit's resting view expressed
+as an offset. The fixed view and the orbit's default have to be the same view: every
+judgement in these notes about how big a thing reads was made from one of them.
 
 ### The dead lie where they fell
 

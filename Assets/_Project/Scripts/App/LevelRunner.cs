@@ -49,27 +49,27 @@ namespace Arna.App
         /// useless for judging anything.
         /// </summary>
         /// <summary>
-        /// Metres the camera trails the middle of the column.
+        /// Metres the camera trails the middle of the column, and metres above it.
         ///
-        /// Fifty-six rather than forty-six, and the ten is the caravan getting longer.
-        /// Three wagons trailing fifteen metres apart put the last cart thirty metres
-        /// behind the first, and the teams and the escort carry it past forty; at
-        /// forty-six the frame held about two thirds of that. The pitch is kept by
-        /// raising the height with it, so the view angle is the one that was chosen
-        /// rather than a flatter one that came free with the distance.
+        /// 40 back and 47 up, which is <see cref="CameraOrbit.DefaultRange"/> at the
+        /// angle that range gives — 62 m away at 49.3° down. The fixed view and the
+        /// orbit's resting view are the same view, and they have to be: every judgement
+        /// in the design notes about how big a thing reads was made from one of them.
+        ///
+        /// It was 46 back and 32 up, then 56 and 39. Both were low — the camera sat
+        /// about as far behind the column as above it, so with three wagons and their
+        /// teams you were looking at the back of the thing you were meant to be reading.
+        /// Closer *and* higher is the same move: raise the angle and the horizontal
+        /// distance falls out of it.
         /// </summary>
-        [Range(15f, 400f)] public float FollowDistance = 56f;
+        [Range(15f, 400f)] public float FollowDistance = 40f;
 
         /// <summary>
         /// High enough to see over the canopy. At twenty-two metres the camera sat
         /// inside the forest and half the frame was the back of a tree.
         /// </summary>
-        /// <summary>
-        /// Metres above the column. Raised with <see cref="FollowDistance"/> so the pitch
-        /// stays the 34.8° every screenshot in the design notes was taken at: 39 ÷ 56 is
-        /// 32 ÷ 46 to within a tenth of a degree.
-        /// </summary>
-        [Range(8f, 300f)] public float FollowHeight = 39f;
+        /// <summary>Metres above it. See <see cref="FollowDistance"/>.</summary>
+        [Range(8f, 300f)] public float FollowHeight = 47f;
 
         /// <summary>
         /// Lets the player pinch to zoom and drag to swing the camera round.
