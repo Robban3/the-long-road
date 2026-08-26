@@ -1226,6 +1226,60 @@ the one case that was never the problem — and it names them one at a time now,
 "no animals", "one model missing" and "animals too small to see" look identical from the
 outside and are fixed in three different places.
 
+### Nine troop kinds, nine silhouettes
+
+They shared three models — melee, ranged, support — so a priest looked like an engineer
+and a shieldbearer like a spearman. The whole of GDD §4.2 is that *where you put which
+troop* decides the level, and six posts around a caravan mean nothing if you cannot tell
+what is standing on them.
+
+`Stylized_Medieval_Army_Pack` has 52 characters across four social ranks, and the ranks are
+the axis worth spending. **The difference has to carry from 47 m up and 40 m back**, where
+a face is nothing and a tabard is a smudge: what reads is body shape, helmet outline and
+what is held.
+
+| Kind | Model | What it reads as |
+|---|---|---|
+| Spearmen | `MC_ManAtArms_01` | armoured line |
+| Swordsmen | `MC_ManAtArms_04` | armoured line |
+| Shieldbearer | `MC_Knight_01` | the widest figure in the pack — full plate is the only one that reads *broad* rather than merely tall |
+| Archers | `MC_Archer_01` | the bow's line |
+| Mage | `MC_Noble_01` | robed, unhelmeted — the pack has no mage, and a robe is the one silhouette that is unmistakably not a soldier |
+| Priest | `MC_Noble_04` | the same, and the point |
+| Scout | `MC_Levy_03` | lightest thing on two legs; a heavy scout is one nobody believes outruns anything |
+| Engineer | `MC_Peasant_01` | a man who works, which is what he does |
+| Cavalry | `MC_Cavalry_LightCavalry` | rider and horse, shipped assembled |
+
+The three fighting kinds take the armoured ranks so they read as the line; the three
+support kinds take the unarmoured ones so they read as the people the line is protecting,
+which is what they are.
+
+Cavalry gets its own height — `HeightOf(TroopKind)` returns 2.7 m for it against 1.85 for
+everyone else — because the pack ships the rider **already on the horse**. Fitting that to
+a man's height gives a man-sized horse with a doll on it. 2.7 puts it on the same ruler as
+the draught teams at 2.4.
+
+`Melee`, `Ranged` and `Support` stay as fallbacks. A scene saved before the split holds
+those and nothing in the new fields, and `Models` is serialized on the scene component —
+pulling code does not change a saved scene, and that has produced enough false bug reports
+in this project to be worth one field each.
+
+### The bandits come from the same pack, and are told apart twice
+
+**By rank first.** They are levy — the ragged end — where the escort is man-at-arms and
+knight. A pirate captain from another artist's pack read as *a different game* rather than
+as a different side; two ranks of one pack read as two sides of one war.
+
+**By colour second.** `EnemyTint` multiplies every enemy figure's base colour through a
+property block, applied once at spawn. The pack shades everything off one small palette
+texture, so multiplying tilts mail, cloth and leather together instead of recolouring one
+garment. A muted warm crimson rather than a saturated one: saturated red flattens a palette
+into a silhouette and throws away the armour detail the rank distinction is carried by.
+
+Colour is the second signal and never the only one — the first thing a moving figure loses
+against a hillside in shadow is its hue, which is the same argument §5 makes for the three
+wagons having three shapes rather than three tints.
+
 ### The caravan is three vehicles
 
 `3DreaMax Studio/003_MDVL_WagonsCartsCarriages_Vol_1`. Ten vehicles, each shipped as

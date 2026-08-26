@@ -139,7 +139,8 @@ namespace Arna.View
 
                 for (int i = 0; i < models; i++)
                     figures.Add(SpawnActor(Library.For(group.Kind), PrimitiveType.Capsule,
-                        $"Troop_{group.Slot}_{group.Kind}_{i}", TroopColor, VisualLibrary.TroopHeight));
+                        $"Troop_{group.Slot}_{group.Kind}_{i}", TroopColor,
+                        VisualLibrary.HeightOf(group.Kind)));
 
                 _troops[group] = figures;
             }
@@ -481,8 +482,17 @@ namespace Arna.View
                     pack = new List<Transform>(size);
 
                     for (int i = 0; i < size; i++)
-                        pack.Add(SpawnActor(model, PrimitiveType.Sphere,
-                            $"Enemy_{enemy.Kind}_{i}", EnemyAwakeColor, height));
+                    {
+                        var figure = SpawnActor(model, PrimitiveType.Sphere,
+                            $"Enemy_{enemy.Kind}_{i}", EnemyAwakeColor, height);
+
+                        // Once, at spawn. A property block set every frame on every
+                        // figure of every group is a per-frame cost for a colour that
+                        // never changes.
+                        if (model.HasModel) Faction(figure, VisualLibrary.EnemyTint);
+
+                        pack.Add(figure);
+                    }
 
                     _enemies[enemy] = pack;
                 }
@@ -721,6 +731,28 @@ namespace Arna.View
                 Animate(marker, animal.IsFleeing ? Wildlife.FleeSpeed : 0f, false, false);
             }
         }
+
+        /// <summary>
+        /// Multiplies a figure's colour, which is how a side is marked on models that
+        /// share one palette texture.
+        ///
+        /// <see cref="Tint"/> cannot do this: it assigns a material, which is right for
+        /// a primitive and wrong for a model that came with its own. A property block
+        /// leaves the material alone and multiplies what it draws.
+        /// </summary>
+        void Faction(Transform figure, Color colour)
+        {
+            var block = new MaterialPropertyBlock();
+
+            foreach (var renderer in figure.GetComponentsInChildren<Renderer>(true))
+            {
+                renderer.GetPropertyBlock(block);
+                block.SetColor(BaseColor, colour);
+                renderer.SetPropertyBlock(block);
+            }
+        }
+
+        static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
         static readonly Color WildlifeColor = new Color(0.58f, 0.46f, 0.30f);
 

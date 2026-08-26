@@ -144,17 +144,55 @@ namespace Arna.Editor
         {
             return new VisualLibrary
             {
-                // The knight arrives holding a two-hander, so nothing is fitted to
-                // him — but its point hangs past his boots, and a model is scaled by
-                // the height of everything in it. Measured with the sword he came out
-                // a head shorter than the troops beside him and stood on its tip.
+                // One model per troop kind, chosen for what survives at 47 m up: body
+                // shape, helmet outline, and what is held. See VisualLibrary.Spearmen.
+                //
+                // The pack's four ranks are the axis — peasant, levy, man-at-arms,
+                // knight — and they are spent on legibility rather than on lore. The
+                // three fighting kinds get the armoured ranks so they read as the line;
+                // the three support kinds get the unarmoured ones so they read as the
+                // people the line is protecting, which is what they are.
+                //
+                // These are the pack's ready-to-use prefabs and they come armed, so
+                // nothing is fitted into a hand: `Arm` would put a second sword in a
+                // fist already holding one.
+                Spearmen = Army("MC_ManAtArms_01"),
+                Swordsmen = Army("MC_ManAtArms_04"),
+
+                // The widest silhouette in the game, which is the whole of what a
+                // shieldbearer is for. A knight in full plate is the only figure in the
+                // pack that reads as *broad* from above rather than merely tall.
+                Shieldbearer = Army("MC_Knight_01"),
+
+                Archers = Army("MC_Archer_01"),
+
+                // No mage in a medieval army pack, and that is not a gap to paper over
+                // with a knight. A robed figure with no helmet is the one silhouette
+                // here that is unmistakably not a soldier, and the nobles are the only
+                // robed men in it.
+                Mage = Army("MC_Noble_01"),
+                Priest = Army("MC_Noble_04"),
+
+                // Lightest thing on two legs in the pack. A scout that reads as heavy is
+                // a scout the player will not believe outruns anything.
+                Scout = Army("MC_Levy_03"),
+
+                // Tools rather than arms. An engineer who disarms traps and repairs
+                // wagons should look like a man who works, and the peasants are the only
+                // figures here who do.
+                Engineer = Army("MC_Peasant_01"),
+
+                // Mounted, and already so: the pack ships the rider on the horse rather
+                // than as two things to assemble.
+                Mounted = Army("MC_Cavalry_LightCavalry"),
+
+                // The old three, kept as fallbacks for a scene saved before the split.
                 Melee = Actor("Assets/Quaternius/Knight/Knight.fbx",
                               unsized: new[] { "Sword" }),
                 Ranged = Actor("Assets/Quaternius/ModularMen/Adventurer.fbx",
                                "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f),
                 Support = Actor("Assets/Quaternius/ModularMen/Farmer.fbx",
                                 "Assets/Quaternius/RPGItems/Axe_small.fbx", 0.6f),
-                Mounted = Actor("Assets/Quaternius/Animals/Horse.fbx"),
 
                 // From ForestAnimals rather than Quaternius: the pack ships the model
                 // and a URP prefab, and the wolf is the only enemy on level 1-1
@@ -166,15 +204,20 @@ namespace Arna.Editor
                 // Barbarossa already carries his cutlass in the rig, so nothing is
                 // fitted to him — but his file also carries a second man, Ernest, who
                 // was standing beside every bandit in the game.
-                Bandit = Actor("Assets/Quaternius/PiratePack/Characters_Captain_Barbarossa.fbx",
-                               hide: new[] { "Ernest" }),
-
-                // Henry ships holding a lute. An archer holding a lute is a joke the
-                // player has to work out, so it goes and a bow takes its place — which
-                // also matches how the player's own archers read at a distance.
-                BanditArcher = Actor("Assets/Quaternius/PiratePack/Characters_Henry.fbx",
-                                     "Assets/Quaternius/RPGItems/Bow_Wooden.fbx", 1.05f,
-                                     hide: new[] { "Weapon_Lute" }),
+                // Bandits out of the same pack as the escort, and told apart two ways.
+                //
+                // **By rank first.** They are levy — the ragged end of the pack — where
+                // the player's line is man-at-arms and knight. That difference is body
+                // shape and helmet outline, which is what survives at 47 m; a pirate
+                // captain from another artist's pack read as *a different game*, not as
+                // a different side.
+                //
+                // **By colour second.** See VisualLibrary.EnemyTint. Colour alone would
+                // not do it — the first thing a moving figure loses against a hillside in
+                // shadow is its hue — but colour on top of a silhouette that already
+                // differs is what makes the call instant.
+                Bandit = Army("MC_Levy_05"),
+                BanditArcher = Army("MC_Levy_07"),
 
                 // The wildlife of GDD §3.5.
                 //
@@ -274,6 +317,16 @@ namespace Arna.Editor
         /// Level Runner > Models while the game runs, which beats reasoning about it.
         /// </summary>
         const float ForestAnimalYaw = 90f;
+
+        /// <summary>
+        /// The medieval army pack's characters, which is where the troops come from now.
+        ///
+        /// Note the spaces in the folder name — they are the pack's, not a typo, and
+        /// `AssetDatabase` is fine with them.
+        /// </summary>
+        const string ArmyDir = "Assets/Stylized_Medieval_Army_Pack/Prefabs - Characters";
+
+        static ActorModel Army(string name) => Actor($"{ArmyDir}/{name}.prefab");
 
         static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f,
                                 string[] hide = null, string[] unsized = null,
@@ -1783,6 +1836,7 @@ namespace Arna.Editor
                           + $"{Describe(runner.Models.WagonTreasure)}, drawn by "
                           + $"{Describe(runner.Models.Mounted.Prefab)} at "
                           + $"{VisualLibrary.DraughtHorseHeight:0.0} m. "
+                          + $"{Troops(runner.Models)} "
                           + $"{Rig("draught horse", runner.Models.Mounted)}. "
                           + $"Marsh plants: {Names(runner.Decor.MarshPlants)}. "
                           + $"Lilypads: {Names(runner.Decor.Lilypads)} at "
@@ -1815,6 +1869,46 @@ namespace Arna.Editor
             EditorSceneManager.SaveOpenScenes();
 
             Debug.Log($"[Arna] Refreshed {touched} component(s) and saved the scene.");
+        }
+
+        /// <summary>
+        /// One line per troop kind: which model it got, and whether that model can move.
+        ///
+        /// Nine kinds shared three models until the army pack arrived, and the pack's
+        /// characters are prefabs rather than FBXs — clips live in the source file, not
+        /// in a prefab, so `Build Animator Controllers` has nothing to read from these
+        /// paths. Whether each one animates therefore depends on what the pack put on its
+        /// own prefab, which is a thing to look at rather than assume. `SpawnActor`
+        /// leaves a prefab's own animator alone when we have no controller for it, so a
+        /// pack that ships its own keeps working.
+        /// </summary>
+        static string Troops(VisualLibrary models)
+        {
+            if (models == null) return "no models";
+
+            var lines = new List<string>();
+
+            foreach (TroopKind kind in System.Enum.GetValues(typeof(TroopKind)))
+            {
+                var model = models.For(kind);
+
+                string rig = !model.HasModel ? "NO MODEL"
+                    : model.Animator != null ? model.Animator.name
+                    : Animated(model.Prefab) ? "the pack's own animator"
+                    : "NO ANIMATOR — it will hold its bind pose";
+
+                lines.Add($"{kind} {Describe(model.Prefab)} at "
+                          + $"{VisualLibrary.HeightOf(kind):0.00} m [{rig}]");
+            }
+
+            return "Troops: " + string.Join("; ", lines) + ".";
+        }
+
+        /// <summary>Whether a prefab carries an animator with something in it.</summary>
+        static bool Animated(GameObject prefab)
+        {
+            var animator = prefab.GetComponentInChildren<Animator>(true);
+            return animator != null && animator.runtimeAnimatorController != null;
         }
 
         /// <summary>The cgtrader bird. Note the capital F: the archive shipped it that way.</summary>

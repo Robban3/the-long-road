@@ -77,11 +77,64 @@ namespace Arna.View
     [System.Serializable]
     public sealed class VisualLibrary
     {
+        /// <summary>
+        /// One model per troop kind, because a post the player cannot read is a post
+        /// they cannot use.
+        ///
+        /// Nine kinds shared three models — melee, ranged, support — so a priest looked
+        /// like an engineer and a shieldbearer like a spearman. The whole of docs/GDD.md
+        /// §4.2 is that *where you put which troop* decides the level; six posts around a
+        /// caravan mean nothing if you cannot tell at a glance what is standing on them.
+        ///
+        /// The difference has to carry from 47 m up and 40 m back. At that distance a
+        /// face is nothing and a tabard is a smudge: what reads is **body shape, helmet
+        /// outline and what is held**. So the pack's four social ranks are spent on that
+        /// axis — peasant, levy, man-at-arms, knight — rather than on colour.
+        /// </summary>
         [Header("Troops")]
+        public ActorModel Spearmen;
+        public ActorModel Swordsmen;
+        public ActorModel Archers;
+        public ActorModel Mage;
+        public ActorModel Scout;
+        public ActorModel Shieldbearer;
+        public ActorModel Priest;
+        public ActorModel Engineer;
+        public ActorModel Mounted;
+
+        /// <summary>
+        /// The three that everything used to share, kept as fallbacks.
+        ///
+        /// A scene saved before the kinds were split still holds these and holds nothing
+        /// in the fields above, and <see cref="For(TroopKind)"/> falls back to them
+        /// rather than drawing capsules. `Decor` and `Models` are serialized on the scene
+        /// component — pulling code does not change a saved scene — and that has produced
+        /// enough false bug reports in this project to be worth one field each.
+        /// </summary>
         public ActorModel Melee;
         public ActorModel Ranged;
         public ActorModel Support;
-        public ActorModel Mounted;
+
+        /// <summary>
+        /// What every enemy figure's colour is multiplied by.
+        ///
+        /// The army pack shades everything off one small palette texture, so multiplying
+        /// the base colour tilts the whole figure at once — mail, cloth and leather
+        /// together — instead of recolouring one garment. A muted warm crimson rather
+        /// than a saturated one: saturated red flattens a palette into a silhouette and
+        /// throws away the armour detail the rank distinction is carried by.
+        ///
+        /// Colour is the **second** signal and never the only one. The bandits are levy
+        /// where the escort is man-at-arms and knight, because the first thing a moving
+        /// figure loses against a hillside in shadow is its hue (docs/GDD.md §5 makes the
+        /// same argument for the three wagons). This is what makes the call instant once
+        /// the silhouette has already made it possible.
+        ///
+        /// A property block rather than a material, so it costs no asset and applies to
+        /// whatever the pack ships. When the pack's own faction material sets are wired
+        /// this becomes a fallback for anything they do not cover.
+        /// </summary>
+        public static readonly Color EnemyTint = new Color(0.78f, 0.44f, 0.40f);
 
         [Header("Enemies")]
         public ActorModel Wolf;
@@ -263,22 +316,40 @@ namespace Arna.View
         {
             switch (kind)
             {
-                case TroopKind.Archers:
-                case TroopKind.Mage:
-                    return Ranged;
+                case TroopKind.Spearmen: return Or(Spearmen, Melee);
+                case TroopKind.Swordsmen: return Or(Swordsmen, Melee);
+                case TroopKind.Shieldbearer: return Or(Shieldbearer, Melee);
 
-                case TroopKind.Cavalry:
-                    return Mounted;
+                case TroopKind.Archers: return Or(Archers, Ranged);
+                case TroopKind.Mage: return Or(Mage, Ranged);
 
-                case TroopKind.Scout:
-                case TroopKind.Priest:
-                case TroopKind.Engineer:
-                    return Support;
+                case TroopKind.Cavalry: return Mounted;
 
-                default:
-                    return Melee;
+                case TroopKind.Scout: return Or(Scout, Support);
+                case TroopKind.Priest: return Or(Priest, Support);
+                case TroopKind.Engineer: return Or(Engineer, Support);
+
+                default: return Melee;
             }
         }
+
+        /// <summary>The kind's own model, or the group it used to share, or nothing.</summary>
+        static ActorModel Or(ActorModel own, ActorModel group) => own.HasModel ? own : group;
+
+        /// <summary>
+        /// How tall a troop kind is drawn, in metres.
+        ///
+        /// One number for eight of them and a separate one for the cavalry, because the
+        /// cavalry model is a **rider already on a horse**. Fitting that to a man's
+        /// height gives a man-sized horse with a doll on it: the pack ships the pair
+        /// assembled, so the pair is what has to be measured. A draught horse is drawn at
+        /// 2.4 m to the top of its head (<see cref="DraughtHorseHeight"/>) and a rider
+        /// sits above the withers, so 2.7 puts the two on the same ruler.
+        /// </summary>
+        public static float HeightOf(TroopKind kind)
+            => kind == TroopKind.Cavalry ? CavalryHeight : TroopHeight;
+
+        public const float CavalryHeight = 2.7f;
 
         public ActorModel For(EnemyKind kind)
         {
