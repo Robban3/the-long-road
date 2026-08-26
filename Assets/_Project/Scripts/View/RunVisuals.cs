@@ -147,6 +147,48 @@ namespace Arna.View
 
                 _troops[group] = figures;
             }
+
+            ReportCast(run);
+        }
+
+        /// <summary>
+        /// Names the model every post is actually drawing, at runtime, once per level.
+        ///
+        /// This exists because "the old units are still in the game" has now been said
+        /// four times and there was no way to tell which of three things it meant: a
+        /// scene whose serialized library still holds the old models, an army prefab that
+        /// failed to load, or a fallback quietly standing in. `Models` is a serialized
+        /// field on a scene component, so an editor menu that rewires it only rewires the
+        /// scene that happens to be open — and the running game is the only thing that
+        /// knows what it is really holding.
+        ///
+        /// A name is not an opinion. `MC_ManAtArms_01` and `Knight` are different words.
+        /// </summary>
+        void ReportCast(LevelRun run)
+        {
+            if (run.Squad == null) return;
+
+            var cast = new List<string>();
+
+            foreach (var group in run.Squad.Slots)
+            {
+                if (group == null) continue;
+
+                var model = Library.For(group.Kind);
+
+                cast.Add($"{group.Slot} {group.Kind} = "
+                         + (model.HasModel ? model.Prefab.name : "NO MODEL, drawing a capsule"));
+            }
+
+            var enemies = new List<string>();
+            foreach (var kind in EnemyTable.All)
+            {
+                var model = Library.For(kind);
+                enemies.Add($"{kind} = " + (model.HasModel ? model.Prefab.name : "capsule"));
+            }
+
+            Debug.Log($"[Arna] The cast on screen — {string.Join("; ", cast)}. "
+                      + $"Enemies: {string.Join("; ", enemies)}.");
         }
 
         /// <summary>

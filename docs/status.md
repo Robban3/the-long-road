@@ -1071,6 +1071,19 @@ shrink, a forest that stayed the old pack's.
 `Setup Project` and `Set Up Play Scene` fix it by building a scene from scratch — and
 throw away anything set by hand in the inspector along with it.
 
+**It rewired the scene that was open, and the scene that is open is not always the one Play
+runs.** Told four times that the old units were still in the game, with the menu item
+reporting success each time — it was rewiring `LevelPreview` while `PlayLevel` kept the
+models it had been saved with. A tool that fixes the thing you are looking at and leaves
+the thing you are running is worse than one that does nothing, because it also tells you it
+worked. It opens both scenes now, and names the one it saved.
+
+**And the running game says the cast out loud.** "The old units are still in the game" had
+three possible meanings — a stale scene, a prefab that failed to load, or a fallback
+standing in — and no way to tell them apart from outside. `RunVisuals.ReportCast` names the
+prefab every post is actually drawing, once per level, at runtime. A name is not an
+opinion: `MC_ManAtArms_01` and `Knight` are different words.
+
 `Arna > Refresh Scene Assets` does the same wiring in place, and prints what it wired:
 the wagon height in use, the cart and horse models by name, the marsh plants and lilypads
 by name, and the eagle's textures and controller. "It did not change" becomes a thing

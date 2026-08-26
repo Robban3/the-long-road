@@ -1864,6 +1864,32 @@ namespace Arna.Editor
         [MenuItem("Arna/Refresh Scene Assets")]
         public static void RefreshSceneAssets()
         {
+            // Both scenes, not whichever is open.
+            //
+            // This rewired the active scene, and the active scene is not always the one
+            // Play runs. Told four times that the old units were still in the game, with
+            // the menu item reporting success each time: it was rewiring `LevelPreview`
+            // while `PlayLevel` kept the models it was saved with. A tool that fixes the
+            // thing you are looking at and leaves the thing you are running is worse than
+            // one that does nothing, because it also tells you it worked.
+            string open = EditorSceneManager.GetActiveScene().path;
+
+            foreach (string path in new[] { PlayScenePath, ScenePath })
+            {
+                if (!System.IO.File.Exists(path)) continue;
+                if (path == open) continue;
+
+                EditorSceneManager.OpenScene(path, OpenSceneMode.Single);
+                RefreshOpenScene();
+            }
+
+            if (!string.IsNullOrEmpty(open)) EditorSceneManager.OpenScene(open, OpenSceneMode.Single);
+
+            RefreshOpenScene();
+        }
+
+        static void RefreshOpenScene()
+        {
             int touched = 0;
 
             // A white bird is a material with no texture in it, and that is fixable from
@@ -1935,10 +1961,18 @@ namespace Arna.Editor
                 return;
             }
 
-            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            var scene = EditorSceneManager.GetActiveScene();
+
+            EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveOpenScenes();
 
-            Debug.Log($"[Arna] Refreshed {touched} component(s) and saved the scene.");
+            // The scene by name, because that is the thing this can get wrong. It rewires
+            // what is open, and what is open is not always what Play runs — a menu item
+            // that says "saved the scene" while a different scene holds the old models is
+            // a report that agrees with itself and with nothing else.
+            Debug.Log($"[Arna] Refreshed {touched} component(s) in {scene.name} "
+                      + $"({scene.path}) and saved it. If Play still shows the old models, "
+                      + "Play is running a different scene than this one.");
         }
 
         /// <summary>
