@@ -808,9 +808,42 @@ Three details that are each a bug if missed:
 Revealed ground stays revealed when the flight loops. A map that re-fogs every twenty
 seconds is one you cannot plan on, and the second lap has nothing to add.
 
+**The edge is feathered rather than cut.** A tile used to be seen or unseen, which drew
+the flight as a stencil — a chewed hard edge in the shape of the tiles the simulation
+happened to mark. Knowledge does not stop at a four-metre boundary; it thins out.
+`_clarity` is a value per tile, and `FogFeather = 2.5` tiles carries a revealed tile's
+clarity into its neighbours: about ten metres of edge on a map 256 across. Less than that
+is a stencil with a soft line drawn on it; much more and the flight stops having a shape,
+which is the one thing the player is reading it for.
+
+Clarity only ever rises, and that is what makes it cheap. Each neighbour keeps the best
+claim anything has made on it, so a reveal costs a fixed twenty-five tiles rather than a
+blur over the whole map every frame.
+
 The enemy marks follow the same rule and the crows do not. A group is drawn where she
 found it; the crows are free and always visible, which is the whole distinction the
 design rests on (docs/GDD.md §3.4, §3.6).
+
+### The water was the one boundary with nothing growing on it
+
+A river is drawn as tiles, so a river running at any angle other than square is a
+staircase of four-metre squares. Everywhere else on the map that kind of edge is hidden
+under the props growing across it — the forest's boundary is invisible because there are
+trees standing on both sides of it — and the water had bare colour on one side and
+grass on the other.
+
+Three changes, none of them to the mesh:
+
+- `NextToWater` counts diagonals now. It is the *corners* of a staircase that read as
+  blocky, and a four-neighbour margin dresses the flats and leaves every corner bare —
+  precisely the wrong half. `NextToMarsh` had learned this already; the water's copy had
+  not. It also feeds the shore stones, which get the same benefit.
+- **Banks are dressed like a fen's margin**, not like a meadow. Ground beside moving
+  water is soft and reeds are what say so.
+- **Open water carries lilypads**, and only lilypads: `CoverDensity` has a `Water` entry
+  for the first time. A reed standing in the middle of a river is the same category of
+  wrong as a lilypad lying in grass. Pads floating over the seam do for the water's edge
+  what the trees do for the forest's.
 
 ### The planning map is dressed differently from the world
 

@@ -202,6 +202,18 @@ namespace Arna.App
 
         readonly HashSet<int> _revealed = new HashSet<int>();
 
+        /// <summary>
+        /// How clear each tile is, from 0 for fog to 1 for fully seen.
+        ///
+        /// A tile used to be one or the other, which drew the flight as a stencil: a
+        /// chewed hard edge in the shape of the tiles the sim happened to mark. Knowledge
+        /// does not stop at a four-metre boundary. It thins out, so the edge does too.
+        /// </summary>
+        float[] _clarity;
+
+        /// <summary>Reused rather than allocated per prop per frame.</summary>
+        readonly MaterialPropertyBlock _block = new MaterialPropertyBlock();
+
         /// <summary>Whether the bird has been round the whole flight at least once.</summary>
         bool _lapped;
 
@@ -444,6 +456,7 @@ namespace Arna.App
             _shown = null;
             _overlay = null;
             _propsByTile = null;
+            _clarity = null;
 
             if (!ShowOverlay || mesh == null) return;
 
@@ -453,6 +466,8 @@ namespace Arna.App
 
             // Four vertices per tile and tiles in order, which is what makes this cheap:
             // no lookup from a vertex back to the ground under it.
+            _clarity = new float[map.Grid.TileCount];
+
             if (colours != null && colours.Length == map.Grid.TileCount * 4)
             {
                 _lit = colours;
@@ -538,20 +553,7 @@ namespace Arna.App
                 if (_revealAt[tile] < 0f || _revealAt[tile] + RevealLag > reached) continue;
                 if (!_revealed.Add(tile)) continue;
 
-                ground = true;
-
-                if (_shown != null && _lit != null)
-                {
-                    int v = tile * 4;
-                    for (int k = 0; k < 4; k++) _shown[v + k] = _lit[v + k];
-                }
-
-                if (_propsByTile == null) continue;
-                if (!_propsByTile.TryGetValue(tile, out var standing)) continue;
-
-                foreach (var prop in standing)
-                    foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
-                        renderer.SetPropertyBlock(null);   // back to the material's own colour
+                ground |= Clarify(tile);
             }
 
             if (!ground) return;
@@ -570,6 +572,88 @@ namespace Arna.App
                     if (_revealed.Contains(_map.Encounters.Enemies[index].Tile)) found++;
 
             if (found != _marked) BuildMarkers(_map);
+        }
+
+        /// <summary>
+        /// How far a revealed tile's clarity carries into the fog around it, in tiles.
+        ///
+        /// Two and a half, so the edge is about ten metres wide on a map that is 256
+        /// across. Less than that and it is still a stencil with a soft line drawn on it;
+        /// much more and the flight stops having a shape at all, which is the one thing
+        /// the player is reading it for.
+        /// </summary>
+        const float FogFeather = 2.5f;
+
+        /// <summary>
+        /// Carries one newly seen tile's clarity out into its neighbours, and repaints
+        /// whatever that brightens.
+        ///
+        /// Clarity only ever rises, which is what makes this cheap: each neighbour keeps
+        /// the best claim anything has made on it, so the work is a fixed twenty-five
+        /// tiles per reveal rather than a blur over the whole map every frame.
+        /// </summary>
+        bool Clarify(int tile)
+        {
+            if (_clarity == null || _map == null) return false;
+
+            _map.Grid.ToCoords(tile, out int cx, out int cy);
+            int reach = Mathf.CeilToInt(FogFeather);
+            bool changed = false;
+
+            for (int dy = -reach; dy <= reach; dy++)
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    int x = cx + dx;
+                    int y = cy + dy;
+                    if (!_map.Grid.InBounds(x, y)) continue;
+
+                    float clarity = 1f - Mathf.Sqrt(dx * dx + dy * dy) / FogFeather;
+                    if (clarity <= 0f) continue;
+
+                    int near = _map.Grid.ToIndex(x, y);
+                    if (clarity <= _clarity[near]) continue;
+
+                    _clarity[near] = clarity;
+                    Paint(near, clarity);
+                    changed = true;
+                }
+
+            return changed;
+        }
+
+        /// <summary>Puts one tile's ground and scenery at the clarity it has earned.</summary>
+        void Paint(int tile, float clarity)
+        {
+            if (_shown != null && _lit != null)
+            {
+                int v = tile * 4;
+                for (int k = 0; k < 4; k++)
+                    _shown[v + k] = Color.Lerp(PlanningOverlay.Mute(_lit[v + k]), _lit[v + k], clarity);
+            }
+
+            if (_propsByTile == null) return;
+            if (!_propsByTile.TryGetValue(tile, out var standing)) return;
+
+            // Cleared rather than set at full clarity, so a prop ends up with the colour
+            // its own material gives it instead of one multiplied by very nearly white.
+            bool clear = clarity >= 0.999f;
+
+            float light = Mathf.Lerp(PlanningOverlay.PropLight, 1f, clarity);
+            var shade = new Color(light, light, light, 1f);
+
+            foreach (var prop in standing)
+                foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (clear)
+                    {
+                        renderer.SetPropertyBlock(null);
+                        continue;
+                    }
+
+                    renderer.GetPropertyBlock(_block);
+                    _block.SetColor(BaseColor, shade);
+                    renderer.SetPropertyBlock(_block);
+                }
         }
 
         static readonly int BaseColor = Shader.PropertyToID("_BaseColor");

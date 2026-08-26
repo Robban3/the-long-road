@@ -449,7 +449,15 @@ namespace Arna.View
             { TerrainType.Plains, 1.7f },
             { TerrainType.Marsh, 2.0f },
             { TerrainType.MountainPass, 0.5f },
-            { TerrainType.Road, 0.15f }
+            { TerrainType.Road, 0.15f },
+
+            // Open water, and it is the one entry here that is not about dressing the
+            // ground. A river is drawn as tiles, so a diagonal one is a staircase of
+            // four-metre squares; everywhere else on the map that edge is hidden under
+            // the props growing across it, and the water was the one boundary with
+            // nothing on it. Pads floating over the seam do for it what the trees do for
+            // the forest's edge.
+            { TerrainType.Water, 0.45f }
         };
 
         /// <summary>
@@ -623,11 +631,22 @@ namespace Arna.View
             return placed;
         }
 
-        /// <summary>Whether any of the four neighbouring tiles is water.</summary>
+        /// <summary>
+        /// Whether any tile within one step is water, diagonals included.
+        ///
+        /// Diagonals matter more here than anywhere else on the map. A watercourse that
+        /// runs at any angle other than square is drawn as a staircase of four-metre
+        /// tiles, and it is the *corners* of that staircase that read as blocky. A
+        /// four-neighbour margin dresses the flats and leaves every corner bare, which
+        /// is precisely the wrong half.
+        /// </summary>
         static bool NextToWater(TileGrid grid, int x, int y)
         {
-            return IsWater(grid, x - 1, y) || IsWater(grid, x + 1, y)
-                || IsWater(grid, x, y - 1) || IsWater(grid, x, y + 1);
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                    if ((dx != 0 || dy != 0) && IsWater(grid, x + dx, y + dy)) return true;
+
+            return false;
         }
 
         static bool IsWater(TileGrid grid, int x, int y) =>
@@ -833,19 +852,25 @@ namespace Arna.View
                 // has a hard edge you could measure with a ruler.
                 grid.ToCoords(i, out int cx, out int cy);
 
-                var set = decor.MarshPlants.Any && (grid[i] == TerrainType.Marsh
-                                                    || NextToMarsh(grid, cx, cy))
-                    ? decor.MarshPlants
-                    : decor.GroundCover;
+                // Open water takes pads and nothing else. A reed standing in the middle
+                // of a river is the same category of wrong as a lilypad in the grass.
+                bool open = grid[i] == TerrainType.Water;
+                if (open && !decor.Lilypads.Any) continue;
 
-                if (!set.Any) continue;
+                // A riverbank is dressed like a fen's margin rather than like a meadow:
+                // the ground beside moving water is soft, and reeds are what say so.
+                bool wet = grid[i] == TerrainType.Marsh
+                           || NextToMarsh(grid, cx, cy) || NextToWater(grid, cx, cy);
 
-                bool water = grid[i] == TerrainType.Marsh && decor.Lilypads.Any;
+                var set = decor.MarshPlants.Any && wet ? decor.MarshPlants : decor.GroundCover;
+                if (!open && !set.Any) continue;
+
+                bool pads = decor.Lilypads.Any && (open || grid[i] == TerrainType.Marsh);
 
                 for (int t = 0; t < tufts && placed < MaxGroundCover; t++)
                 {
                     // A pad rather than a reed, and measured across rather than up.
-                    var choice = water && rng.Chance(LilypadShare)
+                    var choice = pads && (open || rng.Chance(LilypadShare))
                         ? new Choice(decor.Lilypads, Any(decor.Lilypads, rng),
                                      LilypadWidth, byWidth: true, canopy: true)
                         : new Choice(set, Any(set, rng),
