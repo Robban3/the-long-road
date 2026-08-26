@@ -341,6 +341,13 @@ namespace Arna.Editor
         /// </summary>
         const string ArmyDir = "Assets/Stylized_Medieval_Army_Pack/Prefabs - Characters";
 
+        /// <summary>The army pack's scenery: stakes, banners, wreckage, worn ground.</summary>
+        const string ArmyProps = "Assets/Stylized_Medieval_Army_Pack/Prefabs - Environment";
+
+        static PropSet ArmyScenery(params string[] names)
+            => new PropSet(false, Load(ArmyProps, names));
+
+
         /// <summary>
         /// One of the army pack's characters, pointed at the one controller they share.
         ///
@@ -582,9 +589,21 @@ namespace Arna.Editor
                 // Mixed from both packs on purpose. A wreck is the one place tidiness
                 // would be wrong, and the carts are the same kind of vehicle the player
                 // is escorting — which is the whole of what the signal says.
+                // The totem the GDD's §5 table has always asked for and no pack here had.
+                // A banner or a row of stakes is a thing somebody drove into the ground,
+                // which is what separates an ambush site from an accident.
+                Markers = ArmyScenery("Standing_Banner", "ArcherStake_1_Pref",
+                                      "ArcherStake_3_Pref", "ArcherStake_5_Pref"),
+
                 Ruins = Mixed(
                     Load($"{WagonDir}/Hay_Cart", new[] { "SM_Hay_Cart_Full" }),
                     Load($"{WagonDir}/Peasant_Handcart", new[] { "SM_Peasant_Handcart_Full" }),
+                    // Battlefield leavings out of the army pack. A wreck is the one
+                    // place where mixing packs reads as chaos rather than as a seam —
+                    // and arrows in the ground say what happened here better than
+                    // anything either nature pack ships.
+                    Load(ArmyProps, new[] { "Scattered_Arrows", "Plank_1", "Plank_2" }),
+
                     Load($"{SyntyNatureDir}/Props", new[]
                     {
                         // The bones the GDD's §5 table calls for. `_Skull_01` twice, so a
@@ -609,16 +628,20 @@ namespace Arna.Editor
                 // and a folder full of air conditioners. Mixing two Synty packs is
                 // allowed here and nowhere else: ground is seen flat and mostly in
                 // shadow, not a spruce beside another artist's spruce.
-                GroundPatches = Generic("Environment",
-                                        "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
-                                        "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04",
-                                        "SM_Gen_Env_Ground_Dirt_Large_01",
-                                        "SM_Gen_Env_Ground_Dirt_Large_02",
-                                        "SM_Gen_Env_Ground_Grass_01", "SM_Gen_Env_Ground_Grass_02",
-                                        "SM_Gen_Env_Ground_Grass_03",
-                                        "SM_Gen_Env_Ground_River_Dirt_01",
-                                        "SM_Gen_Env_Ground_River_Dirt_02",
-                                        "SM_Gen_Env_Ground_River_Dirt_03")
+                // The army pack's worn ground goes in with it, on that same argument:
+                // its mud and its trodden path are flat pieces seen face-on, which is
+                // the one category where two artists' work does not show a seam.
+                GroundPatches = Mixed(
+                    Load($"{SyntyGenericDir}/Environment", new[]
+                    {
+                        "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
+                        "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04",
+                        "SM_Gen_Env_Ground_Dirt_Large_01", "SM_Gen_Env_Ground_Dirt_Large_02",
+                        "SM_Gen_Env_Ground_Grass_01", "SM_Gen_Env_Ground_Grass_02",
+                        "SM_Gen_Env_Ground_Grass_03", "SM_Gen_Env_Ground_River_Dirt_01",
+                        "SM_Gen_Env_Ground_River_Dirt_02", "SM_Gen_Env_Ground_River_Dirt_03"
+                    }),
+                    Load(ArmyProps, new[] { "Mud_1", "Path" }))
 
                 // Houses, Farms and Watchtowers are left empty, and that is the honest
                 // state rather than an oversight. Neither Synty pack has a medieval
@@ -1935,6 +1958,7 @@ namespace Arna.Editor
                           + $"{TroopReport(runner.Models)} "
                           + $"{Rig("draught horse", runner.Models.Draught)}. "
                           + $"Marsh plants: {Names(runner.Decor.MarshPlants)}. "
+                          + $"Markers: {Names(runner.Decor.Markers)}. "
                           + $"Lilypads: {Names(runner.Decor.Lilypads)} at "
                           + $"{TerrainDecorator.LilypadWidth:0.0} m across.");
             }

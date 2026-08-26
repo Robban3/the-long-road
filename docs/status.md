@@ -1429,9 +1429,24 @@ which is the half where the signal was meant to do its work. The placement moved
 totems*. The pack has one skeleton and one skull, and the decorator places a single prop per
 site, so what stands there is a body or a skull rather than a heap of either — `_Skull_01`
 is weighted twice so bones are at least as likely as the chest, the grave and the cold fire.
-**There is no totem in either pack.** The nearest thing is `_TorchStick_01`, which is a
-torch. The medieval pack now arriving ships archer stakes and banners, which are what a
-totem wants.
+
+**The totem exists now.** `BiomeDecor.Markers` holds the army pack's standing banner and
+its archer stakes, and one goes up beside the wreck at every trap field: a wreck says
+something *happened* here, a banner driven into the ground says somebody *chose* here, and
+the difference between those two is the difference between an accident and an ambush.
+
+It is its own set rather than another entry in `Ruins` because **it is measured up and
+`Ruins` is measured across**. That set is fitted to five metres of width, which is right for
+a wrecked cart lying on its side and would turn a banner into a sail. Same trap as the
+boulders and the lilypads, one set later. `MarkerHeight` is 3 m — a head and a half above
+the man walking past, tall enough to clear the scrub around a trap field from 47 m up, short
+enough not to compete with a spruce.
+
+The army pack's `Scattered_Arrows` and planks join `Ruins`, and its `Mud_1` and `Path` join
+`GroundPatches`. Both on the rule that already let PolygonGeneric's dirt sit beside
+PolygonNature's grass: **flat pieces seen face-on and mostly in shadow are the one category
+where two artists' work does not show a seam** — and a wreck is the one place where mixed
+provenance reads as chaos rather than as a mistake.
 
 **The trap tell is finally what the reference shows.** That reference is a battle map
 called *Övergiven Väg*, and what says so in it is wrecked wagons among the bones — not

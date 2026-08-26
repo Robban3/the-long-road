@@ -177,12 +177,28 @@ namespace Arna.View
         /// </summary>
         public PropSet Ruins = new PropSet();
 
+        /// <summary>
+        /// What somebody planted here: a banner, a row of archer stakes.
+        ///
+        /// The GDD's §5 table names *bone piles and totems* as the trap-field tell and
+        /// there has never been a totem in the project — the nearest thing either nature
+        /// pack had was a torch on a stick. The army pack's banners and stakes are what
+        /// the entry was describing: a thing driven into the ground, which says somebody
+        /// chose this piece of it.
+        ///
+        /// **Measured up, not across**, which is why it is not in <see cref="Ruins"/>.
+        /// That set is fitted to five metres of width because a wrecked cart is a wide
+        /// low thing; a banner is a tall narrow one, and five metres across it would be a
+        /// sail. Same trap as the boulders and the lilypads, one set earlier.
+        /// </summary>
+        public PropSet Markers = new PropSet();
+
         public bool IsEmpty =>
             !Has(Trees) && !Has(Pines) && !Has(Birch) && !Has(DeadTrees) && !Has(Bushes) &&
             !Has(Rocks) && !Has(Boulders) && !Has(Horizon) &&
             !Has(GroundCover) && !Has(MarshPlants) && !Has(Lilypads) &&
             !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
-            !Has(Timber) && !Has(Ruins);
+            !Has(Timber) && !Has(Ruins) && !Has(Markers);
 
         static bool Has(PropSet set) => set != null && set.Any;
     }
@@ -290,6 +306,15 @@ namespace Arna.View
         public const float FarmWidth = 9f;
         public const float TimberWidth = 3f;
         public const float RuinWidth = 5f;
+
+        /// <summary>
+        /// How tall a planted marker stands.
+        ///
+        /// Three metres — head and a half above the man walking past it, which is what a
+        /// banner is for. Tall enough to be seen over the scrub around a trap field from
+        /// a camera 47 m up, short enough not to compete with a fourteen-metre spruce.
+        /// </summary>
+        public const float MarkerHeight = 3f;
 
         /// <summary>
         /// How many landmarks a map may carry. A hard cap rather than density alone,
@@ -1140,6 +1165,16 @@ namespace Arna.View
                           new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth, byWidth: true),
                           heightScale, occupied);
                     placed++;
+
+                    // And a totem beside it, where the pack has one. A wreck says
+                    // something happened here; a banner driven into the ground says
+                    // somebody *chose* here, which is the difference between an accident
+                    // and an ambush and is what the GDD's §5 table is asking for.
+                    if (decor.Markers.Any)
+                        Place(parent, grid, tile, rng,
+                              new Choice(decor.Markers, Any(decor.Markers, rng), MarkerHeight,
+                                         byWidth: false),
+                              heightScale, occupied);
 
                     // Dead trees around it. A cart alone is small enough to miss from
                     // map height, and the signal is worthless if it is not noticed;
