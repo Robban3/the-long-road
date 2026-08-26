@@ -562,6 +562,54 @@ been measuring models the game stopped drawing; both now point at what is actual
 the ground. `Report Selected Folder Dimensions` also searches `t:Prefab` now, or it
 reports an empty folder for the pack that supplies the entire landscape.
 
+### The ground
+
+The terrain is one shader — a vertex colour per type with a grain texture over it — which
+gives an even sheet of green. Every reference for this game shows the opposite: grass
+worn through to soil, gravel where water meets land, a road that is a band of trodden
+earth rather than a line of a different colour. That variation is most of what makes
+ground read as ground.
+
+It could come from a second texture set and a blend map. It comes instead from the pack,
+as flat pieces laid on top — `GroundPatches` in `BiomeDecor`, a few hundred triangles
+each, and reversible.
+
+**They are placed only where the ground is flat.** These are flat pieces from a pack
+built for flat modular scenes and this game's ground is a heightmap; laid across a
+hillside a flat piece buries one edge and floats the other, which is worse than the even
+green it was meant to break up. A tile is offered a patch only when its four corners are
+within 0.9 m of each other — about twelve degrees — which keeps them on the valley
+floors, the river flats and the road. Which is where the references put them anyway,
+because that is where ground gets walked on. They are lifted 5 cm, because coplanar
+surfaces fight for the depth buffer and flicker as the camera moves — the one artefact
+on this list a still screenshot will not show and every player will see.
+
+Density is heaviest on the road (0.55 per tile), then plains (0.22), marsh (0.14), a
+little in forest (0.07) and none in the mountain pass, which is bare rock already.
+
+**They come from PolygonGeneric, which was on the deletion list and should not have
+been.** Its name and half its contents are modern — air conditioners, sidewalks, tyre
+marks, a robot — and on that basis it looked like something that came along for the
+ride. Its `Environment` folder is the only source of ground surfaces in either pack.
+Mixing two Synty packs is allowed here and nowhere else: this is ground, seen flat and
+mostly in shadow, not a spruce standing next to another artist's spruce.
+
+`docs/synty-inventory.md` lists every prefab in both packs and what each is used for, or
+why not.
+
+### The planning map got 60 % denser by accident
+
+`LevelPreview.DensityScale` multiplies the play view's density, because a map is read
+from far above where scattered trees vanish. It was tuned to 2.2 against a forest density
+of 0.28 — about 0.62 trees per tile on the map. Raising the play view to 0.45 carried
+that to 0.99 without anyone choosing it, and the terrain a player has to read in order to
+draw a route went under a carpet of crowns. It is 1.38 now: 0.62 ÷ 0.45, the tuned figure
+restored.
+
+The general shape of this mistake is worth naming, because it is the second one this
+week. A constant tuned as a *product* breaks silently when either factor moves, and
+nothing fails — it just looks slightly wrong in a way nobody can point at.
+
 ### What is still to come
 
 Everything under `Assets/Quaternius` is being replaced by three purchased packs:

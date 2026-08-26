@@ -362,6 +362,32 @@ namespace Arna.Editor
                 Mountains = Synty("Terrain", "SM_Terrain_Mountain_01", "SM_Terrain_Mountain_02",
                                   "SM_Terrain_Mountain_03"),
 
+                // Bare earth, gravel and worn grass, laid flat on the ground.
+                //
+                // From PolygonGeneric, which is the only pack here that has ground
+                // surfaces at all — and which was on the deletion list for having a
+                // modern name and a folder full of air conditioners. Its Environment
+                // folder is the piece this project has been missing since the terrain
+                // became a heightmap with one colour per type.
+                //
+                // The riverbank pieces are in the mix on purpose. Every reference for
+                // this game puts gravel and bare mud where water meets land, and until
+                // now the shoreline was grass that stopped.
+                //
+                // Mixing two Synty packs is allowed here and nowhere else: this is
+                // ground, which is seen flat and mostly in shadow, not a spruce standing
+                // beside another artist's spruce. See docs/synty-inventory.md.
+                GroundPatches = Generic("Environment",
+                                        "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
+                                        "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04",
+                                        "SM_Gen_Env_Ground_Dirt_Large_01",
+                                        "SM_Gen_Env_Ground_Dirt_Large_02",
+                                        "SM_Gen_Env_Ground_Grass_01", "SM_Gen_Env_Ground_Grass_02",
+                                        "SM_Gen_Env_Ground_Grass_03",
+                                        "SM_Gen_Env_Ground_River_Dirt_01",
+                                        "SM_Gen_Env_Ground_River_Dirt_02",
+                                        "SM_Gen_Env_Ground_River_Dirt_03"),
+
                 // The pack's buildings come in three levels of development. First age,
                 // level one: this is a road through the provinces, not a capital.
                 Houses = Rts("Houses_FirstAge_1_Level1", "Houses_FirstAge_2_Level1",
@@ -406,6 +432,19 @@ namespace Arna.Editor
         /// </summary>
         static PropSet Synty(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyNatureDir}/{group}", names));
+
+        /// <summary>
+        /// PolygonGeneric, which is here for one folder.
+        ///
+        /// Half the pack is modern — sidewalks, air conditioning, tyre marks — and on
+        /// that basis it was very nearly deleted as something that came along for the
+        /// ride. Its `Environment` folder is the ground kit: dirt, gravel and worn-grass
+        /// surfaces, riverbanks and slopes, none of which PolygonNature has at all.
+        /// </summary>
+        const string SyntyGenericDir = "Assets/Synty/PolygonGeneric/Prefabs";
+
+        static PropSet Generic(string group, params string[] names)
+            => new PropSet(false, Load($"{SyntyGenericDir}/{group}", names));
 
         /// <summary>
         /// Models from the medieval village pack, which is Y-up — measured, not assumed.

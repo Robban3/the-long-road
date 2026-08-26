@@ -56,8 +56,15 @@ namespace Arna.App
         /// Denser than the play view. A map is read at a glance from far above, where
         /// scattered individual trees disappear; a forest has to look like a forest at
         /// map scale or the player cannot tell it from a meadow.
+        ///
+        /// 1.38 rather than the 2.2 it was tuned at, and the number moved because what
+        /// it multiplies did. The map wants about 0.62 trees per forest tile; that was
+        /// 0.28 × 2.2 while the play view ran at 0.28, and when the play view went to
+        /// 0.45 this quietly became 0.99 — the map got sixty percent denser than anyone
+        /// asked for, and the terrain a player has to read to draw a route went with it.
+        /// 0.62 ÷ 0.45 restores the tuned figure.
         /// </summary>
-        public float DensityScale = 2.2f;
+        public float DensityScale = 1.38f;
 
         [Min(0)] public int MaxProps = 2600;
 

@@ -56,6 +56,22 @@ namespace Arna.View
         public PropSet GroundCover = new PropSet();
 
         /// <summary>
+        /// Flat patches laid on the ground: bare earth, gravel, worn grass.
+        ///
+        /// The ground is one shader with a vertex colour per terrain type and a grain
+        /// texture over it, which gives an even sheet of green. Every reference for this
+        /// game shows the opposite — grass worn through to soil, gravel along the water,
+        /// a road that is a band of trodden earth rather than a line of a different
+        /// colour. That variation is what makes ground read as ground, and it cannot come
+        /// from the shader without a second texture set and a blend map.
+        ///
+        /// It can come from the pack. These are laid on top, flat, and they cost a few
+        /// hundred triangles each — a cheaper answer than a terrain-splat pipeline and a
+        /// reversible one.
+        /// </summary>
+        public PropSet GroundPatches = new PropSet();
+
+        /// <summary>
         /// Landmarks. Unlike the scatter above, these are placed where they make sense
         /// rather than where the dice fall: people build beside roads, watchtowers go
         /// where there is something to watch, timber is cut where the trees are.
@@ -163,6 +179,48 @@ namespace Arna.View
         /// affordable is the wrong budget for grass.
         /// </summary>
         public const int MaxGroundCover = 4000;
+
+        /// <summary>Width of a ground patch in metres. Roughly two tiles across.</summary>
+        public const float PatchWidth = 7.5f;
+
+        /// <summary>
+        /// How much fall a tile may have before it is refused a patch, in metres.
+        ///
+        /// These are flat pieces. Laid across a slope, a flat piece cuts into the hill on
+        /// one side and floats off it on the other, and both are worse than the even
+        /// green they were meant to break up. A tile is four metres across, so 0.9 m of
+        /// fall is a slope of about twelve degrees — enough to catch the valley floors,
+        /// the river flats and the passes, and to leave the hillsides alone.
+        /// </summary>
+        public const float PatchMaxFall = 0.9f;
+
+        /// <summary>
+        /// Metres a patch is lifted off the ground it sits on.
+        ///
+        /// Coplanar surfaces fight for the depth buffer and the result flickers as the
+        /// camera moves — the one artefact on this list that a still screenshot will not
+        /// show and every player will see.
+        /// </summary>
+        public const float PatchLift = 0.05f;
+
+        public const int MaxGroundPatches = 420;
+
+        /// <summary>
+        /// Patches per tile.
+        ///
+        /// Heaviest on the road, which in the reference is a band of bare trodden earth
+        /// and in this game has so far been a stripe of a slightly different green.
+        /// Plains next: open ground is where a bare patch reads. Little in forest, where
+        /// the floor is litter and shade and there is not much of it to see, and none in
+        /// the mountain pass, which is already bare rock.
+        /// </summary>
+        static readonly Dictionary<TerrainType, float> PatchDensity = new Dictionary<TerrainType, float>
+        {
+            { TerrainType.Road, 0.55f },
+            { TerrainType.Plains, 0.22f },
+            { TerrainType.Marsh, 0.14f },
+            { TerrainType.Forest, 0.07f }
+        };
 
         /// <summary>Stones along the water's edge, measured across rather than up.</summary>
         public const float ShoreStoneSize = 2.2f;
@@ -274,6 +332,11 @@ namespace Arna.View
                 }
             }
 
+            // Patches before cover, so grass grows over the bare earth rather than the
+            // bare earth being laid over the grass.
+            placed += PlaceGroundPatches(parent, grid, rng, decor, occupied,
+                                         heightScale, densityScale);
+
             placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
                                        heightScale, densityScale);
             placed += PlaceShoreline(parent, grid, rng, decor, occupied, heightScale, densityScale);
@@ -329,6 +392,62 @@ namespace Arna.View
             grid.InBounds(x, y) && grid[x, y] == TerrainType.Water;
 
         /// <summary>
+        /// Lays bare earth, gravel and worn grass over the flatter ground.
+        ///
+        /// The one rule that matters is the slope test. These are flat pieces from a
+        /// pack built for flat modular scenes, and this game's ground is a heightmap;
+        /// laid across a hillside a flat piece buries one edge and floats the other. So
+        /// a tile is offered a patch only if its four corners are within
+        /// <see cref="PatchMaxFall"/> of each other, which keeps them on the valley
+        /// floors, the river flats and the road — where the reference pictures put them
+        /// anyway, because that is where ground gets walked on.
+        /// </summary>
+        static int PlaceGroundPatches(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                      BiomeDecor decor, HashSet<int> occupied,
+                                      float heightScale, float densityScale)
+        {
+            if (!decor.GroundPatches.Any) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && placed < MaxGroundPatches; i++)
+            {
+                if (!PatchDensity.TryGetValue(grid[i], out float density)) continue;
+                if (occupied != null && occupied.Contains(i)) continue;
+
+                if (!rng.Chance(density * densityScale)) continue;
+                if (Fall(grid, i, heightScale) > PatchMaxFall) continue;
+
+                var choice = new Choice(decor.GroundPatches, Any(decor.GroundPatches, rng),
+                                        PatchWidth, byWidth: true, canopy: true);
+
+                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.2f,
+                            occupied: null, lift: PatchLift))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>How far the ground falls across one tile, corner to corner.</summary>
+        static float Fall(TileGrid grid, int tile, float heightScale)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            float lowest = float.MaxValue, highest = float.MinValue;
+
+            for (int dy = 0; dy <= 1; dy++)
+                for (int dx = 0; dx <= 1; dx++)
+                {
+                    float h = grid.CornerElevation(x + dx, y + dy) * heightScale;
+                    if (h < lowest) lowest = h;
+                    if (h > highest) highest = h;
+                }
+
+            return highest - lowest;
+        }
+
+        /// <summary>
         /// Scatters the small stuff — grass, ferns, flowers, pebbles.
         ///
         /// Its own pass with its own budget, because it is numerous in a way nothing
@@ -375,7 +494,7 @@ namespace Arna.View
         /// <summary>Drops one model somewhere inside a tile, turned at random.</summary>
         static bool Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
                             Choice choice, int tile, float heightScale, float spread,
-                            HashSet<int> occupied = null)
+                            HashSet<int> occupied = null, float lift = 0f)
         {
             var position = Vec2.FromTile(grid, tile);
             float x = position.X + rng.Range(-spread, spread);
@@ -385,7 +504,7 @@ namespace Arna.View
             // tile's own elevation instead leaves trees hovering above the ground or
             // buried in it, because the rendered surface is interpolated between corners
             // and a tile centre is a different number entirely.
-            float groundY = grid.SurfaceElevation(x, z) * heightScale;
+            float groundY = grid.SurfaceElevation(x, z) * heightScale + lift;
 
             var instance = Object.Instantiate(choice.Prefab, parent);
             instance.transform.position = new Vector3(x, groundY, z);

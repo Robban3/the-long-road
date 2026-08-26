@@ -1507,7 +1507,7 @@ def draw_waypoints(image: np.ndarray, level: A.LevelMap, waypoints, camera: Came
 
 
 def render_plan(level: A.LevelMap, width: int = 1400, height: int = 1400,
-                height_scale: float = 22.0, density_scale: float = 2.2,
+                height_scale: float = 22.0, density_scale: float = 1.38,
                 max_props: int = 2600, eagle=None, draw_routes: bool = True,
                 route=None, waypoints=(), crows=True) -> Image.Image:
     """The planning map: straight down, orthographic, under the scouting overlay.
