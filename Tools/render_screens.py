@@ -120,6 +120,15 @@ BIRCH_BARK = np.array([0.86, 0.84, 0.78])
 BIRCH_LEAF = np.array([0.52, 0.62, 0.34])
 BUSH_GREEN = np.array([0.30, 0.46, 0.24])
 
+# The skyline, and the reeds in the fen.
+# Darker than it looks like it should be. The first attempt was (0.62, 0.66, 0.74)
+# against a sky of (0.62, 0.75, 0.85) — near enough the same colour that a range of
+# peaks rendered as a faint smudge and looked like a bug in the placement rather than
+# in the palette. Distance does take colour out of rock, but not all of it.
+HORIZON_STONE = np.array([0.46, 0.50, 0.60])
+HORIZON_SNOW = np.array([0.95, 0.96, 0.99])
+REED = np.array([0.52, 0.55, 0.30])
+
 WAGON_COLORS = {
     A.SUPPLY: np.array([0.85, 0.72, 0.42]),
     A.WAR: np.array([0.72, 0.45, 0.35]),
@@ -1003,6 +1012,22 @@ def build_prop(mesh: Mesh, prop: A.Prop) -> None:
         color = STONE if prop.kind == "rocks" else STONE * 0.72
         _add(mesh, ROCK, color, (size, height, size), prop.yaw, base)
 
+    elif prop.kind == "horizon":
+        # A skyline peak, three hundred metres off the map. Pale and snow-capped: at
+        # that distance air takes the colour out of rock, which is why a range on a
+        # horizon reads as blue-grey and a boulder at your feet does not.
+        _add(mesh, CONE_FINE, HORIZON_STONE, (size * 1.15, size, size * 1.15), prop.yaw, base)
+        _add(mesh, CONE_FINE, HORIZON_SNOW, (size * 0.44, size * 0.30, size * 0.44),
+             prop.yaw, base + np.array([0.0, size * 0.72, 0.0]))
+
+    elif prop.kind == "marsh":
+        # Reeds: a fan of thin blades, taller than grass and thinner. Lit from above
+        # like the other foliage cards — a blade has no side worth shading.
+        for k in range(3):
+            _add(mesh, TUFT, REED, (size * 0.5, size * 2.1, size * 0.5), prop.yaw + k * 60,
+                 base + np.array([size * 0.2 * (k - 1), 0.0, size * 0.16 * (k - 1)]),
+                 normals=(0.0, 1.0, 0.0))
+
     elif prop.kind == "mountains":
         _add(mesh, CONE_FINE, MOUNTAIN_STONE, (size * 1.2, size, size * 1.2), prop.yaw, base)
 
@@ -1747,7 +1772,7 @@ def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
         frame.world)
 
     image = shade(frame, sun, np.array([1.0, 0.96, 0.88]), 1.0, shadow, 0.7,
-                  SKY_COLOR, (70.0, 320.0), camera)
+                  SKY_COLOR, (70.0, 520.0), camera)
     return _to_image(image), caravan
 
 

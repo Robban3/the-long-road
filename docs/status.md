@@ -608,6 +608,56 @@ a mix of skeleton, dropped chest, grave, dead fire and broken masonry. The refer
 shows a wrecked *wagon*, which neither Synty pack has — the wagon pack does, and that is
 the obvious next move.
 
+### The skyline, and the fog that hid it
+
+Both reference pictures put large pale peaks well beyond the ground being played on, and
+this game had no horizon at all: the world ended at the map edge with a flat sky colour
+behind it, which reads as the edge of a board rather than as distance.
+
+`Horizon` is a ring of 22 peaks on a 320 m radius around a 256 m map, 185 m tall with a
+wide jitter — a range of identical peaks is a saw blade. Evenly spaced and then nudged
+rather than placed at random angles: random angles clump, and a clump on a skyline is a
+gap somewhere else, which reads as the range having been forgotten on one side. They are
+the only set drawn from both Synty packs, because a silhouette three hundred metres off
+has no detail left to disagree about and a range wants variety along its length more
+than it wants one author.
+
+**It did not work, and the reason is worth more than the feature.** The peaks were in
+the scene, correctly sized and correctly placed, and every pixel of them was the colour
+of the air. Linear fog reaches *full* sky colour at its end distance, and the end
+distance was 320 m — the exact radius of the ring. The world visually stopped there.
+
+Two attempts were wasted before that was found, and both failed in ways that looked like
+the answer: the peaks were raised from 130 m to 185 (no change), then the renderer's
+stone colour was darkened away from the sky (no change). Only the second failure was
+suspicious enough to go looking, and the fog was in `render_screens.py` mirroring
+`ArnaSetup`, which is the whole reason the port exists.
+
+The fog ends at 520 m now. A peak at 300 m keeps about half its own colour — a pale blue
+silhouette, which is what a mountain twenty minutes' walk away actually looks like. The
+cost is real: the map's own far edge, 250 m off, goes from 28 % of its colour to 60 %, so
+the middle distance carries less haze than a value tuned for a 300-metre landscape gave
+it. The landscape is 640 metres deep now.
+
+**None of it is visible at the default camera, and that is geometry rather than tuning.**
+The play view sits 46 m back and 32 m up: 34.8° of pitch with a 50° field, so the frame
+spans from 9.8° *below* horizontal to 59.8° below. A horizon is at 0°. Nothing on it can
+enter that frame at any size or any distance. The skyline belongs to the player who
+tilts the camera down toward it — `CameraOrbit` allows 12°, where the frame reaches 13°
+above horizontal — and it is one of the few things the orbit control actually pays out.
+
+### The marsh has its own plants
+
+A fen dressed in the meadow's grass and ferns is a meadow that happens to slow you down.
+`MarshPlants` — reeds, lilypads, swamp growth — is drawn on marsh tiles and on the ring
+of tiles around them, because a bog does not stop at a tile boundary: the ground goes
+soft before it goes wet, and that margin is where the reeds are. Diagonals count in the
+margin, since the one thing a bog's edge is not is a right angle. Measured on 1-5: 573
+marsh plants against 3435 ordinary tufts.
+
+The marsh scatter changed with it — 30 % marsh plants where it used to be the generic
+shrub, and swamp trees and stumps added to the dead-timber set.
+
 ### The ground
 
 The terrain is one shader — a vertex colour per type with a grain texture over it — which

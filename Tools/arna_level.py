@@ -2225,6 +2225,13 @@ TREE_HEIGHT = 7.0
 PINE_HEIGHT = 8.5
 ROCK_HEIGHT = 2.2
 BOULDER_WIDTH = 5.5
+
+# The skyline. 22 peaks on a 300 m ring around a 256 m map, 130 m tall — see
+# Arna.View.TerrainDecorator for why each number is what it is.
+HORIZON_RADIUS = 320.0
+HORIZON_COUNT = 22
+HORIZON_HEIGHT = 185.0
+HORIZON_JITTER_LOW, HORIZON_JITTER_HIGH = 0.55, 1.35
 BUSH_HEIGHT = 1.9
 MOUNTAIN_HEIGHT = 20.0
 DEAD_TREE_HEIGHT = 9.0
@@ -2243,8 +2250,9 @@ RUIN_CLUSTER_TILES = 6
 
 # Model counts from LoadForestDecor in Assets/Editor/ArnaSetup.cs.
 SET_SIZES = {
-    "pines": 8, "trees": 10, "birch": 5, "dead": 8, "bushes": 8,
-    "rocks": 10, "boulders": 7, "cover": 21, "mountains": 3, "timber": 7, "ruins": 6,
+    "pines": 8, "trees": 10, "birch": 5, "dead": 10, "bushes": 8,
+    "rocks": 10, "boulders": 7, "cover": 21, "marsh": 9, "mountains": 3,
+    "horizon": 9, "timber": 7, "ruins": 6,
     # Empty in the engine too: neither Synty pack has a medieval building. They come
     # back with POLYGON Knights. Kept in the table so the shapes stay symmetrical.
     "houses": 0, "farms": 0, "towers": 0,
@@ -2285,6 +2293,8 @@ PROP_FOOTPRINT = {
     "birch": 0.30,       # a thinner crown than the round broadleaf
     "pines": 0.31,       # widest whorl at size * 0.62
     "bushes": 0.45,
+    "marsh": 0.30,       # reeds and swamp growth
+    "horizon": 0.0,      # off the map entirely; nothing can stand inside it
     "towers": 0.25,
     "timber": 0.20,
     "dead": 0.12,
@@ -2306,7 +2316,7 @@ BULKY_KINDS = ("mountains",)
 # as long as nothing green could reach a tile's width. The moment spruces were given
 # their real range a 14-metre one had a 4.5-metre canopy, crossed the threshold, and the
 # checker started reading two touching crowns as a tree growing out of a rock.
-CANOPY_KINDS = ("trees", "pines", "birch", "dead", "bushes", "cover", "patches")
+CANOPY_KINDS = ("trees", "pines", "birch", "dead", "bushes", "cover", "marsh", "patches")
 
 
 def prop_footprint(kind: str, size: float) -> float:
@@ -2662,9 +2672,33 @@ def decorate(grid: TileGrid, seed: int, keep_clear=None, height_scale: float = 0
                         occupied=occupied):
                 placed += 1
 
+    _place_horizon(props, grid, rng)
     _place_ground_cover(props, grid, rng, clear, occupied, height_scale, density_scale)
     _place_shoreline(props, grid, rng, occupied, height_scale)
     return props
+
+
+def _place_horizon(props, grid: TileGrid, rng: DeterministicRandom) -> None:
+    """Rings the map with mountains that are looked at and never walked on.
+
+    In world space around the map's centre rather than on tiles, because they are not on
+    the map — there is no ground out there and there is not meant to be. Evenly spaced
+    and then nudged: random angles clump, and a clump on a skyline is a gap somewhere
+    else, which reads as the range having been forgotten on one side.
+    """
+    centre_x = grid.width * TILE_SIZE * 0.5
+    centre_z = grid.height * TILE_SIZE * 0.5
+
+    for i in range(HORIZON_COUNT):
+        angle = (i + rng.range_float(-0.3, 0.3)) / HORIZON_COUNT * math.tau
+        radius = HORIZON_RADIUS * rng.range_float(0.88, 1.18)
+        size = HORIZON_HEIGHT * rng.range_float(HORIZON_JITTER_LOW, HORIZON_JITTER_HIGH)
+        yaw = rng.range_float(0.0, 360.0)
+
+        props.append(Prop("horizon",
+                          centre_x + math.cos(angle) * radius,
+                          centre_z + math.sin(angle) * radius,
+                          0.0, size, yaw, False))
 
 
 def _pick(terrain: int, rng: DeterministicRandom):
@@ -2697,9 +2731,10 @@ def _pick(terrain: int, rng: DeterministicRandom):
         return one("pines", PINE_HEIGHT)
 
     if terrain == MARSH:
-        if roll < 0.52: return one("dead", DEAD_TREE_HEIGHT)
-        if roll < 0.74: return one("bushes", BUSH_HEIGHT)
-        if roll < 0.90: return one("rocks", ROCK_HEIGHT)
+        if roll < 0.46: return one("dead", DEAD_TREE_HEIGHT)
+        if roll < 0.76: return one("marsh", BUSH_HEIGHT)
+        if roll < 0.88: return one("bushes", BUSH_HEIGHT)
+        if roll < 0.96: return one("rocks", ROCK_HEIGHT)
         return one("pines", PINE_HEIGHT)
 
     if terrain in (PLAINS, ROAD):
@@ -2744,6 +2779,22 @@ def _scatter(props, grid, rng, choice, tile, height_scale, spread,
     return True
 
 
+def _next_to_marsh(grid: TileGrid, x: int, y: int) -> bool:
+    """Any marsh within one step, diagonals included.
+
+    Diagonals on purpose: a four-neighbour margin leaves the corners of a fen sharp, and
+    the one thing a bog's edge is not is a right angle.
+    """
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            if dx == 0 and dy == 0:
+                continue
+            nx, ny = x + dx, y + dy
+            if grid.in_bounds(nx, ny) and grid.at(nx, ny) == MARSH:
+                return True
+    return False
+
+
 def _place_ground_cover(props, grid, rng, clear, occupied, height_scale, density_scale) -> int:
     placed = 0
 
@@ -2762,10 +2813,17 @@ def _place_ground_cover(props, grid, rng, clear, occupied, height_scale, density
         if rng.chance(rate - tufts):
             tufts += 1
 
+        # Reeds in the fen and on its margin, grass everywhere else. A bog does not stop
+        # at a tile boundary — the ground goes soft before it goes wet, and that margin
+        # is where the reeds are.
+        cx, cy = grid.to_coords(i)
+        kind = "marsh" if (int(grid.tiles[i]) == MARSH or _next_to_marsh(grid, cx, cy)) \
+            else "cover"
+
         for _ in range(tufts):
             if placed >= MAX_GROUND_COVER:
                 break
-            choice = ("cover", COVER_HEIGHT, False, rng.range_int(0, SET_SIZES["cover"]))
+            choice = (kind, COVER_HEIGHT, False, rng.range_int(0, SET_SIZES[kind]))
             _scatter(props, grid, rng, choice, i, height_scale, spread=1.9,
                      occupied=occupied)
             placed += 1

@@ -73,6 +73,16 @@ namespace Arna.View
         /// </summary>
         public PropSet Bushes = new PropSet();
 
+        /// <summary>
+        /// Reeds, swamp growth and roots: what grows in standing water and at its edge.
+        ///
+        /// A fen dressed in the same grass and ferns as the meadow is a meadow that
+        /// happens to slow you down. Used on marsh tiles and on the ring of tiles around
+        /// them, because a bog does not stop at a tile boundary — the ground goes soft
+        /// before it goes wet, and that margin is where the reeds are.
+        /// </summary>
+        public PropSet MarshPlants = new PropSet();
+
         /// <summary>Loose stone, ankle to waist. Scattered everywhere.</summary>
         public PropSet Rocks = new PropSet();
 
@@ -86,6 +96,21 @@ namespace Arna.View
         public PropSet Boulders = new PropSet();
 
         public PropSet Mountains = new PropSet();
+
+        /// <summary>
+        /// The skyline: mountains standing outside the map, seen and never reached.
+        ///
+        /// The world used to end at the map edge with a flat sky colour behind it, and
+        /// that reads as the edge of a board rather than as distance. Both reference
+        /// pictures put large pale peaks well beyond the ground being played on, and
+        /// what they buy is not scenery — it is the sense that the country continues,
+        /// which is the whole premise of a game about a road through it.
+        ///
+        /// These are not <see cref="Mountains"/>. Those are props standing *on* the map
+        /// in mountain-pass terrain, twenty metres against a fourteen-metre spruce — a
+        /// hill among trees. A skyline is a different job and wants a different size.
+        /// </summary>
+        public PropSet Horizon = new PropSet();
 
         /// <summary>
         /// Grass, ferns, flowers, mushrooms, pebbles — the small stuff, scattered by
@@ -138,9 +163,9 @@ namespace Arna.View
 
         public bool IsEmpty =>
             !Has(Trees) && !Has(Pines) && !Has(Birch) && !Has(DeadTrees) && !Has(Bushes) &&
-            !Has(Rocks) && !Has(Boulders) && !Has(Mountains) && !Has(GroundCover) &&
-            !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
-            !Has(Timber) && !Has(Ruins);
+            !Has(Rocks) && !Has(Boulders) && !Has(Mountains) && !Has(Horizon) &&
+            !Has(GroundCover) && !Has(MarshPlants) && !Has(GroundPatches) && !Has(Houses) &&
+            !Has(Farms) && !Has(Watchtowers) && !Has(Timber) && !Has(Ruins);
 
         static bool Has(PropSet set) => set != null && set.Any;
     }
@@ -175,6 +200,50 @@ namespace Arna.View
         /// </summary>
         public const float BushHeight = 1.9f;
         public const float MountainHeight = 20f;
+
+        /// <summary>
+        /// Metres from the map's centre to the ring of skyline peaks.
+        ///
+        /// The map is 256 m across, so its corners are 181 m out. At 320 the ring clears
+        /// them by well over a hundred metres, which is enough that the peaks read as
+        /// distance rather than as a wall around the pitch. The play camera clips at
+        /// 900 m and can pull back to 120 from the caravan, so the furthest peak from
+        /// the furthest camera is about 520 — comfortably inside.
+        ///
+        /// <b>None of it is visible at the default camera, and that is geometry rather
+        /// than tuning.</b> The play view sits 46 m back and 32 m up: a pitch of 34.8°
+        /// with a 50° field, so the frame spans from 9.8° *below* horizontal to 59.8°
+        /// below. A horizon is at 0°. Nothing on it can enter that frame at any size or
+        /// distance. The skyline is for the player who tilts the camera down toward it —
+        /// `CameraOrbit` allows 12°, where the frame reaches 13° above horizontal — and
+        /// it is one of the few things the orbit control actually pays out.
+        /// </summary>
+        public const float HorizonRadius = 320f;
+
+        /// <summary>
+        /// Peaks in the ring.
+        ///
+        /// Twenty-two of them at 300 m is one every 86 metres, and each is about 1.2
+        /// times its height across — so at <see cref="HorizonHeight"/> they overlap by
+        /// most of their width and read as a continuous range rather than as a row of
+        /// separate cones, which is what a skyline is.
+        /// </summary>
+        public const int HorizonCount = 22;
+
+        /// <summary>
+        /// How tall a skyline peak is.
+        ///
+        /// A hundred and thirty was the first answer and it was measured against the
+        /// wrong thing — the frame. What a skyline has to clear is not the top of the
+        /// picture but the **treeline**, and this game's trees stand up to 14.5 m within
+        /// fifty metres of the camera while the peaks are three hundred away. At 130 m
+        /// exactly one peak found a gap in the canopy. At 185 the range stands above it.
+        ///
+        /// The jitter stays wide on purpose: a row of identical peaks is a saw blade.
+        /// </summary>
+        public const float HorizonHeight = 185f;
+        public const float HorizonJitterLow = 0.55f;
+        public const float HorizonJitterHigh = 1.35f;
         public const float DeadTreeHeight = 9f;
 
         /// <summary>Landmark sizes. Buildings are measured by height, ground works by width.</summary>
@@ -388,6 +457,8 @@ namespace Arna.View
                 }
             }
 
+            placed += PlaceHorizon(parent, grid, rng, decor);
+
             // Patches before cover, so grass grows over the bare earth rather than the
             // bare earth being laid over the grass.
             placed += PlaceGroundPatches(parent, grid, rng, decor, occupied,
@@ -446,6 +517,70 @@ namespace Arna.View
 
         static bool IsWater(TileGrid grid, int x, int y) =>
             grid.InBounds(x, y) && grid[x, y] == TerrainType.Water;
+
+        /// <summary>
+        /// Whether any tile within one step is marsh, diagonals included.
+        ///
+        /// Diagonals included on purpose: a four-neighbour margin leaves the corners of
+        /// a fen sharp, and the one thing a bog's edge is not is a right angle.
+        /// </summary>
+        static bool NextToMarsh(TileGrid grid, int x, int y)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (grid.InBounds(x + dx, y + dy) &&
+                        grid[x + dx, y + dy] == TerrainType.Marsh) return true;
+                }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Rings the map with mountains that are looked at and never walked on.
+        ///
+        /// Placed in world space around the map's centre rather than on tiles, because
+        /// they are not on the map — there is no ground out there and there is not meant
+        /// to be. Their feet sit on the map's base plane, so what shows above the map
+        /// edge is peak, which is the only part that has a job.
+        ///
+        /// Deterministic like everything else: the same seed puts the same range on the
+        /// same side of the same level, so a player who learns a level learns its
+        /// skyline too, and the shot the screenshots take is the shot they saw.
+        /// </summary>
+        static int PlaceHorizon(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                BiomeDecor decor)
+        {
+            if (!decor.Horizon.Any) return 0;
+
+            float centreX = grid.Width * TileGrid.TileSize * 0.5f;
+            float centreZ = grid.Height * TileGrid.TileSize * 0.5f;
+
+            for (int i = 0; i < HorizonCount; i++)
+            {
+                // Evenly spaced and then nudged, rather than placed at random angles.
+                // Random angles clump, and a clump on a skyline is a gap somewhere else
+                // — which reads as the range having been forgotten on one side.
+                float angle = (i + rng.Range(-0.3f, 0.3f)) / HorizonCount * Mathf.PI * 2f;
+                float radius = HorizonRadius * rng.Range(0.88f, 1.18f);
+
+                var instance = Object.Instantiate(Any(decor.Horizon, rng), parent);
+
+                instance.transform.position = new Vector3(
+                    centreX + Mathf.Cos(angle) * radius, 0f,
+                    centreZ + Mathf.Sin(angle) * radius);
+
+                instance.transform.rotation = decor.Horizon.ZUp
+                    ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
+                    : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+
+                ModelScaling.Fit(instance, HorizonHeight * rng.Range(HorizonJitterLow,
+                                                                    HorizonJitterHigh), 0f);
+            }
+
+            return HorizonCount;
+        }
 
         /// <summary>
         /// Lays bare earth, gravel and worn grass over the flatter ground.
@@ -534,9 +669,22 @@ namespace Arna.View
                 int tufts = Mathf.FloorToInt(density * densityScale * scale);
                 if (rng.Chance(density * densityScale * scale - tufts)) tufts++;
 
+                // Reeds in the fen and on its margin, grass everywhere else. A bog does
+                // not stop at a tile boundary — the ground goes soft before it goes wet,
+                // and that margin is where the reeds are. Without the margin the marsh
+                // has a hard edge you could measure with a ruler.
+                grid.ToCoords(i, out int cx, out int cy);
+
+                var set = decor.MarshPlants.Any && (grid[i] == TerrainType.Marsh
+                                                    || NextToMarsh(grid, cx, cy))
+                    ? decor.MarshPlants
+                    : decor.GroundCover;
+
+                if (!set.Any) continue;
+
                 for (int t = 0; t < tufts && placed < MaxGroundCover; t++)
                 {
-                    var choice = new Choice(decor.GroundCover, Any(decor.GroundCover, rng),
+                    var choice = new Choice(set, Any(set, rng),
                                             CoverHeight, byWidth: false, canopy: true);
 
                     Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.9f);
@@ -912,11 +1060,15 @@ namespace Arna.View
                 // Standing water killing the trees is the thing a marsh looks like, and
                 // a bare trunk is the most legible model in the pack from above.
                 case TerrainType.Marsh:
-                    if (roll < 0.52f)
+                    if (roll < 0.46f)
                         return Tree(decor.DeadTrees, rng, DeadTreeHeight,
                                     DeadJitterLow, DeadJitterHigh);
-                    if (roll < 0.74f) return From(decor.Bushes, rng, BushHeight);
-                    if (roll < 0.90f) return From(decor.Rocks, rng, RockHeight);
+
+                    // Its own plants, not the meadow's. A fen dressed in the same grass
+                    // and ferns as the plains is a meadow that happens to slow you down.
+                    if (roll < 0.76f) return From(decor.MarshPlants, rng, BushHeight);
+                    if (roll < 0.88f) return From(decor.Bushes, rng, BushHeight);
+                    if (roll < 0.96f) return From(decor.Rocks, rng, RockHeight);
                     return Tree(decor.Pines, rng, PineHeight);
 
                 case TerrainType.Plains:

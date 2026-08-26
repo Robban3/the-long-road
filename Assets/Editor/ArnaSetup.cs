@@ -338,7 +338,8 @@ namespace Arna.Editor
                 // with nothing but grey sticks in it is a diagram of a fen.
                 DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
                                   "SM_Tree_Pine_Dead_01", "SM_Tree_Generic_Dead_01",
-                                  "SM_Tree_Swamp_01", "SM_Tree_Swamp_02", "SM_Tree_Swamp_03"),
+                                  "SM_Tree_Swamp_01", "SM_Tree_Swamp_02", "SM_Tree_Swamp_03",
+                                  "SM_Tree_Swamp_Branch_01", "SM_Tree_Swamp_Stump_01"),
 
                 // The layer between the grass and the trees. Without it a forest is
                 // trunks standing in a lawn, which is what the old one was.
@@ -378,6 +379,32 @@ namespace Arna.Editor
 
                 Mountains = Synty("Terrain", "SM_Terrain_Mountain_01", "SM_Terrain_Mountain_02",
                                   "SM_Terrain_Mountain_03"),
+
+                // The skyline. Both packs' mountains together, because a range is meant
+                // to vary along its length and this is the one place mixing them cannot
+                // show: they are three hundred metres off, in silhouette, and no two
+                // adjacent peaks are ever compared closely. Generic's are literally
+                // named Background_Mountain — made for exactly this.
+                Horizon = Mixed(
+                    Load($"{SyntyNatureDir}/Terrain", new[]
+                    {
+                        "SM_Terrain_Mountain_01", "SM_Terrain_Mountain_02", "SM_Terrain_Mountain_03"
+                    }),
+                    Load($"{SyntyGenericDir}/Environment", new[]
+                    {
+                        "SM_Gen_Env_Background_Mountain_01", "SM_Gen_Env_Background_Mountain_02",
+                        "SM_Gen_Env_Background_Mountain_03", "SM_Gen_Env_Mountain_01",
+                        "SM_Gen_Env_Mountain_02", "SM_Gen_Env_Mountain_03"
+                    })),
+
+                // What grows in standing water and at its edge. The fen used to be
+                // dressed in the meadow's grass and ferns, which made it a meadow that
+                // happens to slow you down.
+                MarshPlants = Synty("Plants", "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
+                                    "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
+                                    "SM_Plant_Lillypad_Small_01", "SM_Plant_Lillypad_Large_01",
+                                    "SM_Plant_Fern_01", "SM_Plant_Bush_Leaves_01",
+                                    "SM_Plant_Mushrooms_04"),
 
                 // Fallen wood on the forest floor, off the nature pack rather than the
                 // RTS kit's stacked lumber. A log lying where it fell is woodland; a
@@ -455,6 +482,22 @@ namespace Arna.Editor
 
         static PropSet Generic(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyGenericDir}/{group}", names));
+
+        /// <summary>
+        /// One set drawn from more than one folder.
+        ///
+        /// Only the skyline uses it. Everywhere else a set comes from one pack on
+        /// purpose — two artists' spruces standing side by side is the seam the whole
+        /// swap was made to close — but a peak three hundred metres off in silhouette
+        /// has no detail left to disagree about, and a range wants variety along its
+        /// length more than it wants one author.
+        /// </summary>
+        static PropSet Mixed(params GameObject[][] groups)
+        {
+            var all = new System.Collections.Generic.List<GameObject>();
+            foreach (var group in groups) all.AddRange(group);
+            return new PropSet(false, all.ToArray());
+        }
 
         /// <summary>
         /// Loads scenery by name, preferring a prefab over the raw model.
@@ -567,10 +610,24 @@ namespace Arna.Editor
             RenderSettings.fogColor = SkyColor;
 
             // Starts well beyond the caravan so the thing the player is watching is
-            // never washed out, and ends short of the far clip so the map edge is
-            // gone before it can be seen.
+            // never washed out.
             RenderSettings.fogStartDistance = 70f;
-            RenderSettings.fogEndDistance = 320f;
+
+            // The end moved from 320 to 520 when the skyline went in, and the old value
+            // is why the skyline did not work the first time. Linear fog reaches full
+            // sky colour at its end distance, so 320 meant the world visually stopped
+            // there — and a ring of mountains placed at exactly 320 m was rendered as
+            // pure sky. The peaks were in the scene, correctly sized and correctly
+            // placed, and every pixel of them was the colour of the air.
+            //
+            // 520 puts a peak at 300 m at about half its own colour: a pale blue
+            // silhouette, which is what a mountain twenty minutes' walk away actually
+            // looks like. The cost is real and worth stating — the map's own far edge,
+            // 250 m off, goes from 28 % of its colour to 60 %, so the middle distance
+            // carries less haze than the value tuned for a 300-metre landscape gave it.
+            // The landscape is 640 metres deep now. Retuning the air is what adding a
+            // horizon costs.
+            RenderSettings.fogEndDistance = 520f;
 
             RenderSettings.skybox = null;
         }
