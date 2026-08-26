@@ -1689,19 +1689,6 @@ namespace Arna.Editor
         }
 
         /// <summary>
-        /// Extracts the packs' embedded materials into asset files and takes the gloss
-        /// off them.
-        ///
-        /// Every model arrives at smoothness 0.5 — trees, rock, dirt alike — which puts
-        /// a broad specular sheen down the side of a pine and is the whole reason the
-        /// forest read as plastic. Bark is not half-glossy. Nothing outdoors is.
-        ///
-        /// The materials have to be extracted before they can be changed: they ship
-        /// inside the FBX as sub-assets, where they are read-only. Extracting also
-        /// leaves us a real palette to tune per biome later, which is the harder
-        /// reason to do it this way rather than overriding at runtime.
-        /// </summary>
-        /// <summary>
         /// Builds a material out of the loose textures lying beside a model, and gives it
         /// to the model: `Arna > Wire Loose Textures`, `-arnaModelDir &lt;path&gt;`.
         ///
@@ -1819,6 +1806,19 @@ namespace Arna.Editor
             return null;
         }
 
+        /// <summary>
+        /// Extracts the packs' embedded materials into asset files and takes the gloss
+        /// off them.
+        ///
+        /// Every model arrives at smoothness 0.5 — trees, rock, dirt alike — which puts
+        /// a broad specular sheen down the side of a pine and is the whole reason the
+        /// forest read as plastic. Bark is not half-glossy. Nothing outdoors is.
+        ///
+        /// The materials have to be extracted before they can be changed: they ship
+        /// inside the FBX as sub-assets, where they are read-only. Extracting also
+        /// leaves us a real palette to tune per biome later, which is the harder
+        /// reason to do it this way rather than overriding at runtime.
+        /// </summary>
         [MenuItem("Arna/Restyle Model Materials")]
         public static void RestyleModelMaterials()
         {
