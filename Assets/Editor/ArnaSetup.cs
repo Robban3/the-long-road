@@ -628,12 +628,17 @@ namespace Arna.Editor
 
                 // Rock for the tiles the map calls cliff, which have been impassable and
                 // featureless since the generator was written.
+                //
+                // Rock only. The dirt cliffs are a slab of earth with the roots of what
+                // grew on it hanging out of the underside — meant to be set into a drop
+                // so that only the earth face shows. On flat ground the whole thing
+                // stands proud, roots and all, and a twelve-metre one reads as an
+                // enormous tree: the first question asked about it was what kind.
                 Cliffs = Mixed(
                     Load($"{SyntyGenericDir}/Environment", new[]
                     {
                         "SM_Gen_Env_Cliff_01", "SM_Gen_Env_Cliff_02", "SM_Gen_Env_Cliff_03",
-                        "SM_Gen_Env_Cliff_04", "SM_Gen_Env_Dirt_Cliff_01",
-                        "SM_Gen_Env_Dirt_Cliff_03", "SM_Gen_Env_Dirt_Cliff_05"
+                        "SM_Gen_Env_Cliff_04"
                     })),
 
                 // What a band of raiders lives in. One per group, not a village.

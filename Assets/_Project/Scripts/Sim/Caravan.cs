@@ -215,7 +215,16 @@ namespace Arna.Sim
         /// lagging rather than like a unit error.
         /// </summary>
         public Vec2 ColumnCentre =>
-            PositionAt(_distance - (_wagons.Length - 1) * WagonSpacing * 0.5f);
+            PositionAt(_distance - ColumnHalfLength);
+
+        /// <summary>Half the distance from the lead wagon's axle to the last one's.</summary>
+        public float ColumnHalfLength => (_wagons.Length - 1) * WagonSpacing * 0.5f;
+
+        /// <summary>How far the lead wagon has come along the whole path, run-up included.</summary>
+        // The measure PositionAt takes, as opposed to DistanceTravelled, which counts
+        // from the start line. Mixing the two once aimed the camera fifty-five metres
+        // behind the caravan; anything walking beside the column wants this one.
+        public float LeadDistance => _distance;
 
         /// <summary>
         /// Unit vector along the route. The formation rotates with it, so the van is

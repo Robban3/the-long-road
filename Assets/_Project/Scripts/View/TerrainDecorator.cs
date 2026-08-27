@@ -405,7 +405,12 @@ namespace Arna.View
         public const float FordWidth = 6f;
 
         /// <summary>How tall a cliff face stands.</summary>
-        public const float CliffHeight = 12f;
+        // Five metres, down from twelve. A cliff tile is impassable ground on a flat map
+        // rather than the lip of a drop, so whatever stands on it stands in the open and
+        // is read against what is beside it: twelve metres is five draught horses stacked
+        // up, which stops being scenery and becomes a landmark in the middle of a field.
+        // Five is a rock a man could not climb, which is all the tile is claiming.
+        public const float CliffHeight = 5f;
 
         /// <summary>A tent, at a bit over the height of the man who sleeps in it.</summary>
         public const float CampHeight = 2.6f;

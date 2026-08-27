@@ -331,39 +331,93 @@ namespace Arna.Sim
         ///
         /// The circle is a rectangle now. The van walks ahead of the horses, the two
         /// flank pairs stand out to the side where left and right mean left and right,
-        /// and the rearguard follows behind. It is still a tight arrangement — see
-        /// <see cref="PairSpacing"/> for why it does not stretch to the column's real
-        /// length.
+        /// and the rearguard follows behind.
+        ///
+        /// **And it stretches to the column's real length, which once lost the game.**
+        /// The pairs stood five metres apart for a while, deliberately far less than the
+        /// thirty the column spans, because posting the rear pair back beside the third
+        /// wagon lost 1-6 on *every* route: six troops strung over forty-five metres
+        /// cannot support each other, so a pack that found the rearguard fought it two
+        /// against five while the van was half a level away. Ten still lost it. The
+        /// escort was a fighting unit before it was a cordon.
+        ///
+        /// That reasoning is gone, and not because the arithmetic changed. Mutual support
+        /// is what the tight formation bought, and a troop only strikes what is attacking
+        /// *it* now — see CombatSystem.TroopsReturnFire — so the neighbour who used to
+        /// come to the rescue no longer does at any spacing. What the tight formation
+        /// cost was two wagons of three walking unguarded while everything converged on
+        /// the first, which is what a player watching the rear cart go untouched
+        /// actually sees. Given the choice between a cordon that does not support itself
+        /// and a huddle that does not cover the wagons, cover the wagons.
         /// </summary>
+
         /// <summary>
-        /// How far apart the van pair and the rear pair stand along the column.
+        /// Where each post stands, given how long the column is.
         ///
-        /// Five metres, which is deliberately far less than the thirty the column spans.
+        /// The offsets used to be measured from the lead wagon, and with three carts
+        /// fifteen metres apart that put the whole escort around the first one: two
+        /// wagons of the three walked unguarded, and since attackers close on the nearest
+        /// troop they all converged on the front of the column. It looked like the rear
+        /// wagons could not be attacked. They could — nothing was ever near them.
         ///
-        /// Posting the rear pair back beside the third wagon is the truthful arrangement
-        /// and it lost 1-6 on **every** route: six troops strung over forty-five metres
-        /// cannot support each other, so a pack that finds the rearguard fights it two
-        /// against five while the van is half a level away. Ten still lost it. **The
-        /// escort is a fighting unit before it is a cordon**, and the spacing is what the
-        /// combat can carry rather than what the column measures.
-        ///
-        /// What this arrangement does buy is the thing that was actually wrong: nobody
-        /// stands between a wagon and the horses pulling it, and left and right mean left
-        /// and right.
+        /// So the van walks ahead of the first cart, the rearguard behind the last, and
+        /// the flanks stand beside the column at a quarter of its length either side of
+        /// the middle, which puts a guard within reach of every wagon there is.
         /// </summary>
-        const float PairSpacing = 5f;
-
-        static readonly Vec2[] Posts =
+        static Vec2 PostAt(int slot, float half)
         {
-            new Vec2(VanLead, 0f),                            // Van
-            new Vec2(0f, FlankOffset),                        // RightVan
-            new Vec2(-PairSpacing, FlankOffset),              // RightRear
-            new Vec2(-PairSpacing - RearTrail, 0f),           // Rear
-            new Vec2(-PairSpacing, -FlankOffset),             // LeftRear
-            new Vec2(0f, -FlankOffset)                        // LeftVan
-        };
+            switch (slot)
+            {
+                case 0: return new Vec2(half + VanLead, 0f);              // Van
+                case 1: return new Vec2(half * 0.5f, FlankOffset);        // RightVan
+                case 2: return new Vec2(-half * 0.5f, FlankOffset);       // RightRear
+                case 3: return new Vec2(-half - RearTrail, 0f);           // Rear
+                case 4: return new Vec2(-half * 0.5f, -FlankOffset);      // LeftRear
+                default: return new Vec2(half * 0.5f, -FlankOffset);      // LeftVan
+            }
+        }
 
-        public void UpdatePositions(Vec2 centre, Vec2 heading)
+        /// <summary>
+        /// Puts every post where the column is, following the road rather than a ruler.
+        ///
+        /// The van walks twenty-five metres ahead of the column's centre and the road
+        /// bends inside that distance. Measured along a straight heading the van ends up
+        /// off the verge on every corner — fourteen metres from the nearest wagon where
+        /// it should be ten — and the formation swings wide through every turn like a
+        /// trailer. Walking the path for the along-column part and using the heading only
+        /// for the step out to the side keeps the escort on the road.
+        /// </summary>
+        public void UpdatePositions(Caravan caravan)
+        {
+            if (caravan == null) return;
+
+            float centre = caravan.LeadDistance - caravan.ColumnHalfLength;
+            var heading = caravan.Heading;
+
+            float hx = heading.X, hy = heading.Y;
+            float length = (float)Math.Sqrt(hx * hx + hy * hy);
+            if (length < 0.0001f) { hx = 1f; hy = 0f; }
+            else { hx /= length; hy /= length; }
+
+            float rx = hy, ry = -hx;
+
+            for (int i = 0; i < _slots.Length; i++)
+            {
+                var group = _slots[i];
+                if (group == null) continue;
+
+                var post = PostAt(i, caravan.ColumnHalfLength);
+                var anchor = caravan.PositionAt(centre + post.X);
+
+                group.Position = new Vec2(anchor.X + rx * post.Y, anchor.Y + ry * post.Y);
+            }
+        }
+
+        /// <param name="half">
+        /// Half the column's length. Zero puts every post around a single point, which is
+        /// what the formation was before the wagons were strung out.
+        /// </param>
+        public void UpdatePositions(Vec2 centre, Vec2 heading, float half = 0f)
         {
             float hx = heading.X, hy = heading.Y;
             float length = (float)Math.Sqrt(hx * hx + hy * hy);
@@ -379,7 +433,7 @@ namespace Arna.Sim
                 var group = _slots[i];
                 if (group == null) continue;
 
-                var post = Posts[i];
+                var post = PostAt(i, half);
 
                 group.Position = new Vec2(
                     centre.X + hx * post.X + rx * post.Y,

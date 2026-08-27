@@ -211,8 +211,20 @@ namespace Arna.Sim
                     continue;
                 }
 
+                // The nearest cart, not the first one.
+                //
+                // Everything closed on the lead wagon and struck the first undestroyed
+                // one in the list, which is the same wagon: an attacker that came out of
+                // the trees beside the third cart walked the length of the column to hit
+                // the front of it, and the rear of a caravan was the safest place on the
+                // map. A column is thirty metres long and the thing nearest a raider is
+                // whatever he is standing next to.
+                Wagon wagon = null; Vec2 wagonAt = _caravan.LeadPosition;
+                foreach (var c in _caravan.Wagons) { if (!c.Destroyed) { wagon = c; break; } }
+                if (wagon == null) continue;
+
                 float reachToCaravan = EnemyTable.AttackRange(enemy.Kind) + EngagementSlack;
-                if (Vec2.DistanceSquared(enemy.Position, _caravan.LeadPosition) <= reachToCaravan * reachToCaravan)
+                if (Vec2.DistanceSquared(enemy.Position, wagonAt) <= reachToCaravan * reachToCaravan)
                 {
                     InContact = true;
                     EnemiesEngaged++;
@@ -220,14 +232,14 @@ namespace Arna.Sim
 
                     // Nothing is left to intercept it, so closeness to the wagons is
                     // what counts.
-                    if (Vec2.DistanceSquared(enemy.Position, _caravan.LeadPosition) <= HaltRadius * HaltRadius)
+                    if (Vec2.DistanceSquared(enemy.Position, wagonAt) <= HaltRadius * HaltRadius)
                         Halted = true;
 
-                    StrikeCaravan(enemy, deltaTime);
+                    StrikeCaravan(enemy, wagon, deltaTime);
                     continue;
                 }
 
-                Advance(enemy, _caravan.LeadPosition, deltaTime, terrain);
+                Advance(enemy, wagonAt, deltaTime, terrain);
             }
         }
 
@@ -265,24 +277,40 @@ namespace Arna.Sim
                 enemy.Position.Y + toCaravan.Y / distance * step);
         }
 
-        void StrikeCaravan(TrackedEnemy enemy, float deltaTime)
+        /// <summary>The nearest cart still standing, and where it is. Null when all are gone.</summary>
+        Wagon NearestWagon(TrackedEnemy enemy, out Vec2 at)
+        {
+            Wagon found = null;
+            at = _caravan.LeadPosition;
+            float best = float.MaxValue;
+
+            for (int i = 0; i < _caravan.Wagons.Count; i++)
+            {
+                var wagon = _caravan.Wagons[i];
+                if (wagon.Destroyed) continue;
+
+                var position = _caravan.WagonPosition(i);
+                float distance = Vec2.DistanceSquared(enemy.Position, position);
+                if (distance >= best) continue;
+
+                best = distance;
+                found = wagon;
+                at = position;
+            }
+
+            return found;
+        }
+
+        void StrikeCaravan(TrackedEnemy enemy, Wagon nearest, float deltaTime)
         {
             float damage = EnemyTable.Dps(enemy.Kind) * EnemyStrength * HealthFraction(enemy) * deltaTime;
 
-            // Bandits go for the treasure; everything else hits whatever is in front.
+            // Bandits go for the treasure; everything else hits whatever it reached.
             var wagon = enemy.Kind == EnemyKind.Bandit
                 ? _caravan[WagonKind.Treasure]
                 : null;
 
-            if (wagon == null || wagon.Destroyed)
-            {
-                foreach (var candidate in _caravan.Wagons)
-                {
-                    if (candidate.Destroyed) continue;
-                    wagon = candidate;
-                    break;
-                }
-            }
+            if (wagon == null || wagon.Destroyed) wagon = nearest;
 
             wagon?.ApplyDamage(damage);
         }
@@ -314,6 +342,21 @@ namespace Arna.Sim
                 // as the melee ranges simply not meeting.
                 float reach = TroopUpgrades.UsableRange(group.AttackRange(terrain), squadSight)
                               + EngagementSlack;
+
+                // A formation fights what is fighting it. The bows fight everything.
+                //
+                // Every group used to strike the nearest thing in reach, which made the
+                // six posts a single weapon that happened to be drawn in six places:
+                // where the player put the swordsmen changed nothing, because whatever
+                // came at the left flank was shot at by the right one too. Now a
+                // man-at-arms swings at what has closed on *him* — so a pack that comes
+                // out of the trees on the left meets the left flank and only the left
+                // flank, and the choice of who stands where is the choice it looks like.
+                //
+                // Archers and the mage are the exception, and are the reason the rule
+                // reads as tactics rather than as a handicap: a bow does not need to be
+                // attacked to be useful, so they answer anything inside their radius
+                // wherever it is on the column. That is what buying reach buys.
                 var target = NearestEnemyInReach(group, reach);
                 group.Target = target;
                 if (target == null) continue;

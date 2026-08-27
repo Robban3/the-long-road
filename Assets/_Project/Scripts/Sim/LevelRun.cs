@@ -129,7 +129,8 @@ namespace Arna.Sim
 
             Caravan.Tick(StepSeconds);
 
-            Squad?.UpdatePositions(Caravan.LeadPosition, Caravan.Heading);
+            // Around the whole column, not around its first wagon. See Squad.PostAt.
+            Squad?.UpdatePositions(Caravan);
             RefreshWatchers();
 
             if (Detection.Tick(StepSeconds, Caravan.LeadPosition, _watchers))

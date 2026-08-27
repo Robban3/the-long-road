@@ -308,8 +308,24 @@ namespace Arna.Tests
             var map = Map(1, 6);
             var route = map.CorridorOf(CorridorKind.Fast).Tiles;
 
-            var easy = new LevelRun(map, route, Escort(), enemyStrength: 1f);
-            var hard = new LevelRun(map, route, Escort(), enemyStrength: 2f);
+            // The budget 1-6 actually hands out, rather than the default twelve.
+            //
+            // Twelve is the budget of level *one*, and a level-one escort on a level-six
+            // map now loses every wagon whether the enemies are doubled or not — so both
+            // sides of this comparison sat on the floor and the assertion had nothing to
+            // read. It became that way when the formation was strung out along the whole
+            // column instead of huddled around the lead wagon (Squad.PostAt): the escort
+            // covers three wagons now and each post fights nearer to alone, which an
+            // under-strength squad cannot carry on an escalation level.
+            //
+            // That is the levels doing their job — the properly-budgeted escort still
+            // gets its owed route through every level in the chapter — but it is not
+            // what this test is about. Monotonicity has to be measured where there is
+            // still something left to lose.
+            int budget = new ChapterRecipe().ForLevel(6).SquadBudget;
+
+            var easy = new LevelRun(map, route, Escort(budget), enemyStrength: 1f);
+            var hard = new LevelRun(map, route, Escort(budget), enemyStrength: 2f);
 
             easy.RunToCompletion();
             hard.RunToCompletion();
