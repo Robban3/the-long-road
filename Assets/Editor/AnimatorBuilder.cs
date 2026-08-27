@@ -34,9 +34,19 @@ namespace Arna.Editor
         // the same one, and the eagle has four of them — a soar and a wingbeat among
         // them. See SortOutTheFlying, which measures them instead of reading their names.
         static readonly string[] IdleNames = { "Idle", "Idle_Neutral", "Idle_2", "Eat", "Graze", "Fly" };
-        static readonly string[] WalkNames = { "Walk", "Trot", "Run", "Gallop", "Fly" };
-        static readonly string[] AttackNames = { "Sword", "Sword_Slash", "Attack", "Attack_Kick", "Bite", "Punch", "Punch_Right" };
-        static readonly string[] DeathNames = { "Death", "Die" };
+        static readonly string[] WalkNames = { "Walk", "Walking", "Trot", "Run", "Running", "Gallop", "Fly" };
+        // The last few in each are for clips brought in from outside, which nobody here
+        // named. A Mixamo file is called what the animation is called on the website —
+        // "Sword And Shield Slash", "Walking", "Dying" — and the matcher falls back to
+        // Contains, so a token that appears in the name is enough. Adding an alias costs
+        // nothing and the alternative is a soldier who does not swing.
+        static readonly string[] AttackNames =
+        {
+            "Sword", "Sword_Slash", "Attack", "Attack_Kick", "Bite", "Punch", "Punch_Right",
+            "Slash", "Swing", "Strike", "Stab", "Melee", "Chop"
+        };
+
+        static readonly string[] DeathNames = { "Death", "Die", "Dying", "Killed", "Fall" };
 
         static readonly string[] Models =
         {
@@ -1145,6 +1155,84 @@ namespace Arna.Editor
             => clip == null ? "—"
              : Labels.TryGetValue(clip, out string name) ? name
              : Bare(clip.name);
+
+        /// <summary>
+        /// Says what every controller is actually holding: `Arna > Report Animation`.
+        ///
+        /// The build already logs its choices, and a log line is only useful to somebody
+        /// who was watching the console at the moment it appeared. Three rounds went on
+        /// the question "did the attack clip get in", which is a fact sitting in an asset
+        /// on disk and can be read whenever it is asked for.
+        ///
+        /// It reads the controllers rather than rebuilding them, so it answers about the
+        /// files the game will actually play — including a controller built by an older
+        /// version of this code, which is exactly the case worth catching.
+        /// </summary>
+        [MenuItem("Arna/Report Animation")]
+        public static void ReportAnimation()
+        {
+            if (AssetDatabase.IsValidFolder(BorrowedClips))
+            {
+                var guids = AssetDatabase.FindAssets("t:Model", new[] { BorrowedClips });
+                var found = new List<string>();
+
+                foreach (var guid in guids)
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    var clips = LoadClips(path);
+                    NameFromFile(clips);
+
+                    string rig = Mapped(path) ? "humanoid" : "NOT humanoid";
+                    var names = new List<string>();
+                    foreach (var clip in clips) names.Add(Label(clip));
+
+                    found.Add($"{Path.GetFileNameWithoutExtension(path)} ({rig}, "
+                              + (names.Count > 0 ? string.Join("/", names) : "no clips") + ")");
+                }
+
+                Debug.Log(guids.Length == 0
+                    ? $"[Arna] {BorrowedClips} is there and empty."
+                    : $"[Arna] {guids.Length} borrowed file(s): {string.Join(", ", found)}");
+            }
+            else
+            {
+                Debug.Log($"[Arna] No {BorrowedClips} folder, so nothing has been brought in.");
+            }
+
+            foreach (var guid in AssetDatabase.FindAssets("t:AnimatorController", new[] { OutputDir }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
+                if (controller == null || controller.layers.Length == 0) continue;
+
+                var wanted = new List<string> { "Idle", "Walk", "Attack", "Death" };
+                var report = new List<string>();
+
+                foreach (string state in wanted)
+                {
+                    var motion = MotionOf(controller, state);
+
+                    report.Add(motion == null
+                        ? $"{state}=—"
+                        : $"{state}={motion.name}");
+                }
+
+                Debug.Log($"[Arna] {Path.GetFileName(path)}: {string.Join("  ", report)}"
+                          + (MotionOf(controller, "Attack") == null
+                             ? "   ← no attack state, so nothing swings whatever the game asks for"
+                             : string.Empty));
+            }
+        }
+
+        /// <summary>The clip a named state plays, or null when the state was never built.</summary>
+        static Motion MotionOf(AnimatorController controller, string state)
+        {
+            foreach (var child in controller.layers[0].stateMachine.states)
+                if (string.Equals(child.state.name, state, System.StringComparison.OrdinalIgnoreCase))
+                    return child.state.motion;
+
+            return null;
+        }
 
         static bool Exactly(string a, string b)
             => string.Equals(a, b, System.StringComparison.OrdinalIgnoreCase);
