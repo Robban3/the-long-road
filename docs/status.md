@@ -67,20 +67,35 @@ was the one inside Unity, on another machine, after a push. A method defined twi
 `ArnaSetup` cost a Safe Mode dialog and two round trips to find, and nothing here could
 have caught it.
 
-`unitycheck.sh` hands every one of those files to Roslyn with **no references at all**.
-Most of what comes back is noise — a thousand *type not found* for `UnityEngine` — but the
-errors that do not depend on knowing what a `GameObject` is come back too:
+`unitycheck.sh` compiles those files here instead. Its first version handed them to Roslyn
+with **no references at all** and filtered the flood, and it caught duplicate methods and
+unclosed braces and nothing else — for a reason worth writing down: **csc does not bind
+method bodies when the declaration phase has errors.** It cannot emit, so it does not try.
+With no references, every signature that mentions a `Transform` is an error, so no method
+body in View was ever read. A shadowed local that broke the build passed a clean run.
+
+So it gives the compiler references. Sim and Gen come from the assembly `typecheck.sh`
+builds, which makes `TileGrid` and `DeterministicRandom` real. `UnityEngine` cannot, so the
+engine types are stood in for: every name still unresolved after a first pass is declared
+as a permissive class, and every namespace anybody imports is declared too — a `using` that
+fails suppresses every diagnostic in its file, which is the same blindness in miniature.
+The stand-ins take a `params object[]` constructor, so `[Header("…")]` and
+`new Vector3(x, y, z)` both bind.
+
+What survives is noise about members the stand-ins do not have, and — because the bodies
+are read now — the errors that live inside them:
 
 | | |
 |---|---|
-| CS0111 | a method defined twice |
-| CS0101 | a type defined twice |
+| CS0136 | a local shadowing another |
+| CS1503 | the wrong argument type |
 | CS0128 | a local declared twice |
+| CS0111, CS0101 | a method or type defined twice |
 | CS1002, CS1513, CS1525 | the syntax family |
 
-It runs in four seconds and it is not a substitute for Unity's own compile — anything that
-needs to know a type is still invisible. It is the half that can be had before pushing, and
-that half is where this class of mistake lives.
+It runs in under two seconds and it is not a substitute for Unity's own compile — anything
+reached *through* an engine type is still invisible. It is the half that can be had before
+pushing, and that half is where this class of mistake lives.
 
 ### Running the C# without Unity
 

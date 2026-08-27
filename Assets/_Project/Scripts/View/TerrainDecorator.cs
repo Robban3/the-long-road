@@ -798,6 +798,7 @@ namespace Arna.View
             if (!decor.Fords.Any) return 0;
 
             int placed = 0;
+            var bridges = new List<int>();
 
             for (int i = 0; i < grid.TileCount; i++)
             {
@@ -806,7 +807,8 @@ namespace Arna.View
 
                 // One per crossing. A ford is several tiles wide and a bridge on each of
                 // them is a pier, not a crossing.
-                if (!SpacedEnough(grid, i, occupied, 4f)) continue;
+                if (!Apart(grid, i, bridges, 4f)) continue;
+                bridges.Add(i);
 
                 var choice = new Choice(decor.Fords, Any(decor.Fords, rng), FordWidth,
                                         byWidth: true);
@@ -832,12 +834,14 @@ namespace Arna.View
             if (!decor.Cliffs.Any) return 0;
 
             int placed = 0;
+            var stood = new List<int>();
 
             for (int i = 0; i < grid.TileCount && placed < MaxLandmarks * 3; i++)
             {
                 if (grid[i] != TerrainType.Cliff) continue;
                 if (occupied.Contains(i)) continue;
-                if (!SpacedEnough(grid, i, occupied, 2f)) continue;
+                if (!Apart(grid, i, stood, 2f)) continue;
+                stood.Add(i);
 
                 var choice = new Choice(decor.Cliffs, Any(decor.Cliffs, rng), CliffHeight,
                                         byWidth: false);
@@ -948,8 +952,8 @@ namespace Arna.View
                 grid.ToCoords(i, out int x, out int y);
                 if (!NextToWater(grid, x, y)) continue;
 
-                int stones = 3 + rng.Range(0, 4);
-                for (int s = 0; s < stones && placed < MaxShoreStones; s++)
+                int pile = 3 + rng.Range(0, 4);
+                for (int s = 0; s < pile && placed < MaxShoreStones; s++)
                 {
                     var choice = new Choice(stones, Any(stones, rng), ShoreStoneSize,
                                             byWidth: true);
@@ -960,6 +964,29 @@ namespace Arna.View
             }
 
             return placed;
+        }
+
+        /// <summary>
+        /// Whether a tile stands far enough from the ones this pass has already used.
+        ///
+        /// Measured against the pass's own choices rather than against everything on the
+        /// map. A bridge should not be built beside another bridge; it has no quarrel
+        /// with a daisy. Spacing against the whole occupancy set would also cost a scan
+        /// of some thousands of props per candidate tile, for an answer nobody wanted.
+        /// </summary>
+        static bool Apart(TileGrid grid, int tile, List<int> taken, float spacing)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+            float limit = spacing * spacing;
+
+            foreach (int other in taken)
+            {
+                grid.ToCoords(other, out int ox, out int oy);
+                float dx = ox - x, dy = oy - y;
+                if (dx * dx + dy * dy < limit) return false;
+            }
+
+            return true;
         }
 
         /// <summary>
