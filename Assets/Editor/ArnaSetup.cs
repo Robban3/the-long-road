@@ -183,12 +183,23 @@ namespace Arna.Editor
                 Engineer = Army("MC_Peasant_01"),
 
                 // Mounted, and already so: the pack ships the rider on the horse rather
-                // than as two things to assemble.
+                // than as two things to assemble. It stands still, and that is the least
+                // wrong of the things it could do — see the draught horse below.
                 Mounted = Army("MC_Cavalry_LightCavalry"),
 
-                // A horse with a saddle and nobody on it, for the traces. Not the
-                // cavalry model — see VisualLibrary.Draught.
-                Draught = Army("MC_Horse_Saddle"),
+                // **The old horse, not the pack's.**
+                //
+                // MC_Horse_Saddle is the better model and it reared up on its hind legs.
+                // Everything under Prefabs - Characters was made Humanoid and pointed at
+                // the one human controller, and a horse mapped onto a human skeleton
+                // playing a human idle stands like a man: hind legs down, forelegs up,
+                // the length of the caravan. Unity maps it without complaint — the
+                // guessing is by bone name and a horse has a hip and a head like anybody.
+                //
+                // A horse needs horse clips and there are none in the army pack, so it is
+                // Quaternius's horse in the traces: worse-looking, and it walks. When a
+                // four-legged clip source turns up the model can go back.
+                Draught = Actor("Assets/Quaternius/Animals/Horse.fbx"),
 
                 // Red for the bandits. The pack's own faction material rather than a
                 // tint over it — see VisualLibrary.EnemyFaction — and note `Unviersal`,
@@ -634,10 +645,22 @@ namespace Arna.Editor
 
                 // Stone a river put there, rather than stone that happens to be near
                 // one — the curved piles are made to follow a waterline.
-                // One mesh for the whole far horizon, standing behind the peak ring.
-                // The inventory has called this the biggest thing not yet used since the
-                // day it was written.
-                Backdrop = Synty("Terrain", "SM_MountainSkybox_01"),
+                // **Nothing, and the empty field is the finding.**
+                //
+                // SM_MountainSkybox_01 is a bowl, not a band: a ring of peaks around a
+                // flat floor, made to be scaled up around a terrain that reaches its
+                // edge. This map is a 256 m island, the bowl is 1600 m across, and the
+                // floor is laid at y=0 because that is where a backdrop's base belongs —
+                // so the island sat in eight hundred metres of flat grey in every
+                // direction and read as a sea.
+                //
+                // Sinking it does not help. The floor is wider than anything that could
+                // hide it, so from a camera above the caravan there is always some of it
+                // showing below the peaks. The horizon this project wanted is the ring
+                // PlaceHorizon already stands at 380 m; this was the belt as well as the
+                // braces, and it cost the sky.
+                //
+                // The pass stays. A backdrop that is a *band* would work in it.
 
                 Shore = Synty("Rocks", "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03",
                               "SM_Rock_Pile_04", "SM_Rock_Pile_05",

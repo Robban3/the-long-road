@@ -246,12 +246,29 @@ namespace Arna.Editor
             // somewhere is a person, and only what is nowhere a person is a part.
             foreach (string path in rigs) parts.Remove(path);
 
+            // And a horse is not a person either, whatever Unity is willing to call it.
+            //
+            // The mapper guesses from bone names and a horse has a hip, a spine and a
+            // head like anybody, so MC_Horse_Saddle was converted without a word of
+            // complaint, given the human controller every other character shares, and
+            // spent the game reared up on its hind legs the length of the caravan. The
+            // avatar being valid is not the same as the rig being a person.
+            var beasts = new List<string>();
+
+            for (int i = rigs.Count - 1; i >= 0; i--)
+                if (NotAPerson(rigs[i])) { beasts.Add(rigs[i]); rigs.RemoveAt(i); }
+
+            foreach (string path in beasts) Generic(path);
+
             Debug.Log($"[Arna] {prefabs.Length} character prefab(s): {skinned} with a skeleton, "
                       + $"{boneless} without"
                       + (parts.Count > 0
                          ? $", and {parts.Count} rigged part(s) with too few bones to be a "
                            + $"person: {string.Join(", ", Names(parts))}."
-                         : "."));
+                         : ".")
+                      + (beasts.Count > 0
+                         ? $" {string.Join(", ", Names(beasts))} left on Generic: not people."
+                         : string.Empty));
 
             if (rigs.Count == 0)
             {
@@ -386,6 +403,24 @@ namespace Arna.Editor
             }
 
             return null;
+        }
+
+        /// <summary>Whether a rig is something other than a person, by two tests.</summary>
+        // Two, because neither is enough on its own. A skeleton with no hand cannot be a
+        // human avatar however Unity feels about it — that catches the plain horse. And a
+        // rig that carries a rider *does* have hands, so the cavalry passes the first test
+        // and is caught by its name instead. Names are a poor rule and this is the place
+        // for one: the alternative is a horse walking on two legs through the caravan.
+        static readonly string[] Beasts = { "horse", "cavalry", "mount", "steed", "pony" };
+
+        static bool NotAPerson(string path)
+        {
+            string name = Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
+
+            foreach (string beast in Beasts)
+                if (name.Contains(beast)) return true;
+
+            return Absent(path).Count > 0;
         }
 
         /// <summary>
