@@ -988,6 +988,52 @@ namespace Arna.View
         }
 
         /// <summary>
+        /// Puts grass on a patch of grass.
+        ///
+        /// The patch set holds bare earth and it holds three pieces of longer grass, and
+        /// the two want opposite treatment. Bare earth is finished when it is laid: it is
+        /// a place where the grass has been worn off, and its whole job is to be flat and
+        /// a different colour. The grass pieces are not — laid flat on a field of the
+        /// same green they read as a five-metre blob of a slightly darker shade, which is
+        /// the one thing on the map that looks like a mistake rather than like ground.
+        ///
+        /// What makes grass look like grass is that it stands up. A dozen tufts over the
+        /// disc break its edge, catch the light differently from the flat ground under
+        /// them, and turn the shape from a stain into a patch of something growing. The
+        /// tufts are the same ones the ground cover uses; there is nothing new to draw.
+        /// </summary>
+        static int Tufted(Transform parent, TileGrid grid, DeterministicRandom rng,
+                          BiomeDecor decor, GameObject patch, int tile, float heightScale)
+        {
+            if (patch == null || !decor.GroundCover.Any) return 0;
+
+            // By name, because the set is a flat list of prefabs and this is the one
+            // thing about a member of it that the code has to know. A patch called Grass
+            // is grass; everything else in the folder is dirt, mud or a river bed.
+            if (patch.name.IndexOf("Grass", System.StringComparison.OrdinalIgnoreCase) < 0)
+                return 0;
+
+            int tufts = PatchTuftsLow + rng.Range(0, PatchTuftsHigh - PatchTuftsLow + 1);
+
+            for (int t = 0; t < tufts; t++)
+            {
+                var choice = new Choice(decor.GroundCover, Any(decor.GroundCover, rng),
+                                        CoverHeight, byWidth: false, canopy: true);
+
+                // Spread over the disc rather than over the tile: the patch is 5.2 m
+                // across and the tile is 4, so tufts confined to the tile would leave a
+                // bare rim of the thing they are meant to be hiding.
+                Scatter(parent, grid, rng, choice, tile, heightScale, spread: PatchWidth * 0.45f);
+            }
+
+            return tufts;
+        }
+
+        /// <summary>How many tufts a patch of longer grass carries.</summary>
+        public const int PatchTuftsLow = 9;
+        public const int PatchTuftsHigh = 14;
+
+        /// <summary>
         /// Strews stones along the water's edge.
         ///
         /// A river drawn as a band of blue between two banks of grass is a shape on a
@@ -1326,6 +1372,12 @@ namespace Arna.View
             // earth may not appear under.
             var patched = new HashSet<int>();
 
+            // The tufts a grass patch carries are counted apart from the patches. Folded
+            // in they would spend the patch budget a dozen at a time, so the map would
+            // get a thirtieth of the bare earth it asked for and the number would look
+            // like it had been met.
+            int tufts = 0;
+
             for (int i = 0; i < grid.TileCount && placed < MaxGroundPatches; i++)
             {
                 if (!PatchDensity.TryGetValue(grid[i], out float density)) continue;
@@ -1347,10 +1399,11 @@ namespace Arna.View
                 {
                     ReservePatch(grid, patched, i);
                     placed++;
+                    tufts += Tufted(parent, grid, rng, decor, choice.Prefab, i, heightScale);
                 }
             }
 
-            return placed;
+            return placed + tufts;
         }
 
         /// <summary>Tiles a patch claims, measured out from the one it stands on.</summary>
