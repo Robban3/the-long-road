@@ -783,6 +783,29 @@ namespace Arna.View
         {
             if (!decor.Water.Any) return 0;
 
+            // One level for the whole sheet, found before anything is laid.
+            //
+            // Every plane used to be set on the bed of its own tile, so a watercourse
+            // running across any slope at all was a staircase of squares each at its own
+            // height — the blockiness the planes were introduced to hide, reproduced in
+            // the thing hiding it. Water finds its own level, and the highest bed is the
+            // level that leaves none of them showing through: anywhere shallower simply
+            // has more water over it, which is what a river looks like.
+            float level = float.MinValue;
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] != TerrainType.Water) continue;
+
+                var tile = Vec2.FromTile(grid, i);
+                float bed = grid.SurfaceElevation(tile.X, tile.Y) * heightScale;
+                if (bed > level) level = bed;
+            }
+
+            if (level == float.MinValue) return 0;
+            level += WaterLift;
+
+            var surface = River();
             int placed = 0;
 
             for (int i = 0; i < grid.TileCount; i++)
@@ -790,18 +813,26 @@ namespace Arna.View
                 if (grid[i] != TerrainType.Water) continue;
 
                 var at = Vec2.FromTile(grid, i);
-                float bed = grid.SurfaceElevation(at.X, at.Y) * heightScale;
 
                 var instance = Object.Instantiate(Any(decor.Water, rng), parent);
 
-                instance.transform.position = new Vector3(at.X, bed + WaterLift, at.Y);
+                instance.transform.position = new Vector3(at.X, level, at.Y);
 
                 // Turned in quarter turns only. A water plane is a square with a texture
                 // on it, and an odd angle shows its corners against the tile grid it is
                 // covering.
                 instance.transform.rotation = Quaternion.Euler(0f, rng.Range(0, 4) * 90f, 0f);
 
-                ModelScaling.FitToFootprint(instance, WaterWidth, bed + WaterLift);
+                ModelScaling.FitToFootprint(instance, WaterWidth, level);
+
+                // Painted rather than left with what the pack shipped. The plane's own
+                // material is a water shader from another pipeline: in URP it resolves to
+                // untextured white, which laid a sheet of paper over every river on the
+                // map and a pale cyan one over the plan.
+                if (surface != null)
+                    foreach (var renderer in instance.GetComponentsInChildren<Renderer>(true))
+                        renderer.sharedMaterial = surface;
+
                 placed++;
             }
 
@@ -1118,6 +1149,28 @@ namespace Arna.View
         /// so it costs bandwidth to deliver noise. One shared material also means the
         /// twenty-two peaks batch instead of pulling the pack's atlas twenty-two times.
         /// </summary>
+        /// <summary>The colour of the water, and how much sky it gives back.</summary>
+        // Dark enough to read as depth from the plan camera and smooth enough to catch
+        // the light from the run camera, which is the whole of what makes a flat plane
+        // look wet. It matches the plan palette's water so the two views agree.
+        public static readonly Color RiverBlue = new Color(0.14f, 0.27f, 0.40f);
+
+        static Material _river;
+
+        static Material River()
+        {
+            if (_river != null) return _river;
+
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) return null;
+
+            _river = new Material(shader) { name = "River" };
+            _river.SetColor(BaseColorId, RiverBlue);
+            _river.SetFloat("_Smoothness", 0.75f);
+
+            return _river;
+        }
+
         static Material Skyline()
         {
             // Explicit null check rather than ??: a material destroyed by a domain reload

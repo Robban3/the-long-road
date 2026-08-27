@@ -592,14 +592,18 @@ namespace Arna.View
 
                     var spot = new Vec2(enemy.Position.X + offset.X, enemy.Position.Y + offset.Y);
 
-                    // Each animal turns to face the middle of the ring rather than all of
-                    // them facing the way the group is, or the far side of the pack
-                    // fights with its back to the quarry.
+                    // Each animal turns to face what the pack is fighting.
+                    //
+                    // It used to face the centre of its own ring — a point one radius
+                    // ahead of the group's marker — which is only the quarry if the
+                    // quarry happens to be standing exactly there. It never is: the ring
+                    // is two and a half metres across and a troop is met at whatever
+                    // distance the two reaches meet, so the far side of the pack looked
+                    // past the man it was biting and the near side looked at nothing.
+                    // The thing being attacked is known — it is what the ring was
+                    // arranged around — so face it.
                     var turn = enemy.Striking
-                        ? Facing(Toward(spot, new Vec2(enemy.Position.X + forward.x * Formation.PackRing,
-                                                       enemy.Position.Y + forward.z * Formation.PackRing),
-                                        forward),
-                                 model.YawOffset)
+                        ? Facing(Toward(spot, focus, forward), model.YawOffset)
                         : look;
 
                     Place(pack[i], new Vector3(spot.X, GroundAt(spot), spot.Y), turn);

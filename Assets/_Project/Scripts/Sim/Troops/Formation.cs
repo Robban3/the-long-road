@@ -44,13 +44,18 @@ namespace Arna.Sim
         /// <summary>
         /// How much of a circle a pack closes around its quarry, as a fraction.
         ///
-        /// Five sixths, not the whole circle. A pack that surrounds a target perfectly
-        /// has one animal directly behind it and reads as a diagram; leaving a sixth
-        /// open puts the gap on the far side, which is both what a real pack does — the
-        /// quarry is driven, not enclosed — and what lets the player see the fight
-        /// happening rather than a wheel of backs.
+        /// **A half, down from five sixths.** Five sixths was reasoned about rather than
+        /// looked at: leave a sixth open, went the argument, and the gap falls on the far
+        /// side where a real pack drives its quarry rather than enclosing it. What it
+        /// actually drew was a wheel — three hundred degrees of animals wrapped round
+        /// and past the thing they were biting, with the ones at the ends pointing away
+        /// from the fight because there was nothing in front of them.
+        ///
+        /// A half faces the quarry and nothing else does: every animal is on the side
+        /// the pack came from, every one of them is looking at the same thing, and the
+        /// fight reads from any camera angle instead of only from behind.
         /// </summary>
-        public const float PackArc = 5f / 6f;
+        public const float PackArc = 0.5f;
 
         /// <summary>Sideways gap between two models of a troop group holding one post.</summary>
         public const float LineSpacing = 1.3f;
@@ -89,9 +94,10 @@ namespace Arna.Sim
         /// visibly standing on them.
         ///
         /// The offsets are relative to the group's own point, which the simulation has
-        /// already halted at its reach from the troop — so the ring is drawn around the
-        /// pack's nose rather than around the target, and <see cref="PackRing"/> is what
-        /// carries it the rest of the way.
+        /// already halted at its reach from the troop. The arc bulges toward the quarry
+        /// from there — it used to be *centred* a radius forward as well, which put the
+        /// middle of the pack past the thing it was attacking and is half of why the
+        /// animals faced nowhere in particular.
         /// </summary>
         public static Vec2 Ring(int index, int count, float forwardX, float forwardY,
                                 float radius = PackRing)
@@ -106,13 +112,11 @@ namespace Arna.Sim
             float step = sweep / count;
             float angle = heading - sweep * 0.5f + step * (index + 0.5f);
 
-            // Forward of the group's point, not around it: the pack is closing on
-            // something ahead of it, and the ring's centre is that something.
-            float centreX = forwardX * radius;
-            float centreY = forwardY * radius;
-
-            return new Vec2(centreX + (float)System.Math.Cos(angle) * radius,
-                            centreY + (float)System.Math.Sin(angle) * radius);
+            // Around the group's own point. The half that faces the quarry is the half
+            // the animals stand on, so the arc alone carries them forward and a second
+            // shift on top of it would carry them straight through.
+            return new Vec2((float)System.Math.Cos(angle) * radius,
+                            (float)System.Math.Sin(angle) * radius);
         }
 
         public static Vec2 Wedge(int index, float forwardX, float forwardY,
