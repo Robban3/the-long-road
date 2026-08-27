@@ -19,6 +19,53 @@ namespace Arna.Tests
             return squad;
         }
 
+        /// <summary>
+        /// Silver can be spent, and spending it makes the troop hit harder.
+        ///
+        /// The whole upgrade economy was built and priced and read by the combat every
+        /// step, and nothing anywhere called it: silver went up on the screen and there
+        /// was no path from the purse to a troop. Every part of this passed its own test
+        /// while the thing they add up to did not exist, which is the failure a test per
+        /// part cannot catch.
+        /// </summary>
+        [Test]
+        public void SilverBuysAStrongerTroop()
+        {
+            var run = Run(1, 1, Escort());
+            var group = run.Squad[FormationSlot.Rear];
+
+            Assert.IsFalse(run.TryUpgrade(FormationSlot.Rear, UpgradeTrack.Weapon, out _),
+                "bought an upgrade on an empty purse");
+
+            for (int i = 0; i < 6; i++) run.Economy.AwardGroupKill(EnemyKind.Wolf);
+
+            float before = group.DamageAgainst(EnemyKind.Wolf, TerrainType.Plains);
+            int purse = run.Economy.Silver;
+            int price = run.PriceOf(FormationSlot.Rear, UpgradeTrack.Weapon);
+
+            Assert.IsTrue(run.TryUpgrade(FormationSlot.Rear, UpgradeTrack.Weapon, out int cost),
+                $"could not spend {purse} silver on an upgrade priced {price}");
+
+            Assert.AreEqual(price, cost, "the price quoted was not the price charged");
+            Assert.AreEqual(purse - price, run.Economy.Silver, "the purse did not pay");
+            Assert.AreEqual(1, group.UpgradeLevel(UpgradeTrack.Weapon), "the level did not rise");
+            Assert.Greater(group.DamageAgainst(EnemyKind.Wolf, TerrainType.Plains), before,
+                "the upgrade bought nothing the fighting can feel");
+        }
+
+        /// <summary>Nothing is sold once the level is over, and nothing is sold to the dead.</summary>
+        [Test]
+        public void AFinishedRunSellsNothing()
+        {
+            var run = Run(1, 1, Escort());
+            for (int i = 0; i < 6; i++) run.Economy.AwardGroupKill(EnemyKind.Wolf);
+
+            run.RunToCompletion();
+
+            Assert.IsFalse(run.TryUpgrade(FormationSlot.Rear, UpgradeTrack.Weapon, out _),
+                "sold an upgrade after the run had ended");
+        }
+
         static LevelMap Map(int chapter, int level)
             => TerrainGenerator.Generate(new ChapterRecipe().ForLevel(level),
                                          DeterministicRandom.SeedFor(chapter, level));

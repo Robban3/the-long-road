@@ -282,5 +282,48 @@ namespace Arna.Sim
             gold += Economy.ConvertLeftoverToGold();
             return gold;
         }
+
+        /// <summary>
+        /// Spends silver on one post, mid-level. Returns whether it was bought and what
+        /// it cost.
+        ///
+        /// **The half of the economy that was never joined up.** Everything either side
+        /// of this existed and was tested: silver is earned from kills, scouting and
+        /// disarmed traps; the tracks are priced 20/32/51/82/131 and each level of them
+        /// is read by the combat every step. There was simply no call anywhere that took
+        /// silver out of the purse and put a level on a troop. The number went up on the
+        /// screen and nothing could ever be done with it — which is why the difficulty
+        /// curve read as the game getting harder while the player stood still. It was.
+        ///
+        /// Mid-level rather than between levels, because silver does not survive the
+        /// level (see RunEconomy): spending it is the level's own decision, made while
+        /// it is still worth something.
+        /// </summary>
+        public bool TryUpgrade(FormationSlot slot, UpgradeTrack track, out int cost)
+        {
+            cost = 0;
+
+            var group = Squad?[slot];
+            if (group == null || !group.Alive) return false;
+            if (Outcome != RunOutcome.InProgress) return false;
+
+            if (!Economy.TryUpgrade(group.UpgradeLevel(track), group.CostMultiplier(track), out cost))
+                return false;
+
+            group.RaiseLevel(track);
+            return true;
+        }
+
+        /// <summary>What the next level of a track would cost, or zero when it is capped.</summary>
+        public int PriceOf(FormationSlot slot, UpgradeTrack track)
+        {
+            var group = Squad?[slot];
+            if (group == null) return 0;
+
+            int level = group.UpgradeLevel(track);
+            if (level >= RunEconomy.MaxTrackLevel) return 0;
+
+            return RunEconomy.UpgradeCost(level, group.CostMultiplier(track));
+        }
     }
 }

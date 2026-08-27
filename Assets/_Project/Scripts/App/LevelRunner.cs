@@ -384,7 +384,7 @@ namespace Arna.App
             if (_run == null) return;
 
             var style = new GUIStyle(GUI.skin.label) { fontSize = 15, richText = true };
-            GUILayout.BeginArea(new Rect(14, 14, 380, 320), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(14, 14, 380, 340), GUI.skin.box);
 
             GUILayout.Label($"<b>{Chapter}-{Level}</b>   {Route} route", style);
             // Two clocks, because they answer different questions and the player is
@@ -413,6 +413,66 @@ namespace Arna.App
             }
 
             GUILayout.EndArea();
+
+            Purse();
+        }
+
+        /// <summary>
+        /// The place silver is spent. Six posts, three tracks, a price on each button.
+        ///
+        /// A readout like the panel beside it rather than the HUD this will eventually
+        /// have — but it is the first time the upgrade economy can be reached at all.
+        /// Everything behind these buttons was built and tested long ago: the tracks are
+        /// priced, and every step of the fighting already reads the levels they set. What
+        /// was missing was any way to press them. The silver counted up and the player
+        /// watched it, which is why the levels got harder while the escort did not.
+        /// </summary>
+        void Purse()
+        {
+            var style = new GUIStyle(GUI.skin.label) { fontSize = 13, richText = true };
+            var button = new GUIStyle(GUI.skin.button) { fontSize = 12 };
+
+            GUILayout.BeginArea(new Rect(14, 366, 380, 250), GUI.skin.box);
+            GUILayout.Label($"<b>Uppgradera</b>   {_run.Economy.Silver} silver", style);
+
+            foreach (var group in _run.Squad.Slots)
+            {
+                if (group == null) continue;
+
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{group.Kind}", style, GUILayout.Width(96));
+
+                Track(group.Slot, UpgradeTrack.Weapon, "Vapen", button, style);
+                Track(group.Slot, UpgradeTrack.Armour, "Rustn", button, style);
+                Track(group.Slot, UpgradeTrack.Special, "Spec", button, style);
+
+                GUILayout.EndHorizontal();
+            }
+
+            GUILayout.EndArea();
+        }
+
+        void Track(FormationSlot slot, UpgradeTrack track, string label,
+                   GUIStyle button, GUIStyle style)
+        {
+            var group = _run.Squad[slot];
+            int level = group.UpgradeLevel(track);
+
+            // Capped posts keep their space rather than losing their buttons, so the row
+            // does not reflow under the cursor as the last levels are bought.
+            if (level >= RunEconomy.MaxTrackLevel)
+            {
+                GUILayout.Label($"{label} {level}/5", style, GUILayout.Width(84));
+                return;
+            }
+
+            int price = _run.PriceOf(slot, track);
+            bool affordable = _run.Economy.Silver >= price;
+
+            GUI.enabled = affordable;
+            if (GUILayout.Button($"{label} {level}→{level + 1}  {price}", button, GUILayout.Width(84)))
+                _run.TryUpgrade(slot, track, out _);
+            GUI.enabled = true;
         }
     }
 }
