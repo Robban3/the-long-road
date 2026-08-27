@@ -221,7 +221,15 @@ namespace Arna.App
         float[] _clarity;
 
         /// <summary>Reused rather than allocated per prop per frame.</summary>
-        readonly MaterialPropertyBlock _block = new MaterialPropertyBlock();
+        // Built on first use rather than here. A MonoBehaviour's fields are initialised
+        // while the object is being deserialised, off the main thread, and anything that
+        // reaches into the engine there throws — a MaterialPropertyBlock does. The
+        // exception is raised against the component's constructor, so it reads as a
+        // problem with the class rather than with one line of it, and the component never
+        // starts at all: the whole preview scene comes up empty for a property block.
+        MaterialPropertyBlock _block;
+
+        MaterialPropertyBlock Block => _block ?? (_block = new MaterialPropertyBlock());
 
         /// <summary>Whether the bird has been round the whole flight at least once.</summary>
         bool _lapped;
@@ -540,9 +548,9 @@ namespace Arna.App
                 {
                     standing?.Add(renderer);
 
-                    renderer.GetPropertyBlock(_block);
-                    _block.SetColor(BaseColor, shade);
-                    renderer.SetPropertyBlock(_block);
+                    renderer.GetPropertyBlock(Block);
+                    Block.SetColor(BaseColor, shade);
+                    renderer.SetPropertyBlock(Block);
                 }
             }
         }
@@ -684,9 +692,9 @@ namespace Arna.App
                     continue;
                 }
 
-                renderer.GetPropertyBlock(_block);
-                _block.SetColor(BaseColor, shade);
-                renderer.SetPropertyBlock(_block);
+                renderer.GetPropertyBlock(Block);
+                Block.SetColor(BaseColor, shade);
+                renderer.SetPropertyBlock(Block);
             }
         }
 
