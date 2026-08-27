@@ -76,17 +76,43 @@ namespace Arna.Editor
         ///
         /// **The pack ships none.** `Build Army Animator` searched every asset under it
         /// and found not one clip: 22 FBXs of meshes, 52 prefabs assembled from them, and
-        /// nothing that moves. So its characters borrow the knight's, which is what
-        /// Humanoid retargeting is for — a clip described in terms of a human skeleton
-        /// rather than of bone names plays on any human skeleton, including one from
-        /// another artist.
+        /// nothing that moves. So its characters borrow a Quaternius character's, which
+        /// is what Humanoid retargeting is for — a clip described in terms of a human
+        /// skeleton rather than of bone names plays on any human skeleton, including one
+        /// from another artist.
         ///
         /// `Rig For Retargeting` is what makes that possible, and has to be run once.
         /// </summary>
-        public const string ArmyController = OutputDir + "/Knight.controller";
+        public const string ArmyController = OutputDir + "/" + ArmyName + ".controller";
 
-        /// <summary>The file the borrowed clips come out of.</summary>
-        public const string ClipSource = "Assets/Quaternius/Knight/Knight.fbx";
+        /// <summary>The name of the controller the whole army plays.</summary>
+        // Its own name rather than the knight's. Which file the clips come out of is a
+        // question with more than one answer — the first source that maps wins — and a
+        // controller named after whichever one happened to win is a controller nothing
+        // else can refer to. ArnaSetup needs this path at compile time.
+        const string ArmyName = "Army";
+
+        /// <summary>The files the borrowed clips might come out of, best first.</summary>
+        // More than one, because the first is not guaranteed to work and the failure is
+        // not the kind anyone can see coming: whether Unity can read a skeleton as human
+        // is decided by bone names and hierarchy inside a binary file. The knight is
+        // first because his clips are the ones this game was built around — a sword, a
+        // walk, a death — and the others are asked only if he cannot be made humanoid.
+        static readonly string[] ClipSources =
+        {
+            "Assets/Quaternius/Knight/Knight.fbx",
+            "Assets/Quaternius/ModularMen/Adventurer.fbx",
+            "Assets/Quaternius/ModularMen/Farmer.fbx",
+            "Assets/Quaternius/PiratePack/Characters_Henry.fbx",
+            "Assets/Quaternius/PiratePack/Characters_Captain_Barbarossa.fbx",
+        };
+
+        /// <summary>Fewest bones a skeleton can have and still be a person.</summary>
+        // A longbow in the army pack is skinned to a skeleton as well, and it is not a
+        // person. Forcing it humanoid asks Unity to find a pelvis in a bow; it says no,
+        // at length, and the warning buries the one rig that mattered. A human avatar
+        // needs fifteen bones at the very least; a bow has three.
+        const int HumanBones = 15;
 
         /// <summary>
         /// Builds the one controller every character in the army pack uses.
@@ -102,9 +128,10 @@ namespace Arna.Editor
         /// the top of this file; nothing found means the pack ships no animation, and
         /// the way out is Humanoid retargeting off a pack that does.
         /// </summary>
+
         /// <summary>
-        /// Makes the army pack's characters and the knight into Humanoid rigs, so one can
-        /// play the other's animation: `Arna > Rig For Retargeting`.
+        /// Makes the army pack's characters into Humanoid rigs and finds them something
+        /// to play: `Arna > Rig For Retargeting`.
         ///
         /// The army pack has 52 characters and no animation whatsoever. Every other pack
         /// here ships a model and its clips in one file, and this project has always read
@@ -115,7 +142,7 @@ namespace Arna.Editor
         /// been mapped the same way.
         ///
         /// Two halves, and both are needed. The clips must be re-imported as humanoid,
-        /// which is the knight's file; and every rig that is to play them must have an
+        /// which is a Quaternius file; and every rig that is to play them must have an
         /// avatar, which is the army pack's meshes.
         ///
         /// **It can fail, and it fails quietly.** Unity maps bones by guessing from their
@@ -123,6 +150,20 @@ namespace Arna.Editor
         /// no error. So every avatar is checked afterwards and named — an invalid one has
         /// to be fixed by hand in the importer's Configure screen, and knowing which is
         /// most of that work.
+        ///
+        /// **And it used to fail destructively**, which is worse, and is the reason this
+        /// method is shaped the way it is. A Generic rig plays the clips inside its own
+        /// file. Switched to Humanoid it plays clips written for *a human* instead — and
+        /// if the mapping then fails it has neither: no avatar to retarget onto, and no
+        /// way back to its own animation. That is what happened to the knight, who was
+        /// the source of every clip in the game. Twenty rigs were converted, his avatar
+        /// came out invalid, his clips went with it, and every soldier in the caravan
+        /// stopped moving — reported as one warning among warnings.
+        ///
+        /// So nothing is left converted unless it maps. A rig that fails goes back to
+        /// Generic before the next one is touched, and if no clip source can be made
+        /// humanoid at all the run changes nothing and says so. The old models moving
+        /// beats the new models frozen.
         /// </summary>
         [MenuItem("Arna/Rig For Retargeting")]
         public static void RigForRetargeting()
@@ -137,6 +178,7 @@ namespace Arna.Editor
             }
 
             var rigs = new List<string>();
+            var parts = new List<string>();
             int skinned = 0, boneless = 0;
 
             // The files the characters are actually made of, found through the prefabs
@@ -158,7 +200,10 @@ namespace Arna.Editor
                     if (skin.sharedMesh == null) continue;
 
                     string path = AssetDatabase.GetAssetPath(skin.sharedMesh);
-                    if (!string.IsNullOrEmpty(path) && !rigs.Contains(path)) rigs.Add(path);
+                    if (string.IsNullOrEmpty(path)) continue;
+
+                    var into = skin.bones.Length < HumanBones ? parts : rigs;
+                    if (!into.Contains(path)) into.Add(path);
                 }
             }
 
@@ -170,8 +215,16 @@ namespace Arna.Editor
             // amount of importer settings will change that. The pack's own description is
             // careful about this in hindsight — it calls the *bow* fully rigged and never
             // says the same of the characters.
+            // A file can hold both — a character and a bow — so anything that is a person
+            // somewhere is a person, and only what is nowhere a person is a part.
+            foreach (string path in rigs) parts.Remove(path);
+
             Debug.Log($"[Arna] {prefabs.Length} character prefab(s): {skinned} with a skeleton, "
-                      + $"{boneless} without.");
+                      + $"{boneless} without"
+                      + (parts.Count > 0
+                         ? $", and {parts.Count} rigged part(s) with too few bones to be a "
+                           + $"person: {string.Join(", ", Names(parts))}."
+                         : "."));
 
             if (rigs.Count == 0)
             {
@@ -183,7 +236,36 @@ namespace Arna.Editor
                 return;
             }
 
-            rigs.Insert(0, ClipSource);
+            // The source, before anything else is touched. If no file can supply humanoid
+            // clips then converting the army pack achieves nothing and costs those rigs
+            // their own animation, so the army is left alone until a source is found.
+            string source = FindClipSource(out var refused);
+
+            // Every refused source was converted and put back, and a round trip through
+            // Humanoid regenerates the clips inside the file. Its own controller refers
+            // to those clips, so it is built again from the ones that exist now — a
+            // candidate that was only ever asked a question should not be left worse for
+            // having been asked.
+            foreach (string path in refused) Build(path);
+
+            if (source == null)
+            {
+                Debug.LogWarning("[Arna] No file here can be read as a human skeleton, so there "
+                                 + "are no clips to lend: tried "
+                                 + $"{string.Join(", ", Names(refused))}. "
+                                 + "Every rig has been left as it was — Generic, playing its own "
+                                 + "animation — because a converted army with nothing to play is "
+                                 + "worse than no conversion at all. Fixing one of those files by "
+                                 + "hand is enough for the whole army: select it, Rig > Configure, "
+                                 + "and correct whatever is red.");
+                return;
+            }
+
+            // The bow is not a person and never was. An earlier run said Human to it
+            // anyway, so it is put back — a prop carrying an invalid human avatar is
+            // harmless and is also a warning nobody can act on, printed next to the one
+            // that matters.
+            foreach (string path in parts) Generic(path);
 
             int changed = 0;
             var broken = new List<string>();
@@ -191,27 +273,70 @@ namespace Arna.Editor
             foreach (string path in rigs)
             {
                 if (Humanoid(path)) changed++;
-                if (!Mapped(path)) broken.Add(Path.GetFileNameWithoutExtension(path));
+                else broken.Add(Path.GetFileNameWithoutExtension(path));
             }
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            // The clips are humanoid now, so the controller has to be built from them
-            // again: the old one holds the generic versions, which retarget onto nothing.
-            Build(ClipSource);
+            // The clips are humanoid now, so the controllers built from them have to be
+            // built again: the old ones hold the generic versions, which retarget onto
+            // nothing. Twice, and under two names — the source's own, because its own
+            // models still play it, and the army's, because ArnaSetup asks for that path
+            // at compile time and cannot know which file won.
+            Build(source);
+            Build(source, ArmyName);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[Arna] {rigs.Count} rig(s) checked, {changed} re-imported as Humanoid: "
-                      + $"{string.Join(", ", Names(rigs))}. The army pack plays {ArmyController}.");
+            string chose = Path.GetFileNameWithoutExtension(source);
+
+            Debug.Log($"[Arna] {rigs.Count} army rig(s), {changed} now Humanoid. They play "
+                      + $"{chose}'s clips through {ArmyController}."
+                      + (refused.Count > 0
+                         ? $" {string.Join(", ", Names(refused))} could not be read as human, "
+                           + "and was put back the way it was."
+                         : string.Empty));
 
             if (broken.Count > 0)
-                Debug.LogWarning($"[Arna] Unity could not map these onto a human skeleton: "
-                                 + $"{string.Join(", ", broken)}. They hold their bind pose until "
-                                 + "the mapping is corrected by hand — select the file, "
-                                 + "Rig > Configure, and fix whatever is red.");
+                Debug.LogWarning("[Arna] Unity could not map these onto a human skeleton: "
+                                 + $"{string.Join(", ", broken)}. They are back on Generic and "
+                                 + "will stand still — a rig with an invalid avatar plays nothing "
+                                 + "at all. To bring one in, select the file, Rig > Configure, "
+                                 + "and fix whatever is red.");
+        }
+
+        /// <summary>
+        /// The first file that both has clips and can be read as a human skeleton.
+        /// </summary>
+        /// <param name="refused">
+        /// The paths that had clips and could not be mapped. Kept, because that is the
+        /// list somebody has to open Configure on, because a source silently skipped
+        /// reads exactly like a source that was never tried, and because each of them was
+        /// converted and put back and so needs its own controller rebuilt.
+        /// </param>
+        static string FindClipSource(out List<string> refused)
+        {
+            refused = new List<string>();
+
+            foreach (string path in ClipSources)
+            {
+                if (!(AssetImporter.GetAtPath(path) is ModelImporter)) continue;
+
+                // Anything an earlier run left humanoid-but-unmapped has no clips to
+                // count, so put it back first and ask afterwards. This is the repair for
+                // a project already in that state, and it runs before anything else.
+                if (!Mapped(path)) Generic(path);
+
+                if (LoadClips(path).Count == 0) continue;
+
+                if (Humanoid(path)) return path;
+
+                refused.Add(path);
+            }
+
+            return null;
         }
 
         static List<string> Names(List<string> paths)
@@ -221,17 +346,41 @@ namespace Arna.Editor
             return names;
         }
 
-        /// <summary>Re-imports a model as a Humanoid rig. Returns whether it had to.</summary>
+        /// <summary>
+        /// Re-imports a model as a Humanoid rig, and puts it back if that does not work.
+        /// Returns whether the rig ended up humanoid and mapped.
+        /// </summary>
+        // The revert is the whole point. Setting animationType and walking away is what
+        // took the knight's clips: the importer accepts Human from any rig and reports
+        // nothing, and a rig that is humanoid without a valid avatar plays neither the
+        // clips it was given nor the ones it came with. Asking afterwards costs one
+        // re-import and is the difference between a failed conversion and a broken model.
         static bool Humanoid(string path)
         {
             if (!(AssetImporter.GetAtPath(path) is ModelImporter importer)) return false;
-            if (importer.animationType == ModelImporterAnimationType.Human) return false;
 
-            importer.animationType = ModelImporterAnimationType.Human;
-            importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+            if (importer.animationType != ModelImporterAnimationType.Human)
+            {
+                importer.animationType = ModelImporterAnimationType.Human;
+                importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                importer.SaveAndReimport();
+            }
+
+            if (Mapped(path)) return true;
+
+            Generic(path);
+            return false;
+        }
+
+        /// <summary>Puts a model back to the rig it was imported with.</summary>
+        static void Generic(string path)
+        {
+            if (!(AssetImporter.GetAtPath(path) is ModelImporter importer)) return;
+            if (importer.animationType == ModelImporterAnimationType.Generic) return;
+
+            importer.animationType = ModelImporterAnimationType.Generic;
+            importer.avatarSetup = ModelImporterAvatarSetup.NoAvatar;
             importer.SaveAndReimport();
-
-            return true;
         }
 
         /// <summary>Whether the importer managed to build a usable human avatar.</summary>
@@ -259,17 +408,18 @@ namespace Arna.Editor
 
             if (controller == null)
             {
-                Debug.Log($"[Arna] Nothing to build, which is the answer: the pack has no "
-                          + $"animation of its own, so its characters borrow the knight's "
-                          + $"through {ArmyController}. Run Arna > Rig For Retargeting once, "
-                          + "then Refresh Scene Assets.");
+                Debug.Log("[Arna] Nothing to build, which is the answer: the pack has no "
+                          + "animation of its own, so its characters borrow a Quaternius "
+                          + $"character's through {ArmyController}. Run Arna > Rig For "
+                          + "Retargeting once, then Refresh Scene Assets.");
                 return;
             }
 
-            Debug.LogWarning($"[Arna] The army pack turned out to have clips after all, and they "
-                             + $"are in {OutputDir}/Army.controller. Point "
-                             + "AnimatorBuilder.ArmyController at it — borrowing the knight's "
-                             + "was only ever the answer to it having none.");
+            Debug.LogWarning("[Arna] The army pack turned out to have clips of its own after "
+                             + $"all, and they have just overwritten {ArmyController}. That is "
+                             + "the right outcome — borrowing was only ever the answer to it "
+                             + "having none — but Rig For Retargeting will overwrite them back "
+                             + "if it is run again, so stop running it.");
         }
 
         [MenuItem("Arna/Build Animator Controllers")]
@@ -369,7 +519,7 @@ namespace Arna.Editor
             return Assemble(name, $"{folder} (folder)", clips);
         }
 
-        public static AnimatorController Build(string modelPath)
+        public static AnimatorController Build(string modelPath, string name = null)
         {
             var clips = LoadClips(modelPath);
             if (clips.Count == 0)
@@ -402,7 +552,7 @@ namespace Arna.Editor
 
             ReportFlight(clips, modelPath, idle, walk);
 
-            return Assemble(Path.GetFileNameWithoutExtension(modelPath), modelPath, clips);
+            return Assemble(name ?? Path.GetFileNameWithoutExtension(modelPath), modelPath, clips);
         }
 
         /// <summary>

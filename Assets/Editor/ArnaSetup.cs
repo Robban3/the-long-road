@@ -1984,9 +1984,10 @@ namespace Arna.Editor
             AnimatorBuilder.BuildAll();
 
             // And then the borrowing. The army pack has 52 characters and no animation
-            // whatsoever, so its rigs and the knight's are both re-imported as Humanoid
-            // and the knight's clips are played on their skeletons. It costs nothing on
-            // the second run: a rig already Humanoid is left alone.
+            // whatsoever, so its rigs and a Quaternius character's are both re-imported
+            // as Humanoid and that character's clips are played on their skeletons. It
+            // costs nothing on the second run: a rig already Humanoid and mapped is left
+            // alone, and one that cannot be mapped is put back rather than left broken.
             AnimatorBuilder.RigForRetargeting();
 
             foreach (var runner in UnityEngine.Object.FindObjectsByType<LevelRunner>(
