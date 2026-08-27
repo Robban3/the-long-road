@@ -592,19 +592,22 @@ namespace Arna.View
 
                     var spot = new Vec2(enemy.Position.X + offset.X, enemy.Position.Y + offset.Y);
 
-                    // Each animal turns to face what the pack is fighting.
+                    // The whole pack faces one way, and that way is the caravan.
                     //
-                    // It used to face the centre of its own ring — a point one radius
-                    // ahead of the group's marker — which is only the quarry if the
-                    // quarry happens to be standing exactly there. It never is: the ring
-                    // is two and a half metres across and a troop is met at whatever
-                    // distance the two reaches meet, so the far side of the pack looked
-                    // past the man it was biting and the near side looked at nothing.
-                    // The thing being attacked is known — it is what the ring was
-                    // arranged around — so face it.
-                    var turn = enemy.Striking
-                        ? Facing(Toward(spot, focus, forward), model.YawOffset)
-                        : look;
+                    // Twice wrong before this. First each animal faced the centre of its
+                    // own ring — a point one radius ahead of the group's marker, which is
+                    // the quarry only if the quarry happens to be standing exactly there.
+                    // Then each faced the quarry itself, which is worse than it sounds:
+                    // the arc is two and a half metres across and the thing it surrounds
+                    // is a stride away, so the animals at the ends of it turned sharply
+                    // inward and the arc splayed like a hand of cards.
+                    //
+                    // A pack closing on something is a row of heads pointing the same
+                    // way. One bearing, taken from the group's own marker to what it is
+                    // attacking, and every animal in it uses that — which is also what
+                    // reads as *toward the caravan* from any camera angle, because that
+                    // is where the thing being attacked is standing.
+                    var turn = look;
 
                     Place(pack[i], new Vector3(spot.X, GroundAt(spot), spot.Y), turn);
                     Animate(pack[i], speed, enemy.Striking, false);
