@@ -589,6 +589,17 @@ namespace Arna.View
         /// </summary>
         public const int DriveMarginTiles = 1;
 
+        /// <summary>
+        /// How wide the caravan's own sweep is, in metres either side of the path.
+        ///
+        /// Eight: the flank posts stand at six (Squad.FlankOffset) and the last two are
+        /// the soldier's own width and the trunk's. Handed to Caravan.Sweep, which walks
+        /// the path — so this covers the run-up and the corners a tile list does not
+        /// describe, and a caller that passes a swept lane wants no further margin on
+        /// top of it.
+        /// </summary>
+        public const float DriveHalfWidth = 8f;
+
         /// <summary>Stones along the water's edge, measured across rather than up.</summary>
         public const float ShoreStoneSize = 2.2f;
         public const int MaxShoreStones = 1600;
@@ -669,7 +680,8 @@ namespace Arna.View
                                    IReadOnlyCollection<int> ruinSites = null,
                                    bool horizon = true,
                                    IReadOnlyCollection<int> driveLine = null,
-                                   IReadOnlyCollection<int> campSites = null)
+                                   IReadOnlyCollection<int> campSites = null,
+                                   int driveMargin = DriveMarginTiles)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
@@ -678,7 +690,7 @@ namespace Arna.View
 
             // A set, not the list it arrives as. IReadOnlyCollection has no Contains
             // worth the name, and this is asked once per prop on every tile of the map.
-            var road = Lane(grid, driveLine);
+            var road = Lane(grid, driveLine, driveMargin);
             int placed = 0;
 
             // Landmarks first, and the tiles they take are then off limits to the
@@ -1024,9 +1036,10 @@ namespace Arna.View
         /// tile is as much in the way as a side one, and a diagonal stretch of route is
         /// drawn as a staircase whose corners are exactly where a prop would sit.
         /// </summary>
-        static HashSet<int> Lane(TileGrid grid, IReadOnlyCollection<int> driveLine)
+        static HashSet<int> Lane(TileGrid grid, IReadOnlyCollection<int> driveLine, int margin)
         {
             if (driveLine == null) return null;
+            if (margin <= 0) return new HashSet<int>(driveLine);
 
             var lane = new HashSet<int>();
 
@@ -1034,8 +1047,8 @@ namespace Arna.View
             {
                 grid.ToCoords(tile, out int x, out int y);
 
-                for (int dy = -DriveMarginTiles; dy <= DriveMarginTiles; dy++)
-                    for (int dx = -DriveMarginTiles; dx <= DriveMarginTiles; dx++)
+                for (int dy = -margin; dy <= margin; dy++)
+                    for (int dx = -margin; dx <= margin; dx++)
                         if (grid.InBounds(x + dx, y + dy)) lane.Add(grid.ToIndex(x + dx, y + dy));
             }
 

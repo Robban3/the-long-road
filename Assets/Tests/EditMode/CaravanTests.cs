@@ -14,6 +14,89 @@ namespace Arna.Tests
             return route;
         }
 
+        /// <summary>
+        /// The sweep covers every piece of ground the column and its escort touch.
+        ///
+        /// The decorator kept the *corridor* clear of anything a wagon could not roll
+        /// over, and the corridor is not where the caravan goes. It is not where the
+        /// caravan starts — the run-up is forty metres behind the start line and belongs
+        /// to no tile on the route. It is not where the flanks walk — six metres out on
+        /// either side. And between two tile centres a diagonal crosses tiles the
+        /// staircase does not name. Trees stood in all three, and the escort walked
+        /// through them.
+        ///
+        /// So this walks the run and checks the ground, rather than checking the rule.
+        /// </summary>
+        [Test]
+        public void TheSweepCoversWhereTheEscortActuallyWalks()
+        {
+            var grid = new TileGrid(48, 48);
+            var caravan = new Caravan(grid, StraightRoute(grid, 24, 40));
+            var squad = new Squad(18);
+
+            squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
+            squad.TryPlace(FormationSlot.LeftRear, TroopKind.Priest);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+
+            var swept = caravan.Sweep(TerrainDecoratorDriveHalfWidth);
+
+            // What the decorator used to be given: the route's own tiles, widened by
+            // one. Kept here so this test fails for the reason it was written, rather
+            // than passing because a sweep of everything is trivially a superset.
+            var corridor = new HashSet<int>();
+            foreach (int tile in StraightRoute(grid, 24, 40))
+            {
+                grid.ToCoords(tile, out int cx, out int cy);
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (grid.InBounds(cx + dx, cy + dy))
+                            corridor.Add(grid.ToIndex(cx + dx, cy + dy));
+            }
+
+            int missed = 0, outsideTheCorridor = 0;
+
+            for (int step = 0; step < 4000 && !caravan.HasArrived; step++)
+            {
+                caravan.Tick(0.05f);
+                squad.UpdatePositions(caravan);
+
+                foreach (var group in squad.Slots)
+                {
+                    if (group == null) continue;
+
+                    int tile = TileOf(grid, group.Position);
+                    if (tile < 0) continue;
+
+                    if (!swept.Contains(tile)) missed++;
+                    if (!corridor.Contains(tile)) outsideTheCorridor++;
+                }
+
+                for (int i = 0; i < caravan.Wagons.Count; i++)
+                {
+                    int tile = TileOf(grid, caravan.WagonPosition(i));
+                    if (tile >= 0 && !swept.Contains(tile)) missed++;
+                }
+            }
+
+            Assert.AreEqual(0, missed,
+                $"{missed} post-or-wagon positions stood on ground the sweep never claimed");
+
+            Assert.Greater(outsideTheCorridor, 0,
+                "the escort never left the corridor, so this test could not have caught "
+                + "the thing it was written for");
+        }
+
+        /// <summary>The decorator's half-width, repeated here because Sim cannot see View.</summary>
+        const float TerrainDecoratorDriveHalfWidth = 8f;
+
+        static int TileOf(TileGrid grid, Vec2 at)
+        {
+            int x = (int)System.Math.Floor(at.X / TileGrid.TileSize);
+            int y = (int)System.Math.Floor(at.Y / TileGrid.TileSize);
+            return grid.InBounds(x, y) ? grid.ToIndex(x, y) : -1;
+        }
+
         [Test]
         public void TheColumnIsAlreadyStrungOutWhenTheLevelBegins()
         {
