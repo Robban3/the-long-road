@@ -76,10 +76,23 @@ namespace Arna.Editor
         ///
         /// **The pack ships none.** `Build Army Animator` searched every asset under it
         /// and found not one clip: 22 FBXs of meshes, 52 prefabs assembled from them, and
-        /// nothing that moves. So its characters borrow a Quaternius character's, which
-        /// is what Humanoid retargeting is for — a clip described in terms of a human
-        /// skeleton rather than of bone names plays on any human skeleton, including one
-        /// from another artist.
+        /// nothing that moves. Its characters were to borrow a Quaternius character's,
+        /// which is what Humanoid retargeting is for — a clip described in terms of a
+        /// human skeleton rather than of bone names plays on any human skeleton.
+        ///
+        /// **And there is nothing here to borrow.** The army pack's own rigs map onto a
+        /// human skeleton; 17 of them did. Every animated character in this project is a
+        /// Quaternius rig, and they all share one skeleton whose arms end at the forearm.
+        /// No hands. Unity's humanoid avatar requires fifteen bones with LeftHand and
+        /// RightHand among them, so no Quaternius file can be the source — not with a
+        /// different importer setting and not by hand, because the Configure screen maps
+        /// bones that exist. Unity's own error names the wrong bone, which cost a day:
+        /// `Required human bone 'LeftFoot' not found`, and the foot is right there.
+        ///
+        /// So the army moves when somebody puts a rig with hands in it. Any humanoid FBX
+        /// in <see cref="BorrowedClips"/> is tried first and its clips are what the whole
+        /// army plays; a Mixamo download without skin is enough. Until then the pack's
+        /// characters stand still, and anything that has to move keeps the old models.
         ///
         /// `Rig For Retargeting` is what makes that possible, and has to be run once.
         /// </summary>
@@ -91,6 +104,20 @@ namespace Arna.Editor
         // controller named after whichever one happened to win is a controller nothing
         // else can refer to. ArnaSetup needs this path at compile time.
         const string ArmyName = "Army";
+
+        /// <summary>Where to drop humanoid clips brought in from outside.</summary>
+        // Anything here is tried before the packs, because the packs cannot supply what
+        // is wanted. Every animated character in this project is a Quaternius rig, and
+        // they all share one skeleton that ends at the forearm: no hands. Unity's
+        // humanoid avatar requires fifteen bones with LeftHand and RightHand among them,
+        // so not one of these files can be made humanoid — now or by hand, because
+        // Configure maps bones that exist and cannot invent one.
+        //
+        // So the way in is a file from somewhere that rigs hands: a Mixamo download
+        // ("Without Skin" is enough — the clips are what is wanted, not the model), or
+        // any animation pack whose rig is already Humanoid. Drop it in this folder and
+        // run the menu item; nothing else needs changing.
+        const string BorrowedClips = OutputDir + "/Humanoid";
 
         /// <summary>The files the borrowed clips might come out of, best first.</summary>
         // More than one, because the first is not guaranteed to work and the failure is
@@ -250,14 +277,27 @@ namespace Arna.Editor
 
             if (source == null)
             {
-                Debug.LogWarning("[Arna] No file here can be read as a human skeleton, so there "
-                                 + "are no clips to lend: tried "
-                                 + $"{string.Join(", ", Names(refused))}. "
-                                 + "Every rig has been left as it was — Generic, playing its own "
-                                 + "animation — because a converted army with nothing to play is "
-                                 + "worse than no conversion at all. Fixing one of those files by "
-                                 + "hand is enough for the whole army: select it, Rig > Configure, "
-                                 + "and correct whatever is red.");
+                var why = new List<string>();
+
+                foreach (string path in refused)
+                {
+                    var missing = Absent(path);
+                    why.Add($"{Path.GetFileNameWithoutExtension(path)} has no "
+                            + (missing.Count > 0 ? string.Join(" and no ", missing)
+                                                 : "skeleton Unity could read"));
+                }
+
+                // What is missing, rather than which requirement the mapper tripped over
+                // first. The two are not the same and only one of them can be acted on.
+                Debug.LogWarning("[Arna] Nothing here can be read as a human skeleton, so there "
+                                 + $"are no clips to lend: {string.Join("; ", why)}. A humanoid "
+                                 + "avatar needs fifteen bones and Configure can only map ones "
+                                 + "that exist, so this is not a setting and cannot be corrected "
+                                 + "by hand. Every rig has been left as it was, Generic and "
+                                 + "playing its own animation. The way in is a rig that has the "
+                                 + $"missing parts: put any humanoid FBX in {BorrowedClips} — a "
+                                 + "Mixamo download without skin will do, the clips are what is "
+                                 + "wanted — and run this again.");
                 return;
             }
 
@@ -320,7 +360,7 @@ namespace Arna.Editor
         {
             refused = new List<string>();
 
-            foreach (string path in ClipSources)
+            foreach (string path in Candidates())
             {
                 if (!(AssetImporter.GetAtPath(path) is ModelImporter)) continue;
 
@@ -338,6 +378,75 @@ namespace Arna.Editor
 
             return null;
         }
+
+        /// <summary>Everything worth asking, whatever was brought in first.</summary>
+        static List<string> Candidates()
+        {
+            var paths = new List<string>();
+
+            if (AssetDatabase.IsValidFolder(BorrowedClips))
+                foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { BorrowedClips }))
+                    paths.Add(AssetDatabase.GUIDToAssetPath(guid));
+
+            paths.AddRange(ClipSources);
+            return paths;
+        }
+
+        /// <summary>
+        /// Which parts of a human the rig has no bone for, by name.
+        ///
+        /// Unity reports the first requirement its guess could not satisfy, which is not
+        /// the same as the reason. The knight's arms end at the forearm; the error read
+        /// `Required human bone 'LeftFoot' not found`, and the foot is right there in the
+        /// file. Reading the whole skeleton at once and saying what is absent turns an
+        /// hour in the Configure screen into a decision that takes a second — a bone that
+        /// is not in the file cannot be mapped to, and no amount of configuring adds one.
+        /// </summary>
+        static List<string> Absent(string path)
+        {
+            var bones = new List<string>();
+
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                if (asset is GameObject model)
+                    foreach (var joint in model.GetComponentsInChildren<Transform>(true))
+                        bones.Add(joint.name.ToLowerInvariant());
+
+            var missing = new List<string>();
+
+            foreach (var part in HumanParts)
+            {
+                bool found = false;
+
+                foreach (string bone in bones)
+                {
+                    foreach (string word in part.Value)
+                        if (bone.Contains(word)) { found = true; break; }
+
+                    if (found) break;
+                }
+
+                if (!found) missing.Add(part.Key);
+            }
+
+            return missing;
+        }
+
+        /// <summary>The parts a humanoid avatar cannot be built without, and their aliases.</summary>
+        // Names rather than Unity's HumanBodyBones, because the question here is what the
+        // artist called things. Every rigger spells these differently and all of them are
+        // recognisable; what is not recoverable is a part nobody modelled at all.
+        static readonly KeyValuePair<string, string[]>[] HumanParts =
+        {
+            new KeyValuePair<string, string[]>("hips", new[] { "hips", "pelvis" }),
+            new KeyValuePair<string, string[]>("a spine", new[] { "spine", "torso", "chest", "abdomen" }),
+            new KeyValuePair<string, string[]>("a head", new[] { "head" }),
+            new KeyValuePair<string, string[]>("upper arms", new[] { "upperarm", "arm.upper", "upper_arm", "humerus" }),
+            new KeyValuePair<string, string[]>("forearms", new[] { "lowerarm", "forearm", "lower_arm", "elbow" }),
+            new KeyValuePair<string, string[]>("hands", new[] { "hand", "wrist", "palm" }),
+            new KeyValuePair<string, string[]>("thighs", new[] { "upperleg", "thigh", "upper_leg" }),
+            new KeyValuePair<string, string[]>("shins", new[] { "lowerleg", "shin", "calf", "lower_leg", "knee" }),
+            new KeyValuePair<string, string[]>("feet", new[] { "foot", "ankle" }),
+        };
 
         static List<string> Names(List<string> paths)
         {
