@@ -266,7 +266,14 @@ namespace Arna.Editor
             // The source, before anything else is touched. If no file can supply humanoid
             // clips then converting the army pack achieves nothing and costs those rigs
             // their own animation, so the army is left alone until a source is found.
-            string source = FindClipSource(out var refused);
+            // Brought-in clips first, and as a set: one Mixamo download is one clip, so
+            // what answers here is the folder rather than any file in it.
+            int borrowed = MakeHumanoid(BorrowedClips);
+
+            string source = null;
+            var refused = new List<string>();
+
+            if (borrowed == 0) source = FindClipSource(out refused);
 
             // Every refused source was converted and put back, and a round trip through
             // Humanoid regenerates the clips inside the file. Its own controller refers
@@ -275,7 +282,7 @@ namespace Arna.Editor
             // having been asked.
             foreach (string path in refused) Build(path);
 
-            if (source == null)
+            if (borrowed == 0 && source == null)
             {
                 var why = new List<string>();
 
@@ -324,16 +331,18 @@ namespace Arna.Editor
             // nothing. Twice, and under two names — the source's own, because its own
             // models still play it, and the army's, because ArnaSetup asks for that path
             // at compile time and cannot know which file won.
-            Build(source);
-            Build(source, ArmyName);
+            if (borrowed > 0) BuildFromFolder(ArmyName, BorrowedClips);
+            else { Build(source); Build(source, ArmyName); }
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            string chose = Path.GetFileNameWithoutExtension(source);
+            string chose = borrowed > 0
+                ? $"{borrowed} humanoid file(s) in {BorrowedClips}"
+                : $"{Path.GetFileNameWithoutExtension(source)}'s";
 
             Debug.Log($"[Arna] {rigs.Count} army rig(s), {changed} now Humanoid. They play "
-                      + $"{chose}'s clips through {ArmyController}."
+                      + $"{chose} clips through {ArmyController}."
                       + (refused.Count > 0
                          ? $" {string.Join(", ", Names(refused))} could not be read as human, "
                            + "and was put back the way it was."
@@ -377,6 +386,25 @@ namespace Arna.Editor
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Makes every model in a folder Humanoid, and says how many of them took.
+        ///
+        /// Whatever is in here came from outside on purpose, so each file is asked on its
+        /// own and a file that will not map is put back rather than stopping the rest —
+        /// a folder of twenty Mixamo downloads should not be lost to one bad export.
+        /// </summary>
+        static int MakeHumanoid(string folder)
+        {
+            if (!AssetDatabase.IsValidFolder(folder)) return 0;
+
+            int mapped = 0;
+
+            foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { folder }))
+                if (Humanoid(AssetDatabase.GUIDToAssetPath(guid))) mapped++;
+
+            return mapped;
         }
 
         /// <summary>Everything worth asking, whatever was brought in first.</summary>
@@ -567,7 +595,7 @@ namespace Arna.Editor
                              + "as \"No idle clip\".");
         }
 
-        static string Name(AnimationClip clip) => clip == null ? "—" : clip.name;
+        static string Name(AnimationClip clip) => Label(clip);
 
         /// <summary>
         /// Builds one controller from every clip in a folder, wherever they live.
@@ -620,8 +648,17 @@ namespace Arna.Editor
                 return null;
             }
 
+            NameFromFile(clips);
+
+            // Standing still and walking have to loop, and a clip from outside arrives
+            // set to play once. One file per clip here, so each is switched on in its own
+            // importer — and a re-import destroys the clip objects, so they are read
+            // again afterwards.
+            if (Looped(Match(clips, IdleNames)) | Looped(Match(clips, WalkNames)))
+                return BuildFromFolder(name, folder);
+
             var names = new List<string>();
-            foreach (var clip in clips) names.Add(clip.name);
+            foreach (var clip in clips) names.Add(Label(clip));
 
             Debug.Log($"[Arna] {clips.Count} clip(s) under {folder}: {string.Join(", ", names)}");
 
@@ -838,6 +875,18 @@ namespace Arna.Editor
         /// sub-asset of the model file: anything set on it directly is regenerated away
         /// the next time the file is imported.
         /// </summary>
+        /// <summary>Switches looping on for one clip, in whatever file it came from.</summary>
+        // The folder case: BuildFromFolder gathers clips from many files, and each has
+        // its own importer to be told. Returns whether anything changed, which is also
+        // whether the caller's clip objects have just been thrown away.
+        static bool Looped(AnimationClip clip)
+        {
+            if (clip == null) return false;
+
+            string path = AssetDatabase.GetAssetPath(clip);
+            return !string.IsNullOrEmpty(path) && EnsureLooping(path, clip);
+        }
+
         static bool EnsureLooping(string modelPath, params AnimationClip[] wanted)
         {
             if (!(AssetImporter.GetAtPath(modelPath) is ModelImporter importer)) return false;
@@ -1016,7 +1065,7 @@ namespace Arna.Editor
                                    System.Func<string, string, bool> how)
         {
             foreach (var clip in clips)
-                if (how(Bare(clip.name), wanted)) return clip;
+                if (how(Label(clip), wanted)) return clip;
             return null;
         }
 
@@ -1026,6 +1075,41 @@ namespace Arna.Editor
             int bar = name.LastIndexOf('|');
             return bar >= 0 ? name.Substring(bar + 1) : name;
         }
+
+        /// <summary>Clip names that say nothing about what the clip animates.</summary>
+        // Every Mixamo download holds one clip called "mixamo.com", whatever it does.
+        // Matching on that finds a walk in a death and a death in a walk, so the file
+        // name is the name instead: Walking.fbx is the walk. The packs name their takes
+        // properly and none of this touches them.
+        static readonly string[] Nameless = { "mixamo.com", "take 001", "unnamed", "default" };
+
+        /// <summary>What to call each clip, where its own name will not do.</summary>
+        // Beside the clips rather than on them: the name of an imported sub-asset belongs
+        // to the importer, and writing to it is refused. This is read by Label and by
+        // nothing else, and is rebuilt every time a folder is read.
+        static readonly Dictionary<AnimationClip, string> Labels =
+            new Dictionary<AnimationClip, string>();
+
+        static void NameFromFile(List<AnimationClip> clips)
+        {
+            foreach (var clip in clips)
+            {
+                if (clip == null) continue;
+                if (System.Array.IndexOf(Nameless, Bare(clip.name).ToLowerInvariant()) < 0)
+                    continue;
+
+                string path = AssetDatabase.GetAssetPath(clip);
+                if (string.IsNullOrEmpty(path)) continue;
+
+                Labels[clip] = Path.GetFileNameWithoutExtension(path);
+            }
+        }
+
+        /// <summary>What a clip is called, for matching and for saying so.</summary>
+        static string Label(AnimationClip clip)
+            => clip == null ? "—"
+             : Labels.TryGetValue(clip, out string name) ? name
+             : Bare(clip.name);
 
         static bool Exactly(string a, string b)
             => string.Equals(a, b, System.StringComparison.OrdinalIgnoreCase);

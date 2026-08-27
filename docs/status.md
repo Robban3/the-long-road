@@ -1401,7 +1401,7 @@ those and nothing in the new fields, and `Models` is serialized on the scene com
 pulling code does not change a saved scene, and that has produced enough false bug reports
 in this project to be worth one field each.
 
-### The army pack has no animation, so it borrows the knight's
+### The army pack has no animation, and nothing here can lend it any
 
 `Build Army Animator` searched every asset under the pack and found **not one clip**: 22
 FBXs of meshes, 52 prefabs assembled from them, and nothing that moves. That is the answer
@@ -1431,6 +1431,52 @@ at all.
 hierarchy, and a rig it cannot read produces an invalid avatar and no error. So every avatar
 is checked afterwards and the failures are named: an invalid one is fixed by hand in Rig >
 Configure, and knowing *which* is most of that work.
+
+**And it failed destructively, which cost a day.** A Generic rig plays the clips inside its
+own file. Switched to Humanoid it plays clips written for *a human* instead — and if the
+mapping then fails it has neither: no avatar to retarget onto and no way back to its own
+animation. The first version set twenty rigs to Humanoid and walked away. The knight's
+avatar came out invalid; he was the source of every clip in the game; his file reported *no
+clips*, the controller built from it was empty, and every soldier in the caravan stopped
+moving. It read as one warning among warnings.
+
+So nothing is left converted unless it maps. A rig that fails goes back to Generic before
+the next is touched, the clip source is settled before the army is touched at all, and a
+run that can find no source changes nothing and says so. **The old models moving beats the
+new models frozen** — that is the rule the code now encodes.
+
+### There is nothing in this project to borrow from
+
+The route is sound and the source does not exist. Every animated character here is a
+Quaternius rig, and they all share one skeleton:
+
+    Hips · Torso · Neck · Head · Shoulder · UpperArm · LowerArm · UpperLeg · LowerLeg · Foot
+
+**No hands.** The arm chain ends at the forearm. Unity's humanoid avatar requires fifteen
+bones with `LeftHand` and `RightHand` among them, so no Quaternius file can be made
+humanoid — not with a different importer setting, and not by hand, because the Configure
+screen maps bones that exist and cannot invent one. Knight, Adventurer, Farmer, Henry and
+Barbarossa were all tried and all refused.
+
+Unity's own error names the wrong bone, and that is what cost the day:
+
+    Required human bone 'LeftFoot' not found
+
+The foot is right there in the file. The mapper reports the first requirement its guess
+could not satisfy, which is not the same as the reason. `Absent()` reads the whole skeleton
+and names what nobody modelled, so the warning now says *Knight has no hands* — an hour in
+the Configure screen turned into a decision that takes a second.
+
+**The way in needs no code.** Any humanoid FBX dropped in `Assets/_Project/Animation/Humanoid`
+is tried before the packs and the whole army plays its clips; a Mixamo download *Without
+Skin* is enough, since the clips are what is wanted rather than the model. Two details that
+folder needs and a pack does not: every Mixamo file holds one clip called `mixamo.com`
+whatever it animates, so the **file name** is the name — `Walking.fbx` is the walk — and a
+clip from outside arrives set to play once, so idle and walk have looping switched on in
+their own importers.
+
+Until somebody puts a rig with hands in that folder, the army pack's characters hold their
+bind pose, and anything that has to move keeps the old models.
 
 **And it can be impossible, which is checked first.** A skinned mesh is a mesh bound to a
 skeleton; a character built without one is a statue. No bones, so no avatar, so nothing to
