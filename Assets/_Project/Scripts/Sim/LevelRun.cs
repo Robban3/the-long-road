@@ -242,7 +242,23 @@ namespace Arna.Sim
             {
                 if (group == null || !group.Alive || !TroopTable.CanDisarmTraps(group.Kind)) continue;
 
-                var disarmed = Traps.TryDisarmNearest(group.Position);
+                // From where he stands, and from the head of the column.
+                //
+                // A sapper clears the road in front of the wagons; he does not wait for
+                // one to roll onto the mine beside his own boots. That distinction cost
+                // nothing while the whole escort walked around the lead wagon, and became
+                // the difference between a useful engineer and a decorative one the day
+                // the formation was strung out along the column: from a flank post he now
+                // stands seven and a half metres behind the lead wagon, a wagon springs a
+                // trap at three metres and he reaches one at eight, so every trap on the
+                // route went off before he was near enough to touch it. Measured on 1-8,
+                // he disarmed nothing at all.
+                //
+                // Which post he holds still decides everything else about him. This is
+                // the one part of his job that belongs to the column rather than to him.
+                var disarmed = Traps.TryDisarmNearest(group.Position)
+                               ?? Traps.TryDisarmNearest(Caravan.LeadPosition);
+
                 if (disarmed != null) Economy.AwardTrapDisarm(disarmed.Kind);
             }
         }

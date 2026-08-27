@@ -186,6 +186,9 @@ namespace Arna.Sim
 
         public IReadOnlyList<Wagon> Wagons => _wagons;
 
+        /// <summary>The ground it is crossing, for whoever walks beside it.</summary>
+        public TileGrid Grid => _grid;
+
         /// <summary>Set to zero by the Halt order, which trades ground for a tighter formation.</summary>
         public float SpeedModifier { get; set; } = 1f;
 
@@ -310,49 +313,6 @@ namespace Arna.Sim
             var to = _points[segment + 1];
             return new Vec2(from.X + (to.X - from.X) * t, from.Y + (to.Y - from.Y) * t);
         }
-
-        /// <summary>
-        /// Every tile the column and its escort will pass over, the run-up included.
-        ///
-        /// The route is a list of tiles and it is not the ground the caravan covers. It
-        /// covers the run-up, forty metres of forming up behind the start line that no
-        /// corridor tile knows about; it covers the flanks, six metres out on either
-        /// side; and between two tile centres it covers whatever the straight line
-        /// between them crosses, which on a diagonal is not the staircase the tile list
-        /// describes. Keeping the corridor clear of trees therefore left trees in all
-        /// three places, and the escort walked through them.
-        ///
-        /// Walked rather than reasoned about: the path is sampled every half tile and
-        /// each sample claims the square of ground the column is wide.
-        /// </summary>
-        public HashSet<int> Sweep(float halfWidth)
-        {
-            var tiles = new HashSet<int>();
-            if (_points.Length == 0) return tiles;
-
-            float step = TileGrid.TileSize * 0.5f;
-
-            // Past the end as well, because the van walks ahead of the lead wagon and is
-            // still walking when the wagon has arrived.
-            float last = PathLength + halfWidth;
-
-            for (float along = 0f; along <= last; along += step)
-            {
-                var at = PositionAt(along);
-
-                int minX = Column(at.X - halfWidth), maxX = Column(at.X + halfWidth);
-                int minY = Column(at.Y - halfWidth), maxY = Column(at.Y + halfWidth);
-
-                for (int y = minY; y <= maxY; y++)
-                    for (int x = minX; x <= maxX; x++)
-                        if (_grid.InBounds(x, y)) tiles.Add(_grid.ToIndex(x, y));
-            }
-
-            return tiles;
-        }
-
-        /// <summary>Which tile a world metre falls in, along either axis.</summary>
-        static int Column(float metres) => (int)System.Math.Floor(metres / TileGrid.TileSize);
 
         public int TileAt(float distanceAlong)
         {

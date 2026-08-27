@@ -17,6 +17,24 @@ namespace Arna.Sim
         readonly TerrainType[] _tiles;
         readonly float[] _elevation;
 
+        /// <summary>
+        /// Tiles something solid is standing on: a trunk, a boulder, a cliff face.
+        ///
+        /// **On the grid rather than beside it, and that is the whole design.** The
+        /// props used to be laid over the finished world by the view, which meant the
+        /// simulation had never heard of them: routes were drawn straight through
+        /// trees, troops walked into boulders, and the only fix available was to sweep
+        /// the props out of whichever line the caravan happened to take — which makes
+        /// the country a function of the player's choice, and the player chooses after
+        /// seeing it.
+        ///
+        /// Marked here, before the endpoints are placed and long before a corridor is
+        /// found, every route the player can be offered is already clear of them and
+        /// every consumer of IsPassable gets it for nothing.
+        /// </summary>
+        readonly System.Collections.Generic.HashSet<int> _obstructed =
+            new System.Collections.Generic.HashSet<int>();
+
         public TileGrid(int width, int height, TerrainType fill = TerrainType.Plains)
         {
             Width = width;
@@ -120,9 +138,134 @@ namespace Arna.Sim
         }
 
         public bool IsPassable(int x, int y)
-            => InBounds(x, y) && TerrainTable.IsPassable(this[x, y]);
+            => InBounds(x, y) && IsPassable(y * Width + x);
 
-        public bool IsPassable(int index) => TerrainTable.IsPassable(_tiles[index]);
+        public bool IsPassable(int index)
+            => TerrainTable.IsPassable(_tiles[index]) && !_obstructed.Contains(index);
+
+        /// <summary>Stands something solid on a tile. Nothing walks over it afterwards.</summary>
+        public void Obstruct(int index)
+        {
+            if (index >= 0 && index < _tiles.Length) _obstructed.Add(index);
+        }
+
+        /// <summary>Takes the solid thing off a tile again.</summary>
+        public void Free(int index) => _obstructed.Remove(index);
+
+        public bool IsObstructed(int index) => _obstructed.Contains(index);
+
+        public bool IsObstructed(int x, int y)
+            => InBounds(x, y) && _obstructed.Contains(y * Width + x);
+
+        /// <summary>
+        /// Nudges a point out of whatever it is standing inside.
+        ///
+        /// The route is clear of obstacles because no route could be drawn through one,
+        /// but not everything follows the route: the flank posts stand six metres out to
+        /// either side, and an attacker crosses whatever country lies between it and the
+        /// column. Neither of them is pathfinding, and neither of them should be —
+        /// a formation that breaks up to walk round a tree is not a formation, and an
+        /// A* per wolf per tick is not a phone game.
+        ///
+        /// So they are pushed rather than routed: a point inside a solid tile leaves by
+        /// its nearest edge, which is a displacement of at most half a tile and usually
+        /// far less. Against a scattered obstacle field that reads as walking round the
+        /// trunk. Against a wall of them it reads as sliding along it, which is also what
+        /// it is.
+        ///
+        /// An exit into another solid tile is not an exit, so the four edges are ranked
+        /// and the first that leads somewhere is taken.
+        /// </summary>
+        public Vec2 SlideOut(Vec2 at)
+        {
+            int x = (int)System.Math.Floor(at.X / TileSize);
+            int y = (int)System.Math.Floor(at.Y / TileSize);
+
+            if (!InBounds(x, y) || !IsObstructed(x, y)) return at;
+
+            const float Clearance = 0.15f;
+
+            float west = at.X - x * TileSize;
+            float east = (x + 1) * TileSize - at.X;
+            float south = at.Y - y * TileSize;
+            float north = (y + 1) * TileSize - at.Y;
+
+            var best = at;
+            float shortest = float.MaxValue;
+
+            Consider(west, x - 1, y, new Vec2(x * TileSize - Clearance, at.Y), ref best, ref shortest);
+            Consider(east, x + 1, y, new Vec2((x + 1) * TileSize + Clearance, at.Y), ref best, ref shortest);
+            Consider(south, x, y - 1, new Vec2(at.X, y * TileSize - Clearance), ref best, ref shortest);
+            Consider(north, x, y + 1, new Vec2(at.X, (y + 1) * TileSize + Clearance), ref best, ref shortest);
+
+            // Every edge leads into another solid tile, so the point is inside a thicket
+            // rather than against a trunk. Nothing to slide along; the nearest open
+            // ground is the answer, and it is worth the jump because the alternative is
+            // a priest standing inside a tree for the length of a level.
+            return shortest < float.MaxValue ? best : NearestOpen(at, x, y);
+        }
+
+        /// <summary>The closest point on the nearest tile that has nothing standing on it.</summary>
+        Vec2 NearestOpen(Vec2 at, int fromX, int fromY)
+        {
+            for (int radius = 1; radius <= 4; radius++)
+            {
+                var best = at;
+                float shortest = float.MaxValue;
+
+                for (int y = fromY - radius; y <= fromY + radius; y++)
+                {
+                    for (int x = fromX - radius; x <= fromX + radius; x++)
+                    {
+                        // The ring only: everything inside it failed on an earlier pass.
+                        if (System.Math.Abs(x - fromX) != radius &&
+                            System.Math.Abs(y - fromY) != radius) continue;
+
+                        if (!InBounds(x, y) || IsObstructed(x, y)) continue;
+                        if (!TerrainTable.IsPassable(this[x, y])) continue;
+
+                        var exit = Clamped(at, x, y);
+                        float dx = exit.X - at.X, dy = exit.Y - at.Y;
+                        float distance = dx * dx + dy * dy;
+
+                        if (distance >= shortest) continue;
+
+                        best = exit;
+                        shortest = distance;
+                    }
+                }
+
+                if (shortest < float.MaxValue) return best;
+            }
+
+            return at;
+        }
+
+        /// <summary>The point of a tile nearest a place outside it, held off its edges.</summary>
+        static Vec2 Clamped(Vec2 at, int x, int y)
+        {
+            const float Inset = 0.4f;
+
+            float minX = x * TileSize + Inset, maxX = (x + 1) * TileSize - Inset;
+            float minY = y * TileSize + Inset, maxY = (y + 1) * TileSize - Inset;
+
+            return new Vec2(
+                at.X < minX ? minX : at.X > maxX ? maxX : at.X,
+                at.Y < minY ? minY : at.Y > maxY ? maxY : at.Y);
+        }
+
+        void Consider(float distance, int intoX, int intoY, Vec2 exit,
+                      ref Vec2 best, ref float shortest)
+        {
+            if (distance >= shortest) return;
+            if (!InBounds(intoX, intoY) || IsObstructed(intoX, intoY)) return;
+
+            best = exit;
+            shortest = distance;
+        }
+
+        /// <summary>Where the solid things are, for whoever has to draw them.</summary>
+        public System.Collections.Generic.IReadOnlyCollection<int> Obstructions => _obstructed;
 
         /// <summary>Fills an axis-aligned rectangle, clipped to the grid.</summary>
         public void FillRect(int x0, int y0, int x1, int y1, TerrainType type)
