@@ -783,28 +783,16 @@ namespace Arna.View
         {
             if (!decor.Water.Any) return 0;
 
-            // One level for the whole sheet, found before anything is laid.
+            // On the bed of its own tile, and the attempt to improve on that is worth
+            // recording because it looked so reasonable.
             //
-            // Every plane used to be set on the bed of its own tile, so a watercourse
-            // running across any slope at all was a staircase of squares each at its own
-            // height — the blockiness the planes were introduced to hide, reproduced in
-            // the thing hiding it. Water finds its own level, and the highest bed is the
-            // level that leaves none of them showing through: anywhere shallower simply
-            // has more water over it, which is what a river looks like.
-            float level = float.MinValue;
-
-            for (int i = 0; i < grid.TileCount; i++)
-            {
-                if (grid[i] != TerrainType.Water) continue;
-
-                var tile = Vec2.FromTile(grid, i);
-                float bed = grid.SurfaceElevation(tile.X, tile.Y) * heightScale;
-                if (bed > level) level = bed;
-            }
-
-            if (level == float.MinValue) return 0;
-            level += WaterLift;
-
+            // Water finds its own level, so: one height for the whole sheet, taken from
+            // the highest bed of any water tile, so that no bed could show through. What
+            // that misses is that the *land* is not all above the water. A map's highest
+            // river bed sits well above its lowest meadow, so the sheet was laid across
+            // the country at that height and the rivers became blue slabs hovering in the
+            // air over the grass. A level surface is only level within one body of water,
+            // and this decorator has no idea which tiles belong to which.
             var surface = River();
             int placed = 0;
 
@@ -813,6 +801,7 @@ namespace Arna.View
                 if (grid[i] != TerrainType.Water) continue;
 
                 var at = Vec2.FromTile(grid, i);
+                float level = grid.SurfaceElevation(at.X, at.Y) * heightScale + WaterLift;
 
                 var instance = Object.Instantiate(Any(decor.Water, rng), parent);
 
