@@ -55,19 +55,8 @@ namespace Arna.Gen
                 var grid = BuildTerrain(recipe, rng);
                 CarveRivers(grid, recipe, rng);
 
-                // The trees and boulders go up before anybody decides where to walk.
-                // See ObstacleField: they are part of the world the routes are found
-                // through, not scenery laid over the routes afterwards.
-                ObstacleField.Grow(grid, rng);
-
                 if (!TryPlaceEndpoints(grid, recipe, rng, out int sx, out int sy, out int gx, out int gy))
                     continue;
-
-                // Room to form up at both ends, cleared once the ends are known. The
-                // caravan's run-up is ten tiles and leaves in a direction nothing here
-                // can predict, so it is a circle rather than a lane.
-                ObstacleField.Clear(grid, sx, sy, ObstacleField.EndpointClearTiles);
-                ObstacleField.Clear(grid, gx, gy, ObstacleField.EndpointClearTiles);
 
                 var corridors = CorridorFinder.Find(grid, sx, sy, gx, gy);
                 if (corridors.Count == 0) continue;

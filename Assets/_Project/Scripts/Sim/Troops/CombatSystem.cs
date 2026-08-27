@@ -272,9 +272,9 @@ namespace Arna.Sim
             float step = speed * deltaTime;
             if (step > distance) step = distance;
 
-            enemy.Position = _grid.SlideOut(Step(enemy.Position,
-                                                 toCaravan.X / distance,
-                                                 toCaravan.Y / distance, step));
+            enemy.Position = new Vec2(
+                enemy.Position.X + toCaravan.X / distance * step,
+                enemy.Position.Y + toCaravan.Y / distance * step);
         }
 
         /// <summary>The nearest cart still standing, and where it is. Null when all are gone.</summary>
@@ -299,52 +299,6 @@ namespace Arna.Sim
             }
 
             return found;
-        }
-
-        /// <summary>
-        /// One step toward something, turned aside by whatever is in the way.
-        ///
-        /// An attacker crosses open country toward the column and does not pathfind — an
-        /// A* per group per tick is not a phone game, and a pack that solves a maze is
-        /// not a pack. Pushing it out of what it walks into was the first answer and it
-        /// was worse than doing nothing: an attacker whose line crossed a trunk stopped
-        /// against it and stayed there, so whether a group ever reached the caravan came
-        /// down to the luck of the trees between them. Measured on 1-5, that split the
-        /// same level into one route where seven woken groups did no damage at all and
-        /// another where the caravan was destroyed.
-        ///
-        /// So it turns instead. The wanted direction first, then eighth-turns either
-        /// side, then quarter-turns: against a scattered obstacle it reads as stepping
-        /// round the trunk, and against a line of them as following it along. Six
-        /// candidates and no memory, which is cheap enough to do for every group on the
-        /// map every tick.
-        /// </summary>
-        static readonly float[] Detours = { 0f, 0.7853982f, -0.7853982f, 1.5707963f, -1.5707963f };
-
-        Vec2 Step(Vec2 from, float dirX, float dirY, float step)
-        {
-            foreach (float turn in Detours)
-            {
-                float cos = (float)System.Math.Cos(turn), sin = (float)System.Math.Sin(turn);
-
-                float tx = dirX * cos - dirY * sin;
-                float ty = dirX * sin + dirY * cos;
-
-                var spot = new Vec2(from.X + tx * step, from.Y + ty * step);
-                if (Walkable(spot)) return spot;
-            }
-
-            // Boxed in. Standing still is the truthful answer and the caller's SlideOut
-            // deals with the case of being inside something already.
-            return from;
-        }
-
-        bool Walkable(Vec2 at)
-        {
-            int x = (int)System.Math.Floor(at.X / TileGrid.TileSize);
-            int y = (int)System.Math.Floor(at.Y / TileGrid.TileSize);
-
-            return _grid.InBounds(x, y) && _grid.IsPassable(x, y);
         }
 
         void StrikeCaravan(TrackedEnemy enemy, Wagon nearest, float deltaTime)

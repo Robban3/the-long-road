@@ -409,10 +409,7 @@ namespace Arna.Sim
                 var post = PostAt(i, caravan.ColumnHalfLength);
                 var anchor = caravan.PositionAt(centre + post.X);
 
-                // Out of anything it would otherwise be standing inside. The route is
-                // clear by construction; a post six metres to the side of it is not.
-                group.Position = caravan.Grid.SlideOut(
-                    new Vec2(anchor.X + rx * post.Y, anchor.Y + ry * post.Y));
+                group.Position = new Vec2(anchor.X + rx * post.Y, anchor.Y + ry * post.Y);
             }
         }
 

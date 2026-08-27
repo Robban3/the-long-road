@@ -206,32 +206,10 @@ namespace Arna.Sim
                 for (int i = 0; i < herd && animals.Count < Count; i++)
                 {
                     // The first stands where the ground was chosen; the rest around it.
-                    //
-                    // And the rest are checked, which the first always was. The spread is
-                    // a few metres of open field either way, and a few metres from a
-                    // chosen tile is a neighbouring one — passable when the only question
-                    // was terrain, and quite possibly holding a tree now that the solid
-                    // things are on the grid. A doe standing inside a trunk is exactly
-                    // the thing the obstacle field exists to stop.
-                    //
-                    // Both of the first tile's rules, not just the passable one. The herd
-                    // is scattered five metres about a spot chosen to be clear of any
-                    // camp, and five metres is enough to put a doe inside one: it did,
-                    // sixteen metres from a bandit group where the rule says more.
-                    var home = found;
-
-                    for (int t = 0; i > 0 && t < 8; t++)
-                    {
-                        var spot = new Vec2(found.X + rng.Range(-HerdSpread, HerdSpread),
-                                            found.Y + rng.Range(-HerdSpread, HerdSpread));
-
-                        if (!Standable(grid, spot)) continue;
-                        if (NearAnEnemy(map, (int)(spot.X / TileGrid.TileSize),
-                                             (int)(spot.Y / TileGrid.TileSize))) continue;
-
-                        home = spot;
-                        break;
-                    }
+                    var home = i == 0
+                        ? found
+                        : new Vec2(found.X + rng.Range(-HerdSpread, HerdSpread),
+                                   found.Y + rng.Range(-HerdSpread, HerdSpread));
 
                     float facing = rng.Range(0f, (float)(2.0 * Math.PI));
 
@@ -317,17 +295,6 @@ namespace Arna.Sim
         {
             float dx = a.X - b.X, dy = a.Y - b.Y;
             return dx * dx + dy * dy <= radius * radius;
-        }
-
-        /// <summary>Whether a world position is on ground an animal could stand on.</summary>
-        static bool Standable(TileGrid grid, Vec2 at)
-        {
-            int x = (int)(at.X / TileGrid.TileSize);
-            int y = (int)(at.Y / TileGrid.TileSize);
-
-            if (!grid.InBounds(x, y) || !grid.IsPassable(x, y)) return false;
-
-            return grid[grid.ToIndex(x, y)] != TerrainType.Ford;
         }
 
         static bool NearAnEnemy(LevelMap map, int x, int y)

@@ -573,6 +573,33 @@ namespace Arna.View
         /// </summary>
         public const float DriveClearance = 2f;
 
+        /// <summary>
+        /// How far either side of the route the ground has to be clear, in tiles.
+        ///
+        /// One, which is twelve metres of lane against the corridor's four. The corridor
+        /// is where the *wagons* go and it was all that was kept clear, so the wagons had
+        /// their line and everything walking beside them did not: the flank posts stand
+        /// six metres out — a tile and a half — and walked through every trunk and
+        /// boulder on the verge. The van and the rearguard stay on the line, so it is the
+        /// flanks that set this number.
+        ///
+        /// Only things a wheel cannot roll over are refused, so the grass, the flowers,
+        /// the bushes and the loose stones all still grow in the lane and the country
+        /// does not turn into a swept avenue with the caravan in the middle of it.
+        /// </summary>
+        public const int DriveMarginTiles = 1;
+
+        /// <summary>
+        /// How wide the caravan's own sweep is, in metres either side of the path.
+        ///
+        /// Eight: the flank posts stand at six (Squad.FlankOffset) and the last two are
+        /// the soldier's own width and the trunk's. Handed to Caravan.Sweep, which walks
+        /// the path — so this covers the run-up and the corners a tile list does not
+        /// describe, and a caller that passes a swept lane wants no further margin on
+        /// top of it.
+        /// </summary>
+        public const float DriveHalfWidth = 8f;
+
         /// <summary>Stones along the water's edge, measured across rather than up.</summary>
         public const float ShoreStoneSize = 2.2f;
         public const int MaxShoreStones = 1600;
@@ -652,13 +679,18 @@ namespace Arna.View
                                    float densityScale = 1f,
                                    IReadOnlyCollection<int> ruinSites = null,
                                    bool horizon = true,
-                                   IReadOnlyCollection<int> campSites = null)
+                                   IReadOnlyCollection<int> driveLine = null,
+                                   IReadOnlyCollection<int> campSites = null,
+                                   int driveMargin = DriveMarginTiles)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
             var rng = new DeterministicRandom(seed ^ 0x5EED10);
             var clear = keepClear == null ? null : new HashSet<int>(keepClear);
 
+            // A set, not the list it arrives as. IReadOnlyCollection has no Contains
+            // worth the name, and this is asked once per prop on every tile of the map.
+            var road = Lane(grid, driveLine, driveMargin);
             int placed = 0;
 
             // Landmarks first, and the tiles they take are then off limits to the
@@ -666,68 +698,48 @@ namespace Arna.View
             // farmhouse, and the building — the thing the eye was meant to find — is
             // the one that loses.
             var occupied = new HashSet<int>();
-            int standing = 0;
             placed += PlaceLandmarks(parent, grid, rng, decor, clear, occupied, heightScale,
-                                     ruinSites);
+                                     ruinSites, road);
 
             // Two passes over the same ground, and the order is half the fix. The scatter
             // walks tiles in index order, so a mountain reaching tile 500 cannot un-place
             // the pine put down on tile 450 twenty tiles earlier — the big thing has to
             // claim its ground first or the small things grow out of it.
-            // Two passes, and they now answer to different authorities.
-            //
-            // Anything a wagon would have to go round stands where the *map* says
-            // something stands, and nowhere else. It used to be the other way about: the
-            // decorator chose, and the route was then swept clear of what it had chosen.
-            // That makes the country a function of the player's choice of route, and the
-            // player chooses after looking at the country — so the two routes not taken
-            // stayed full of trees the escort would have walked through, and the one
-            // taken was a corridor mown through the forest.
-            //
-            // The obstacle field is decided in Gen before any route exists, so a tile
-            // marked there is a tile no corridor could have been drawn through. Standing
-            // a trunk on it is safe by construction, and standing one on *every* marked
-            // tile is the other half of the bargain: an obstacle nothing is drawn on is
-            // an invisible wall.
-            //
-            // The light pass keeps the dice. Grass, flowers, bushes and loose stones are
-            // strewn as thickly as the look wants, because a wheel rolls over all of it.
             for (int pass = 0; pass < 2; pass++)
             {
-                bool solid = pass == 0;
+                bool bulky = pass == 0;
                 var passRng = new DeterministicRandom(seed ^ (0x9E37 * (pass + 1)));
 
-                for (int i = 0; i < grid.TileCount; i++)
+                for (int i = 0; i < grid.TileCount && placed < maxProps; i++)
                 {
-                    // The budget bounds the scenery, never the world. A map with more
-                    // obstacles than six hundred draws all of them and says so.
-                    if (!solid && placed >= maxProps) break;
-
                     var terrain = grid[i];
                     if (!Density.TryGetValue(terrain, out float density)) continue;
                     if (clear != null && clear.Contains(i)) continue;
                     if (occupied.Contains(i)) continue;
+                    if (!passRng.Chance(density * densityScale)) continue;
 
-                    if (solid != grid.IsObstructed(i)) continue;
-                    if (!solid && !passRng.Chance(density * densityScale)) continue;
-
-                    var choice = Sized(decor, terrain, passRng, solid);
+                    var choice = Pick(decor, terrain, passRng);
                     if (choice.Prefab == null) continue;
+                    if (IsBulky(terrain, choice) != bulky) continue;
+
+                    // Nothing the wagons would drive through, on the ground the wagons
+                    // drive over.
+                    //
+                    // Not the same as keeping the line clear, and the difference is the
+                    // whole reason this is a second parameter. `keepClear` empties a tile
+                    // and thins its grass, which draws the route as a swept lane through
+                    // the forest — the thing the corridor version was turned off for.
+                    // This refuses only what a wheel cannot roll over: the grass, the
+                    // flowers, the bushes and the loose stones all stay, so the ground
+                    // still reads as untouched country and the caravan stops passing
+                    // through boulders.
+                    if (road != null && choice.Size >= DriveClearance && road.Contains(i))
+                        continue;
 
                     if (Scatter(parent, grid, passRng, choice, i, heightScale, spread: 1.4f, occupied))
-                    {
                         placed++;
-                        if (solid) standing++;
-                    }
                 }
             }
-
-            if (standing < grid.Obstructions.Count)
-                Debug.LogWarning($"[Arna] {grid.Obstructions.Count - standing} of "
-                                 + $"{grid.Obstructions.Count} obstacles have nothing standing on "
-                                 + "them. The route planner goes round them and the player cannot "
-                                 + "see why — the decor set is short of something big enough to "
-                                 + $"count (over {DriveClearance:0.0} m).");
 
             // Off for the plan, and the reason is what a plan is.
             //
@@ -751,17 +763,17 @@ namespace Arna.View
             placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
                                        heightScale, densityScale);
             placed += PlaceShoreline(parent, grid, rng, decor, occupied, heightScale,
-                                     densityScale);
+                                     densityScale, road);
 
             // The water goes on last, over everything laid on its bed. Nothing claims
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
             placed += PlaceWater(parent, grid, rng, decor, heightScale);
             placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale);
-            placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale);
+            placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale, road);
             placed += PlaceWillows(parent, grid, rng, decor, occupied, heightScale,
-                                   densityScale);
-            placed += PlaceCamps(parent, grid, rng, decor, occupied, heightScale, campSites);
+                                   densityScale, road);
+            placed += PlaceCamps(parent, grid, rng, decor, occupied, heightScale, campSites, road);
 
             return placed;
         }
@@ -873,7 +885,8 @@ namespace Arna.View
         /// one.
         /// </summary>
         static int PlaceCliffs(Transform parent, TileGrid grid, DeterministicRandom rng,
-                               BiomeDecor decor, HashSet<int> occupied, float heightScale)
+                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                               HashSet<int> road = null)
         {
             if (!decor.Cliffs.Any) return 0;
 
@@ -884,6 +897,7 @@ namespace Arna.View
             {
                 if (grid[i] != TerrainType.Cliff) continue;
                 if (occupied.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
                 if (!Apart(grid, i, stood, 2f)) continue;
                 stood.Add(i);
 
@@ -906,7 +920,8 @@ namespace Arna.View
         /// </summary>
         static int PlaceWillows(Transform parent, TileGrid grid, DeterministicRandom rng,
                                 BiomeDecor decor, HashSet<int> occupied,
-                                float heightScale, float densityScale)
+                                float heightScale, float densityScale,
+                                HashSet<int> road = null)
         {
             if (!decor.Willows.Any) return 0;
 
@@ -916,6 +931,7 @@ namespace Arna.View
             {
                 if (grid[i] == TerrainType.Water || grid[i] == TerrainType.Cliff) continue;
                 if (occupied.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
 
                 grid.ToCoords(i, out int x, out int y);
                 if (!WithinReachOfWater(grid, x, y, WillowReach)) continue;
@@ -949,7 +965,7 @@ namespace Arna.View
         /// </summary>
         static int PlaceCamps(Transform parent, TileGrid grid, DeterministicRandom rng,
                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                              IReadOnlyCollection<int> sites)
+                              IReadOnlyCollection<int> sites, HashSet<int> road = null)
         {
             if (sites == null || !decor.Camps.Any) return 0;
 
@@ -959,6 +975,7 @@ namespace Arna.View
             {
                 if (tile < 0 || tile >= grid.TileCount) continue;
                 if (occupied.Contains(tile)) continue;
+                if (road != null && road.Contains(tile)) continue;
 
                 var choice = new Choice(decor.Camps, Any(decor.Camps, rng), CampHeight,
                                         byWidth: false);
@@ -980,7 +997,8 @@ namespace Arna.View
         /// </summary>
         static int PlaceShoreline(Transform parent, TileGrid grid, DeterministicRandom rng,
                                   BiomeDecor decor, HashSet<int> occupied,
-                                  float heightScale, float densityScale)
+                                  float heightScale, float densityScale,
+                                  HashSet<int> road = null)
         {
             // The piles if the pack has them, the general stones if not.
             var stones = decor.Shore.Any ? decor.Shore : decor.Rocks;
@@ -992,6 +1010,7 @@ namespace Arna.View
             {
                 if (grid[i] == TerrainType.Water) continue;
                 if (occupied.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
 
                 grid.ToCoords(i, out int x, out int y);
                 if (!NextToWater(grid, x, y)) continue;
@@ -1011,24 +1030,29 @@ namespace Arna.View
         }
 
         /// <summary>
-        /// A prop of the wanted size class, or nothing when the set has none.
+        /// The tiles the caravan and its escort walk over, widened from the wagons' line.
         ///
-        /// Tried a few times rather than filtered, because a PropSet is a list of
-        /// prefabs and the size a prop is scaled to belongs to the pass that picked it.
-        /// Eight draws is enough to find either class in any set that holds both, and a
-        /// set that holds only one gives up quickly.
+        /// See <see cref="DriveMarginTiles"/>. Chebyshev rather than Euclidean: a corner
+        /// tile is as much in the way as a side one, and a diagonal stretch of route is
+        /// drawn as a staircase whose corners are exactly where a prop would sit.
         /// </summary>
-        static Choice Sized(BiomeDecor decor, TerrainType terrain, DeterministicRandom rng,
-                            bool solid)
+        static HashSet<int> Lane(TileGrid grid, IReadOnlyCollection<int> driveLine, int margin)
         {
-            for (int attempt = 0; attempt < 8; attempt++)
+            if (driveLine == null) return null;
+            if (margin <= 0) return new HashSet<int>(driveLine);
+
+            var lane = new HashSet<int>();
+
+            foreach (int tile in driveLine)
             {
-                var choice = Pick(decor, terrain, rng);
-                if (choice.Prefab == null) return default;
-                if (choice.Size >= DriveClearance == solid) return choice;
+                grid.ToCoords(tile, out int x, out int y);
+
+                for (int dy = -margin; dy <= margin; dy++)
+                    for (int dx = -margin; dx <= margin; dx++)
+                        if (grid.InBounds(x + dx, y + dy)) lane.Add(grid.ToIndex(x + dx, y + dy));
             }
 
-            return default;
+            return lane;
         }
 
         /// <summary>
@@ -1607,7 +1631,8 @@ namespace Arna.View
         /// </summary>
         static int PlaceLandmarks(Transform parent, TileGrid grid, DeterministicRandom rng,
                                   BiomeDecor decor, HashSet<int> clear, HashSet<int> occupied,
-                                  float heightScale, IReadOnlyCollection<int> ruinSites)
+                                  float heightScale, IReadOnlyCollection<int> ruinSites,
+                                  HashSet<int> road = null)
         {
             int placed = 0;
 
@@ -1617,7 +1642,8 @@ namespace Arna.View
                 {
                     if (placed >= MaxLandmarks) break;
                     if (clear != null && clear.Contains(tile)) continue;
-                        if (!occupied.Add(tile)) continue;
+                    if (road != null && road.Contains(tile)) continue;
+                    if (!occupied.Add(tile)) continue;
 
                     Place(parent, grid, tile, rng,
                           new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth, byWidth: true),
@@ -1656,6 +1682,7 @@ namespace Arna.View
             for (int i = 0; i < grid.TileCount && placed < MaxLandmarks; i++)
             {
                 if (clear != null && clear.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
                 if (occupied.Contains(i)) continue;
 
                 grid.ToCoords(i, out int x, out int y);
