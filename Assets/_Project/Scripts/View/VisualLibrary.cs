@@ -33,6 +33,16 @@ namespace Arna.View
         public Avatar Rig;
 
         /// <summary>
+        /// Whether this model plays clips out of somebody else's file.
+        ///
+        /// The one fact that decides whether a missing avatar matters. It is not
+        /// something the prefab can be asked — a Generic rig with no avatar is correct
+        /// and complete when the clips are its own, and broken when they are not — so
+        /// the side that wired the controller says which case it is.
+        /// </summary>
+        public bool Borrowed;
+
+        /// <summary>
         /// Weapon fitted into the right hand. The character packs ship weapons as
         /// separate models rather than attached, so a knight straight out of the box
         /// walks into battle empty-handed.

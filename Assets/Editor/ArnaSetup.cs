@@ -367,11 +367,12 @@ namespace Arna.Editor
         /// for a controller named after each prefab and finds nothing, fifty-two times.
         /// </summary>
         static ActorModel Army(string name)
-            => Actor($"{ArmyDir}/{name}.prefab", animator: AnimatorBuilder.ArmyController);
+            => Actor($"{ArmyDir}/{name}.prefab", animator: AnimatorBuilder.ArmyController,
+                     borrowed: true);
 
         static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f,
                                 string[] hide = null, string[] unsized = null,
-                                string animator = null, float yaw = 0f)
+                                string animator = null, float yaw = 0f, bool borrowed = false)
         {
             var prefab = One(path);
             if (prefab == null) return default;
@@ -391,6 +392,7 @@ namespace Arna.Editor
                 Prefab = prefab,
                 Animator = controller,
                 Rig = AvatarFor(prefab),
+                Borrowed = borrowed,
                 Weapon = weaponPath == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(weaponPath),
                 WeaponLength = weaponLength,
 

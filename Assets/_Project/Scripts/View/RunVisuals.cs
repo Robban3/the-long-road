@@ -950,7 +950,12 @@ namespace Arna.View
             //
             // It still earns its place for the case it was written for — a *retargeted*
             // clip, which needs an avatar and silently does nothing without one.
-            if (animator.avatar == null && _warned.Add(model.Prefab.name))
+            //
+            // That was the comment, and the condition below did not say it: it fired on
+            // any model without an avatar, so the wolf, the fox, both deer and the boar
+            // all warned on every run of a level. The model now carries whether its clips
+            // are its own, because nothing about the prefab can be asked that question.
+            if (model.Borrowed && animator.avatar == null && _warned.Add(model.Prefab.name))
                 Debug.LogWarning($"[Arna] {model.Prefab.name} has no avatar. That is fine for a "
                                  + "Generic rig playing clips out of its own file, and fatal "
                                  + "for one playing clips retargeted from another — if it holds "
