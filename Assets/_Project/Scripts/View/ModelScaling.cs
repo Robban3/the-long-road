@@ -52,6 +52,34 @@ namespace Arna.View
         }
 
         /// <summary>
+        /// Scales a bridge so it is both wide enough to drive over and long enough to
+        /// reach the far bank.
+        ///
+        /// Fitting one to a footprint scales its *longest* side, which for a bridge is
+        /// the span — so asking for six metres of bridge gave six metres of length and
+        /// whatever the model's proportions then left for the deck, which was under two.
+        /// A wagon is two and a half metres wide and the caravan drove along the parapet.
+        ///
+        /// Both dimensions are asked for and the larger demand wins, so a long thin
+        /// bridge is scaled up until its deck is wide enough and a short one until it
+        /// reaches across.
+        /// </summary>
+        public static void FitToCrossing(GameObject instance, float deck, float span,
+                                         float groundY = 0f)
+        {
+            var bounds = Measure(instance);
+
+            float across = Mathf.Min(bounds.size.x, bounds.size.z);
+            float along = Mathf.Max(bounds.size.x, bounds.size.z);
+            if (across <= 0.0001f || along <= 0.0001f) return;
+
+            instance.transform.localScale *= Mathf.Max(deck / across, span / along);
+
+            var scaled = Measure(instance);
+            instance.transform.position += new Vector3(0f, groundY - scaled.min.y, 0f);
+        }
+
+        /// <summary>
         /// Scales an instance so its widest horizontal dimension is
         /// <paramref name="targetWidth"/> metres, and stands it on the ground.
         ///

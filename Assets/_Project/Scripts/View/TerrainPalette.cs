@@ -37,7 +37,13 @@ namespace Arna.View
         {
             new Color(0.50f, 0.43f, 0.33f), // Road          — packed earth
             new Color(0.42f, 0.50f, 0.29f), // Plains        — open grass
-            new Color(0.30f, 0.38f, 0.24f), // Forest        — shaded floor
+            // Close to the plains, and that is the fix rather than the compromise. It
+            // was a good deal darker, and a wood standing in open country then read as a
+            // dark green stain on the ground with a hard tile edge round it — the "green
+            // blob" that survived every prop being taken off the map, because it was
+            // never a prop. What says forest is the canopy. The floor under it is the
+            // same earth as the field beside it, a shade darker for the shade.
+            new Color(0.38f, 0.46f, 0.28f), // Forest        — shaded floor
             new Color(0.34f, 0.37f, 0.27f), // Marsh         — wet ground
             new Color(0.40f, 0.46f, 0.42f), // Ford          — wet gravel
             new Color(0.46f, 0.44f, 0.40f), // MountainPass  — bare rock

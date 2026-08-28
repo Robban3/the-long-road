@@ -612,9 +612,16 @@ namespace Arna.Editor
                 // so that only the earth face shows. On flat ground the whole thing
                 // stands proud, roots and all, and a twelve-metre one reads as an
                 // enormous tree: the first question asked about it was what kind.
-                // Rock for the tiles the map calls cliff. Empty for now: the only
-                // cliff faces here are PolygonGeneric's.
-                Cliffs = new PropSet(),
+                // Rock for the tiles the map calls cliff. PolygonGeneric's, which is
+                // another pack but is stone and belongs outdoors. Not the dirt cliffs:
+                // those are a slab of earth with roots hanging out of the underside,
+                // meant to be set into a drop, and standing free they read as a tree.
+                Cliffs = Mixed(
+                    Load($"{SyntyGenericDir}/Environment", new[]
+                    {
+                        "SM_Gen_Env_Cliff_01", "SM_Gen_Env_Cliff_02", "SM_Gen_Env_Cliff_03",
+                        "SM_Gen_Env_Cliff_04"
+                    })),
 
                 // What a band of raiders lives in. One per group, not a village.
                 Camps = new PropSet(),
@@ -677,17 +684,23 @@ namespace Arna.Editor
                 // The army pack's worn ground goes in with it, on that same argument:
                 // its mud and its trodden path are flat pieces seen face-on, which is
                 // the one category where two artists' work does not show a seam.
-                // **Nothing.** Asked for twice and kept twice, which was the mistake.
+                // Bare earth, and nothing green.
                 //
-                // The set was six pieces of bare earth from PolygonGeneric, three of
-                // longer grass, and mud and a path from the army pack. The grass pieces
-                // are five-metre discs of a darker green laid on green, which reads as a
-                // blob and not as ground however many tufts are stood on top of it — and
-                // the rest is not from the nature pack, which is the only pack in use at
-                // the moment.
-                //
-                // Bare earth belongs on this map; the reference picture is half trodden
-                // dirt. It comes back when it can come out of PolygonNature.
+                // The three grass pieces in this folder are five-metre discs of a darker
+                // green laid on green: not a patch of anything, a blob, and no number of
+                // tufts stood on top of them changes that. What earns its place is the
+                // dirt — the reference picture is half trodden ground — and it is dirt
+                // wherever it comes from.
+                GroundPatches = Mixed(
+                    Load($"{SyntyGenericDir}/Environment", new[]
+                    {
+                        "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
+                        "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04",
+                        "SM_Gen_Env_Ground_Dirt_Large_01", "SM_Gen_Env_Ground_Dirt_Large_02",
+                        "SM_Gen_Env_Ground_River_Dirt_01",
+                        "SM_Gen_Env_Ground_River_Dirt_02", "SM_Gen_Env_Ground_River_Dirt_03"
+                    }),
+                    Load(ArmyProps, new[] { "Mud_1", "Path" }))
 
                 // Houses, Farms and Watchtowers are left empty, and that is the honest
                 // state rather than an oversight. Neither Synty pack has a medieval

@@ -402,7 +402,13 @@ namespace Arna.View
         public const float WaterLift = 0.12f;
 
         /// <summary>How wide a crossing is laid across a ford, in metres.</summary>
-        public const float FordWidth = 6f;
+        /// <summary>How wide a bridge's deck is, and how far it reaches.</summary>
+        // Five metres of deck: a wagon is two and a half and the escort walks beside it,
+        // so anything narrower is a plank the caravan straddles. Twelve of span, which is
+        // the ford tile plus a bank at each end — a bridge that stops at the waterline is
+        // a jetty. See ModelScaling.FitToCrossing for why both numbers are needed.
+        public const float FordDeck = 5f;
+        public const float FordSpan = 12f;
 
         /// <summary>How tall a cliff face stands.</summary>
         // Five metres, down from twelve. A cliff tile is impassable ground on a flat map
@@ -654,7 +660,15 @@ namespace Arna.View
         /// </summary>
         static readonly Dictionary<TerrainType, float> Density = new Dictionary<TerrainType, float>
         {
-            { TerrainType.Forest, 0.45f },
+            // Enough that a forest tile has a tree on it.
+            //
+            // At 0.45 across two passes, and with two thirds of the forest table being
+            // trees rather than bushes or rock, a little over half of them did — which is
+            // a wood with gaps you can see the far side through, and it is why the forest
+            // had to be argued for in the ground colour. It should not have to be. Three
+            // in four now, which is the number that makes the canopy the thing that says
+            // forest.
+            { TerrainType.Forest, 0.62f },
             { TerrainType.MountainPass, 0.18f },
 
             // Not bare. Three percent is a lawn with a shrub on it, and the road spends
@@ -872,11 +886,7 @@ namespace Arna.View
                 if (!Apart(grid, i, bridges, 4f)) continue;
                 bridges.Add(i);
 
-                var choice = new Choice(decor.Fords, Any(decor.Fords, rng), FordWidth,
-                                        byWidth: true);
-
-                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 0.4f, occupied))
-                    placed++;
+                if (Bridge(parent, grid, rng, decor, i, heightScale, occupied)) placed++;
             }
 
             return placed;
@@ -991,6 +1001,77 @@ namespace Arna.View
             }
 
             return placed;
+        }
+
+        /// <summary>
+        /// Stands one bridge on a ford, turned across the water and scaled to be driven
+        /// over. Placed by hand rather than scattered, because both of those are things
+        /// the scatter deliberately randomises.
+        /// </summary>
+        static bool Bridge(Transform parent, TileGrid grid, DeterministicRandom rng,
+                           BiomeDecor decor, int tile, float heightScale, HashSet<int> occupied)
+        {
+            var prefab = Any(decor.Fords, rng);
+            if (prefab == null) return false;
+
+            var at = Vec2.FromTile(grid, tile);
+            float groundY = grid.SurfaceElevation(at.X, at.Y) * heightScale;
+
+            var instance = Object.Instantiate(prefab, parent);
+
+            instance.transform.position = new Vector3(at.X, groundY, at.Y);
+            instance.transform.rotation = decor.Fords.ZUp
+                ? Quaternion.Euler(-90f, 0f, 0f)
+                : Quaternion.identity;
+
+            // Which way the model is long is measured, not assumed. Whether a bridge
+            // prefab is authored running along X or along Z is the artist's business and
+            // a rule written from one guess is wrong for the next pack.
+            var bounds = ModelScaling.Measure(instance);
+            bool longAlongX = bounds.size.x > bounds.size.z;
+
+            // And which way it needs to be long comes from the water: a river runs along
+            // one axis and the road crosses the other.
+            bool crossEastWest = RunsNorthSouth(grid, tile);
+
+            if (longAlongX != crossEastWest)
+                instance.transform.rotation *= Quaternion.Euler(0f, 90f, 0f);
+
+            ModelScaling.FitToCrossing(instance, FordDeck, FordSpan, groundY);
+
+            occupied?.Add(tile);
+            return true;
+        }
+
+        /// <summary>
+        /// Whether the water through this tile runs north to south.
+        ///
+        /// A ford used to be turned by the same dice as a pine, so half of them lay
+        /// *along* the river with both ends in the water. The ground says which way is
+        /// which: the axis with more wet neighbours is the watercourse, and the road
+        /// crosses the other one.
+        ///
+        /// Ties say no, which is arbitrary and has to be something. A single tile of
+        /// water with dry ground all round it is a pond, and a bridge on it is
+        /// decoration whichever way it points.
+        /// </summary>
+        static bool RunsNorthSouth(TileGrid grid, int tile)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            int alongX = (IsWet(grid, x - 1, y) ? 1 : 0) + (IsWet(grid, x + 1, y) ? 1 : 0);
+            int alongY = (IsWet(grid, x, y - 1) ? 1 : 0) + (IsWet(grid, x, y + 1) ? 1 : 0);
+
+            return alongY > alongX;
+        }
+
+        /// <summary>Water or another ford — both are the watercourse.</summary>
+        static bool IsWet(TileGrid grid, int x, int y)
+        {
+            if (!grid.InBounds(x, y)) return false;
+
+            var terrain = grid[grid.ToIndex(x, y)];
+            return terrain == TerrainType.Water || terrain == TerrainType.Ford;
         }
 
         /// <summary>
@@ -1474,7 +1555,7 @@ namespace Arna.View
         /// <summary>Drops one model somewhere inside a tile, turned at random.</summary>
         static bool Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
                             Choice choice, int tile, float heightScale, float spread,
-                            HashSet<int> occupied = null, float lift = 0f)
+                            HashSet<int> occupied = null, float lift = 0f, float? yaw = null)
         {
             var position = Vec2.FromTile(grid, tile);
             float x = position.X + rng.Range(-spread, spread);
@@ -1491,9 +1572,13 @@ namespace Arna.View
 
             // Stand it up before measuring. Fitting to height only means anything once
             // the model's height is actually along Y.
+            // A random turn suits a tree and ruins a bridge. Anything whose direction
+            // means something says so; everything else keeps the dice.
+            float turn = yaw ?? rng.Range(0f, 360f);
+
             instance.transform.rotation = choice.ZUp
-                ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
-                : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+                ? Quaternion.Euler(-90f, turn, 0f)
+                : Quaternion.Euler(0f, turn, 0f);
 
             // Zero would come out of a default Choice and scale the prop to nothing.
             float low = choice.Low > 0f ? choice.Low : JitterLow;
@@ -1835,12 +1920,15 @@ namespace Arna.View
 
             switch (terrain)
             {
+                // Three quarters trees, up from two thirds. The undergrowth and the rock
+                // are what a forest floor has *as well*, and they were taking a fifth of
+                // the ground the trees were meant to be standing on.
                 case TerrainType.Forest:
-                    if (roll < 0.44f) return Tree(decor.Pines, rng, PineHeight);
-                    if (roll < 0.58f) return Tree(decor.Trees, rng, TreeHeight);
-                    if (roll < 0.68f) return Tree(decor.Birch, rng, TreeHeight);
-                    if (roll < 0.88f) return From(decor.Bushes, rng, BushHeight);
-                    if (roll < 0.96f) return From(decor.Rocks, rng, RockHeight);
+                    if (roll < 0.50f) return Tree(decor.Pines, rng, PineHeight);
+                    if (roll < 0.65f) return Tree(decor.Trees, rng, TreeHeight);
+                    if (roll < 0.76f) return Tree(decor.Birch, rng, TreeHeight);
+                    if (roll < 0.90f) return From(decor.Bushes, rng, BushHeight);
+                    if (roll < 0.97f) return From(decor.Rocks, rng, RockHeight);
                     return From(decor.Timber, rng, TimberWidth, byWidth: true);
 
                 // No whole mountains. A twenty-metre hill standing on a tile the caravan
