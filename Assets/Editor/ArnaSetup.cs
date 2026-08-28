@@ -528,46 +528,12 @@ namespace Arna.Editor
                 // show: they are three hundred metres off, in silhouette, and no two
                 // adjacent peaks are ever compared closely. Generic's are literally
                 // named Background_Mountain — made for exactly this.
-                Horizon = Mixed(
-                    Load($"{SyntyNatureDir}/Terrain", new[]
-                    {
-                        "SM_Terrain_Mountain_01", "SM_Terrain_Mountain_02", "SM_Terrain_Mountain_03"
-                    }),
-                    Load($"{SyntyGenericDir}/Environment", new[]
-                    {
-                        "SM_Gen_Env_Background_Mountain_01", "SM_Gen_Env_Background_Mountain_02",
-                        "SM_Gen_Env_Background_Mountain_03", "SM_Gen_Env_Mountain_01",
-                        "SM_Gen_Env_Mountain_02", "SM_Gen_Env_Mountain_03"
+                // PolygonNature's three peaks only. The generic pack's background
+                // mountains were the rest of this set and they are out with everything
+                // else that is not the nature pack.
+                Horizon = Synty("Terrain", "SM_Terrain_Mountain_01",
+                                "SM_Terrain_Mountain_02", "SM_Terrain_Mountain_03"),
 
-                        // No SM_Gen_Env_Hill_*. They went in to break up the sawtooth —
-                        // a range is shoulders with summits standing out of them — and
-                        // the argument was right about shape and wrong about everything
-                        // else. A hill in that pack is grass-covered and green, and a
-                        // green mass a hundred metres tall on the skyline is not a
-                        // distant hill, it is a wall of lawn. The Background_Mountain
-                        // prefabs are broader than the Terrain ones and are what the
-                        // shoulders come from now.
-                    })),
-
-                // What grows in standing water and at its edge. The fen used to be
-                // dressed in the meadow's grass and ferns, which made it a meadow that
-                // happens to slow you down.
-                // No lilypads, and the reason is a rule rather than a preference.
-                //
-                // They were in here and they came out as three-metre discs stacked on
-                // each other across the fen — the craters-on-craters look. Ground cover
-                // is fitted by *height*, and a lilypad is flat: fitting something with
-                // almost no height to 0.7 m of it multiplies the whole model by whatever
-                // that takes, and the width goes with it. The eagle taught this once
-                // already, from the other end — most of her vertical extent was wing
-                // dihedral, so fitting her by height let the bind pose set the wingspan.
-                //
-                // Anything flat has to be fitted across, the way GroundPatches is. A
-                // lilypad also belongs on open water rather than on marsh ground, and
-                // there is nothing placing props on water, so it is out on both counts.
-                // Reeds, and the pack's actual swamp growth beside them. The roots and
-                // growth were sitting unused in Terrain/ while the fen was dressed out of
-                // the general plant folder — ferns and mushrooms, which grow in a wood.
                 MarshPlants = Mixed(
                     Load($"{SyntyNatureDir}/Plants", new[]
                     {
@@ -614,12 +580,24 @@ namespace Arna.Editor
                 // The totem the GDD's §5 table has always asked for and no pack here had.
                 // A banner or a row of stakes is a thing somebody drove into the ground,
                 // which is what separates an ambush site from an accident.
-                Markers = ArmyScenery("Standing_Banner", "ArcherStake_1_Pref",
-                                      "ArcherStake_3_Pref", "ArcherStake_5_Pref"),
+                Markers = new PropSet(),
 
                 // The surface of the water, which is the one prop here that replaces a
                 // tile instead of dressing one. See BiomeDecor.Water.
-                Water = Synty("Terrain", "SM_River_Plane_01", "SM_Gen_Env_Water_Plane_01"),
+                // **Nothing, and both of the alternatives were tried.**
+                //
+                // The nature pack's river plane carries a water shader from another
+                // pipeline: URP resolves it to untextured white, so every watercourse
+                // became a sheet of paper. Painting it a river blue fixed the white and
+                // produced a dark slab with hard tile edges, which is worse in its own
+                // way. With no plane the water is the terrain mesh in the palette's own
+                // colour — the same material as the ground it runs through, so it reads
+                // as part of the map rather than as something laid on it.
+                //
+                // What it is not is a *surface*. The tile staircase shows again, which is
+                // the thing the planes were introduced to hide. That wants a shader
+                // rather than a prop.
+                Water = new PropSet(),
 
                 // A crossing on the ford tiles. Every corridor tends to use the same
                 // ford — it is why the traps go there — and it has never had anything on
@@ -634,15 +612,12 @@ namespace Arna.Editor
                 // so that only the earth face shows. On flat ground the whole thing
                 // stands proud, roots and all, and a twelve-metre one reads as an
                 // enormous tree: the first question asked about it was what kind.
-                Cliffs = Mixed(
-                    Load($"{SyntyGenericDir}/Environment", new[]
-                    {
-                        "SM_Gen_Env_Cliff_01", "SM_Gen_Env_Cliff_02", "SM_Gen_Env_Cliff_03",
-                        "SM_Gen_Env_Cliff_04"
-                    })),
+                // Rock for the tiles the map calls cliff. Empty for now: the only
+                // cliff faces here are PolygonGeneric's.
+                Cliffs = new PropSet(),
 
                 // What a band of raiders lives in. One per group, not a village.
-                Camps = ArmyScenery("Tent", "WeaponRack", "Standing_Banner", "Table_1"),
+                Camps = new PropSet(),
 
                 // The one tree whose place is decided by water rather than by biome.
                 Willows = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
@@ -671,15 +646,10 @@ namespace Arna.Editor
                               "SM_Rock_Pile_04", "SM_Rock_Pile_05",
                               "SM_Rock_Pile_Curved_01", "SM_Rock_Pile_Curved_02"),
 
+                // The wrecked carts and the arrows are out with the rest of the other
+                // packs; the bones are PolygonNature's own and stay, which is enough for
+                // a trap site to say something happened here.
                 Ruins = Mixed(
-                    Load($"{WagonDir}/Hay_Cart", new[] { "SM_Hay_Cart_Full" }),
-                    Load($"{WagonDir}/Peasant_Handcart", new[] { "SM_Peasant_Handcart_Full" }),
-                    // Battlefield leavings out of the army pack. A wreck is the one
-                    // place where mixing packs reads as chaos rather than as a seam —
-                    // and arrows in the ground say what happened here better than
-                    // anything either nature pack ships.
-                    Load(ArmyProps, new[] { "Scattered_Arrows", "Plank_1", "Plank_2" }),
-
                     Load($"{SyntyNatureDir}/Props", new[]
                     {
                         // The bones the GDD's §5 table calls for. `_Skull_01` twice, so a
@@ -707,17 +677,17 @@ namespace Arna.Editor
                 // The army pack's worn ground goes in with it, on that same argument:
                 // its mud and its trodden path are flat pieces seen face-on, which is
                 // the one category where two artists' work does not show a seam.
-                GroundPatches = Mixed(
-                    Load($"{SyntyGenericDir}/Environment", new[]
-                    {
-                        "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
-                        "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04",
-                        "SM_Gen_Env_Ground_Dirt_Large_01", "SM_Gen_Env_Ground_Dirt_Large_02",
-                        "SM_Gen_Env_Ground_Grass_01", "SM_Gen_Env_Ground_Grass_02",
-                        "SM_Gen_Env_Ground_Grass_03", "SM_Gen_Env_Ground_River_Dirt_01",
-                        "SM_Gen_Env_Ground_River_Dirt_02", "SM_Gen_Env_Ground_River_Dirt_03"
-                    }),
-                    Load(ArmyProps, new[] { "Mud_1", "Path" }))
+                // **Nothing.** Asked for twice and kept twice, which was the mistake.
+                //
+                // The set was six pieces of bare earth from PolygonGeneric, three of
+                // longer grass, and mud and a path from the army pack. The grass pieces
+                // are five-metre discs of a darker green laid on green, which reads as a
+                // blob and not as ground however many tufts are stood on top of it — and
+                // the rest is not from the nature pack, which is the only pack in use at
+                // the moment.
+                //
+                // Bare earth belongs on this map; the reference picture is half trodden
+                // dirt. It comes back when it can come out of PolygonNature.
 
                 // Houses, Farms and Watchtowers are left empty, and that is the honest
                 // state rather than an oversight. Neither Synty pack has a medieval
