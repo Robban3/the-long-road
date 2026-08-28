@@ -77,6 +77,23 @@ namespace Arna.Sim
         /// <summary>Height at a tile corner, averaged from the tiles that meet there.</summary>
         public float CornerElevation(int cornerX, int cornerY)
         {
+            // A crossing is a causeway, so its corners belong to the causeway.
+            //
+            // The surface is interpolated between corners and a corner is the average of
+            // the four tiles meeting at it. A ford raised to the height of its banks
+            // still had two river tiles in every corner it shares with the channel, so
+            // the average dragged the crossing back down and the ground sagged into the
+            // water in the middle of the bridge. Where a ford is one of the four, the
+            // river is left out of the average: the bar of gravel is continuous with the
+            // banks, which is what makes it a place anything can cross.
+            bool crossing = false;
+
+            for (int dy = -1; dy <= 0 && !crossing; dy++)
+                for (int dx = -1; dx <= 0 && !crossing; dx++)
+                    if (InBounds(cornerX + dx, cornerY + dy) &&
+                        _tiles[(cornerY + dy) * Width + cornerX + dx] == TerrainType.Ford)
+                        crossing = true;
+
             float sum = 0f;
             int count = 0;
 
@@ -87,7 +104,11 @@ namespace Arna.Sim
                     int x = cornerX + dx;
                     int y = cornerY + dy;
                     if (!InBounds(x, y)) continue;
-                    sum += _elevation[y * Width + x];
+
+                    int index = y * Width + x;
+                    if (crossing && _tiles[index] == TerrainType.Water) continue;
+
+                    sum += _elevation[index];
                     count++;
                 }
             }

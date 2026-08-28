@@ -795,7 +795,49 @@ namespace Arna.View
                                    densityScale, road);
             placed += PlaceCamps(parent, grid, rng, decor, occupied, heightScale, campSites, road);
 
+            Census(parent);
+
             return placed;
+        }
+
+        /// <summary>
+        /// Says what is actually standing on the map, biggest population first.
+        ///
+        /// Written after a fourth round of "what are those green things?" answered by
+        /// guessing. Three of the guesses were wrong, and each cost a build, a run and a
+        /// screenshot to find out. What is on the ground is a fact the decorator knows
+        /// the moment it finishes, and the only reason it was ever a question is that
+        /// nobody had asked it to say.
+        ///
+        /// By prefab rather than by set, because the answer wanted is "that shape", and a
+        /// shape has a name. Clone suffixes are trimmed so the counts add up.
+        /// </summary>
+        static void Census(Transform parent)
+        {
+            var counts = new Dictionary<string, int>();
+
+            foreach (Transform child in parent)
+            {
+                string name = child.name;
+
+                int clone = name.IndexOf("(Clone)", System.StringComparison.Ordinal);
+                if (clone >= 0) name = name.Substring(0, clone);
+
+                counts.TryGetValue(name, out int seen);
+                counts[name] = seen + 1;
+            }
+
+            if (counts.Count == 0) return;
+
+            var ranked = new List<KeyValuePair<string, int>>(counts);
+            ranked.Sort((a, b) => b.Value.CompareTo(a.Value));
+
+            var top = new List<string>();
+            for (int i = 0; i < ranked.Count && i < 12; i++)
+                top.Add($"{ranked[i].Key} x{ranked[i].Value}");
+
+            Debug.Log($"[Arna] On the ground: {string.Join(", ", top)}"
+                      + (ranked.Count > 12 ? $", and {ranked.Count - 12} other kind(s)." : "."));
         }
 
         /// <summary>

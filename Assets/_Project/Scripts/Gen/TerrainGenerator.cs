@@ -283,6 +283,56 @@ namespace Arna.Gen
                 foreach (int tile in path) grid[tile] = TerrainType.Water;
                 PlaceFords(grid, path, Math.Max(1, recipe.FordsPerRiver));
             }
+
+            LevelTheCrossings(grid);
+        }
+
+        /// <summary>
+        /// Raises every ford to the height of the banks it joins.
+        ///
+        /// A river is carved by lowering its tiles, and a ford was carved with the rest
+        /// of it: the crossing sat at the bottom of the channel. Everything in the game
+        /// takes its height from the ground, so the caravan drove *down into the river*
+        /// at the one place it is supposed to get across — and the bridge, standing on
+        /// the same ground, arched over the top of it. It looked as though the wagons
+        /// were passing through the bridge. They were passing under it.
+        ///
+        /// A ford is not a hole in the river, it is the shallow place: a bar of gravel
+        /// level with the banks, which is why anything can cross there at all. Levelling
+        /// it here fixes the picture for the wagons, the horses, the escort and the
+        /// bridge at once, because all five read the same number.
+        /// </summary>
+        static void LevelTheCrossings(TileGrid grid)
+        {
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] != TerrainType.Ford) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+
+                float sum = 0f;
+                int banks = 0;
+
+                for (int dy = -2; dy <= 2; dy++)
+                {
+                    for (int dx = -2; dx <= 2; dx++)
+                    {
+                        if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                        int neighbour = grid.ToIndex(x + dx, y + dy);
+                        var terrain = grid[neighbour];
+
+                        // Dry ground only. Averaging the river in would put the crossing
+                        // back in the water, a fraction higher than before.
+                        if (terrain == TerrainType.Water || terrain == TerrainType.Ford) continue;
+
+                        sum += grid.Elevation(neighbour);
+                        banks++;
+                    }
+                }
+
+                if (banks > 0) grid.SetElevation(i, sum / banks);
+            }
         }
 
         /// <summary>
