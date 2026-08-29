@@ -479,9 +479,21 @@ namespace Arna.Editor
                               "SM_Tree_PolyPine_Sparse_02", "SM_Tree_PolyPine_Sparse_03",
                               "SM_Tree_Pine_01", "SM_Tree_Pine_02"),
 
-                Trees = Synty("Trees", "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
-                              "SM_Tree_Round_04", "SM_Tree_Round_05", "SM_Tree_TallRound_01",
-                              "SM_Tree_01", "SM_Tree_02", "SM_Tree_03", "SM_Tree_04"),
+                // Five more shapes from the knights pack, including two twisted ones. A
+                // forest of one silhouette repeated is a wallpaper, and the round trees
+                // were carrying the broadleaf share alone.
+                Trees = Mixed(
+                    Load($"{SyntyKnightsDir}/Environments", new[]
+                    {
+                        "SM_Env_Tree_01", "SM_Env_Tree_02", "SM_Env_Tree_03",
+                        "SM_Env_Tree_Twisted_01", "SM_Env_Tree_Twisted_02"
+                    }),
+                    Load($"{SyntyNatureDir}/Trees", new[]
+                    {
+                        "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
+                        "SM_Tree_Round_04", "SM_Tree_Round_05", "SM_Tree_TallRound_01",
+                        "SM_Tree_01", "SM_Tree_02", "SM_Tree_03", "SM_Tree_04"
+                    })),
 
                 Birch = Synty("Trees", "SM_Tree_Birch_01", "SM_Tree_Birch_02",
                               "SM_Tree_Birch_03", "SM_Tree_Birch_04", "SM_Tree_Birch_Small_01"),
@@ -586,29 +598,33 @@ namespace Arna.Editor
                 // The totem the GDD's §5 table has always asked for and no pack here had.
                 // A banner or a row of stakes is a thing somebody drove into the ground,
                 // which is what separates an ambush site from an accident.
-                Markers = new PropSet(),
+                // Something somebody drove into the ground, which is what separates an
+                // ambush site from an accident. Banners and gravestones both say it.
+                Markers = Knights("Props", "SM_Prop_Banner_01", "SM_Prop_Banner_02",
+                                  "SM_Prop_Banner_03", "SM_Prop_Gravestone_01",
+                                  "SM_Prop_Gravestone_02"),
 
                 // The surface of the water, which is the one prop here that replaces a
                 // tile instead of dressing one. See BiomeDecor.Water.
-                // **Nothing, and both of the alternatives were tried.**
+                // The pack's own river plane, with the pack's own shader, which is
+                // where this started and where it should have stayed.
                 //
-                // The nature pack's river plane carries a water shader from another
-                // pipeline: URP resolves it to untextured white, so every watercourse
-                // became a sheet of paper. Painting it a river blue fixed the white and
-                // produced a dark slab with hard tile edges, which is worse in its own
-                // way. With no plane the water is the terrain mesh in the palette's own
-                // colour — the same material as the ground it runs through, so it reads
-                // as part of the map rather than as something laid on it.
-                //
-                // What it is not is a *surface*. The tile staircase shows again, which is
-                // the thing the planes were introduced to hide. That wants a shader
-                // rather than a prop.
-                Water = new PropSet(),
+                // It came out untextured white, so it was painted a flat river blue,
+                // which came out a dark slab, so it was taken off the map altogether and
+                // the water went back to being coloured tiles. All three of those were
+                // treatments for a symptom. The shader is a Synty shadergraph that blends
+                // a deep colour into a shallow one by reading how far the bed is below
+                // the surface — and the render pipeline had both the depth texture and
+                // the opaque texture switched off, so it had nothing to read and returned
+                // white. They are on now. See ArnaUniversalRenderPipeline.
+                Water = Synty("Terrain", "SM_River_Plane_01"),
 
                 // A crossing on the ford tiles. Every corridor tends to use the same
                 // ford — it is why the traps go there — and it has never had anything on
                 // it but water you could somehow walk through.
-                Fords = Synty("Props", "SM_Prop_Bridge_Curved_01"),
+                Fords = Mixed(
+                    Load($"{SyntyKnightsDir}/Environments", new[] { "SM_Env_Canal_Bridge_01" }),
+                    Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Bridge_Curved_01" })),
 
                 // Rock for the tiles the map calls cliff, which have been impassable and
                 // featureless since the generator was written.
@@ -630,7 +646,12 @@ namespace Arna.Editor
                     })),
 
                 // What a band of raiders lives in. One per group, not a village.
-                Camps = new PropSet(),
+                // A camp again, and out of a medieval pack rather than an army one: three
+                // tents, a fire and a banner. The signal has been drawing nothing since
+                // the army pack was unwired, which meant a level could tell the player a
+                // camp was there and then show them an empty field.
+                Camps = Knights("Buildings", "SM_Bld_Tent_01", "SM_Bld_Tent_02",
+                                "SM_Bld_Tent_03", "SM_Bld_Leanto_01"),
 
                 // The one tree whose place is decided by water rather than by biome.
                 Willows = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
@@ -655,14 +676,28 @@ namespace Arna.Editor
                 //
                 // The pass stays. A backdrop that is a *band* would work in it.
 
-                Shore = Synty("Rocks", "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03",
-                              "SM_Rock_Pile_04", "SM_Rock_Pile_05",
-                              "SM_Rock_Pile_Curved_01", "SM_Rock_Pile_Curved_02"),
+                Shore = Mixed(
+                    Load($"{SyntyKnightsDir}/Environments", new[]
+                    {
+                        "SM_Env_RockPile_01", "SM_Env_RockPile_02", "SM_Env_RockPile_03"
+                    }),
+                    Load($"{SyntyNatureDir}/Rocks", new[]
+                    {
+                        "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03",
+                        "SM_Rock_Pile_04", "SM_Rock_Pile_05",
+                        "SM_Rock_Pile_Curved_01", "SM_Rock_Pile_Curved_02"
+                    })),
 
-                // The wrecked carts and the arrows are out with the rest of the other
-                // packs; the bones are PolygonNature's own and stay, which is enough for
-                // a trap site to say something happened here.
+                // A cart left where it stopped, which is what the reference picture
+                // shows: not masonry — masonry means somebody built here — but a vehicle
+                // of the same kind the player is escorting. The knights pack has them,
+                // and the bones from PolygonNature stay for the rest of the story.
                 Ruins = Mixed(
+                    Load($"{SyntyKnightsDir}/Props", new[]
+                    {
+                        "SM_Prop_Cart_01", "SM_Prop_CartHay_01", "SM_Prop_CartWheel_01",
+                        "SM_Prop_Crate_01"
+                    }),
                     Load($"{SyntyNatureDir}/Props", new[]
                     {
                         // The bones the GDD's §5 table calls for. `_Skull_01` twice, so a
@@ -672,13 +707,18 @@ namespace Arna.Editor
                         //
                         // A pile it is not. The pack has one skeleton and one skull, and
                         // the decorator places a single prop per site, so what stands
-                        // there is a body or a skull rather than a heap of them. Nor is
-                        // there a totem in either pack — the nearest thing is
-                        // `_TorchStick_01`, which is a torch. The medieval pack arriving
-                        // has archer stakes and banners, which are what a totem wants.
+                        // there is a body or a skull rather than a heap of them. There is
+                        // a second skeleton in PolygonGeneric, below, which doubles the
+                        // odds of a site reading as a killing rather than as a mishap.
                         "SM_Prop_Skeleton_Ground_01", "SM_Prop_Skull_01", "SM_Prop_Skull_01",
                         "SM_Prop_Chest_Wood_01", "SM_Prop_Grave_03", "SM_Prop_CampFire_01"
-                    })),
+                    }),
+
+                    // The bones the GDD's §5 table has always asked for, and the only
+                    // other ones in the project. A skeleton lying in the road is the
+                    // plainest thing on this list and says the most.
+                    Load($"{SyntyGenericDir}/Characters", new[] { "SM_Gen_Chr_Skeleton_01" }),
+                    Load($"{SyntyGenericDir}/Props", new[] { "SM_Gen_Prop_Skull_01" })),
 
                 // Bare earth, gravel and worn grass, laid flat on the ground.
                 //
@@ -706,7 +746,28 @@ namespace Arna.Editor
                         "SM_Gen_Env_Ground_River_Dirt_01",
                         "SM_Gen_Env_Ground_River_Dirt_02", "SM_Gen_Env_Ground_River_Dirt_03"
                     }),
-                    Load(ArmyProps, new[] { "Mud_1", "Path" }))
+                    Load(ArmyProps, new[] { "Mud_1", "Path" }),
+                    Load($"{SyntyKnightsDir}/Environments", new[]
+                    {
+                        "SM_Env_Path_Dirt_01", "SM_Env_Path_Dirt_02", "SM_Env_Path_Dirt_03",
+                        "SM_Env_Path_Dirt_04", "SM_Env_Path_Dirt_05", "SM_Env_Path_Dirt_06"
+                    })),
+
+                // A well and a shelter, which are the whole models the knights pack has
+                // that belong beside a road. Not houses — the pack's houses are a *kit*:
+                // seven foundations, seven rooms, seven roofs, doors, windows, chimneys,
+                // and a house is what you get by stacking them. That is a builder, not a
+                // wiring change, and it is the next piece of work.
+                Houses = Knights("Buildings", "SM_Bld_Village_Well_01", "SM_Bld_Well_01",
+                                 "SM_Bld_Leanto_01"),
+
+                // The mini towers are complete on their own, unlike the castle towers,
+                // which are base, shaft and top as separate pieces.
+                Watchtowers = Knights("Buildings", "SM_Bld_Castle_Tower_Mini_01",
+                                      "SM_Bld_Castle_Tower_Mini_02"),
+
+                // Farms are still empty: a farm needs a farmhouse and the pack has none
+                // whole. It comes with the builder.
 
                 // Houses, Farms and Watchtowers are left empty, and that is the honest
                 // state rather than an oversight. Neither Synty pack has a medieval
@@ -761,6 +822,12 @@ namespace Arna.Editor
 
         static PropSet Synty(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyNatureDir}/{group}", names));
+
+        /// <summary>POLYGON Knights, the medieval pack. Y-up like the rest of Synty.</summary>
+        const string SyntyKnightsDir = "Assets/Synty/PolygonKnights/Prefabs";
+
+        static PropSet Knights(string group, params string[] names)
+            => new PropSet(false, Load($"{SyntyKnightsDir}/{group}", names));
 
         /// <summary>
         /// PolygonGeneric, which is here for one folder.
