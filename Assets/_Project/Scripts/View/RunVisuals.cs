@@ -92,10 +92,51 @@ namespace Arna.View
         /// the terrain rather than on the plane it used to be flat on, or the caravan
         /// drives through the hills instead of over them.
         /// </summary>
+        /// <summary>
+        /// The height anything standing here should be at — the ground, or the bridge
+        /// over it.
+        ///
+        /// The caravan drove *under* the bridge, twice, because the ground is what
+        /// everything here takes its height from and a bridge is not the ground. Levelling
+        /// the ford fixed the crossing sitting in the bottom of the channel and did not
+        /// fix this: an arch still rises over a level bank, and the column went along the
+        /// bank and through the vault.
+        ///
+        /// So the bridges are asked. They are found once, when the world is built, and
+        /// each one answers with a ray rather than with a rule, because nothing here
+        /// knows what the model looks like.
+        /// </summary>
         float GroundAt(Vec2 position)
         {
             if (_grid == null || _heightScale <= 0f) return 0f;
-            return _grid.SurfaceElevation(position.X, position.Y) * _heightScale;
+
+            float ground = _grid.SurfaceElevation(position.X, position.Y) * _heightScale;
+            if (_bridges == null) return ground;
+
+            foreach (var bridge in _bridges)
+            {
+                if (bridge == null) continue;
+                if (bridge.Height(position.X, position.Y, ground, out float deck) && deck > ground)
+                    return deck;
+            }
+
+            return ground;
+        }
+
+        BridgeDeck[] _bridges;
+
+        /// <summary>
+        /// Finds the crossings once. Called after the decorator has built the world, so
+        /// the bridges exist; scanning per frame would be the same answer at a cost.
+        /// </summary>
+        public void FindBridges(Transform props)
+        {
+            _bridges = props == null
+                ? System.Array.Empty<BridgeDeck>()
+                : props.GetComponentsInChildren<BridgeDeck>(true);
+
+            if (_bridges.Length > 0)
+                Debug.Log($"[Arna] {_bridges.Length} bridge(s) found; the column rides over them.");
         }
 
         static readonly Color SupplyColor = new Color(0.85f, 0.72f, 0.42f);

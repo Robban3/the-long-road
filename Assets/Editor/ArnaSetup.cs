@@ -41,6 +41,8 @@ namespace Arna.Editor
         [MenuItem("Arna/Set Up Project")]
         public static void SetupProject()
         {
+            if (!Stopped("Set Up Project")) return;
+
             EnsureFolders();
             var pipeline = EnsureRenderPipeline();
             EnsureMaterial();
@@ -62,6 +64,8 @@ namespace Arna.Editor
         [MenuItem("Arna/Set Up Play Scene")]
         public static void SetUpPlayScene()
         {
+            if (!Stopped("Set Up Play Scene")) return;
+
             EnsureFolders();
             EnsureRenderPipeline();
             EnsureMaterial();
@@ -1945,9 +1949,48 @@ namespace Arna.Editor
         /// This does the same wiring in place, and prints what it wired so "it did not
         /// change" becomes a thing that can be checked rather than believed.
         /// </summary>
+        /// <summary>
+        /// Whether the editor is out of play mode, said out loud when it is not.
+        ///
+        /// **This cost a week.** Opening or saving a scene is illegal in play mode, so a
+        /// tool that does it throws at its first line and does nothing at all — while the
+        /// work it was meant to do goes on being reported as done, round after round.
+        /// Grass deleted from the code stayed on the map; models that had been swapped
+        /// stayed swapped out. Every one of those looked like a bug in what the tool
+        /// writes and was in fact the tool never running.
+        ///
+        /// Catching the exception would not help: a scene edited in play mode is thrown
+        /// away the moment play stops, and a re-import during play is undone with it. So
+        /// the answer is to say which button to press, and stop.
+        /// </summary>
+        static bool Stopped(string what)
+        {
+            if (!EditorApplication.isPlayingOrWillChangePlaymode) return true;
+
+            Debug.LogWarning($"[Arna] Stop play mode first — {what} changed nothing.\n"
+                             + "It writes to the saved scenes and assets, and neither can "
+                             + "be written while the game is running: anything it did "
+                             + "would be discarded the moment you pressed stop. Press "
+                             + "Stop, run it again, then press Play.");
+            return false;
+        }
+
         [MenuItem("Arna/Refresh Scene Assets")]
         public static void RefreshSceneAssets()
         {
+            // **Not while the game is running**, and this cost a week.
+            //
+            // Opening a scene is illegal in play mode, so this threw at its first line
+            // and did nothing at all — while the changes it was meant to make were being
+            // reported as done, round after round. Grass that had been deleted from the
+            // code stayed on the map; models that had been swapped stayed swapped out.
+            // Every one of those looked like a bug in what the tool writes and was in
+            // fact the tool never running.
+            //
+            // It could not have worked even if the exception were caught: a scene edited
+            // in play mode is thrown away the moment play stops. So it says so and stops.
+            if (!Stopped("Refresh Scene Assets")) return;
+
             // Both scenes, not whichever is open.
             //
             // This rewired the active scene, and the active scene is not always the one

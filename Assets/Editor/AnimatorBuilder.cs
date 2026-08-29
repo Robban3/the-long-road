@@ -202,9 +202,24 @@ namespace Arna.Editor
         /// humanoid at all the run changes nothing and says so. The old models moving
         /// beats the new models frozen.
         /// </summary>
+        /// <summary>Whether the editor is out of play mode. See ArnaSetup.Stopped.</summary>
+        // A re-import during play is undone the moment play stops, so this would report
+        // twenty rigs converted and leave twenty rigs exactly as they were.
+        static bool Stopped(string what)
+        {
+            if (!EditorApplication.isPlayingOrWillChangePlaymode) return true;
+
+            Debug.LogWarning($"[Arna] Stop play mode first — {what} changed nothing. "
+                             + "It re-imports assets, and a re-import during play is "
+                             + "discarded when play stops.");
+            return false;
+        }
+
         [MenuItem("Arna/Rig For Retargeting")]
         public static void RigForRetargeting()
         {
+            if (!Stopped("Rig For Retargeting")) return;
+
             var prefabs = AssetDatabase.FindAssets("t:Prefab", new[] { ArmyCharacters });
 
             if (prefabs.Length == 0)
