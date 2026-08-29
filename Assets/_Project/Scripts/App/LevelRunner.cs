@@ -164,6 +164,7 @@ namespace Arna.App
                 campSites: CampSignal.Tiles(map), driveMargin: 0);
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
+            _visuals.FindBridges(_markerRoot);
             _visuals.Build(_run);
             _visuals.BuildCaches(map.Encounters.SilverCaches, map.Grid);
             _visuals.BuildCrowFlocks(CrowSignal.Place(map), map.Grid);

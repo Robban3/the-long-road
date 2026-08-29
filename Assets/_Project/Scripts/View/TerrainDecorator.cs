@@ -453,6 +453,25 @@ namespace Arna.View
         public const float CoverHeight = 0.7f;
 
         /// <summary>
+        /// How wide a tuft of ground cover may be, whatever its height comes to.
+        ///
+        /// One metre. Fitting by height alone multiplies the width with it, and the
+        /// nature pack's grass is authored low and broad: five clumps, fifteen hundred
+        /// instances, each blown up by four or five to reach seven-tenths of a metre and
+        /// arriving five metres across. That is the green blob, and it was blamed on the
+        /// ground patches, on the forest's colour and on a stale scene before anybody
+        /// asked the map what it was carrying.
+        /// </summary>
+        public const float CoverWidth = 1f;
+
+        /// <summary>How much wider than tall anything but a tree may end up.</summary>
+        // A bush, a reed, a fern, a rock: all of them are fitted by height and all of
+        // them carry whatever width that scaling happens to give. Half again is generous
+        // for every one of them and stops a low broad model from spreading into a mat.
+        // Trees are exempt, because a canopy is exactly the thing this would clip.
+        public const float SpreadLimit = 1.5f;
+
+        /// <summary>
         /// How wide a lilypad cluster lies across the water, in metres.
         ///
         /// Measured across on purpose — see <see cref="BiomeDecor.Lilypads"/> for what
@@ -1081,6 +1100,10 @@ namespace Arna.View
 
             ModelScaling.FitToCrossing(instance, FordDeck, FordSpan, groundY);
 
+            // Measured rather than described. Nothing here knows where the roadway is
+            // inside a bridge model, so the bridge is asked at runtime — see BridgeDeck.
+            instance.AddComponent<BridgeDeck>().Measure();
+
             occupied?.Add(tile);
             return true;
         }
@@ -1586,7 +1609,8 @@ namespace Arna.View
                         : new Choice(set, Any(set, rng),
                                      CoverHeight, byWidth: false, canopy: true);
 
-                    Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.9f);
+                    Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.9f,
+                            maxWidth: choice.ByWidth ? 0f : CoverWidth);
                     placed++;
                 }
             }
@@ -1597,7 +1621,8 @@ namespace Arna.View
         /// <summary>Drops one model somewhere inside a tile, turned at random.</summary>
         static bool Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
                             Choice choice, int tile, float heightScale, float spread,
-                            HashSet<int> occupied = null, float lift = 0f, float? yaw = null)
+                            HashSet<int> occupied = null, float lift = 0f, float? yaw = null,
+                            float maxWidth = 0f)
         {
             var position = Vec2.FromTile(grid, tile);
             float x = position.X + rng.Range(-spread, spread);
@@ -1627,7 +1652,17 @@ namespace Arna.View
             float high = choice.High > 0f ? choice.High : JitterHigh;
 
             float size = choice.Size * rng.Range(low, high);
+
+            // Anything fitted by height gets a width it never asked for, and a model
+            // authored low and broad gets a great deal of it: this is how five kinds of
+            // grass became fifteen hundred five-metre discs. A tree may be wider than it
+            // is tall — that is a canopy — and everything else may not, by much.
+            float cap = maxWidth > 0f ? maxWidth * rng.Range(low, high)
+                      : choice.Canopy ? 0f
+                      : size * SpreadLimit;
+
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
+            else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, groundY);
             else ModelScaling.Fit(instance, size, groundY);
 
             // Canopy neither claims ground nor checks for it. Keeping it out of the

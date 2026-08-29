@@ -52,6 +52,35 @@ namespace Arna.View
         }
 
         /// <summary>
+        /// Scales an instance to a height, unless that would make it too wide.
+        ///
+        /// Fitting by height multiplies the whole model, width included, and the width is
+        /// the part nobody was thinking about. A tuft of grass authored fifteen
+        /// centimetres tall and a metre across is scaled by four and a half to reach
+        /// seven-tenths of a metre, and comes out five and a half metres wide: a green
+        /// disc the size of a wagon, of which the map carried fifteen hundred. They were
+        /// blamed on the ground patches, on the terrain colour and on a stale scene
+        /// before the map was simply asked what it was carrying.
+        ///
+        /// The smaller of the two demands wins, so a tall thin reed reaches its full
+        /// height and a wide low clump stops at its width.
+        /// </summary>
+        public static void FitWithin(GameObject instance, float maxHeight, float maxWidth,
+                                     float groundY = 0f)
+        {
+            var bounds = Measure(instance);
+
+            float widest = Mathf.Max(bounds.size.x, bounds.size.z);
+            if (bounds.size.y <= 0.0001f || widest <= 0.0001f) return;
+
+            instance.transform.localScale *=
+                Mathf.Min(maxHeight / bounds.size.y, maxWidth / widest);
+
+            var scaled = Measure(instance);
+            instance.transform.position += new Vector3(0f, groundY - scaled.min.y, 0f);
+        }
+
+        /// <summary>
         /// Scales a bridge so it is both wide enough to drive over and long enough to
         /// reach the far bank.
         ///
