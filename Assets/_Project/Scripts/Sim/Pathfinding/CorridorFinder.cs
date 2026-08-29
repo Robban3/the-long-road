@@ -38,6 +38,38 @@ namespace Arna.Sim
         /// <summary>How hard the cautious route avoids ambush terrain.</summary>
         const float SafetyWeight = 2.4f;
 
+        /// <summary>
+        /// What a tile already used by another corridor costs the cautious route, and
+        /// what a tile beside one costs.
+        ///
+        /// In tile-crossings, so nine tenths is close to the price of walking an extra
+        /// tile: enough to take a parallel line where the ground offers one, and not
+        /// enough to send the route round three sides of the map when it does not.
+        /// </summary>
+        const float TakenSurcharge = 0.9f;
+        const float NeighbourSurcharge = 0.45f;
+
+        /// <summary>Adds a cost to a set of tiles and a smaller one to their neighbours.</summary>
+        static void Surcharge(TileGrid grid, List<int> tiles, float[] cost,
+                              float onTile, float beside)
+        {
+            foreach (int tile in tiles)
+            {
+                cost[tile] += onTile;
+
+                grid.ToCoords(tile, out int x, out int y);
+
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+                        if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                        cost[grid.ToIndex(x + dx, y + dy)] += beside;
+                    }
+            }
+        }
+
         /// <summary>Ambush weight treated as "neutral"; terrain below this is free.</summary>
         const float NeutralAmbush = 0.9f;
 
@@ -65,12 +97,42 @@ namespace Arna.Sim
 
             // 2. Cautious: ambush-prone terrain costs extra, so the search prefers
             //    open ground and roads it can see along.
+            //
+            //    **It does not yet avoid the fast route, and it should.** Measured over
+            //    chapter 1, the fast and cautious corridors come out at 97, 100 and 100
+            //    percent of the same tiles on three levels of ten: the map offers a
+            //    straight line, a second straight line drawn on top of it, and a detour,
+            //    where the game promises three ways through. Charging the cautious search
+            //    for the fast route's tiles (and half as much for the tiles beside them,
+            //    or it simply runs alongside) fixes it outright — every pair on every
+            //    level then comes in under a quarter, most under a tenth. The helper and
+            //    both constants below are that change, wanting one call.
+            //
+            //    What holds it back is the balance behind it. Three real routes mean the
+            //    encounter placer spreads the same enemy budget across three times the
+            //    ground, and on the seed for 1-5 that leaves one survivable way through
+            //    where the chapter shape owes two. The generator can now measure that and
+            //    re-roll (TerrainGenerator.SurvivableDanger), and on that seed it cannot
+            //    find a map it likes. Turning this on wants a balance pass with it, not
+            //    a line on its own.
+            //
+            //    Without the second surcharge the cautious route is the fast one
+            //    whenever the fast one is already safe, which is not rare: measured
+            //    across chapter 1, three levels of ten had them at 97 to 100 percent
+            //    of the same tiles. On those levels the map offered a straight line, a
+            //    second straight line drawn on top of it, and a detour — one real
+            //    choice where the game promises three.
+            //
+            //    Adjacent tiles carry half the charge. Without that the cautious route
+            //    steps one tile aside and runs alongside the fast one, which satisfies
+            //    an overlap measure and looks to the player exactly like the same road.
             var safetyCost = new float[grid.TileCount];
             for (int i = 0; i < safetyCost.Length; i++)
             {
                 float ambush = TerrainTable.AmbushWeight(grid[i]);
                 safetyCost[i] = ambush > NeutralAmbush ? (ambush - NeutralAmbush) * SafetyWeight : 0f;
             }
+
 
             if (pathfinder.TryFindPath(startX, startY, goalX, goalY, buffer, out _, safetyCost))
             {
@@ -179,10 +241,18 @@ namespace Arna.Sim
         ///    would ever take it.
         /// 3. That safety costs time. Safety for free is not a decision either.
         ///
-        /// Requiring *every* pair to differ was the first attempt and it was wrong:
-        /// it rejected good levels where the fast and cautious routes share a river
-        /// crossing while a third corridor takes a different one entirely. One real
-        /// alternative is enough to make the player choose.
+        /// **One pair, and that is a gate built to pass what the generator produces.**
+        /// The stated reason was that good levels were rejected when the fast and
+        /// cautious routes shared a river crossing. They were not sharing a crossing:
+        /// measured across chapter 1, three levels of ten have those two at 97 to 100
+        /// percent of the same tiles, because the cautious search has no reason to leave
+        /// a fast route that is already safe. On those levels the player is offered a
+        /// road, the same road again, and a detour.
+        ///
+        /// Requiring every pair is one line here and the surcharge described in Find,
+        /// and it works — every pair on every level then comes in under a quarter. What
+        /// it costs is measured too: see the note in Find. The two belong together and
+        /// they want a balance pass with them.
         /// </summary>
         public static bool IsMeaningfulChoice(IReadOnlyList<Corridor> corridors,
                                               float maxOverlap = 0.62f,

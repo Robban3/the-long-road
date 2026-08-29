@@ -30,6 +30,16 @@ namespace Arna.Sim
         /// to 1. Roads and fords are carved afterwards as linear features rather than
         /// scattered by noise, so recipes normally leave them out of the mix.
         /// </summary>
+        /// <summary>
+        /// How many survivable ways through this level owes the player.
+        ///
+        /// The chapter shape from docs/GDD.md §8.1: two everywhere, one through the
+        /// escalation band, where a worn squad and a level that expects them to have
+        /// learned the terrain make a single hard way through the point. It lived only
+        /// in a test until the generator was given the job of keeping it.
+        /// </summary>
+        public int RoutesOwed = 2;
+
         public TerrainShare[] TerrainMix =
         {
             new TerrainShare(TerrainType.Forest, 0.45f),

@@ -396,6 +396,14 @@ namespace Arna.Sim
             {
                 if (group == null) continue;
 
+                // A group killed during this step keeps whatever it was aiming at:
+                // TroopsReturnFire skips the dead before it clears anything, so the
+                // target it held when it fell stays on it for the rest of the level. A
+                // corpse pointing at an enemy is the same class of bug as a troop facing
+                // a patch of empty grass, and it also makes "nothing is in contact" and
+                // "a troop has a target" both true at once.
+                if (!group.Alive) { group.Target = null; group.Threat = null; continue; }
+
                 if (group.Target != null && IsDefeated(group.Target)) group.Target = null;
                 if (group.Threat != null && IsDefeated(group.Threat)) group.Threat = null;
             }

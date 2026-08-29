@@ -142,9 +142,18 @@ namespace Arna.Sim
                 PayForKills();
             }
 
+            // The engineer works before the wagons arrive, not after they set it off.
+            //
+            // Traps.Update both reveals and triggers, and it ran first: a trap first seen
+            // at the moment the lead wagon came within its three metres was sprung in the
+            // same call, and the engineer — looking afterwards — found nothing live to
+            // work on. Ten traps on 1-8, four of them revealed, none ever disarmed.
+            // Moved ahead of it, he acts on what was revealed last tick, which is the
+            // whole of what a sapper does: clear it before the column reaches it.
+            WorkTheEngineer();
+
             Traps.Update(Caravan.LeadPosition, _watchers, EffectiveTrapSight);
             ApplyTrapDamage();
-            WorkTheEngineer();
 
             if (Caravan.Destroyed) Outcome = RunOutcome.CaravanLost;
             else if (Caravan.HasArrived) Outcome = RunOutcome.Arrived;

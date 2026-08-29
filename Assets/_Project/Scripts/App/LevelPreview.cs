@@ -530,6 +530,17 @@ namespace Arna.App
 
             foreach (Transform prop in _props)
             {
+                // The signals keep their colours and are not filed for the reveal.
+                //
+                // A wrecked cart, a bone pile, a banner, a raiders' tent: these are the
+                // whole of what the planning map offers before the bird flies, and they
+                // were painted down to the same flat grey as every tree on the map. The
+                // player was looking at four thousand grey tiles and being asked to pick
+                // a route through them. What they mark is ground somebody else disturbed,
+                // which is knowledge had by looking at the country; what the fog is for
+                // is hiding where the enemies are now.
+                if (prop.GetComponent<Signal>() != null) continue;
+
                 var at = prop.position;
                 int x = Mathf.FloorToInt(at.x / TileGrid.TileSize);
                 int y = Mathf.FloorToInt(at.z / TileGrid.TileSize);

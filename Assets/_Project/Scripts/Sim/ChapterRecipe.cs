@@ -84,7 +84,11 @@ namespace Arna.Sim
                 Rivers = Rivers,
                 FordsPerRiver = FordsPerRiver,
                 NoiseScale = NoiseScale,
-                EnemyPool = PoolForLevel(clamped)
+                EnemyPool = PoolForLevel(clamped),
+
+                // Levels 6 to 9 are the escalation band and owe one way through; every
+                // other level owes two. See LevelRecipe.RoutesOwed.
+                RoutesOwed = clamped >= 6 && clamped <= 9 ? 1 : 2
             };
 
             if (TerrainMix != null && TerrainMix.Length > 0) recipe.TerrainMix = TerrainMix;

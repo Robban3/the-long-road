@@ -370,6 +370,9 @@ namespace Arna.View
         /// <summary>Landmark sizes. Buildings are measured by height, ground works by width.</summary>
         public const float HouseHeight = 6f;
         public const float WatchtowerHeight = 11f;
+
+        /// <summary>How far into the ground a building is set, as a share of its size.</summary>
+        public const float BuildingSink = 0.1f;
         public const float FarmWidth = 9f;
         public const float TimberWidth = 3f;
         public const float RuinWidth = 5f;
@@ -794,6 +797,15 @@ namespace Arna.View
                 placed += PlaceHorizon(parent, grid, rng, decor);
             }
 
+            // Bridges before anything scattered, and they claim the ground they cover.
+            //
+            // A bridge is twelve metres long and stands on one tile, so it reaches three
+            // tiles into its neighbours — and it used to be built last, over ground the
+            // shore pass had already strewn with boulders. One of them came up through
+            // the deck. Placed first and claiming its whole footprint, the stones go
+            // round it.
+            placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale);
+
             // Patches before cover, so grass grows over the bare earth rather than the
             // bare earth being laid over the grass.
             placed += PlaceGroundPatches(parent, grid, rng, decor, occupied,
@@ -808,7 +820,6 @@ namespace Arna.View
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
             placed += PlaceWater(parent, grid, rng, decor, heightScale);
-            placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale);
             placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale, road);
             placed += PlaceWillows(parent, grid, rng, decor, occupied, heightScale,
                                    densityScale, road);
@@ -1057,7 +1068,8 @@ namespace Arna.View
                 var choice = new Choice(decor.Camps, Any(decor.Camps, rng), CampHeight,
                                         byWidth: false);
 
-                if (Scatter(parent, grid, rng, choice, tile, heightScale, spread: 1.6f, occupied))
+                if (Scatter(parent, grid, rng, choice, tile, heightScale, spread: 1.6f, occupied,
+                            signal: true))
                     placed++;
             }
 
@@ -1091,12 +1103,13 @@ namespace Arna.View
             var bounds = ModelScaling.Measure(instance);
             bool longAlongX = bounds.size.x > bounds.size.z;
 
-            // And which way it needs to be long comes from the water: a river runs along
-            // one axis and the road crosses the other.
-            bool crossEastWest = RunsNorthSouth(grid, tile);
+            // And which way it needs to lie comes from the water: a river runs along one
+            // bearing and the road crosses it square.
+            float across = Crossing(grid, tile);
 
-            if (longAlongX != crossEastWest)
-                instance.transform.rotation *= Quaternion.Euler(0f, 90f, 0f);
+            // The model's own length is turned onto that bearing. A prefab authored
+            // along X is already a quarter turn from one authored along Z.
+            instance.transform.rotation *= Quaternion.Euler(0f, longAlongX ? across - 90f : across, 0f);
 
             ModelScaling.FitToCrossing(instance, FordDeck, FordSpan, groundY);
 
@@ -1104,30 +1117,83 @@ namespace Arna.View
             // inside a bridge model, so the bridge is asked at runtime — see BridgeDeck.
             instance.AddComponent<BridgeDeck>().Measure();
 
-            occupied?.Add(tile);
+            Claim(grid, ModelScaling.Measure(instance), occupied);
             return true;
         }
 
+        /// <summary>Says that a prop is telling the player something. See Signal.</summary>
+        static GameObject Mark(GameObject instance)
+        {
+            if (instance != null && instance.GetComponent<Signal>() == null)
+                instance.AddComponent<Signal>();
+
+            return instance;
+        }
+
+        /// <summary>Marks every tile a placed thing's footprint reaches into.</summary>
+        // A prop scaled well past its own tile is otherwise invisible to every later
+        // pass: they ask whether the *centre* tile is taken and strew freely over the
+        // rest of it.
+        static void Claim(TileGrid grid, Bounds bounds, HashSet<int> occupied)
+        {
+            if (occupied == null) return;
+
+            int minX = (int)Mathf.Floor(bounds.min.x / TileGrid.TileSize);
+            int maxX = (int)Mathf.Floor(bounds.max.x / TileGrid.TileSize);
+            int minY = (int)Mathf.Floor(bounds.min.z / TileGrid.TileSize);
+            int maxY = (int)Mathf.Floor(bounds.max.z / TileGrid.TileSize);
+
+            for (int y = minY; y <= maxY; y++)
+                for (int x = minX; x <= maxX; x++)
+                    if (grid.InBounds(x, y)) occupied.Add(grid.ToIndex(x, y));
+        }
+
         /// <summary>
-        /// Whether the water through this tile runs north to south.
+        /// The bearing a bridge must lie on to cross the water here, in degrees.
         ///
         /// A ford used to be turned by the same dice as a pine, so half of them lay
-        /// *along* the river with both ends in the water. The ground says which way is
-        /// which: the axis with more wet neighbours is the watercourse, and the road
-        /// crosses the other one.
+        /// *along* the river with both ends in the water. Asking the four neighbours
+        /// which axis was wetter fixed the rivers that run square and left the diagonal
+        /// ones: a river crossing a tile corner to corner has one wet neighbour on each
+        /// axis, the count ties, and the bridge is laid north-south over water flowing
+        /// north-east. One of them was, and it was the one that got noticed.
         ///
-        /// Ties say no, which is arbitrary and has to be something. A single tile of
-        /// water with dry ground all round it is a pond, and a bridge on it is
-        /// decoration whichever way it points.
+        /// So the watercourse is measured rather than counted. Every wet tile within two
+        /// gives a vector from here, and those vectors are averaged as *lines* rather
+        /// than as arrows — a river runs both ways at once, and summing the offsets of a
+        /// straight one cancels it to nothing. Doubling the angle before averaging and
+        /// halving it after is the standard way round that; the road is then square to
+        /// what comes out.
         /// </summary>
-        static bool RunsNorthSouth(TileGrid grid, int tile)
+        static float Crossing(TileGrid grid, int tile)
         {
             grid.ToCoords(tile, out int x, out int y);
 
-            int alongX = (IsWet(grid, x - 1, y) ? 1 : 0) + (IsWet(grid, x + 1, y) ? 1 : 0);
-            int alongY = (IsWet(grid, x, y - 1) ? 1 : 0) + (IsWet(grid, x, y + 1) ? 1 : 0);
+            float sumSin = 0f, sumCos = 0f;
 
-            return alongY > alongX;
+            for (int dy = -2; dy <= 2; dy++)
+            {
+                for (int dx = -2; dx <= 2; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (!IsWet(grid, x + dx, y + dy)) continue;
+
+                    float angle = (float)System.Math.Atan2(dy, dx);
+                    sumSin += (float)System.Math.Sin(angle * 2f);
+                    sumCos += (float)System.Math.Cos(angle * 2f);
+                }
+            }
+
+            if (sumSin * sumSin + sumCos * sumCos < 0.0001f) return 0f;
+
+            // The water's bearing, in Unity's yaw where zero looks up +Z and angles turn
+            // clockwise — the opposite sense to atan2 about +X, hence the negation and
+            // the ninety.
+            float water = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
+            float degrees = 90f - water * 57.29578f;
+
+            // Square to it.
+            return degrees + 90f;
         }
 
         /// <summary>Water or another ford — both are the watercourse.</summary>
@@ -1622,7 +1688,7 @@ namespace Arna.View
         static bool Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
                             Choice choice, int tile, float heightScale, float spread,
                             HashSet<int> occupied = null, float lift = 0f, float? yaw = null,
-                            float maxWidth = 0f)
+                            float maxWidth = 0f, bool signal = false)
         {
             var position = Vec2.FromTile(grid, tile);
             float x = position.X + rng.Range(-spread, spread);
@@ -1664,6 +1730,8 @@ namespace Arna.View
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
             else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, groundY);
             else ModelScaling.Fit(instance, size, groundY);
+
+            if (signal) Mark(instance);
 
             // Canopy neither claims ground nor checks for it. Keeping it out of the
             // reserved set has a second effect worth having: grass and ferns may now
@@ -1813,9 +1881,10 @@ namespace Arna.View
                     if (road != null && road.Contains(tile)) continue;
                     if (!occupied.Add(tile)) continue;
 
-                    Place(parent, grid, tile, rng,
-                          new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth, byWidth: true),
-                          heightScale, occupied);
+                    Mark(Place(parent, grid, tile, rng,
+                               new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth,
+                                          byWidth: true),
+                               heightScale, occupied));
                     placed++;
 
                     // And a totem beside it, where the pack has one. A wreck says
@@ -1823,10 +1892,10 @@ namespace Arna.View
                     // somebody *chose* here, which is the difference between an accident
                     // and an ambush and is what the GDD's §5 table is asking for.
                     if (decor.Markers.Any)
-                        Place(parent, grid, tile, rng,
-                              new Choice(decor.Markers, Any(decor.Markers, rng), MarkerHeight,
-                                         byWidth: false),
-                              heightScale, occupied);
+                        Mark(Place(parent, grid, tile, rng,
+                                   new Choice(decor.Markers, Any(decor.Markers, rng),
+                                              MarkerHeight, byWidth: false),
+                                   heightScale, occupied));
 
                     // Dead trees around it. A cart alone is small enough to miss from
                     // map height, and the signal is worthless if it is not noticed;
@@ -1883,7 +1952,17 @@ namespace Arna.View
                 if (choice.Prefab == null) continue;
 
                 occupied.Add(i);
-                Place(parent, grid, i, rng, choice, heightScale, occupied);
+
+                // Buildings are set into the ground rather than stood on it.
+                //
+                // Everything else here rests its lowest point on the surface, which is
+                // right for a tree and wrong for anything with a foundation: the pack's
+                // towers taper to a rounded base meant to be buried, so on the ground
+                // they read as pieces standing on a lawn. A tenth of their height buries
+                // the taper, and on the slope of a pass it also stops the uphill side
+                // showing daylight underneath.
+                Place(parent, grid, i, rng, choice, heightScale, occupied,
+                      sink: choice.Size * BuildingSink);
                 placed++;
             }
 
@@ -1952,11 +2031,12 @@ namespace Arna.View
         }
 
         /// <summary>Stands one landmark on the centre of a tile, sized and seated.</summary>
-        static void Place(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,
-                          Choice choice, float heightScale, HashSet<int> occupied = null)
+        static GameObject Place(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,
+                                Choice choice, float heightScale, HashSet<int> occupied = null,
+                                float sink = 0f)
         {
             var position = Vec2.FromTile(grid, tile);
-            float groundY = grid.SurfaceElevation(position.X, position.Y) * heightScale;
+            float groundY = grid.SurfaceElevation(position.X, position.Y) * heightScale - sink;
 
             var instance = Object.Instantiate(choice.Prefab, parent);
             instance.transform.position = new Vector3(position.X, groundY, position.Y);
@@ -1974,6 +2054,8 @@ namespace Arna.View
             // A farm is nine metres across and a ruin five, so the landmarks need their
             // ground reserving for the same reason the mountain does.
             Reserve(grid, occupied, instance, position.X, position.Y);
+
+            return instance;
         }
 
         /// <summary>

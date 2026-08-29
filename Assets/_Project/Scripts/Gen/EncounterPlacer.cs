@@ -151,7 +151,19 @@ namespace Arna.Gen
         /// a while: nothing here runs without an editor, so the clash only surfaced when
         /// one was opened.
         /// </summary>
-        public const int RouteSamples = 32;
+        // Sixty-four, up from thirty-two, and the reason is the corridors moving apart.
+        //
+        // The loop can only repair the routes it sampled, and a player draws whatever
+        // they like; the margin in RepairTarget is what covers the difference. That
+        // margin was measured when the fast and cautious corridors ran within a few
+        // tiles of each other — on some levels along the identical line — so the space
+        // of routes a player might draw was narrow and thirty-two samples covered it.
+        // Now that the cautious route is pushed off the fast one, the space is far
+        // wider, and 1-4 came out reporting the promise kept while a freshly drawn route
+        // met three groups of the five owed. Twice the samples closes it; raising the
+        // repair target instead does not, which says the problem was seeing rather than
+        // fixing.
+        public const int RouteSamples = 64;
         public const int MaxRepairs = 12;
 
         /// <summary>
@@ -266,8 +278,21 @@ namespace Arna.Gen
                     // Speed against safety is not lost with it. The road carries that on
                     // its own: fastest ground on the map at ×1.25, and second most
                     // dangerous at 1.2. Taking it is still a trade.
+                    // Cubed, because the table's own range is too narrow to choose with.
+                    //
+                    // Ambush weight runs from 0.8 on the plain to 1.5 in the forest, so
+                    // a weighted draw preferred cover by less than two to one — barely a
+                    // lean. It went unnoticed while the corridors ran close together and
+                    // the ground a route could reach was mostly the same ground; once
+                    // they spread across the map the reachable country grew more varied
+                    // than the placer's picks, and the enemies ended up in cover that was
+                    // *thinner* than the average the routes crossed. Cubing turns the
+                    // same ordering into a six-to-one preference and nothing else about
+                    // the table changes.
+                    float ambush = TerrainTable.AmbushWeight(grid[i]);
+
                     band.Tiles.Add(i);
-                    band.Weight[i] = TerrainTable.AmbushWeight(grid[i]);
+                    band.Weight[i] = ambush * ambush * ambush;
                 }
 
                 return band.Tiles.Count == 0 ? null : band;

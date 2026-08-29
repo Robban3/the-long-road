@@ -44,6 +44,7 @@ namespace Arna.Gen
 
             LevelMap best = null;
             bool bestKept = false, bestValid = false;
+            int bestPassable = -1;
             float bestSpread = -1f;
 
             for (int attempt = 0; attempt < attempts; attempt++)
@@ -84,16 +85,41 @@ namespace Arna.Gen
                 // not a criterion at all, so the generator would re-roll twelve times
                 // for a property nobody reads and accept a level that broke the one the
                 // whole mechanic rests on.
+                // And whether the level can be got through, which nothing here has ever
+                // asked.
+                //
+                // The chapter promises a way through every level and two outside the
+                // escalation band, and that promise lived only in a test: the generator
+                // re-rolled for corridor quality and for silver and accepted whatever
+                // difficulty fell out. It survived on luck. Widening the corridors —
+                // which fixed three levels of ten offering the same road twice — spent
+                // that luck, and 1-5 came out with all three routes fatal.
+                //
+                // Simulating a run per attempt is far too slow to do at load time, but
+                // the arithmetic is not: the danger a route carries is the points of the
+                // groups that route meets, and the measurement is unambiguous. Over
+                // chapter 1, routes that arrive carry thirty to forty-five points and
+                // routes that end with the caravan destroyed carry fifty to seventy,
+                // with enemy strength scaling both. See SurvivableDanger.
+                int passable = PassableRoutes(grid, corridors, encounters, recipe);
+
+                // Two promises, ranked apart rather than folded together. Conflated into
+                // one flag, a level with no encounters worth the name could outrank one
+                // whose encounters were right — and 1-1 shipped without them.
                 bool kept = encounters.EncountersValidated;
-                if (valid && kept) return map;
+                bool passes = passable >= recipe.RoutesOwed;
+
+                if (valid && kept && passes) return map;
 
                 // Keep the least-bad candidate: promise first, then a meaningful
                 // choice, then the corridors that differ most.
                 float spread = SpreadOf(corridors);
-                if (Better(kept, valid, spread, bestKept, bestValid, bestSpread))
+                if (Better(kept, valid, passable, spread,
+                           bestKept, bestValid, bestPassable, bestSpread))
                 {
                     bestKept = kept;
                     bestValid = valid;
+                    bestPassable = passable;
                     bestSpread = spread;
                     best = map;
                 }
@@ -102,11 +128,61 @@ namespace Arna.Gen
             return best ?? Fallback(recipe, seed, attempts);
         }
 
+        /// <summary>
+        /// The danger one route may carry and still be survivable, in enemy points
+        /// scaled by the level's enemy strength.
+        ///
+        /// Forty-two, and the number is a measurement rather than a judgement. Across
+        /// chapter 1: routes that arrived carried 45.0, 30.0, 40.0, 39.5, 42.1, 48.6,
+        /// 40.3 and 39.2 of it; routes that ended with the caravan destroyed carried
+        /// 59.4, 60.3, 81.2 and 58.0.
+        ///
+        /// That reading put it at fifty-two, and the same measurement moved it to
+        /// forty-two the moment the placer's preference for cover was sharpened: the
+        /// points a route meets are the same, and a group that meets them from a forest
+        /// rather than from a plain is worth more of them. A proxy calibrated against
+        /// one version of the placement has to be recalibrated when the placement
+        /// changes, which is the cost of not simulating — and simulating a run per
+        /// generation attempt is far beyond a load-time budget. Below thirty-eight the
+        /// gate stops finding any map it likes and ships the least-bad instead, which is
+        /// how a threshold that is too strict fails.
+        /// </summary>
+        const float SurvivableDanger = 42f;
+
+        // What a level owes comes from the chapter shape now — LevelRecipe.RoutesOwed —
+        // rather than from one number here. Two everywhere was the first gate, and it is
+        // the wrong shape: 2-10 is the boss of a harder chapter, owes one, and spent
+        // twelve attempts failing to find two before shipping the least-bad anyway.
+
+        static int PassableRoutes(TileGrid grid, IReadOnlyList<Corridor> corridors,
+                                  EncounterLayout encounters, LevelRecipe recipe)
+        {
+            int passable = 0;
+
+            foreach (var corridor in corridors)
+            {
+                float danger = 0f;
+
+                foreach (int met in EncounterPlacer.MetGroups(grid, corridor.Tiles, encounters))
+                    danger += EnemyTable.Points(encounters.Enemies[met].Kind);
+
+                if (danger * recipe.EnemyStrength <= SurvivableDanger) passable++;
+            }
+
+            return passable;
+        }
+
         /// <summary>Ranks two failed attempts, worst-case promise first.</summary>
-        static bool Better(bool kept, bool valid, float spread,
-                           bool bestKept, bool bestValid, float bestSpread)
+        static bool Better(bool kept, bool valid, int passable, float spread,
+                           bool bestKept, bool bestValid, int bestPassable, float bestSpread)
         {
             if (kept != bestKept) return kept;
+
+            // Ways through, ahead of whether the corridors differ: a level offering two
+            // survivable routes that resemble each other is a worse picture and a better
+            // game than one offering three distinct ways to die.
+            if (passable != bestPassable) return passable > bestPassable;
+
             if (valid != bestValid) return valid;
             return spread > bestSpread;
         }

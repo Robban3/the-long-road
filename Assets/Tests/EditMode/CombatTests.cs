@@ -297,16 +297,35 @@ namespace Arna.Tests
         public void AnEngineerDefusesTrapsAndEarnsFromIt()
         {
             var withEngineer = new Squad(18);
+
             withEngineer.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             withEngineer.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
             withEngineer.TryPlace(FormationSlot.RightVan, TroopKind.Engineer);
 
-            var run = Run(1, 8, withEngineer);
-            run.RunToCompletion();
+            // Across the chapter rather than on one map, because the claim is about the
+            // engineer and the old form was about 1-8's fast route.
+            //
+            // Whether a particular route passes within reach of a trap that has been
+            // revealed and not yet sprung is luck of the ground: on the seed this used to
+            // name, ten traps were laid, four were revealed, and every one of those four
+            // sat off the line the caravan drove. That is a fact about a map, and the
+            // test failed whenever the map changed for reasons having nothing to do with
+            // engineers — which it did three times this week.
+            int laid = 0, disarmed = 0;
 
-            if (run.Traps.Traps.Count == 0) Assert.Ignore("this seed placed no traps on the fast route");
+            for (int level = 1; level <= 10; level++)
+            {
+                var run = Run(1, level, withEngineer);
+                run.RunToCompletion();
 
-            Assert.Greater(run.Traps.DisarmedCount, 0, "the engineer walked past every trap");
+                laid += run.Traps.Traps.Count;
+                disarmed += run.Traps.DisarmedCount;
+            }
+
+            if (laid == 0) Assert.Ignore("no traps anywhere in the chapter");
+
+            Assert.Greater(disarmed, 0,
+                $"the engineer walked past all {laid} traps in the chapter");
         }
 
         [Test]

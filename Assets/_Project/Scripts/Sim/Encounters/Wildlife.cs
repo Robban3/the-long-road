@@ -205,11 +205,27 @@ namespace Arna.Sim
 
                 for (int i = 0; i < herd && animals.Count < Count; i++)
                 {
-                    // The first stands where the ground was chosen; the rest around it.
-                    var home = i == 0
-                        ? found
-                        : new Vec2(found.X + rng.Range(-HerdSpread, HerdSpread),
-                                   found.Y + rng.Range(-HerdSpread, HerdSpread));
+                    // The first stands where the ground was chosen; the rest around it —
+                    // and the rest are checked, which the first always was.
+                    //
+                    // The spread is a few metres either way and a few metres from a
+                    // chosen tile is a neighbouring one, which may be water, a cliff, or
+                    // off the map altogether. The last of those is not a doe standing in
+                    // a river, it is an index out of range: a herd chosen near the edge
+                    // put a companion outside the grid and the first thing to ask where
+                    // it was standing threw.
+                    var home = found;
+
+                    for (int t = 0; i > 0 && t < 8; t++)
+                    {
+                        var spot = new Vec2(found.X + rng.Range(-HerdSpread, HerdSpread),
+                                            found.Y + rng.Range(-HerdSpread, HerdSpread));
+
+                        if (!Standable(grid, spot)) continue;
+
+                        home = spot;
+                        break;
+                    }
 
                     float facing = rng.Range(0f, (float)(2.0 * Math.PI));
 
@@ -295,6 +311,17 @@ namespace Arna.Sim
         {
             float dx = a.X - b.X, dy = a.Y - b.Y;
             return dx * dx + dy * dy <= radius * radius;
+        }
+
+        /// <summary>Whether a world position is on ground an animal could stand on.</summary>
+        static bool Standable(TileGrid grid, Vec2 at)
+        {
+            int x = (int)(at.X / TileGrid.TileSize);
+            int y = (int)(at.Y / TileGrid.TileSize);
+
+            if (!grid.InBounds(x, y) || !grid.IsPassable(x, y)) return false;
+
+            return grid[grid.ToIndex(x, y)] != TerrainType.Ford;
         }
 
         static bool NearAnEnemy(LevelMap map, int x, int y)

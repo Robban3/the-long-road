@@ -710,11 +710,19 @@ namespace Arna.Editor
 
             NameFromFile(clips);
 
-            // Standing still and walking have to loop, and a clip from outside arrives
-            // set to play once. One file per clip here, so each is switched on in its own
-            // importer — and a re-import destroys the clip objects, so they are read
-            // again afterwards.
-            if (Looped(Match(clips, IdleNames)) | Looped(Match(clips, WalkNames)))
+            // Standing still, walking and *striking* have to loop, and a clip from
+            // outside arrives set to play once. One file per clip here, so each is
+            // switched on in its own importer — and a re-import destroys the clip
+            // objects, so they are read again afterwards.
+            //
+            // The attack was missed the first time round, which is why a soldier swung
+            // once and then stood in the last frame of the swing for the rest of the
+            // fight. Attack is a bool rather than a trigger precisely because fighting
+            // here lasts as long as something is in contact: the state is entered when
+            // the group has a target and left when it has none, and what happens in
+            // between is the clip repeating.
+            if (Looped(Match(clips, IdleNames)) | Looped(Match(clips, WalkNames))
+                                                 | Looped(Match(clips, AttackNames)))
                 return BuildFromFolder(name, folder);
 
             var names = new List<string>();
