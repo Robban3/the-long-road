@@ -387,6 +387,19 @@ namespace Arna.Sim
         /// trailer. Walking the path for the along-column part and using the heading only
         /// for the step out to the side keeps the escort on the road.
         /// </summary>
+        /// <summary>
+        /// What the escort has to walk round, when the view has told the run what it put
+        /// on the ground. Null on a headless run, and then posts are taken as drawn.
+        /// </summary>
+        public ObstacleField Obstacles;
+
+        /// <summary>
+        /// How much room a troop group needs. Half the four-metre tile: a group is a
+        /// handful of men, not a point, and letting them stand with a shoulder inside a
+        /// trunk is the artefact this is here to remove.
+        /// </summary>
+        public const float TroopRadius = 1.1f;
+
         public void UpdatePositions(Caravan caravan)
         {
             if (caravan == null) return;
@@ -409,7 +422,12 @@ namespace Arna.Sim
                 var post = PostAt(i, caravan.ColumnHalfLength);
                 var anchor = caravan.PositionAt(centre + post.X);
 
-                group.Position = new Vec2(anchor.X + rx * post.Y, anchor.Y + ry * post.Y);
+                var wanted = new Vec2(anchor.X + rx * post.Y, anchor.Y + ry * post.Y);
+
+                // Round what is standing there rather than through it. The post itself is
+                // unchanged — the group is put at the nearest clear spot to it, and drops
+                // back onto the post as soon as the tree is behind them.
+                group.Position = Obstacles == null ? wanted : Obstacles.Clear(wanted, TroopRadius);
             }
         }
 
@@ -435,9 +453,11 @@ namespace Arna.Sim
 
                 var post = PostAt(i, half);
 
-                group.Position = new Vec2(
+                var wanted = new Vec2(
                     centre.X + hx * post.X + rx * post.Y,
                     centre.Y + hy * post.X + ry * post.Y);
+
+                group.Position = Obstacles == null ? wanted : Obstacles.Clear(wanted, TroopRadius);
             }
         }
     }

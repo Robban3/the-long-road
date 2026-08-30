@@ -1,6 +1,8 @@
 using Arna.Sim;
+using Arna.UI;
 using Arna.View;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
 namespace Arna.App
@@ -42,6 +44,7 @@ namespace Arna.App
         public float DrawnWidth = 2.6f;
 
         LevelPreview _preview;
+        PlanHud _hud;
         Camera _camera;
 
         RoutePlanner _planner;
@@ -51,7 +54,36 @@ namespace Arna.App
         GameObject _ribbon;
         int _dragging = -1;
 
-        void Awake() => _preview = GetComponent<LevelPreview>();
+        void Awake()
+        {
+            _preview = GetComponent<LevelPreview>();
+
+            // The level the roadmap sent us to. In the editor the Inspector's own chapter
+            // and level still win, because opening this scene directly to look at a
+            // particular map is how the generator is worked on.
+            if (Application.isPlaying)
+            {
+                _preview.Chapter = Session.Chapter;
+                _preview.Level = Session.Level;
+                _preview.Rebuild();
+            }
+
+            _hud = gameObject.AddComponent<PlanHud>();
+            _hud.Chapter = _preview.Chapter;
+            _hud.Level = _preview.Level;
+            _hud.Play = PlayDrawn;
+            _hud.Undo = () => { _planner?.RemoveLast(); Solve(); };
+        }
+
+        /// <summary>Hands the drawn tiles to the run and loads the play scene.</summary>
+        void PlayDrawn()
+        {
+            if (_route == null || !_route.IsValid) return;
+
+            Session.Choose(_preview.Chapter, _preview.Level);
+            ChosenRoute.Set(_preview.Chapter, _preview.Level, _route.Tiles);
+            SceneManager.LoadScene(PlayScene);
+        }
 
         void Update()
         {
@@ -59,6 +91,11 @@ namespace Arna.App
             if (map == null) return;
 
             if (!ReferenceEquals(map, _map)) Begin(map);
+
+            // A press that lands on the panel is the panel's. Without this the Play
+            // button also drops a waypoint under itself, and the road the player walks is
+            // not the one they drew.
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
             if (Input.GetMouseButtonDown(1)) { _planner.RemoveLast(); Solve(); return; }
             if (Input.GetMouseButtonDown(0)) Press();
@@ -152,8 +189,11 @@ namespace Arna.App
 
         void Solve()
         {
+            if (_planner == null) return;
+
             _route = _planner.Solve(_map.StartX, _map.StartY, _map.GoalX, _map.GoalY, _route);
             Draw();
+            Report();
         }
 
         void Draw()
@@ -186,46 +226,16 @@ namespace Arna.App
         /// standing in it. What is out there is bought with the eagle or paid for in
         /// blood (docs/GDD.md §3.4), and a readout that knew would hand it over.
         /// </summary>
-        void OnGUI()
+        void Report()
         {
-            if (_route == null) return;
+            if (_hud == null || _route == null) return;
 
-            var style = new GUIStyle(GUI.skin.label) { fontSize = 14, richText = true };
-            GUILayout.BeginArea(new Rect(Screen.width - 300, 14, 286, 210), GUI.skin.box);
-
-            GUILayout.Label($"<b>Rutt</b>  {_planner.WaypointCount} av {_planner.MaxWaypoints} punkter",
-                            style);
-            GUILayout.Label("Vänsterklick lägger ut och flyttar, högerklick ångrar.", style);
-            GUILayout.Space(6);
-
-            if (!_route.IsValid)
-            {
-                GUILayout.Label($"<b>Ingen väg</b> på etapp {_route.FailedLeg + 1}.", style);
-            }
-            else
-            {
-                GUILayout.Label($"Restid  {_route.EstimatedSeconds():F0} s", style);
-                GUILayout.Label($"Terräng  skog {_route.ShareOf(TerrainType.Forest):P0}   "
-                                + $"träsk {_route.ShareOf(TerrainType.Marsh):P0}   "
-                                + $"väg {_route.ShareOf(TerrainType.Road):P0}", style);
-                GUILayout.Label($"Skydd åt ett bakhåll  {_route.AmbushExposure:F2}", style);
-                GUILayout.Label($"Vadställen  {_route.Crossings.Count}", style);
-
-                if (_route.DetourLegs > 0)
-                    GUILayout.Label($"{_route.DetourLegs} etapp(er) går långt runt.", style);
-            }
-
-            GUILayout.Space(6);
-
-            GUI.enabled = _route.IsValid;
-            if (GUILayout.Button("Spela denna väg"))
-            {
-                ChosenRoute.Set(_preview.Chapter, _preview.Level, _route.Tiles);
-                SceneManager.LoadScene(PlayScene);
-            }
-            GUI.enabled = true;
-
-            GUILayout.EndArea();
+            _hud.SetLevel(_preview.Chapter, _preview.Level);
+            _hud.Show(_planner.WaypointCount, _planner.MaxWaypoints, _route.IsValid,
+                      _route.FailedLeg, _route.EstimatedSeconds(),
+                      _route.ShareOf(TerrainType.Forest), _route.ShareOf(TerrainType.Marsh),
+                      _route.ShareOf(TerrainType.Road), _route.AmbushExposure,
+                      _route.Crossings.Count, _route.DetourLegs);
         }
     }
 }

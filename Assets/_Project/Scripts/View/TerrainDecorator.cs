@@ -175,6 +175,17 @@ namespace Arna.View
         /// so the models are loaded and sized alongside everything else rather than
         /// bolted on later.
         /// </summary>
+        /// <summary>
+        /// The loose pieces that belong *around* a wreck, never instead of one.
+        ///
+        /// A cart wheel is not a landmark. Placed on its own and scaled to a landmark's
+        /// five metres it becomes a five-metre wheel standing upright in a meadow, which
+        /// is what went out — and the lesson is more general than the wheel: a prop that
+        /// only reads as part of something has to be placed as part of something. These
+        /// are laid flat, small, and only ever beside a wreck that is already there.
+        /// </summary>
+        public PropSet Wreckage = new PropSet();
+
         public PropSet Ruins = new PropSet();
 
         /// <summary>
@@ -264,7 +275,7 @@ namespace Arna.View
             !Has(Rocks) && !Has(Boulders) && !Has(Horizon) &&
             !Has(GroundCover) && !Has(MarshPlants) && !Has(Lilypads) &&
             !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
-            !Has(Timber) && !Has(Ruins) && !Has(Markers) && !Has(Water) && !Has(Fords) &&
+            !Has(Timber) && !Has(Ruins) && !Has(Wreckage) && !Has(Markers) && !Has(Water) && !Has(Fords) &&
             !Has(Cliffs) && !Has(Camps) && !Has(Willows) && !Has(Shore) && !Has(Backdrop);
 
         static bool Has(PropSet set) => set != null && set.Any;
@@ -372,7 +383,7 @@ namespace Arna.View
         public const float WatchtowerHeight = 11f;
 
         /// <summary>How far into the ground a building is set, as a share of its size.</summary>
-        public const float BuildingSink = 0.1f;
+        public const float BuildingSink = 0.12f;
         public const float FarmWidth = 9f;
         public const float TimberWidth = 3f;
         public const float RuinWidth = 5f;
@@ -593,13 +604,16 @@ namespace Arna.View
         /// <summary>
         /// How tall a prop has to be before the caravan's line refuses it, in metres.
         ///
-        /// Two, which sorts the table cleanly: a rock is 2.2 and a boulder 5.5 and a tree
-        /// 7 to 8.5, and all of them are things a loaded wagon goes round. A bush is 1.9
-        /// and grass is 0.7, and both are things it goes over. Nothing here is a guess
-        /// about wheels — it is the same list of sizes the scatter already uses, read for
-        /// what it means.
+        /// The same waist height that decides what the escort walks round, and they are
+        /// deliberately one number: what a man has to go round is what a wagon has to go
+        /// round, and two rules would mean a boulder the troops avoid standing in a road
+        /// the wagons drive straight over.
+        ///
+        /// It was two metres, which sorted the table cleanly — a rock is 2.2, a boulder
+        /// 5.5, a tree 7 to 8.5 — and left the 1.9 m bushes standing in the road, where
+        /// they are the thing you can actually see the column pass through.
         /// </summary>
-        public const float DriveClearance = 2f;
+        public const float DriveClearance = SolidHeight;
 
         /// <summary>
         /// How far either side of the route the ground has to be clear, in tiles.
@@ -806,11 +820,6 @@ namespace Arna.View
             // round it.
             placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale);
 
-            // Patches before cover, so grass grows over the bare earth rather than the
-            // bare earth being laid over the grass.
-            placed += PlaceGroundPatches(parent, grid, rng, decor, occupied,
-                                         heightScale, densityScale);
-
             placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
                                        heightScale, densityScale);
             placed += PlaceShoreline(parent, grid, rng, decor, occupied, heightScale,
@@ -819,7 +828,7 @@ namespace Arna.View
             // The water goes on last, over everything laid on its bed. Nothing claims
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
-            placed += PlaceWater(parent, grid, rng, decor, heightScale);
+            placed += PlaceWater(parent, grid, heightScale);
             placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale, road);
             placed += PlaceWillows(parent, grid, rng, decor, occupied, heightScale,
                                    densityScale, road);
@@ -871,65 +880,37 @@ namespace Arna.View
         }
 
         /// <summary>
-        /// Lays a surface over the tiles that are water.
+        /// Lays the water.
         ///
-        /// See <see cref="BiomeDecor.Water"/> for why this is the only set that replaces
-        /// a tile rather than dressing one. The planes are laid a tile and a half across
-        /// and overlap, because a sheet that stopped at the tile boundary would reproduce
-        /// the staircase it is here to hide.
+        /// One mesh over every wet tile — see <see cref="WaterMeshBuilder"/>, which also
+        /// records why the plane-per-tile version this replaces could only ever look
+        /// like blue plates lying on the grass.
         ///
-        /// Flat, and level with itself rather than with the bed. Water finds its own
-        /// level: a plane tilted to follow the ground under it is the one thing that
-        /// would give the trick away.
+        /// <c>decor.Water</c> is no longer read. A water prefab is a flat square with a
+        /// shader from another pipeline on it, and neither half of that survived contact
+        /// with this map.
         /// </summary>
-        static int PlaceWater(Transform parent, TileGrid grid, DeterministicRandom rng,
-                              BiomeDecor decor, float heightScale)
+        static int PlaceWater(Transform parent, TileGrid grid, float heightScale)
         {
-            if (!decor.Water.Any) return 0;
+            var mesh = WaterMeshBuilder.Build(grid, TileGrid.TileSize, heightScale);
+            if (mesh == null) return 0;
 
-            // On the bed of its own tile, and the attempt to improve on that is worth
-            // recording because it looked so reasonable.
-            //
-            // Water finds its own level, so: one height for the whole sheet, taken from
-            // the highest bed of any water tile, so that no bed could show through. What
-            // that misses is that the *land* is not all above the water. A map's highest
-            // river bed sits well above its lowest meadow, so the sheet was laid across
-            // the country at that height and the rivers became blue slabs hovering in the
-            // air over the grass. A level surface is only level within one body of water,
-            // and this decorator has no idea which tiles belong to which.
-            var surface = River();
-            int placed = 0;
+            var surface = new GameObject("Water");
+            surface.transform.SetParent(parent, false);
 
-            for (int i = 0; i < grid.TileCount; i++)
-            {
-                if (grid[i] != TerrainType.Water) continue;
+            // Terrain, not scenery. The planning fog paints every prop flat grey and
+            // files it under the tile its transform sits on — which for one mesh covering
+            // the whole map is tile zero, so every river on the plan would go grey
+            // together until the corner of the map was revealed. A river is the thing a
+            // route is planned around; it is read from the map, like the ground it cuts.
+            surface.AddComponent<Signal>();
+            surface.AddComponent<MeshFilter>().sharedMesh = mesh;
 
-                var at = Vec2.FromTile(grid, i);
-                float level = grid.SurfaceElevation(at.X, at.Y) * heightScale + WaterLift;
+            var renderer = surface.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = WaterMeshBuilder.Material();
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-                var instance = Object.Instantiate(Any(decor.Water, rng), parent);
-
-                instance.transform.position = new Vector3(at.X, level, at.Y);
-
-                // Turned in quarter turns only. A water plane is a square with a texture
-                // on it, and an odd angle shows its corners against the tile grid it is
-                // covering.
-                instance.transform.rotation = Quaternion.Euler(0f, rng.Range(0, 4) * 90f, 0f);
-
-                ModelScaling.FitToFootprint(instance, WaterWidth, level);
-
-                // Painted rather than left with what the pack shipped. The plane's own
-                // material is a water shader from another pipeline: in URP it resolves to
-                // untextured white, which laid a sheet of paper over every river on the
-                // map and a pale cyan one over the plan.
-                if (surface != null)
-                    foreach (var renderer in instance.GetComponentsInChildren<Renderer>(true))
-                        renderer.sharedMaterial = surface;
-
-                placed++;
-            }
-
-            return placed;
+            return 1;
         }
 
         /// <summary>
@@ -1068,8 +1049,10 @@ namespace Arna.View
                 var choice = new Choice(decor.Camps, Any(decor.Camps, rng), CampHeight,
                                         byWidth: false);
 
+                // A tent is pitched, not set down: it gets the same seating as a house so
+                // its pegged edge meets the ground on a slope.
                 if (Scatter(parent, grid, rng, choice, tile, heightScale, spread: 1.6f, occupied,
-                            signal: true))
+                            lift: -Seat(grid, tile, heightScale, CampHeight), signal: true))
                     placed++;
             }
 
@@ -1093,9 +1076,12 @@ namespace Arna.View
             var instance = Object.Instantiate(prefab, parent);
 
             instance.transform.position = new Vector3(at.X, groundY, at.Y);
-            instance.transform.rotation = decor.Fords.ZUp
+
+            var upright = decor.Fords.ZUp
                 ? Quaternion.Euler(-90f, 0f, 0f)
                 : Quaternion.identity;
+
+            instance.transform.rotation = upright;
 
             // Which way the model is long is measured, not assumed. Whether a bridge
             // prefab is authored running along X or along Z is the artist's business and
@@ -1103,15 +1089,26 @@ namespace Arna.View
             var bounds = ModelScaling.Measure(instance);
             bool longAlongX = bounds.size.x > bounds.size.z;
 
-            // And which way it needs to lie comes from the water: a river runs along one
-            // bearing and the road crosses it square.
+            // And which way it has to lie is the ford's own bearing: the crossing is a
+            // run of tiles cut across the river, and the bridge lies along it.
             float across = Crossing(grid, tile);
 
             // The model's own length is turned onto that bearing. A prefab authored
             // along X is already a quarter turn from one authored along Z.
-            instance.transform.rotation *= Quaternion.Euler(0f, longAlongX ? across - 90f : across, 0f);
+            //
+            // Applied *before* the upright rotation rather than after it. A Z-up prefab
+            // has already been laid down a quarter turn about X, so its own Y axis points
+            // along world -Z — and a yaw multiplied on the right turns about that, which
+            // rolls the bridge instead of aiming it.
+            instance.transform.rotation =
+                Quaternion.Euler(0f, longAlongX ? across - 90f : across, 0f) * upright;
 
-            ModelScaling.FitToCrossing(instance, FordDeck, FordSpan, groundY);
+            // Long enough to reach both banks. The crossing is measured rather than
+            // assumed at three tiles: fords are cut to the width of their river, and a
+            // twelve-metre bridge over a five-tile ford is a jetty from each side.
+            float span = Mathf.Max(FordSpan, (FordWidth(grid, tile, across) + 1) * TileGrid.TileSize);
+
+            ModelScaling.FitToCrossing(instance, FordDeck, span, groundY);
 
             // Measured rather than described. Nothing here knows where the roadway is
             // inside a bridge model, so the bridge is asked at runtime — see BridgeDeck.
@@ -1119,6 +1116,54 @@ namespace Arna.View
 
             Claim(grid, ModelScaling.Measure(instance), occupied);
             return true;
+        }
+
+        /// <summary>
+        /// Shortest thing that is worth walking round, in metres.
+        ///
+        /// Waist height. Below it are the grass, the flowers, the lilypads and the loose
+        /// stones — things a boot goes over and a wheel rolls across — and making any of
+        /// them solid would fill the map with invisible pebbles for the escort to shuffle
+        /// around. Above it are trunks, boulders, walls and carts.
+        /// </summary>
+        public const float SolidHeight = 1.2f;
+
+        /// <summary>
+        /// What share of a canopy's width is trunk.
+        ///
+        /// A tenth. Measured off the pack rather than argued: the spruces run about four
+        /// and a half metres of crown over roughly half a metre of stem, and the birches
+        /// about the same. It is the difference between a forest you push through and a
+        /// forest that is a wall — see Solid.
+        /// </summary>
+        public const float TrunkShare = 0.1f;
+
+        public const float MinTrunk = 0.3f;
+        public const float MaxTrunk = 1.1f;
+
+        /// <summary>
+        /// Marks a placed prop as something to walk round, if it is big enough to be one.
+        ///
+        /// Measured from what is actually standing there, after it has been scaled: the
+        /// table size is a request and <see cref="ModelScaling.FitWithin"/> is free to
+        /// refuse it.
+        /// </summary>
+        static void Block(GameObject instance, bool canopy)
+        {
+            if (instance == null) return;
+
+            var bounds = ModelScaling.Measure(instance);
+            if (bounds.size.y < SolidHeight) return;
+
+            float across = Mathf.Max(bounds.extents.x, bounds.extents.z);
+
+            float radius = canopy
+                ? Mathf.Clamp(across * 2f * TrunkShare, MinTrunk, MaxTrunk)
+                : across * 0.85f;
+
+            var solid = instance.AddComponent<Solid>();
+            solid.Radius = radius;
+            solid.Centre = new Vector2(bounds.center.x, bounds.center.z);
         }
 
         /// <summary>Says that a prop is telling the player something. See Signal.</summary>
@@ -1167,42 +1212,101 @@ namespace Arna.View
         /// </summary>
         static float Crossing(TileGrid grid, int tile)
         {
+            // The ford run first, because it is not an estimate. A ford is cut as a line
+            // of tiles straight across its river (TerrainGenerator carves it out from the
+            // river tile along x while the water lasts), so the tiles the map itself calls
+            // a crossing *are* the road over the water, and the bridge lies along them.
+            //
+            // Measured over ten levels: the ford run is 90° on every crossing in chapter
+            // one, and asking the water instead answered anywhere between 54° and 120° —
+            // and 0°, laying the bridge straight along its own river, when the wet tiles
+            // round it cancelled out. Counting ford tiles as water made that worse rather
+            // than better: a three-tile ford is three tiles of "water" lying square to
+            // the river, so the average leant toward the crossing and the ninety-degree
+            // turn that follows put the bridge in the water.
+            float ford = Bearing(grid, tile, TerrainType.Ford, 3);
+            if (!float.IsNaN(ford)) return ford;
+
+            // A ford one tile wide has no run to read, so fall back to the water — square
+            // to it, and water only.
+            float water = Bearing(grid, tile, TerrainType.Water, 2);
+            if (!float.IsNaN(water)) return water + 90f;
+
+            return 0f;
+        }
+
+        /// <summary>
+        /// The bearing of a run of one terrain type around a tile, as a yaw.
+        ///
+        /// Averaged as *lines* rather than as arrows: a river runs both ways at once and
+        /// a ford is crossed in either direction, so summing the offsets of a straight
+        /// one cancels it to nothing. Doubling the angle before averaging and halving it
+        /// after is the standard way round that. Near tiles count for more than far ones,
+        /// which keeps a bend two tiles away from turning the answer.
+        ///
+        /// NaN when there is nothing to measure, which is a real answer and not a
+        /// failure: the caller has a better idea than a made-up bearing.
+        /// </summary>
+        static float Bearing(TileGrid grid, int tile, TerrainType of, int radius)
+        {
             grid.ToCoords(tile, out int x, out int y);
 
             float sumSin = 0f, sumCos = 0f;
 
-            for (int dy = -2; dy <= 2; dy++)
+            for (int dy = -radius; dy <= radius; dy++)
             {
-                for (int dx = -2; dx <= 2; dx++)
+                for (int dx = -radius; dx <= radius; dx++)
                 {
                     if (dx == 0 && dy == 0) continue;
-                    if (!IsWet(grid, x + dx, y + dy)) continue;
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+                    if (grid[grid.ToIndex(x + dx, y + dy)] != of) continue;
 
                     float angle = (float)System.Math.Atan2(dy, dx);
-                    sumSin += (float)System.Math.Sin(angle * 2f);
-                    sumCos += (float)System.Math.Cos(angle * 2f);
+                    float weight = 1f / Mathf.Sqrt(dx * dx + dy * dy);
+
+                    sumSin += weight * (float)System.Math.Sin(angle * 2f);
+                    sumCos += weight * (float)System.Math.Cos(angle * 2f);
                 }
             }
 
-            if (sumSin * sumSin + sumCos * sumCos < 0.0001f) return 0f;
+            if (sumSin * sumSin + sumCos * sumCos < 0.0001f) return float.NaN;
 
-            // The water's bearing, in Unity's yaw where zero looks up +Z and angles turn
-            // clockwise — the opposite sense to atan2 about +X, hence the negation and
-            // the ninety.
-            float water = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
-            float degrees = 90f - water * 57.29578f;
-
-            // Square to it.
-            return degrees + 90f;
+            // Unity's yaw looks up +Z and turns clockwise — the opposite sense to atan2
+            // about +X, hence the ninety and the subtraction.
+            float bearing = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
+            return 90f - bearing * 57.29578f;
         }
 
-        /// <summary>Water or another ford — both are the watercourse.</summary>
-        static bool IsWet(TileGrid grid, int x, int y)
+        /// <summary>How many tiles wide the crossing is, along its own run.</summary>
+        static int FordWidth(TileGrid grid, int tile, float bearing)
         {
-            if (!grid.InBounds(x, y)) return false;
+            grid.ToCoords(tile, out int x, out int y);
 
-            var terrain = grid[grid.ToIndex(x, y)];
-            return terrain == TerrainType.Water || terrain == TerrainType.Ford;
+            float radians = (90f - bearing) / 57.29578f;
+            float dx = (float)System.Math.Cos(radians), dy = (float)System.Math.Sin(radians);
+
+            int width = 1;
+
+            for (int sign = -1; sign <= 1; sign += 2)
+            {
+                for (int step = 1; step <= 6; step++)
+                {
+                    int tx = x + Mathf.RoundToInt(dx * step * sign);
+                    int ty = y + Mathf.RoundToInt(dy * step * sign);
+
+                    if (!grid.InBounds(tx, ty)) break;
+
+                    // The crossing only. Counting open water too walks off along a bend
+                    // or into a lake: measured over three chapters that gave a widest
+                    // crossing of thirteen tiles and a fifty-six-metre bridge. The fords
+                    // themselves run one to three tiles, every time.
+                    if (grid[grid.ToIndex(tx, ty)] != TerrainType.Ford) break;
+
+                    width++;
+                }
+            }
+
+            return width;
         }
 
         /// <summary>
@@ -1369,27 +1473,6 @@ namespace Arna.View
         /// so it costs bandwidth to deliver noise. One shared material also means the
         /// twenty-two peaks batch instead of pulling the pack's atlas twenty-two times.
         /// </summary>
-        /// <summary>The colour of the water, and how much sky it gives back.</summary>
-        // Dark enough to read as depth from the plan camera and smooth enough to catch
-        // the light from the run camera, which is the whole of what makes a flat plane
-        // look wet. It matches the plan palette's water so the two views agree.
-        public static readonly Color RiverBlue = new Color(0.14f, 0.27f, 0.40f);
-
-        static Material _river;
-
-        static Material River()
-        {
-            if (_river != null) return _river;
-
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) return null;
-
-            _river = new Material(shader) { name = "River" };
-            _river.SetColor(BaseColorId, RiverBlue);
-            _river.SetFloat("_Smoothness", 0.75f);
-
-            return _river;
-        }
 
         static Material Skyline()
         {
@@ -1513,62 +1596,6 @@ namespace Arna.View
             }
 
             return HorizonCount;
-        }
-
-        /// <summary>
-        /// Lays bare earth, gravel and worn grass over the flatter ground.
-        ///
-        /// The one rule that matters is the slope test. These are flat pieces from a
-        /// pack built for flat modular scenes, and this game's ground is a heightmap;
-        /// laid across a hillside a flat piece buries one edge and floats the other. So
-        /// a tile is offered a patch only if its four corners are within
-        /// <see cref="PatchMaxFall"/> of each other, which keeps them on the valley
-        /// floors, the river flats and the road — where the reference pictures put them
-        /// anyway, because that is where ground gets walked on.
-        /// </summary>
-        static int PlaceGroundPatches(Transform parent, TileGrid grid, DeterministicRandom rng,
-                                      BiomeDecor decor, HashSet<int> occupied,
-                                      float heightScale, float densityScale)
-        {
-            if (!decor.GroundPatches.Any) return 0;
-
-            int placed = 0;
-
-            // Patches keep their own ground, separately from the props'.
-            //
-            // Without it they stack, and stacked flat pieces at slightly different
-            // heights are the worst artefact on this list: from above they read as
-            // craters on craters, and each one makes the next one look deliberate.
-            // Sharing `occupied` would have been wrong in both directions — a patch is
-            // not something a tree may not grow in, and a tree is not something bare
-            // earth may not appear under.
-            var patched = new HashSet<int>();
-
-            for (int i = 0; i < grid.TileCount && placed < MaxGroundPatches; i++)
-            {
-                if (!PatchDensity.TryGetValue(grid[i], out float density)) continue;
-                if (occupied != null && occupied.Contains(i)) continue;
-
-                if (!rng.Chance(density * densityScale)) continue;
-                if (Fall(grid, i, heightScale) > PatchMaxFall) continue;
-
-                // The whole footprint, not the centre tile. A 5.2 m disc reaches into its
-                // neighbours, and checking only the middle lets two patches overlap by
-                // most of their area while both believe they are alone.
-                if (!PatchGroundFree(grid, patched, i)) continue;
-
-                var choice = new Choice(decor.GroundPatches, Any(decor.GroundPatches, rng),
-                                        PatchWidth, byWidth: true, canopy: true);
-
-                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.2f,
-                            occupied: null, lift: PatchLift))
-                {
-                    ReservePatch(grid, patched, i);
-                    placed++;
-                }
-            }
-
-            return placed;
         }
 
         /// <summary>Tiles a patch claims, measured out from the one it stands on.</summary>
@@ -1733,6 +1760,8 @@ namespace Arna.View
 
             if (signal) Mark(instance);
 
+            Block(instance, choice.Canopy);
+
             // Canopy neither claims ground nor checks for it. Keeping it out of the
             // reserved set has a second effect worth having: grass and ferns may now
             // grow under a tree, where the tree's own footprint used to keep the floor
@@ -1881,11 +1910,7 @@ namespace Arna.View
                     if (road != null && road.Contains(tile)) continue;
                     if (!occupied.Add(tile)) continue;
 
-                    Mark(Place(parent, grid, tile, rng,
-                               new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth,
-                                          byWidth: true),
-                               heightScale, occupied));
-                    placed++;
+                    placed += Wreck(parent, grid, tile, rng, decor, heightScale, occupied);
 
                     // And a totem beside it, where the pack has one. A wreck says
                     // something happened here; a banner driven into the ground says
@@ -1895,7 +1920,8 @@ namespace Arna.View
                         Mark(Place(parent, grid, tile, rng,
                                    new Choice(decor.Markers, Any(decor.Markers, rng),
                                               MarkerHeight, byWidth: false),
-                                   heightScale, occupied));
+                                   heightScale, occupied,
+                                   sink: Seat(grid, tile, heightScale, MarkerHeight)));
 
                     // Dead trees around it. A cart alone is small enough to miss from
                     // map height, and the signal is worthless if it is not noticed;
@@ -1962,7 +1988,7 @@ namespace Arna.View
                 // the taper, and on the slope of a pass it also stops the uphill side
                 // showing daylight underneath.
                 Place(parent, grid, i, rng, choice, heightScale, occupied,
-                      sink: choice.Size * BuildingSink);
+                      sink: Seat(grid, i, heightScale, choice.Size));
                 placed++;
             }
 
@@ -2030,6 +2056,106 @@ namespace Arna.View
             return false;
         }
 
+        /// <summary>
+        /// Builds the scene at a trap site rather than dropping one prop on it.
+        ///
+        /// A wreck is a cart that stopped here and the things that came off it: a wheel
+        /// on the ground, a spilled crate, bones. One prop cannot say that, and the
+        /// version that tried said something worse — the set held a cart wheel among the
+        /// carts, so a site could come out as a lone five-metre wheel standing on its rim
+        /// in an empty field.
+        ///
+        /// So the pieces have roles now. The cart or the skeleton is the site; the
+        /// wheels and crates are its debris, small, flat on the ground, and never the
+        /// thing itself.
+        /// </summary>
+        static int Wreck(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,
+                         BiomeDecor decor, float heightScale, HashSet<int> occupied)
+        {
+            var main = Mark(Place(parent, grid, tile, rng,
+                                  new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth,
+                                             byWidth: true),
+                                  heightScale, occupied,
+                                  sink: Seat(grid, tile, heightScale, RuinWidth)));
+            if (main == null) return 0;
+
+            int placed = 1;
+            if (!decor.Wreckage.Any) return placed;
+
+            int pieces = rng.Range(1, 4);
+            for (int i = 0; i < pieces; i++)
+            {
+                var debris = new Choice(decor.Wreckage, Any(decor.Wreckage, rng),
+                                        DebrisWidth, byWidth: true, canopy: true);
+
+                var position = Vec2.FromTile(grid, tile);
+                float x = position.X + rng.Range(-DebrisSpread, DebrisSpread);
+                float z = position.Y + rng.Range(-DebrisSpread, DebrisSpread);
+                float groundY = grid.SurfaceElevation(x, z) * heightScale;
+
+                var instance = Object.Instantiate(debris.Prefab, parent);
+                instance.transform.position = new Vector3(x, groundY, z);
+                instance.transform.rotation = debris.ZUp
+                    ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
+                    : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+
+                ModelScaling.FitToFootprint(instance, DebrisWidth, groundY);
+                LayFlat(instance, groundY);
+                Mark(instance);
+
+                placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>How wide a loose piece of wreckage is, and how far it lies from the cart.</summary>
+        public const float DebrisWidth = 1.3f;
+        public const float DebrisSpread = 2.6f;
+
+        /// <summary>
+        /// Tips a loose piece onto its side, whichever way it was modelled.
+        ///
+        /// Debris lies down. Which axis a prefab is thin along is the artist's business —
+        /// a wheel may be authored upright in XY or lying in XZ — so it is measured: the
+        /// shallowest axis is turned to point up, and the piece is re-seated on the
+        /// ground afterwards because rotating about its centre moves its lowest point.
+        /// </summary>
+        static void LayFlat(GameObject instance, float groundY)
+        {
+            var size = ModelScaling.Measure(instance).size;
+
+            if (size.y <= size.x && size.y <= size.z) return;   // already lying down
+
+            instance.transform.rotation = size.x < size.z
+                ? Quaternion.Euler(0f, 0f, 90f) * instance.transform.rotation
+                : Quaternion.Euler(90f, 0f, 0f) * instance.transform.rotation;
+
+            var seated = ModelScaling.Measure(instance);
+            instance.transform.position += new Vector3(0f, groundY - seated.min.y, 0f);
+        }
+
+        /// <summary>
+        /// How far a building is set into the ground here.
+        ///
+        /// Two parts, and the second is the one that was missing. A share of the model's
+        /// own size buries the taper the artist put on its base — that is what
+        /// <see cref="BuildingSink"/> is for, and on flat ground it is enough. On a slope
+        /// it is not: a tower is seated by its lowest corner, so on a pass with three
+        /// metres of fall across the tile the uphill side is left standing a metre and a
+        /// half clear of the hill with daylight under it. The fall across the tile is
+        /// added, so the building goes into the hill rather than onto it.
+        ///
+        /// The mountain passes are where the watchtowers go, and they are the steepest
+        /// ground on the map. That is not a coincidence — it is why this was reported
+        /// twice as towers standing on the grass.
+        /// </summary>
+        static float Seat(TileGrid grid, int tile, float heightScale, float size)
+            => size * BuildingSink + Fall(grid, tile, heightScale) * SlopeSink;
+
+        /// <summary>What share of a tile's own fall a building is sunk by, on top of its taper.</summary>
+        public const float SlopeSink = 0.6f;
+
         /// <summary>Stands one landmark on the centre of a tile, sized and seated.</summary>
         static GameObject Place(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,
                                 Choice choice, float heightScale, HashSet<int> occupied = null,
@@ -2050,6 +2176,8 @@ namespace Arna.View
 
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, choice.Size, groundY);
             else ModelScaling.Fit(instance, choice.Size, groundY);
+
+            Block(instance, choice.Canopy);
 
             // A farm is nine metres across and a ruin five, so the landmarks need their
             // ground reserving for the same reason the mountain does.

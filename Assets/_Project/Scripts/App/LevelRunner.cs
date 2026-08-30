@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Arna.Gen;
 using Arna.Sim;
+using Arna.UI;
 using Arna.View;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -30,6 +31,17 @@ namespace Arna.App
         [Min(1)] public int Chapter = 1;
         [Min(1)] public int Level = 1;
         public CorridorKind Route = CorridorKind.Fast;
+
+        /// <summary>
+        /// Shows the old corner readout: clocks, silver, detection, trap counts.
+        ///
+        /// Off, now that there is a heads-up display and a smithy panel that reach the
+        /// same numbers. It stays because it says a dozen things the player has no
+        /// business knowing — how many enemies the level holds, how many are awake — and
+        /// those are exactly the things worth watching while the balance is being worked
+        /// on.
+        /// </summary>
+        public bool DebugReadout;
 
         [Header("Playback")]
         [Range(0.25f, 8f)] public float TimeScale = 1f;
@@ -114,12 +126,31 @@ namespace Arna.App
 
         public LevelRun Run => _run;
 
-        void Start() => Restart();
+        RunHud _hud;
+
+        void Start()
+        {
+            Restart();
+
+            _hud = gameObject.AddComponent<RunHud>();
+            _hud.Run = _run;
+            _hud.Chapter = Chapter;
+            _hud.Level = Level;
+            _hud.Restart = Restart;
+        }
 
         [ContextMenu("Restart")]
         public void Restart()
         {
             Cleanup();
+
+            // The level the roadmap picked. The Inspector's own numbers still win outside
+            // play mode, so opening this scene to look at a particular level still works.
+            if (Application.isPlaying && Session.Chapter > 0)
+            {
+                Chapter = Session.Chapter;
+                Level = Session.Level;
+            }
 
             var chapter = new ChapterRecipe();
             var recipe = chapter.ForLevel(Level);
@@ -174,6 +205,10 @@ namespace Arna.App
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
             _visuals.FindBridges(_markerRoot);
+
+            // Before the first step, so nobody walks through a tree on the way to their
+            // opening post.
+            _visuals.FindObstacles(_markerRoot, _run);
             _visuals.Build(_run);
             _visuals.BuildCaches(map.Encounters.SilverCaches, map.Grid);
             _visuals.BuildCrowFlocks(CrowSignal.Place(map), map.Grid);
@@ -184,6 +219,8 @@ namespace Arna.App
 
             _camera = Camera.main;
             AimCamera();
+
+            if (_hud != null) _hud.Run = _run;
         }
 
         /// <summary>
@@ -392,7 +429,7 @@ namespace Arna.App
         /// </summary>
         void OnGUI()
         {
-            if (_run == null) return;
+            if (_run == null || !DebugReadout) return;
 
             var style = new GUIStyle(GUI.skin.label) { fontSize = 15, richText = true };
             GUILayout.BeginArea(new Rect(14, 14, 380, 340), GUI.skin.box);

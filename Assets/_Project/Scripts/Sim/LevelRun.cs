@@ -48,7 +48,20 @@ namespace Arna.Sim
             Combat = new CombatSystem(map.Grid, Caravan, squad ?? new Squad(0), Detection, enemyStrength);
 
             ParSeconds = map.FastestRouteCost / Caravan.BaseTilesPerSecond * ParTimeFactor;
+
+            Obstacles = new ObstacleField();
+            Combat.Obstacles = Obstacles;
+            if (Squad != null) Squad.Obstacles = Obstacles;
         }
+
+        /// <summary>
+        /// What is standing on the ground, once the view has said.
+        ///
+        /// Empty until <c>RunVisuals</c> fills it, and a run with nothing in it behaves
+        /// exactly as this game always has: every test here and every headless run walks
+        /// an empty country. That is what keeps a scenery change out of the balance.
+        /// </summary>
+        public ObstacleField Obstacles { get; }
 
         public Caravan Caravan { get; }
         public Squad Squad { get; }

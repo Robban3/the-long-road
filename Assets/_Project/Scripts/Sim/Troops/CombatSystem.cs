@@ -107,6 +107,12 @@ namespace Arna.Sim
 
         public float EnemyStrength { get; }
 
+        /// <summary>What the attackers have to come round. Null on a headless run.</summary>
+        public ObstacleField Obstacles;
+
+        /// <summary>Room a closing group needs, as for the escort's own posts.</summary>
+        public const float EnemyRadius = 1.1f;
+
         /// <summary>True while any enemy is in contact, at any range.</summary>
         public bool InContact { get; private set; }
 
@@ -272,9 +278,14 @@ namespace Arna.Sim
             float step = speed * deltaTime;
             if (step > distance) step = distance;
 
-            enemy.Position = new Vec2(
+            var moved = new Vec2(
                 enemy.Position.X + toCaravan.X / distance * step,
                 enemy.Position.Y + toCaravan.Y / distance * step);
+
+            // Enemies go round trees for the same reason the escort does, and it matters
+            // more for them: they close from anywhere on the map, so their line to the
+            // caravan crosses whatever the country has on it.
+            enemy.Position = Obstacles == null ? moved : Obstacles.Clear(moved, EnemyRadius);
         }
 
         /// <summary>The nearest cart still standing, and where it is. Null when all are gone.</summary>

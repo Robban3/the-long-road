@@ -139,6 +139,32 @@ namespace Arna.View
                 Debug.Log($"[Arna] {_bridges.Length} bridge(s) found; the column rides over them.");
         }
 
+        /// <summary>
+        /// Tells the run what it has to walk round.
+        ///
+        /// Called once, after the decorator has finished. Every prop the decorator judged
+        /// solid carries a <see cref="Solid"/> with the radius it actually blocks, and
+        /// they go into the run's obstacle field as discs — see
+        /// <see cref="Arna.Sim.ObstacleField"/> for why the radius is the trunk and not
+        /// the crown.
+        ///
+        /// This is the join the game never had. The scenery has always been over here and
+        /// the walking over there, so the column drove through trees because nothing that
+        /// moved it had ever been told they were standing.
+        /// </summary>
+        public void FindObstacles(Transform props, LevelRun run)
+        {
+            if (props == null || run?.Obstacles == null) return;
+
+            var solids = props.GetComponentsInChildren<Solid>(true);
+            run.Obstacles.Clear();
+
+            foreach (var solid in solids)
+                run.Obstacles.Add(solid.Centre.x, solid.Centre.y, solid.Radius);
+
+            Debug.Log($"[Arna] {run.Obstacles.Count} solid prop(s); the escort goes round them.");
+        }
+
         static readonly Color SupplyColor = new Color(0.85f, 0.72f, 0.42f);
         static readonly Color WarColor = new Color(0.72f, 0.45f, 0.35f);
         static readonly Color TreasureColor = new Color(0.95f, 0.82f, 0.30f);

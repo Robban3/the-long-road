@@ -37,6 +37,7 @@ namespace Arna.Editor
         const string RouteMaterialPath = MaterialsDir + "/RouteOverlay.mat";
         const string ScenePath = ScenesDir + "/LevelPreview.unity";
         const string PlayScenePath = ScenesDir + "/PlayLevel.unity";
+        const string MenuScenePath = ScenesDir + "/MainMenu.unity";
 
         [MenuItem("Arna/Set Up Project")]
         public static void SetupProject()
@@ -51,6 +52,7 @@ namespace Arna.Editor
             // stands on. The flat unlit material is kept for anything that still wants
             // a diagram rather than a picture.
             BuildPreviewScene(EnsureGroundMaterial());
+            BuildMenuScene();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -124,11 +126,7 @@ namespace Arna.Editor
             runner.Models = LoadModels();
 
             EditorSceneManager.SaveScene(scene, PlayScenePath);
-            EditorBuildSettings.scenes = new[]
-            {
-                new EditorBuildSettingsScene(PlayScenePath, true),
-                new EditorBuildSettingsScene(ScenePath, true)
-            };
+            RegisterScenes();
 
             AssetDatabase.SaveAssets();
             Debug.Log($"[Arna] Play scene ready at {PlayScenePath}. Open it and press Play.");
@@ -604,20 +602,21 @@ namespace Arna.Editor
                                   "SM_Prop_Banner_03", "SM_Prop_Gravestone_01",
                                   "SM_Prop_Gravestone_02"),
 
-                // The surface of the water, which is the one prop here that replaces a
-                // tile instead of dressing one. See BiomeDecor.Water.
-                // The pack's own river plane, with the pack's own shader, which is
-                // where this started and where it should have stayed.
+                // **Nothing, and this is the fourth and last treatment.**
                 //
-                // It came out untextured white, so it was painted a flat river blue,
-                // which came out a dark slab, so it was taken off the map altogether and
-                // the water went back to being coloured tiles. All three of those were
-                // treatments for a symptom. The shader is a Synty shadergraph that blends
-                // a deep colour into a shallow one by reading how far the bed is below
-                // the surface — and the render pipeline had both the depth texture and
-                // the opaque texture switched off, so it had nothing to read and returned
-                // white. They are on now. See ArnaUniversalRenderPipeline.
-                Water = Synty("Terrain", "SM_River_Plane_01"),
+                // The pack's river plane went out untextured white, so it was painted a
+                // flat blue, which went out a dark slab, so the render pipeline's depth
+                // and opaque textures were switched on so the pack's shadergraph had
+                // something to read. That last one was right about the shader and still
+                // wrong about the water, because the problem was never the material: a
+                // river was a crowd of six-metre squares laid one per four-metre tile,
+                // each at its own tile's bed height. They overhang their tiles onto the
+                // bank, they step against each other, and a straight-edged opaque quad
+                // over a green field is a blue plate whatever is written on it.
+                //
+                // Water is built as one continuous transparent surface now, with its
+                // corners shared and pinned to the lowest bed that meets there. See
+                // View.WaterMeshBuilder. No prefab can do that, so none is wired.
 
                 // A crossing on the ford tiles. Every corridor tends to use the same
                 // ford — it is why the traps go there — and it has never had anything on
@@ -695,8 +694,7 @@ namespace Arna.Editor
                 Ruins = Mixed(
                     Load($"{SyntyKnightsDir}/Props", new[]
                     {
-                        "SM_Prop_Cart_01", "SM_Prop_CartHay_01", "SM_Prop_CartWheel_01",
-                        "SM_Prop_Crate_01"
+                        "SM_Prop_Cart_01", "SM_Prop_CartHay_01"
                     }),
                     Load($"{SyntyNatureDir}/Props", new[]
                     {
@@ -720,38 +718,16 @@ namespace Arna.Editor
                     Load($"{SyntyGenericDir}/Characters", new[] { "SM_Gen_Chr_Skeleton_01" }),
                     Load($"{SyntyGenericDir}/Props", new[] { "SM_Gen_Prop_Skull_01" })),
 
-                // Bare earth, gravel and worn grass, laid flat on the ground.
-                //
-                // From PolygonGeneric, which is the only pack here with ground surfaces
-                // at all — and which was on the deletion list for having a modern name
-                // and a folder full of air conditioners. Mixing two Synty packs is
-                // allowed here and nowhere else: ground is seen flat and mostly in
-                // shadow, not a spruce beside another artist's spruce.
-                // The army pack's worn ground goes in with it, on that same argument:
-                // its mud and its trodden path are flat pieces seen face-on, which is
-                // the one category where two artists' work does not show a seam.
-                // Bare earth, and nothing green.
-                //
-                // The three grass pieces in this folder are five-metre discs of a darker
-                // green laid on green: not a patch of anything, a blob, and no number of
-                // tufts stood on top of them changes that. What earns its place is the
-                // dirt — the reference picture is half trodden ground — and it is dirt
-                // wherever it comes from.
-                GroundPatches = Mixed(
-                    Load($"{SyntyGenericDir}/Environment", new[]
+                // The loose pieces of a wreck: a wheel off the cart, a spilled crate,
+                // a barrel. Never a site on their own — see BiomeDecor.Wreckage for the
+                // five-metre wheel that made the distinction necessary.
+                Wreckage = Mixed(
+                    Load($"{SyntyKnightsDir}/Props", new[]
                     {
-                        "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
-                        "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04",
-                        "SM_Gen_Env_Ground_Dirt_Large_01", "SM_Gen_Env_Ground_Dirt_Large_02",
-                        "SM_Gen_Env_Ground_River_Dirt_01",
-                        "SM_Gen_Env_Ground_River_Dirt_02", "SM_Gen_Env_Ground_River_Dirt_03"
+                        "SM_Prop_CartWheel_01", "SM_Prop_Crate_01", "SM_Prop_Barrel_01",
+                        "SM_Prop_Bucket_01"
                     }),
-                    Load(ArmyProps, new[] { "Mud_1", "Path" }),
-                    Load($"{SyntyKnightsDir}/Environments", new[]
-                    {
-                        "SM_Env_Path_Dirt_01", "SM_Env_Path_Dirt_02", "SM_Env_Path_Dirt_03",
-                        "SM_Env_Path_Dirt_04", "SM_Env_Path_Dirt_05", "SM_Env_Path_Dirt_06"
-                    })),
+                    Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Skull_01" })),
 
                 // A well and a shelter, which are the whole models the knights pack has
                 // that belong beside a road. Not houses — the pack's houses are a *kit*:
@@ -944,6 +920,60 @@ namespace Arna.Editor
         /// <summary>Horizon colour. Camera background, fog and sky ambient all use it,
         /// so distant ground dissolves into the sky instead of ending at a hard line.</summary>
         static readonly Color SkyColor = new Color(0.62f, 0.75f, 0.85f);
+
+        /// <summary>
+        /// The three scenes, in the order the game runs them.
+        ///
+        /// The menu is first, so a build starts where a player starts: on the front page,
+        /// with the roadmap behind it. It used to start in whichever level scene happened
+        /// to be listed first, which is how you get a game with no way back to anything.
+        /// </summary>
+        static void RegisterScenes()
+        {
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(MenuScenePath, true),
+                new EditorBuildSettingsScene(ScenePath, true),
+                new EditorBuildSettingsScene(PlayScenePath, true)
+            };
+        }
+
+        /// <summary>
+        /// Builds the menu scene: a camera, and the shell that draws every screen in it.
+        ///
+        /// There is nothing else in it on purpose. The front page and the level roadmap
+        /// are built in code at run time (see Arna.UI.MenuShell), for the same reason the
+        /// levels are: a scene file full of hand-placed rectangles is the one part of this
+        /// project nobody could review or regenerate.
+        /// </summary>
+        [MenuItem("Arna/Set Up Menu Scene")]
+        public static void SetUpMenuScene()
+        {
+            if (!Stopped("Set Up Menu Scene")) return;
+
+            BuildMenuScene();
+            AssetDatabase.SaveAssets();
+
+            Debug.Log($"[Arna] Menu ready at {MenuScenePath}. Open it and press Play.");
+        }
+
+        static void BuildMenuScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var cameraGo = new GameObject("Main Camera", typeof(Camera));
+            cameraGo.tag = "MainCamera";
+
+            var camera = cameraGo.GetComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.07f, 0.06f, 0.05f);
+            camera.orthographic = true;
+
+            new GameObject("Menu", typeof(Arna.UI.MenuShell));
+
+            EditorSceneManager.SaveScene(scene, MenuScenePath);
+            RegisterScenes();
+        }
 
         /// <summary>
         /// Scene lighting for the play view.
@@ -1158,11 +1188,7 @@ namespace Arna.Editor
 
             // Both scenes, because the plan now loads the other one. Listing only the
             // plan is what it did before, and Play would have failed at the button.
-            EditorBuildSettings.scenes = new[]
-            {
-                new EditorBuildSettingsScene(ScenePath, true),
-                new EditorBuildSettingsScene(PlayScenePath, true)
-            };
+            RegisterScenes();
         }
 
         /// <summary>
@@ -2083,6 +2109,11 @@ namespace Arna.Editor
             // one that does nothing, because it also tells you it worked.
             string open = EditorSceneManager.GetActiveScene().path;
 
+            // The menu scene is made here if it is missing, so one menu item is enough
+            // after a pull. It holds no serialized assets — every screen in it is built
+            // in code — so there is nothing to refresh once it exists.
+            if (!System.IO.File.Exists(MenuScenePath)) BuildMenuScene();
+
             foreach (string path in new[] { PlayScenePath, ScenePath })
             {
                 if (!System.IO.File.Exists(path)) continue;
@@ -2095,6 +2126,7 @@ namespace Arna.Editor
             if (!string.IsNullOrEmpty(open)) EditorSceneManager.OpenScene(open, OpenSceneMode.Single);
 
             RefreshOpenScene();
+            RegisterScenes();
         }
 
         static void RefreshOpenScene()
