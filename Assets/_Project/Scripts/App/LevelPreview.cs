@@ -259,6 +259,9 @@ namespace Arna.App
         float _flightLength;
 
         public int Seed => _seed;
+
+        /// <summary>The level being shown, for whoever has to draw a route across it.</summary>
+        public LevelMap Map => _map;
         public int Attempts => _attempts;
         public bool ChoiceValidated => _choiceValidated;
         public float FastestRouteCost => _fastCost;

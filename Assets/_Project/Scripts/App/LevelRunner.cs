@@ -125,13 +125,22 @@ namespace Arna.App
             var recipe = chapter.ForLevel(Level);
             var map = TerrainGenerator.Generate(recipe, DeterministicRandom.SeedFor(Chapter, Level));
 
+            // The route the player drew, when there is one.
+            //
+            // The Route field below is the generator's own sample corridors, and picking
+            // one of those in the Inspector is how this game chose its road for its whole
+            // life — which is why every level looked like it had one way through. See
+            // ChosenRoute. The field stays as the fallback: the play scene is opened
+            // directly often enough, and a level with no drawn route still has to run.
             var corridor = map.CorridorOf(Route) ?? map.Corridors[0];
+
+            var route = ChosenRoute.Waits(Chapter, Level) ? ChosenRoute.Tiles : corridor.Tiles;
 
             var squad = new Squad(recipe.SquadBudget);
             for (int i = 0; i < Formation.Length && i < 6; i++)
                 if (Formation[i].Occupied) squad.TryPlace((FormationSlot)i, Formation[i].Kind);
 
-            _run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
+            _run = new LevelRun(map, route, squad, recipe.EnemyStrength);
             _levelGrid = map.Grid;
 
             // No map furniture in the play view. The drawn line belongs to the planning

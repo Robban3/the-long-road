@@ -1144,10 +1144,25 @@ namespace Arna.Editor
             preview.Models = LoadModels();
 
             preview.RouteMaterial = EnsureRouteMaterial();
+
+            // The hand that draws the road. See RouteDrawing: everything under it has
+            // been finished for a long time and nothing ever called it, so the runner
+            // took its road from a field in the Inspector and every level had one way
+            // through.
+            var drawing = preview.GetComponent<RouteDrawing>() ?? preview.gameObject.AddComponent<RouteDrawing>();
+            drawing.RouteMaterial = EnsureRouteMaterial();
+
             preview.Rebuild();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+
+            // Both scenes, because the plan now loads the other one. Listing only the
+            // plan is what it did before, and Play would have failed at the button.
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(ScenePath, true),
+                new EditorBuildSettingsScene(PlayScenePath, true)
+            };
         }
 
         /// <summary>
@@ -2140,6 +2155,12 @@ namespace Arna.Editor
             {
                 preview.Models = LoadModels();
                 preview.Decor = LoadPlanDecor();
+
+                // The hand that draws the road, added to scenes saved before it existed.
+                var drawing = preview.GetComponent<RouteDrawing>()
+                              ?? preview.gameObject.AddComponent<RouteDrawing>();
+                if (drawing.RouteMaterial == null) drawing.RouteMaterial = preview.RouteMaterial;
+
                 preview.Rebuild();
                 EditorUtility.SetDirty(preview);
                 touched++;
