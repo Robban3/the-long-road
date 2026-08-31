@@ -54,6 +54,18 @@ namespace Arna.UI
             }
 
             _found[name] = sprite;
+
+            // Said once per painting, because the alternative is what happened with the
+            // menu scene: a file that was never found and a file that was never looked
+            // for produce exactly the same screen, and no way to tell them apart.
+            if (sprite != null)
+                Debug.Log($"[Arna] Backdrop '{name}' found, {sprite.rect.width:0}×"
+                          + $"{sprite.rect.height:0} px.");
+            else
+                Debug.Log($"[Arna] No backdrop '{name}'. Put {name}.png in "
+                          + "Assets/_Project/Art/Resources to use one — the screen draws "
+                          + "its own until then.");
+
             return sprite;
         }
 
