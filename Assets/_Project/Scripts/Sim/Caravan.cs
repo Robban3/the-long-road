@@ -127,9 +127,17 @@ namespace Arna.Sim
         /// <summary>Distance along the path at which the route proper begins.</summary>
         readonly float _origin;
 
-        public Caravan(TileGrid grid, IReadOnlyList<int> route)
+        /// <param name="wagonHealth">
+        /// Multiplier on every cart's health. One is the game as balanced; above it is
+        /// what the shop's wainwright sells (see <see cref="Boons"/>). Passed in rather
+        /// than looked up, so a caravan built by a test or by the headless capture is the
+        /// standard one without anybody having to say so.
+        /// </param>
+        public Caravan(TileGrid grid, IReadOnlyList<int> route, float wagonHealth = 1f)
         {
             _grid = grid;
+
+            if (wagonHealth <= 0f) wagonHealth = 1f;
 
             int count = route.Count;
 
@@ -178,9 +186,9 @@ namespace Arna.Sim
 
             _wagons = new[]
             {
-                new Wagon(WagonKind.War, WarHp),
-                new Wagon(WagonKind.Supply, SupplyHp),
-                new Wagon(WagonKind.Treasure, TreasureHp)
+                new Wagon(WagonKind.War, WarHp * wagonHealth),
+                new Wagon(WagonKind.Supply, SupplyHp * wagonHealth),
+                new Wagon(WagonKind.Treasure, TreasureHp * wagonHealth)
             };
         }
 

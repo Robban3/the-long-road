@@ -184,7 +184,12 @@ namespace Arna.App
 
             var route = ChosenRoute.Waits(Chapter, Level) ? ChosenRoute.Tiles : corridor.Tiles;
 
-            var squad = new Squad(recipe.SquadBudget, recipe.Posts);
+            // What gold has bought between levels. Empty outside play mode, so opening
+            // this scene to look at a level shows the level as balanced.
+            var boons = Application.isPlaying ? Session.Campaign.Boons() : new Boons();
+
+            var squad = new Squad(recipe.SquadBudget + boons.ExtraSquadPoints,
+                                  recipe.Posts + boons.ExtraPosts);
 
             // What the player put together on the troop screen, when they came that way.
             // The Inspector array below is the fallback for opening this scene directly,
@@ -202,7 +207,7 @@ namespace Arna.App
                     if (Formation[i].Occupied) squad.TryPlace((FormationSlot)i, Formation[i].Kind);
             }
 
-            _run = new LevelRun(map, route, squad, recipe.EnemyStrength);
+            _run = new LevelRun(map, route, squad, recipe.EnemyStrength, boons);
             _levelGrid = map.Grid;
 
             // No map furniture in the play view. The drawn line belongs to the planning

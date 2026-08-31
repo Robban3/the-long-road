@@ -61,7 +61,7 @@ namespace Arna.UI
                       "Här ska guldet mellan uppdragen spenderas."));
 
             Entry(column, ref y, step, "BUTIK", ButtonRole.Secondary,
-                  () => shell.ShowStub("Butik", "Inget säljs ännu.", Backdrops.Shop));
+                  shell.ShowShop);
 
             Entry(column, ref y, step, "BRAGDER", ButtonRole.Secondary,
                   () => shell.ShowStub("Bragder", "Inga bragder är skrivna ännu."));

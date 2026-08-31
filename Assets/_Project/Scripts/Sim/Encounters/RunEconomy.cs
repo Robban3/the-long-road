@@ -41,9 +41,17 @@ namespace Arna.Sim
 
         readonly float _levelMultiplier;
 
-        public RunEconomy(float levelSilverMultiplier = 1f)
+        /// <param name="startingSilver">
+        /// What is in the purse before a single enemy is killed. Zero is the game as
+        /// balanced; above it is the shop's trading purse (see <see cref="Boons"/>), and
+        /// it buys the first field upgrade before the fighting rather than after it,
+        /// which is a different thing to own than more silver later.
+        /// </param>
+        public RunEconomy(float levelSilverMultiplier = 1f, int startingSilver = 0)
         {
             _levelMultiplier = levelSilverMultiplier <= 0f ? 1f : levelSilverMultiplier;
+
+            if (startingSilver > 0) Silver = startingSilver;
         }
 
         public int Silver { get; private set; }

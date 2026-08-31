@@ -143,7 +143,11 @@ namespace Arna.Tests
         [Test]
         public void ABrokenSaveStartsAFreshCampaignRatherThanThrowing()
         {
-            foreach (var rubbish in new[] { null, "", "nonsense", "2|0|0|1.1.3", "1|a|b" })
+            // "3|…" is a save from a version that does not exist yet: refused rather than
+            // misread, which is the case this test is really about. It said "2|…" until
+            // the shop added boons and made version 2 the current format — at which point
+            // the test was asserting that the game cannot read its own save.
+            foreach (var rubbish in new[] { null, "", "nonsense", "3|0|0|1.1.3", "1|a|b" })
             {
                 var campaign = Campaign.Load(rubbish);
 

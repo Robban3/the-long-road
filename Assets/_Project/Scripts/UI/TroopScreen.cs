@@ -37,9 +37,12 @@ namespace Arna.UI
         {
             var recipe = new ChapterRecipe().ForLevel(Session.Level);
 
+            var boons = Session.Campaign.Boons();
+
             if (_squad == null || _forChapter != Session.Chapter || _forLevel != Session.Level)
             {
-                _squad = new Squad(recipe.SquadBudget, recipe.Posts);
+                _squad = new Squad(recipe.SquadBudget + boons.ExtraSquadPoints,
+                                   recipe.Posts + boons.ExtraPosts);
                 _forChapter = Session.Chapter;
                 _forLevel = Session.Level;
 

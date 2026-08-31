@@ -31,13 +31,23 @@ namespace Arna.Sim
         readonly List<Watcher> _watchers = new List<Watcher>();
         float _accumulator;
 
-        public LevelRun(LevelMap map, IReadOnlyList<int> route, Squad squad = null, float enemyStrength = 1f)
+        /// <param name="boons">
+        /// What the player has bought in the shop, or null for the game as balanced.
+        ///
+        /// Null everywhere except the running game: every test here, the headless capture
+        /// and a level opened straight from the editor walk a caravan nobody has spent
+        /// gold on, which is what keeps a shop purchase out of the balance figures.
+        /// </param>
+        public LevelRun(LevelMap map, IReadOnlyList<int> route, Squad squad = null,
+                        float enemyStrength = 1f, Boons boons = null)
         {
-            Caravan = new Caravan(map.Grid, route);
+            Boons = boons ?? new Boons();
+
+            Caravan = new Caravan(map.Grid, route, Boons.WagonHealth);
             Squad = squad;
             Detection = new DetectionSystem(map.Grid, map.Encounters.Enemies);
             Traps = new TrapField(map.Grid, map.Encounters.Traps);
-            Economy = new RunEconomy();
+            Economy = new RunEconomy(1f, Boons.StartingSilver);
 
             // Combat runs whether or not anyone came along to fight it.
             //
@@ -62,6 +72,9 @@ namespace Arna.Sim
         /// an empty country. That is what keeps a scenery change out of the balance.
         /// </summary>
         public ObstacleField Obstacles { get; }
+
+        /// <summary>What was bought between levels. Empty on a run nobody has spent on.</summary>
+        public Boons Boons { get; }
 
         public Caravan Caravan { get; }
         public Squad Squad { get; }
@@ -335,7 +348,8 @@ namespace Arna.Sim
             if (group == null || !group.Alive) return false;
             if (Outcome != RunOutcome.InProgress) return false;
 
-            if (!Economy.TryUpgrade(group.UpgradeLevel(track), group.CostMultiplier(track), out cost))
+            if (!Economy.TryUpgrade(group.UpgradeLevel(track),
+                                    group.CostMultiplier(track) * Boons.UpgradeCost, out cost))
                 return false;
 
             group.RaiseLevel(track);
@@ -351,7 +365,7 @@ namespace Arna.Sim
             int level = group.UpgradeLevel(track);
             if (level >= RunEconomy.MaxTrackLevel) return 0;
 
-            return RunEconomy.UpgradeCost(level, group.CostMultiplier(track));
+            return RunEconomy.UpgradeCost(level, group.CostMultiplier(track) * Boons.UpgradeCost);
         }
     }
 }

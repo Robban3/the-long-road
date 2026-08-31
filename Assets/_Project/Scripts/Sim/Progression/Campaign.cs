@@ -45,6 +45,9 @@ namespace Arna.Sim
         /// <summary>Stars per level, keyed by <see cref="Key"/>. Absent means never cleared.</summary>
         readonly Dictionary<int, int> _stars = new Dictionary<int, int>();
 
+        /// <summary>Boons bought in the shop, by level. See <see cref="BoonTable"/>.</summary>
+        readonly int[] _boons = new int[BoonTable.All.Length];
+
         /// <summary>Gold, the between-levels currency. Silver is spent inside a run.</summary>
         public int Gold { get; private set; }
 
@@ -157,6 +160,39 @@ namespace Arna.Sim
             return true;
         }
 
+        public int BoonLevel(Boon boon) => _boons[(int)boon];
+
+        /// <summary>What the next level of this boon costs, or zero when it is finished.</summary>
+        public int PriceOf(Boon boon) => BoonTable.Price(boon, _boons[(int)boon]);
+
+        /// <summary>
+        /// Buys the next level of a boon, and says what it cost.
+        ///
+        /// Refused when the boon is finished or the gold is not there, and in both cases
+        /// nothing is spent — the caller can offer the button either way and let this
+        /// decide, rather than working out the answer twice and disagreeing with itself.
+        /// </summary>
+        public bool TryBuy(Boon boon, out int cost)
+        {
+            cost = PriceOf(boon);
+
+            if (cost <= 0 || Gold < cost) { cost = 0; return false; }
+
+            Gold -= cost;
+            _boons[(int)boon]++;
+
+            return true;
+        }
+
+        /// <summary>What has been bought, in the form a run can use.</summary>
+        public Boons Boons()
+        {
+            var boons = new Boons();
+            foreach (var boon in BoonTable.All) boons.Set(boon, _boons[(int)boon]);
+
+            return boons;
+        }
+
         public void Earn(int gold, int gems = 0)
         {
             Gold += gold;
@@ -181,17 +217,17 @@ namespace Arna.Sim
         }
 
         /// <summary>
-        /// The save string: <c>1|gold|gems|chapter.level.stars,…</c>
+        /// The save string: <c>2|gold|gems|chapter.level.stars,…|boon.level,…</c>
         ///
         /// A line of text rather than JSON because Arna.Sim may not touch the engine and
         /// therefore has no JsonUtility, and because a save this small is easier to read
-        /// in a bug report as text than as anything else. The leading 1 is the format
-        /// version: a save written by a newer build is refused rather than misread.
+        /// in a bug report as text than as anything else. The leading number is the format
+        /// version: version 1 had no boons and still loads, with none.
         /// </summary>
         public string Save()
         {
             var text = new StringBuilder();
-            text.Append('1').Append('|').Append(Gold).Append('|').Append(Gems).Append('|');
+            text.Append('2').Append('|').Append(Gold).Append('|').Append(Gems).Append('|');
 
             bool first = true;
             for (int chapter = 1; chapter <= HighestChapter; chapter++)
@@ -205,6 +241,18 @@ namespace Arna.Sim
                     text.Append(chapter).Append('.').Append(level).Append('.').Append(stars);
                     first = false;
                 }
+            }
+
+            text.Append('|');
+
+            bool leading = true;
+            for (int i = 0; i < _boons.Length; i++)
+            {
+                if (_boons[i] <= 0) continue;
+
+                if (!leading) text.Append(',');
+                text.Append(i).Append('.').Append(_boons[i]);
+                leading = false;
             }
 
             return text.ToString();
@@ -221,7 +269,11 @@ namespace Arna.Sim
             if (string.IsNullOrEmpty(saved)) return campaign;
 
             var parts = saved.Split('|');
-            if (parts.Length < 4 || parts[0] != "1") return campaign;
+            if (parts.Length < 4) return campaign;
+
+            // Version 1 is the same save without the boons on the end, and is read as a
+            // campaign that has bought nothing — which is exactly what it was.
+            if (parts[0] != "1" && parts[0] != "2") return campaign;
 
             if (int.TryParse(parts[1], out int gold) && gold > 0) campaign.Gold = gold;
             if (int.TryParse(parts[2], out int gems) && gems > 0) campaign.Gems = gems;
@@ -243,6 +295,25 @@ namespace Arna.Sim
 
                 campaign._stars[Key(chapter, level)] = stars;
                 if (chapter > campaign.HighestChapter) campaign.HighestChapter = chapter;
+            }
+
+            if (parts.Length > 4)
+            {
+                foreach (var entry in parts[4].Split(','))
+                {
+                    if (entry.Length == 0) continue;
+
+                    var field = entry.Split('.');
+                    if (field.Length != 2) continue;
+
+                    if (!int.TryParse(field[0], out int boon) ||
+                        !int.TryParse(field[1], out int level)) continue;
+
+                    if (boon < 0 || boon >= campaign._boons.Length || level < 1) continue;
+
+                    int max = BoonTable.MaxLevel((Boon)boon);
+                    campaign._boons[boon] = level > max ? max : level;
+                }
             }
 
             // A save can name a chapter the gate would not open — an older build, a

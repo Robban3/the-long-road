@@ -106,6 +106,7 @@ namespace Arna.UI
         }
 
         public void ShowTroops() => Show(TroopScreen.Build);
+        public void ShowShop() => Show(ShopScreen.Build);
 
         public void Quit()
         {

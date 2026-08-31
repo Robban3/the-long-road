@@ -59,12 +59,12 @@ namespace Arna.UI
                         new Vector2(480f, 96f));
 
             var gold = Widgets.Counter("Gold", purse, Theme.CoinIcon, Theme.Coin,
-                campaign.Gold.ToString(), () => shell.ShowStub("Butik", "Inget säljs ännu.", Backdrops.Shop), 250f);
+                campaign.Gold.ToString(), shell.ShowShop, 250f);
             gold.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(1f, 0.5f), new Vector2(-260f, 0f), new Vector2(250f, 72f));
 
             var gems = Widgets.Counter("Gems", purse, Theme.GemIcon, Theme.Gem,
-                campaign.Gems.ToString(), () => shell.ShowStub("Butik", "Inget säljs ännu.", Backdrops.Shop), 250f);
+                campaign.Gems.ToString(), shell.ShowShop, 250f);
             gems.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(1f, 0.5f), new Vector2(0f, 0f), new Vector2(250f, 72f));
         }
@@ -408,7 +408,7 @@ namespace Arna.UI
             bar.rectTransform.offsetMax = new Vector2(0f, 0f);
             bar.rectTransform.sizeDelta = new Vector2(0f, NavHeight);
 
-            Tab(shell, bar.transform, -336f, "BUTIK", Theme.CoinIcon, false, "Inget säljs ännu.");
+            Tab(shell, bar.transform, -336f, "BUTIK", Theme.CoinIcon, false, null, shell.ShowShop);
             Tab(shell, bar.transform, -168f, "TRUPPER", Theme.HeartIcon, false, null,
                 shell.ShowTroops);
             Tab(shell, bar.transform, 0f, "STRID", Theme.Star, true, null);
