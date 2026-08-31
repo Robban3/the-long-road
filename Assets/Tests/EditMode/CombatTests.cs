@@ -288,7 +288,13 @@ namespace Arna.Tests
                     if (d < nearest) nearest = d;
                 }
 
-                Assert.LessOrEqual(nearest, Squad.FormationSpan + 0.5f,
+                // The scout is allowed her lead: she walks ahead of the van on purpose
+                // now, and falls back into the ranks whenever anything is in contact.
+                float allowed = group.Kind == TroopKind.Scout
+                    ? Squad.FormationSpan + Squad.ScoutLead
+                    : Squad.FormationSpan;
+
+                Assert.LessOrEqual(nearest, allowed + 0.5f,
                     $"the {group.Kind} wandered {nearest:F1} m from the column");
             }
         }
@@ -296,12 +302,6 @@ namespace Arna.Tests
         [Test]
         public void AnEngineerDefusesTrapsAndEarnsFromIt()
         {
-            var withEngineer = new Squad(18);
-
-            withEngineer.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
-            withEngineer.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
-            withEngineer.TryPlace(FormationSlot.RightVan, TroopKind.Engineer);
-
             // Across the chapter rather than on one map, because the claim is about the
             // engineer and the old form was about 1-8's fast route.
             //
@@ -310,12 +310,27 @@ namespace Arna.Tests
             // name, ten traps were laid, four were revealed, and every one of those four
             // sat off the line the caravan drove. That is a fact about a map, and the
             // test failed whenever the map changed for reasons having nothing to do with
-            // engineers — which it did three times this week.
+            // engineers — which it did three times in one week.
+            //
+            // **And a fresh escort for each level, which is the second thing this test
+            // got wrong.** It built one squad and ran all ten levels with it, carrying
+            // every wound forward with nothing to heal them, so by about level three the
+            // engineer was dead and the rest of the chapter measured a corpse walking
+            // past traps. The game starts each level with the escort the player paid for;
+            // a test that does not is measuring attrition and calling it engineering. It
+            // went red for a change to where the *scout* stands, which is how this came
+            // to light: with a fresh squad per level the engineer disarms six or seven
+            // traps in the chapter whichever way that change goes.
             int laid = 0, disarmed = 0;
 
             for (int level = 1; level <= 10; level++)
             {
-                var run = Run(1, level, withEngineer);
+                var squad = new Squad(18);
+                squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
+                squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+                squad.TryPlace(FormationSlot.RightVan, TroopKind.Engineer);
+
+                var run = Run(1, level, squad);
                 run.RunToCompletion();
 
                 laid += run.Traps.Traps.Count;

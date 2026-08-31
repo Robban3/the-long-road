@@ -142,6 +142,12 @@ namespace Arna.Sim
 
             Caravan.Tick(StepSeconds);
 
+            // The scout walks out in front while the road is quiet and falls back into
+            // the ranks the moment anything is fighting. Set before the posts are worked
+            // out, so she is already coming back on the step contact is made rather than
+            // one step later, standing alone in front of it.
+            if (Squad != null) Squad.Scouting = Combat == null || !Combat.InContact;
+
             // Around the whole column, not around its first wagon. See Squad.PostAt.
             Squad?.UpdatePositions(Caravan);
             RefreshWatchers();

@@ -213,6 +213,43 @@ namespace Arna.Sim
         /// <summary>How far a troop will chase before returning to its post.</summary>
         public const float Leash = 10f;
 
+        /// <summary>
+        /// How far ahead of the van the scout walks.
+        ///
+        /// Fourteen metres, so about twenty-four ahead of the lead wagon, and the number
+        /// is a compromise between the two things that can go wrong. Too short and this
+        /// changes nothing: her thirty-four metres of sight already reached that far from
+        /// the formation, which is exactly the complaint — a scout who does not scout is a
+        /// sight statistic with a name on it. Too long and she meets each group alone,
+        /// which is the failure recorded under <see cref="VanLead"/>: the van at twelve
+        /// metres instead of ten lost 1-6 on every route for that reason, and the scout
+        /// has two models at sixty hit points where the van has four at a hundred and
+        /// eighty.
+        ///
+        /// She is also called in the moment blades are out — see <see cref="Scouting"/> —
+        /// so what this buys is warning before contact and nothing during it.
+        /// </summary>
+        public const float ScoutLead = 14f;
+
+        /// <summary>
+        /// Whether the scout is out ahead of the column or back in the ranks.
+        ///
+        /// Set false while the column is in contact. A scout standing fourteen metres in
+        /// front of a charge is not scouting, she is the first thing it reaches — and she
+        /// is the one troop in the game that cannot afford to be.
+        /// </summary>
+        public bool Scouting = true;
+
+        /// <summary>
+        /// Whether the scout ranges ahead at all.
+        ///
+        /// Off puts her back in the ranks with everybody else, which is what she did
+        /// before, and exists so the two can be run against each other over a whole
+        /// chapter rather than argued about. A change to where a troop stands is a
+        /// balance change, and this project has a rule about those: measure it.
+        /// </summary>
+        public bool ScoutsAhead = true;
+
         readonly TroopGroup[] _slots = new TroopGroup[6];
 
         public int Budget { get; }
@@ -364,6 +401,28 @@ namespace Arna.Sim
         /// the flanks stand beside the column at a quarter of its length either side of
         /// the middle, which puts a guard within reach of every wagon there is.
         /// </summary>
+        /// <summary>
+        /// Where this group stands: its formation post, or out in front if it is the scout.
+        ///
+        /// By kind and not by slot, which is the whole change. The posts are a formation —
+        /// van, flanks, rear — and the scout was given one of them like anybody else, so
+        /// what she did with the best eyes in the army was look at the same ground the
+        /// column was already standing on. Worse, put in the rear slot she watched the
+        /// road behind a caravan that was travelling forwards.
+        ///
+        /// Waking is measured from the caravan and not from the watchers (see
+        /// DetectionSystem.Scan), so a scout out in front reveals without waking. That is
+        /// not a loophole, it is the information economy the design rests on: what she
+        /// buys is knowing what is ahead before you are committed to it.
+        /// </summary>
+        Vec2 PostFor(TroopGroup group, int slot, float half)
+        {
+            if (group != null && group.Kind == TroopKind.Scout && Scouting && ScoutsAhead)
+                return new Vec2(half + VanLead + ScoutLead, 0f);
+
+            return PostAt(slot, half);
+        }
+
         static Vec2 PostAt(int slot, float half)
         {
             switch (slot)
@@ -419,7 +478,7 @@ namespace Arna.Sim
                 var group = _slots[i];
                 if (group == null) continue;
 
-                var post = PostAt(i, caravan.ColumnHalfLength);
+                var post = PostFor(group, i, caravan.ColumnHalfLength);
                 var anchor = caravan.PositionAt(centre + post.X);
 
                 var wanted = new Vec2(anchor.X + rx * post.Y, anchor.Y + ry * post.Y);
@@ -451,7 +510,7 @@ namespace Arna.Sim
                 var group = _slots[i];
                 if (group == null) continue;
 
-                var post = PostAt(i, half);
+                var post = PostFor(group, i, half);
 
                 var wanted = new Vec2(
                     centre.X + hx * post.X + rx * post.Y,

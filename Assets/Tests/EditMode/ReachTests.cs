@@ -15,6 +15,49 @@ namespace Arna.Tests
     /// </summary>
     public class ReachTests
     {
+        [Test]
+        public void TheScoutWalksAheadOfTheColumn()
+        {
+            // She had the best eyes in the army and a post in the formation, so what she
+            // looked at was the ground the column was already standing on.
+            var squad = new Squad(12);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+
+            var run = Run(squad);
+            run.Step();
+
+            var scout = run.Squad[FormationSlot.LeftVan];
+            var van = run.Squad[FormationSlot.Van];
+            var lead = run.Caravan.LeadPosition;
+
+            Assert.Greater(Vec2.Distance(scout.Position, lead),
+                           Vec2.Distance(van.Position, lead),
+                           "the scout was no further out than the van");
+        }
+
+        [Test]
+        public void TheScoutFallsBackWhenBladesAreOut()
+        {
+            // Fourteen metres in front of a charge is not scouting. She is the one troop
+            // in the game that cannot afford to be the first thing reached.
+            var squad = new Squad(12);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+
+            var run = Run(squad);
+            run.Step();
+
+            var scout = run.Squad[FormationSlot.LeftVan];
+            float ahead = Vec2.Distance(scout.Position, run.Caravan.LeadPosition);
+
+            run.Squad.Scouting = false;
+            run.Squad.UpdatePositions(run.Caravan);
+
+            float back = Vec2.Distance(scout.Position, run.Caravan.LeadPosition);
+
+            Assert.Less(back, ahead, "the scout stayed out in front with a fight on");
+        }
+
         static Squad WithScout()
         {
             var squad = new Squad(12);
