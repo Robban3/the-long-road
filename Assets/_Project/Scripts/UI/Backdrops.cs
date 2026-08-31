@@ -28,6 +28,9 @@ namespace Arna.UI
         public const string Victory = "ArnaVictory";
         public const string Defeat = "ArnaDefeat";
 
+        /// <summary>Where the paintings live, for the editor's forgiving search and for saying so.</summary>
+        public const string Folder = "Assets/_Project/Art/Resources";
+
         static readonly Dictionary<string, Sprite> _found = new Dictionary<string, Sprite>();
 
         /// <summary>
@@ -43,15 +46,20 @@ namespace Arna.UI
 
             var sprite = Resources.Load<Sprite>(name);
 
-            if (sprite == null)
-            {
-                var texture = Resources.Load<Texture2D>(name);
+            if (sprite == null) sprite = FromTexture(Resources.Load<Texture2D>(name));
 
-                if (texture != null)
-                    sprite = Sprite.Create(texture,
-                        new Rect(0f, 0f, texture.width, texture.height),
-                        new Vector2(0.5f, 0.5f), Pixels.PixelsPerUnit);
-            }
+#if UNITY_EDITOR
+            // Nothing under that exact name. In the editor, look again without caring
+            // about case, spaces, underscores or a trailing "1" — which is what a file
+            // copied twice is called.
+            //
+            // Forgiving here and strict in a build, deliberately. A player's phone should
+            // not be scanning folders, and by the time there is a build the file has a
+            // name that works. This is for the half hour where somebody is trying to get
+            // a painting into their own game and the only feedback is a screen that looks
+            // exactly the same either way.
+            if (sprite == null) sprite = Search(name);
+#endif
 
             _found[name] = sprite;
 
@@ -68,6 +76,67 @@ namespace Arna.UI
 
             return sprite;
         }
+
+        static Sprite FromTexture(Texture2D texture)
+        {
+            if (texture == null) return null;
+
+            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height),
+                                 new Vector2(0.5f, 0.5f), Pixels.PixelsPerUnit);
+        }
+
+#if UNITY_EDITOR
+        /// <summary>Letters and digits only, lowercased. "Arna Backdrop 1" and "arnabackdrop" meet here.</summary>
+        static string Plain(string name)
+        {
+            var text = new System.Text.StringBuilder(name.Length);
+
+            foreach (char c in name)
+                if (char.IsLetterOrDigit(c)) text.Append(char.ToLowerInvariant(c));
+
+            return text.ToString();
+        }
+
+        static Sprite Search(string name)
+        {
+            if (!System.IO.Directory.Exists(Folder)) return null;
+
+            string wanted = Plain(name);
+            string trimmed = wanted.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+
+            var listed = new List<string>();
+
+            foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:Texture2D", new[] { Folder }))
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                string file = System.IO.Path.GetFileNameWithoutExtension(path);
+
+                listed.Add(file);
+
+                string plain = Plain(file);
+                if (plain != wanted && plain.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9') != trimmed)
+                    continue;
+
+                var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path)
+                             ?? FromTexture(UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(path));
+
+                if (sprite == null) continue;
+
+                Debug.LogWarning($"[Arna] Using '{file}' for the '{name}' backdrop. Rename the "
+                                 + $"file to {name}.png and it will load in a build too — "
+                                 + "this loose match is editor-only.");
+                return sprite;
+            }
+
+            if (listed.Count > 0)
+                Debug.Log($"[Arna] {Folder} holds: {string.Join(", ", listed)}. "
+                          + $"None of them is '{name}'.");
+            else
+                Debug.Log($"[Arna] {Folder} holds no images at all.");
+
+            return null;
+        }
+#endif
 
         public static bool Has(string name) => Find(name) != null;
 
