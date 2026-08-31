@@ -61,21 +61,46 @@ namespace Arna.UI
             if (sprite == null) sprite = Search(name);
 #endif
 
-            _found[name] = sprite;
-
-            // Said once per painting, because the alternative is what happened with the
-            // menu scene: a file that was never found and a file that was never looked
-            // for produce exactly the same screen, and no way to tell them apart.
+            // **A miss is never cached, and that was the bug.**
+            //
+            // Statics survive leaving play mode when Unity's Enter Play Mode Options have
+            // the domain reload switched off, which is the usual setting for fast
+            // iteration. So: run the game once before the file exists, cache the null,
+            // add the file, run again — and the dictionary answers null for the rest of
+            // the editor session. It never looks again, and the console line saying the
+            // file is missing never prints either, because that only ran on the first
+            // lookup. The shop showed the castle for an hour with nothing on screen or in
+            // the console to say why.
+            //
+            // A failed lookup is one Resources.Load returning null. There is nothing
+            // there worth protecting with a cache, and the price of caching it is that
+            // hour.
             if (sprite != null)
+            {
+                _found[name] = sprite;
+
                 Debug.Log($"[Arna] Backdrop '{name}' found, {sprite.rect.width:0}×"
                           + $"{sprite.rect.height:0} px.");
+            }
             else
+            {
                 Debug.Log($"[Arna] No backdrop '{name}'. Put {name}.png in "
                           + "Assets/_Project/Art/Resources to use one — the screen draws "
                           + "its own until then.");
+            }
 
             return sprite;
         }
+
+        /// <summary>
+        /// Forgets what was found, so a painting replaced on disk is picked up.
+        ///
+        /// Run when play starts, which is the one moment a person might have swapped a
+        /// file since the last look. Without the domain reload the sprites found in an
+        /// earlier session are still cached and still point at the old texture.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void Forget() => _found.Clear();
 
         static Sprite FromTexture(Texture2D texture)
         {

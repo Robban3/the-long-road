@@ -6,7 +6,8 @@ no field to wire.
 | File | Where it appears |
 |---|---|
 | `ArnaBackdrop.png` | Behind the front page: the title, PLAY, and the rest |
-| `ArnaRoadmap.png`  | Behind the level roadmap, in place of the painted forest |
+| `ArnaRoadmap.png`  | **The level roadmap itself** — see below |
+| `ArnaRoadmap2.png` | The same for chapter 2, and so on. Falls back to the first |
 | `ArnaShop.png`     | Behind the shop |
 | `ArnaVictory.png`  | Behind the result screen when the caravan arrived |
 | `ArnaDefeat.png`   | Behind it when the caravan was lost |
@@ -25,6 +26,23 @@ use is a *serialized field*, wired by `Arna → Refresh Scene Assets`, and forge
 run that has produced four separate false bug reports in this project: the code changed,
 the saved scene did not, and nothing said so. A file loaded by name at run time has no
 such trap. Put the file here and it is in the game.
+
+## The roadmap is not a backdrop
+
+`ArnaRoadmap.png` is different from the others: it *is* the screen, not something
+behind it. The board takes the painting's own proportions, the whole picture is shown
+rather than cropped, and the ten level medallions are pinned to points on the road in
+the painting — first at the bottom, tenth at the top, so you can see where the journey
+starts and what it is heading for.
+
+Those points are a table in `UI/RoadmapScreen.cs` (`Waypoints`), given as fractions of
+the picture so they hold at any size. They belong to one painting: a chapter with its
+own picture wants its own table. While `ShowWaypoints` is on, each medallion prints its
+pair underneath in the editor, so one that has landed in a river can be read off the
+screen and moved in a line rather than guessed at.
+
+With no painting the screen draws the board it drew before — tiled ground, a scattered
+wood and a road of paving stones.
 
 ## Shape
 

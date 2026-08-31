@@ -161,7 +161,30 @@ namespace Arna.UI
             content.pivot = new Vector2(0.5f, 1f);
             content.offsetMin = new Vector2(0f, 0f);
             content.offsetMax = new Vector2(0f, 0f);
-            content.sizeDelta = new Vector2(0f, TopPad * 2f + Step * (Campaign.LevelsPerChapter - 1));
+            var painting = Painting();
+
+            if (painting != null)
+            {
+                // The picture sets the shape of the board rather than being cropped to
+                // fit one. Its width is the viewport's — the content is stretched to that
+                // — and the fitter works the height out from the width every layout pass,
+                // which is the only way to get it right without knowing the width here:
+                // a rect's size is not decided until the layout runs, and this is built
+                // before it does.
+                var sheet = Widgets.Panel("Painting", content, painting, Color.white);
+                sheet.type = Image.Type.Simple;
+                sheet.raycastTarget = false;
+                sheet.rectTransform.Fill();
+
+                var fitter = content.gameObject.AddComponent<AspectRatioFitter>();
+                fitter.aspectMode = AspectRatioFitter.AspectMode.WidthControlsHeight;
+                fitter.aspectRatio = painting.rect.width / painting.rect.height;
+            }
+            else
+            {
+                content.sizeDelta =
+                    new Vector2(0f, TopPad * 2f + Step * (Campaign.LevelsPerChapter - 1));
+            }
 
             scroll.viewport = viewport;
             scroll.content = content;
@@ -175,20 +198,20 @@ namespace Arna.UI
             // Drawing order is hierarchy order in UGUI, so this list is the picture from
             // back to front and reads that way.
             //
-            // A painting takes the place of both when one is supplied: a painted forest
-            // is a better forest than a scattered one, and the road and the medallions
-            // still go on top of it wherever the levels happen to fall.
-            if (Backdrops.Paint(Backdrops.Roadmap, content, 0f) == null)
+            // With a painting there is none of it: the ground, the wood and the road are
+            // all in the picture, and laying paving stones over a painted road is drawing
+            // a road on a road.
+            if (painting == null)
             {
                 Turf(content);
                 Wood(content);
+
+                for (int level = 1; level < Campaign.LevelsPerChapter; level++)
+                    Stones(content, Spot(level), Spot(level + 1));
             }
 
-            for (int level = 1; level < Campaign.LevelsPerChapter; level++)
-                Stones(content, Spot(level), Spot(level + 1));
-
             for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
-                Node(shell, content, campaign, level);
+                Node(shell, content, campaign, level, painting != null);
 
             // Over the scrolling board and outside it, so the dark stays at the edges of
             // the frame instead of travelling up the map with the trees.
@@ -196,10 +219,79 @@ namespace Arna.UI
             dark.raycastTarget = false;
             dark.rectTransform.Fill();
 
+            // Where the player is, as a fraction of the board rather than a pixel offset.
+            //
+            // A rect has no size until the layout has run, and this is built before it
+            // does — so the old arithmetic against frame.rect.height was measuring a
+            // rectangle of zero height whenever the screen was built fresh. The
+            // ScrollRect's own normalised position needs no measurement: nought is the
+            // bottom, one is the top, and it clamps itself.
             campaign.Furthest(out int _, out int next);
-            float scrolled = Mathf.Clamp(TopPad + (next - 2) * Step, 0f,
-                                         Mathf.Max(0f, content.sizeDelta.y - frame.rect.height));
-            content.anchoredPosition = new Vector2(0f, scrolled);
+
+            float along = Campaign.LevelsPerChapter > 1
+                ? (next - 1) / (float)(Campaign.LevelsPerChapter - 1)
+                : 0f;
+
+            // Levels climb the picture, so the start of the chapter is the bottom of it.
+            scroll.verticalNormalizedPosition = Mathf.Clamp01(along - 0.15f);
+        }
+
+        /// <summary>
+        /// Where each level sits on the painted map, as a fraction of the painting: x
+        /// from its left edge, y from its top.
+        ///
+        /// Read off the painting itself, which is the only way a medallion can land on a
+        /// road somebody drew rather than near it. Fractions rather than pixels, so the
+        /// same table holds however large the picture is drawn — on a tall phone, a short
+        /// one, or in a Game view of any shape at all.
+        ///
+        /// The order runs <b>up</b> the picture: level one at the fortress gate at the
+        /// bottom, the tenth at the castle on the skyline. That is the way the painting
+        /// reads — you can see where the journey starts and what it is heading for — and
+        /// it is the reverse of the abstract stepping-stone path this screen had before.
+        ///
+        /// To move one: change its pair. The numbers are shown under each medallion in
+        /// the editor, so a wrong one can be read off the screen rather than guessed at.
+        /// </summary>
+        static readonly Vector2[] Waypoints =
+        {
+            new Vector2(0.508f, 0.845f),   // 1  — outside the fortress gate
+            new Vector2(0.487f, 0.762f),   // 2
+            new Vector2(0.520f, 0.680f),   // 3
+            new Vector2(0.500f, 0.598f),   // 4  — the lower stone bridge
+            new Vector2(0.452f, 0.522f),   // 5  — under the falls, by the village
+            new Vector2(0.497f, 0.462f),   // 6  — the upper bridge
+            new Vector2(0.548f, 0.400f),   // 7  — below the watchtower
+            new Vector2(0.532f, 0.318f),   // 8
+            new Vector2(0.548f, 0.232f),   // 9
+            new Vector2(0.640f, 0.140f)    // 10 — the castle road
+        };
+
+        /// <summary>
+        /// Shows each medallion's place on the painting, in the editor only.
+        ///
+        /// On while the waypoints are being fitted to a picture, which is a job of
+        /// looking rather than of arithmetic: read the pair under a medallion that has
+        /// landed in a river and it can be moved in one line. Off once they are right.
+        /// </summary>
+        public const bool ShowWaypoints = true;
+
+        /// <summary>
+        /// The painting for this chapter, or the shared one.
+        ///
+        /// Chapter two may have its own — ArnaRoadmap2.png — and falls back to the first
+        /// when it has not been painted yet. The waypoints belong to a painting, so a
+        /// chapter with its own picture will want its own table with it.
+        /// </summary>
+        static Sprite Painting()
+        {
+            if (_shown > 1)
+            {
+                var own = Backdrops.Find(Backdrops.Roadmap + _shown);
+                if (own != null) return own;
+            }
+
+            return Backdrops.Find(Backdrops.Roadmap);
         }
 
         /// <summary>Forest floor under everything, tiled rather than stretched.</summary>
@@ -321,7 +413,14 @@ namespace Arna.UI
 
         /// <summary>Where a level sits on the board, in content coordinates.</summary>
         static Vector2 Spot(int level)
-            => new Vector2(Mathf.Sin((level - 1) * 1.15f) * Swing, -(TopPad + (level - 1) * Step));
+        {
+            // Climbing, like the painted board: the first level at the foot of the map
+            // and the last at the top. One direction in the game, whichever board is
+            // being drawn.
+            int from = Campaign.LevelsPerChapter - level;
+
+            return new Vector2(Mathf.Sin(from * 1.15f) * Swing, -(TopPad + from * Step));
+        }
 
         /// <summary>Lays the paving stones between two levels.</summary>
         static void Stones(RectTransform content, Vector2 from, Vector2 to)
@@ -350,7 +449,8 @@ namespace Arna.UI
         }
 
         /// <summary>One level medallion: number, stars, or a padlock.</summary>
-        static void Node(MenuShell shell, RectTransform content, Campaign campaign, int level)
+        static void Node(MenuShell shell, RectTransform content, Campaign campaign, int level,
+                         bool painted)
         {
             bool open = campaign.Unlocked(_shown, level);
             int stars = campaign.Stars(_shown, level);
@@ -358,8 +458,10 @@ namespace Arna.UI
 
             var medallion = Widgets.Panel("Level" + level, content, Theme.Round,
                 open ? Color.white : new Color(0.42f, 0.40f, 0.38f, 1f));
-            medallion.rectTransform.Place(new Vector2(0.5f, 1f), Spot(level),
-                                          new Vector2(NodeSize, NodeSize));
+
+            if (painted) Pin(medallion.rectTransform, level);
+            else medallion.rectTransform.Place(new Vector2(0.5f, 1f), Spot(level),
+                                               new Vector2(NodeSize, NodeSize));
 
             if (open)
             {
@@ -386,12 +488,47 @@ namespace Arna.UI
             campaign.Furthest(out int atChapter, out int atLevel);
             if (!open || atChapter != chapter || atLevel != level) return;
 
+            if (painted && ShowWaypoints) Coordinate(medallion.transform, level);
+
             var halo = Widgets.Icon("Halo", medallion.transform, Theme.Round,
                                     new Color(Theme.BrightGold.r, Theme.BrightGold.g, Theme.BrightGold.b, 0.25f),
                                     NodeSize + 34f);
             halo.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero,
                                      new Vector2(NodeSize + 34f, NodeSize + 34f));
             halo.transform.SetAsFirstSibling();
+        }
+
+        /// <summary>
+        /// Pins a medallion to its place on the painting.
+        ///
+        /// Anchored rather than positioned: both anchors sit at the waypoint's fraction
+        /// of the content, so the medallion holds its spot on the road whatever size the
+        /// picture ends up being drawn at. A pixel offset would be right on one screen
+        /// and wrong on the next, which for a road painted by hand is the whole game.
+        /// </summary>
+        static void Pin(RectTransform medallion, int level)
+        {
+            var at = Waypoints[Mathf.Clamp(level - 1, 0, Waypoints.Length - 1)];
+            var anchor = new Vector2(at.x, 1f - at.y);
+
+            medallion.anchorMin = anchor;
+            medallion.anchorMax = anchor;
+            medallion.pivot = new Vector2(0.5f, 0.5f);
+            medallion.anchoredPosition = Vector2.zero;
+            medallion.sizeDelta = new Vector2(NodeSize, NodeSize);
+        }
+
+        /// <summary>The waypoint's own numbers, under the medallion, for fitting them.</summary>
+        static void Coordinate(Transform medallion, int level)
+        {
+#if UNITY_EDITOR
+            var at = Waypoints[Mathf.Clamp(level - 1, 0, Waypoints.Length - 1)];
+
+            var label = Widgets.Label("At", medallion, $"{at.x:F3}, {at.y:F3}",
+                                      Widgets.SmallSize - 10, new Color(1f, 0.9f, 0.6f, 0.7f));
+            label.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, -14f),
+                                      new Vector2(200f, 28f));
+#endif
         }
 
         /// <summary>
