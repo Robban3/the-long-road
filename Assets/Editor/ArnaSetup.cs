@@ -7,6 +7,7 @@ using Arna.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -1002,6 +1003,38 @@ namespace Arna.Editor
         }
 
         /// <summary>
+        /// Makes the menu scene when the project loads without one.
+        ///
+        /// The scene is generated rather than committed — like the other two — and there
+        /// is a menu item for it. That was not enough twice over: the menu items live in
+        /// the editor assembly, so a compile error anywhere in the code they reference
+        /// takes the whole <c>Arna</c> menu off the menu bar, and a fresh clone then has
+        /// no menu scene, no way to make one, and nothing on screen saying why.
+        ///
+        /// So it makes itself, once, when it is missing. Cheap — one File.Exists on load
+        /// — and safe, because BuildMenuScene works in a scene beside yours and closes it
+        /// again. If this ever stops happening, the reason is on the console: the editor
+        /// assembly did not compile, and nothing under Arna is running at all.
+        /// </summary>
+        [InitializeOnLoad]
+        static class MenuBootstrap
+        {
+            static MenuBootstrap()
+            {
+                // Not during the reload itself: creating and saving a scene while the
+                // domain is still coming up is asking for it.
+                EditorApplication.delayCall += () =>
+                {
+                    if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+                    if (File.Exists(MenuScenePath)) return;
+
+                    Debug.Log("[Arna] No menu scene in the project — making one now.");
+                    BuildMenuScene();
+                };
+            }
+        }
+
+        /// <summary>
         /// Builds the menu scene: a camera, and the shell that draws every screen in it.
         ///
         /// There is nothing else in it on purpose. The front page and the level roadmap
@@ -1020,9 +1053,22 @@ namespace Arna.Editor
             Debug.Log($"[Arna] Menu ready at {MenuScenePath}. Open it and press Play.");
         }
 
+        /// <summary>
+        /// Writes the menu scene to disk without touching the scene you have open.
+        ///
+        /// Additively, and that matters. Built the obvious way — a new scene in Single
+        /// mode — this closes whatever you were looking at, which makes it something that
+        /// can only be run deliberately. Made in a second scene beside yours, saved, and
+        /// closed again, it can be run whenever the file turns out to be missing.
+        ///
+        /// And it says so, in the console, with the path. The first version created the
+        /// scene in silence, so "I still cannot find the main menu" and "the tool never
+        /// ran" looked exactly alike — which is the failure this file has a paragraph
+        /// about further up, repeated.
+        /// </summary>
         static void BuildMenuScene()
         {
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
 
             var cameraGo = new GameObject("Main Camera", typeof(Camera));
             cameraGo.tag = "MainCamera";
@@ -1032,10 +1078,23 @@ namespace Arna.Editor
             camera.backgroundColor = new Color(0.07f, 0.06f, 0.05f);
             camera.orthographic = true;
 
-            new GameObject("Menu", typeof(Arna.UI.MenuShell));
+            var shell = new GameObject("Menu", typeof(Arna.UI.MenuShell));
 
-            EditorSceneManager.SaveScene(scene, MenuScenePath);
+            SceneManager.MoveGameObjectToScene(cameraGo, scene);
+            SceneManager.MoveGameObjectToScene(shell, scene);
+
+            bool saved = EditorSceneManager.SaveScene(scene, MenuScenePath);
+            EditorSceneManager.CloseScene(scene, true);
+
+            AssetDatabase.Refresh();
             RegisterScenes();
+
+            if (saved)
+                Debug.Log($"[Arna] Menu scene written to {MenuScenePath}. It is in the "
+                          + "Project window under Assets/_Project/Scenes — double-click it "
+                          + "and press Play.");
+            else
+                Debug.LogError($"[Arna] Could not write the menu scene to {MenuScenePath}.");
         }
 
         /// <summary>
@@ -1778,7 +1837,7 @@ namespace Arna.Editor
             Assembled("tower", BuildingBuilder.Tower(host.transform, kit, rng));
             Assembled("ruin", BuildingBuilder.Ruin(host.transform, kit, rng));
 
-            Object.DestroyImmediate(host);
+            UnityEngine.Object.DestroyImmediate(host);
         }
 
         static void Measure(string what, PropSet set)
@@ -1795,13 +1854,13 @@ namespace Arna.Editor
             {
                 if (prefab == null) continue;
 
-                var instance = Object.Instantiate(prefab);
+                var instance = UnityEngine.Object.Instantiate(prefab);
                 var bounds = ModelScaling.Measure(instance);
 
                 lines.Add($"{prefab.name} {bounds.size.x:0.0}×{bounds.size.z:0.0} "
                           + $"× {bounds.size.y:0.0} m");
 
-                Object.DestroyImmediate(instance);
+                UnityEngine.Object.DestroyImmediate(instance);
             }
 
             Debug.Log($"[Arna] {what}: {string.Join(", ", lines)}");
@@ -2266,7 +2325,10 @@ namespace Arna.Editor
             // The menu scene is made here if it is missing, so one menu item is enough
             // after a pull. It holds no serialized assets — every screen in it is built
             // in code — so there is nothing to refresh once it exists.
-            if (!System.IO.File.Exists(MenuScenePath)) BuildMenuScene();
+            if (System.IO.File.Exists(MenuScenePath))
+                Debug.Log($"[Arna] Menu scene already at {MenuScenePath}.");
+            else
+                BuildMenuScene();
 
             foreach (string path in new[] { PlayScenePath, ScenePath })
             {
