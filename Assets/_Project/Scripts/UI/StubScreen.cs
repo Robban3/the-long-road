@@ -25,7 +25,7 @@ namespace Arna.UI
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, 40f), new Vector2(660f, 100f));
 
             var body = Widgets.Label("Body", panel.transform, explanation, Widgets.BodySize, Theme.Muted);
-            body.horizontalOverflow = UnityEngine.UI.HorizontalWrapMode.Wrap;
+            body.horizontalOverflow = HorizontalWrapMode.Wrap;
             body.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -140f), new Vector2(740f, 260f));
 
             var ok = Widgets.Plate("Back", panel.transform, "TILLBAKA", ButtonRole.Primary, shell.ShowMain);

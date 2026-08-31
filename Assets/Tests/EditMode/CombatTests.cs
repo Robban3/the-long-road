@@ -13,7 +13,7 @@ namespace Arna.Tests
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
-            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
             squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
             squad.TryPlace(FormationSlot.LeftRear, TroopKind.Priest);
             return squad;
@@ -87,7 +87,7 @@ namespace Arna.Tests
 
             Assert.AreEqual(1, squad.PointsRemaining);
             Assert.IsFalse(squad.TryPlace(FormationSlot.LeftVan, TroopKind.Archers), "the squad overspent");
-            Assert.IsFalse(squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout), "the squad overspent");
+            Assert.IsFalse(squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout), "the squad overspent");
 
             // Nothing costs a single point: an expensive pair leaves a post empty, which
             // is the trade-off the budget exists to force.
@@ -140,7 +140,7 @@ namespace Arna.Tests
 
             var scouted = new Squad();
             scouted.TryPlace(FormationSlot.Van, TroopKind.Swordsmen);
-            scouted.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            scouted.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
 
             Assert.Greater(scouted.BestSight, plain.BestSight * 2f,
                 "adding a scout barely changed what the column can see");
@@ -327,7 +327,7 @@ namespace Arna.Tests
             {
                 var squad = new Squad(18);
                 squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
-                squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+                squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
                 squad.TryPlace(FormationSlot.RightVan, TroopKind.Engineer);
 
                 var run = Run(1, level, squad);
@@ -354,7 +354,7 @@ namespace Arna.Tests
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
-            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
             squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
 
             var run = Run(1, 8, squad);

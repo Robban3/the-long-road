@@ -43,6 +43,45 @@ namespace Arna.UI
             }
         }
 
+        /// <summary>
+        /// The escort the player put together, by formation slot, carried into the run.
+        ///
+        /// Null in a slot means an empty post. Index 6 is the scouting post, which only
+        /// a scout may hold (see FormationSlot.Scouting).
+        /// </summary>
+        public static readonly TroopKind?[] Escort = new TroopKind?[TroopTable.LinePosts + 1];
+
+        /// <summary>Whether anything was chosen. An empty escort is a caravan travelling alone.</summary>
+        public static bool HasEscort
+        {
+            get
+            {
+                foreach (var kind in Escort) if (kind.HasValue) return true;
+                return false;
+            }
+        }
+
+        public static void ClearEscort()
+        {
+            for (int i = 0; i < Escort.Length; i++) Escort[i] = null;
+        }
+
+        /// <summary>
+        /// Fills the escort from a squad the troop screen has been building.
+        ///
+        /// Kept as plain kinds rather than as the Squad itself, because the run builds its
+        /// own with that level's budget and posts — the screen's copy is a choice, not the
+        /// thing that fights.
+        /// </summary>
+        public static void SetEscort(Squad squad)
+        {
+            ClearEscort();
+            if (squad == null) return;
+
+            for (int i = 0; i < squad.Slots.Count && i < Escort.Length; i++)
+                if (squad.Slots[i] != null) Escort[i] = squad.Slots[i].Kind;
+        }
+
         public static void Choose(int chapter, int level)
         {
             Chapter = chapter < 1 ? 1 : chapter;

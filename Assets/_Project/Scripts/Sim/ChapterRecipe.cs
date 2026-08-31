@@ -48,6 +48,22 @@ namespace Arna.Sim
         public int SquadBudgetEnd = 18;
 
         /// <summary>
+        /// Posts of the line, opening across the chapter.
+        ///
+        /// Three to six. The formation had all six from the first level and the player
+        /// could never fill them: the cheapest six troops in the game cost twenty points
+        /// and the budget above runs from twelve to eighteen, so a full line was not hard
+        /// to afford but arithmetically impossible. Six sockets of which four can ever be
+        /// used reads as a bug; three that become six as the chapter goes on reads as
+        /// getting somewhere.
+        ///
+        /// Paced against the budget rather than against the level number: three posts at
+        /// twelve points, six at eighteen, which is about four points a post either end.
+        /// </summary>
+        public int PostsStart = 3;
+        public int PostsEnd = TroopTable.LinePosts;
+
+        /// <summary>
         /// Scales enemy silver drops for the whole chapter. Upgrade costs are fixed,
         /// so without this later chapters would feel poor rather than hard.
         /// </summary>
@@ -80,6 +96,7 @@ namespace Arna.Sim
                 TrapDensity = TrapDensityStart + (TrapDensityEnd - TrapDensityStart) * t,
                 MinRouteTiles = Lerp(RouteTilesStart, RouteTilesEnd, t),
                 SquadBudget = Lerp(SquadBudgetStart, SquadBudgetEnd, t),
+                Posts = Lerp(PostsStart, PostsEnd, t),
                 SilverMultiplier = SilverMultiplier,
                 Rivers = Rivers,
                 FordsPerRiver = FordsPerRiver,

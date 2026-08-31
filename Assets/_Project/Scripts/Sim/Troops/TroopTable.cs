@@ -22,6 +22,16 @@ namespace Arna.Sim
     /// The van and the rear take most of the damage; the flanks are where reach earns
     /// its keep.
     /// </summary>
+    /// <summary>
+    /// Where a troop stands. Six posts round the column, and one out in front.
+    ///
+    /// <see cref="Scouting"/> is not one of the six and is deliberately outside them.
+    /// The scout does not stand in the formation any more — she walks ahead of the van
+    /// wherever she is placed — so a post in the line was a licence to exist rather than
+    /// a position, and it made her compete for a corner with a shieldbearer who would
+    /// actually have stood in it. It is hers alone: nothing else may be put there, and
+    /// she may not be put anywhere else.
+    /// </summary>
     public enum FormationSlot : byte
     {
         Van = 0,
@@ -29,7 +39,8 @@ namespace Arna.Sim
         RightRear = 2,
         Rear = 3,
         LeftRear = 4,
-        LeftVan = 5
+        LeftVan = 5,
+        Scouting = 6
     }
 
     /// <summary>
@@ -75,6 +86,26 @@ namespace Arna.Sim
         public static bool HasRangedSpecial(TroopKind k) => k == TroopKind.Archers || k == TroopKind.Mage;
 
         public static bool CanDisarmTraps(TroopKind k) => k == TroopKind.Engineer;
+
+        /// <summary>
+        /// Troops that belong out in front rather than in the line, and which therefore
+        /// take the scouting post instead of one of the six.
+        /// </summary>
+        public static bool Scouts(TroopKind k) => k == TroopKind.Scout;
+
+        /// <summary>The six posts of the line, in the order they are unlocked.</summary>
+        public static readonly FormationSlot[] Line =
+        {
+            // Front and back first: a small escort covers the ends of the column, and a
+            // flank guard with nobody on point is a formation with a hole in the one
+            // place everything arrives from.
+            FormationSlot.Van, FormationSlot.Rear,
+            FormationSlot.RightVan, FormationSlot.LeftVan,
+            FormationSlot.RightRear, FormationSlot.LeftRear
+        };
+
+        /// <summary>How many posts the line has when every one of them is open.</summary>
+        public const int LinePosts = 6;
 
         public static readonly TroopKind[] All =
         {

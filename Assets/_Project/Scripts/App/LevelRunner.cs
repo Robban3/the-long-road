@@ -110,6 +110,14 @@ namespace Arna.App
         public BiomeDecor Decor = new BiomeDecor();
 
         [Header("Escort")]
+        /// <summary>
+        /// The fallback escort, in formation-slot order, for opening this scene directly.
+        ///
+        /// The seventh entry is the scouting post and takes a scout or nothing; the first
+        /// six are the line, and only as many of them as the level has opened are used.
+        /// What the player actually brings comes from the troop screen — see Arna.UI —
+        /// and overrides this.
+        /// </summary>
         public SlotAssignment[] Formation =
         {
             new SlotAssignment { Occupied = true, Kind = TroopKind.Spearmen },     // Van
@@ -117,7 +125,8 @@ namespace Arna.App
             new SlotAssignment { Occupied = false, Kind = TroopKind.Swordsmen },   // RightRear
             new SlotAssignment { Occupied = true, Kind = TroopKind.Swordsmen },    // Rear
             new SlotAssignment { Occupied = false, Kind = TroopKind.Shieldbearer },// LeftRear
-            new SlotAssignment { Occupied = true, Kind = TroopKind.Scout }         // LeftVan
+            new SlotAssignment { Occupied = false, Kind = TroopKind.Swordsmen },   // LeftVan
+            new SlotAssignment { Occupied = true, Kind = TroopKind.Scout }         // Scouting
         };
 
         LevelRun _run;
@@ -175,9 +184,23 @@ namespace Arna.App
 
             var route = ChosenRoute.Waits(Chapter, Level) ? ChosenRoute.Tiles : corridor.Tiles;
 
-            var squad = new Squad(recipe.SquadBudget);
-            for (int i = 0; i < Formation.Length && i < 6; i++)
-                if (Formation[i].Occupied) squad.TryPlace((FormationSlot)i, Formation[i].Kind);
+            var squad = new Squad(recipe.SquadBudget, recipe.Posts);
+
+            // What the player put together on the troop screen, when they came that way.
+            // The Inspector array below is the fallback for opening this scene directly,
+            // which is how the game was played for its whole life before there was a
+            // screen to choose an escort on.
+            if (Application.isPlaying && Session.HasEscort)
+            {
+                for (int i = 0; i < Session.Escort.Length; i++)
+                    if (Session.Escort[i].HasValue)
+                        squad.TryPlace((FormationSlot)i, Session.Escort[i].Value);
+            }
+            else
+            {
+                for (int i = 0; i < Formation.Length && i <= TroopTable.LinePosts; i++)
+                    if (Formation[i].Occupied) squad.TryPlace((FormationSlot)i, Formation[i].Kind);
+            }
 
             _run = new LevelRun(map, route, squad, recipe.EnemyStrength);
             _levelGrid = map.Grid;

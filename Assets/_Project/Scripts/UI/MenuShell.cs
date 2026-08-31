@@ -79,13 +79,29 @@ namespace Arna.UI
         public void ShowStub(string title, string explanation)
             => Show((shell, root) => StubScreen.Build(shell, root, title, explanation));
 
-        /// <summary>Starts a level: the planning map first, where the road is drawn.</summary>
+        /// <summary>
+        /// Starts a level: the escort first, then the road.
+        ///
+        /// In that order because the two choices are one choice. Which troops you bring
+        /// decides what a route costs — archers lose two fifths of a bowshot in a wood,
+        /// cavalry half its charge in a bog — so picking the road before the escort is
+        /// picking half a plan.
+        /// </summary>
         public void Play(int chapter, int level)
         {
             Session.Choose(chapter, level);
             Session.Forget();
+            Show(TroopScreen.Build);
+        }
+
+        /// <summary>Off to the planning map with the escort that was chosen.</summary>
+        public void Draw(int chapter, int level)
+        {
+            Session.Choose(chapter, level);
             SceneManager.LoadScene(Session.PlanScene);
         }
+
+        public void ShowTroops() => Show(TroopScreen.Build);
 
         public void Quit()
         {

@@ -250,13 +250,44 @@ namespace Arna.Sim
         /// </summary>
         public bool ScoutsAhead = true;
 
-        readonly TroopGroup[] _slots = new TroopGroup[6];
+        readonly TroopGroup[] _slots = new TroopGroup[TroopTable.LinePosts + 1];
 
         public int Budget { get; }
 
-        public Squad(int budget = 12)
+        /// <summary>
+        /// How many of the six posts of the line are open.
+        ///
+        /// The formation used to be six posts from the first level, and the player could
+        /// never pay for six: the cheapest six troops in the game cost twenty and the
+        /// budget runs from twelve to eighteen across a chapter, so a full line was not
+        /// merely hard to afford, it was arithmetically impossible. What the player saw
+        /// was six sockets of which three or four could ever be filled — which reads as
+        /// something broken rather than as a choice.
+        ///
+        /// So the line grows instead, from three posts to six across the chapter, roughly
+        /// in step with the budget that has to fill them. An empty post is now an empty
+        /// post because you spent your points elsewhere.
+        ///
+        /// The scouting post is not one of these and is always open. She costs two, she
+        /// stands outside the line, and she is the cheapest thing in the game to bring.
+        /// </summary>
+        public int Posts { get; }
+
+        public Squad(int budget = 12, int posts = TroopTable.LinePosts)
         {
             Budget = budget;
+            Posts = posts < 1 ? 1 : (posts > TroopTable.LinePosts ? TroopTable.LinePosts : posts);
+        }
+
+        /// <summary>Whether this post is open at this point in the campaign.</summary>
+        public bool Open(FormationSlot slot)
+        {
+            if (slot == FormationSlot.Scouting) return true;
+
+            for (int i = 0; i < Posts && i < TroopTable.Line.Length; i++)
+                if (TroopTable.Line[i] == slot) return true;
+
+            return false;
         }
 
         public IReadOnlyList<TroopGroup> Slots => _slots;
@@ -285,14 +316,37 @@ namespace Arna.Sim
 
         public TroopGroup this[FormationSlot slot] => _slots[(int)slot];
 
-        /// <summary>Places a troop if the post is free and the budget allows.</summary>
+        /// <summary>
+        /// Places a troop if the post is open and free, the kind belongs there, and the
+        /// budget allows.
+        ///
+        /// A scout goes in the scouting post and nowhere else, and nothing else goes in
+        /// it. Two rules rather than one, because both halves have been wrong: she used
+        /// to take a place in the line she does not stand in, and letting anything else
+        /// take the post out in front would put a shieldbearer fourteen metres ahead of
+        /// the van with the sight of a man looking at his own boots.
+        /// </summary>
         public bool TryPlace(FormationSlot slot, TroopKind kind)
         {
+            if (!Open(slot)) return false;
             if (_slots[(int)slot] != null) return false;
+            if (TroopTable.Scouts(kind) != (slot == FormationSlot.Scouting)) return false;
             if (TroopTable.Cost(kind) > PointsRemaining) return false;
 
             _slots[(int)slot] = new TroopGroup(kind, slot);
             return true;
+        }
+
+        /// <summary>The post a troop of this kind would go in, given what is free.</summary>
+        public bool TryPlace(TroopKind kind)
+        {
+            if (TroopTable.Scouts(kind)) return TryPlace(FormationSlot.Scouting, kind);
+
+            for (int i = 0; i < Posts && i < TroopTable.Line.Length; i++)
+                if (_slots[(int)TroopTable.Line[i]] == null)
+                    return TryPlace(TroopTable.Line[i], kind);
+
+            return false;
         }
 
         public bool Remove(FormationSlot slot)
@@ -302,9 +356,20 @@ namespace Arna.Sim
             return true;
         }
 
-        /// <summary>Swaps two posts. The Regroup order, which costs three seconds in play.</summary>
+        /// <summary>
+        /// Swaps two posts. The Regroup order, which costs three seconds in play.
+        ///
+        /// Refused between the line and the scouting post: that is not a regroup, it is
+        /// sending the scout to hold a corner and a swordsman out to scout.
+        /// </summary>
+        public bool CanSwap(FormationSlot a, FormationSlot b)
+            => Open(a) && Open(b)
+               && (a == FormationSlot.Scouting) == (b == FormationSlot.Scouting);
+
         public void Swap(FormationSlot a, FormationSlot b)
         {
+            if (!CanSwap(a, b)) return;
+
             var temp = _slots[(int)a];
             _slots[(int)a] = _slots[(int)b];
             _slots[(int)b] = temp;
@@ -431,8 +496,13 @@ namespace Arna.Sim
                 case 1: return new Vec2(half * 0.5f, FlankOffset);        // RightVan
                 case 2: return new Vec2(-half * 0.5f, FlankOffset);       // RightRear
                 case 3: return new Vec2(-half - RearTrail, 0f);           // Rear
-                case 4: return new Vec2(-half * 0.5f, -FlankOffset);      // LeftRear
-                default: return new Vec2(half * 0.5f, -FlankOffset);      // LeftVan
+                case 4: return new Vec2(-half * 0.5f, -FlankOffset);      // LeftVan's mirror
+                case 5: return new Vec2(half * 0.5f, -FlankOffset);       // LeftVan
+
+                // The scouting post, when she is not scouting. Called back into the ranks
+                // she takes the left of the van, which is where she used to be posted
+                // before she was given a place of her own.
+                default: return new Vec2(half * 0.5f, -FlankOffset);
             }
         }
 

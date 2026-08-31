@@ -26,6 +26,12 @@ namespace Arna.Sim
         public int Height = 64;
 
         /// <summary>
+        /// How many posts of the line are open. The scouting post is always open and is
+        /// not one of these. See <see cref="Squad.Posts"/>.
+        /// </summary>
+        public int Posts = TroopTable.LinePosts;
+
+        /// <summary>
         /// Natural terrain distribution. Shares are normalised, so they need not sum
         /// to 1. Roads and fords are carved afterwards as linear features rather than
         /// scattered by noise, so recipes normally leave them out of the mix.

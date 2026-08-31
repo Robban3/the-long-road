@@ -22,12 +22,12 @@ namespace Arna.Tests
             // looked at was the ground the column was already standing on.
             var squad = new Squad(12);
             squad.TryPlace(FormationSlot.Van, TroopKind.Spearmen);
-            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
 
             var run = Run(squad);
             run.Step();
 
-            var scout = run.Squad[FormationSlot.LeftVan];
+            var scout = run.Squad[FormationSlot.Scouting];
             var van = run.Squad[FormationSlot.Van];
             var lead = run.Caravan.LeadPosition;
 
@@ -42,12 +42,12 @@ namespace Arna.Tests
             // Fourteen metres in front of a charge is not scouting. She is the one troop
             // in the game that cannot afford to be the first thing reached.
             var squad = new Squad(12);
-            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
 
             var run = Run(squad);
             run.Step();
 
-            var scout = run.Squad[FormationSlot.LeftVan];
+            var scout = run.Squad[FormationSlot.Scouting];
             float ahead = Vec2.Distance(scout.Position, run.Caravan.LeadPosition);
 
             run.Squad.Scouting = false;
@@ -62,7 +62,7 @@ namespace Arna.Tests
         {
             var squad = new Squad(12);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
-            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
             return squad;
         }
 

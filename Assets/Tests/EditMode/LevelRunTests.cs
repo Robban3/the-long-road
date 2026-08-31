@@ -22,7 +22,7 @@ namespace Arna.Tests
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
-            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
             squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
             squad.TryPlace(FormationSlot.LeftRear, TroopKind.Priest);
             return squad;

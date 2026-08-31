@@ -273,8 +273,8 @@ namespace Arna.UI
             bar.rectTransform.sizeDelta = new Vector2(0f, NavHeight);
 
             Tab(shell, bar.transform, -420f, "BUTIK", Theme.CoinIcon, false, "Inget säljs ännu.");
-            Tab(shell, bar.transform, -210f, "TRUPPER", Theme.HeartIcon, false,
-                "Truppvalet görs i dag i inspektorn. Här ska eskorten sättas ihop.");
+            Tab(shell, bar.transform, -210f, "TRUPPER", Theme.HeartIcon, false, null,
+                shell.ShowTroops);
             Tab(shell, bar.transform, 0f, "STRID", Theme.Star, true, null);
             Tab(shell, bar.transform, 210f, "SMEDJA", Theme.GemIcon, false,
                 "Uppgraderingar köps i dag med silver mitt i ett uppdrag.");
@@ -283,7 +283,8 @@ namespace Arna.UI
         }
 
         static void Tab(MenuShell shell, Transform bar, float x, string text, Sprite icon,
-                        bool here, string explanation)
+                        bool here, string explanation,
+                        UnityEngine.Events.UnityAction goes = null)
         {
             var slot = Widgets.Panel("Tab" + text, bar, here ? Theme.Frame : Theme.Flat,
                                      here ? Theme.Primary : new Color(0f, 0f, 0f, 0f));
@@ -292,7 +293,9 @@ namespace Arna.UI
 
             var button = slot.gameObject.AddComponent<Button>();
             button.targetGraphic = slot;
-            if (!here) button.onClick.AddListener(() => shell.ShowStub(text, explanation));
+
+            if (goes != null) button.onClick.AddListener(goes);
+            else if (!here) button.onClick.AddListener(() => shell.ShowStub(text, explanation));
 
             var glyph = Widgets.Icon("Glyph", slot.transform, icon,
                                      here ? Theme.BrightGold : Theme.Muted, 64f);
