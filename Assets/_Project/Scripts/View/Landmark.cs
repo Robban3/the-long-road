@@ -11,7 +11,13 @@ namespace Arna.View
         Ruin = 3,
         Camp = 4,
         Wreck = 5,
-        Timber = 6
+        Timber = 6,
+
+        /// <summary>Remains at a trap site: a skeleton, a skull, a grave.</summary>
+        Bones = 7,
+
+        /// <summary>A banner or a gravestone driven into the ground beside one.</summary>
+        Totem = 8
     }
 
     /// <summary>

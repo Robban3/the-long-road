@@ -44,6 +44,12 @@ namespace Arna.App
         /// </summary>
         public const float Lift = 14f;
 
+        /// <summary>
+        /// How far a second sign on the same tile is nudged aside, as a share of a
+        /// symbol's half-width — so 1.5 is three quarters of a whole symbol.
+        /// </summary>
+        public const float Spread = 1.5f;
+
         static Sprite[] _sheet;
         static Material _material;
 
@@ -51,11 +57,12 @@ namespace Arna.App
         static readonly LandmarkKind[] Drawn =
         {
             LandmarkKind.House, LandmarkKind.Farm, LandmarkKind.Watchtower,
-            LandmarkKind.Ruin, LandmarkKind.Camp, LandmarkKind.Wreck
+            LandmarkKind.Ruin, LandmarkKind.Camp, LandmarkKind.Wreck,
+            LandmarkKind.Bones, LandmarkKind.Totem
         };
 
         /// <summary>Index into the sheet for the crows, which are not a landmark.</summary>
-        const int CrowSlot = 6;
+        const int CrowSlot = 8;
 
         /// <summary>
         /// Paints the sheet once and packs it into one texture.
@@ -79,6 +86,8 @@ namespace Arna.App
                 Pixels.Ruin("SymbolRuin"),
                 Pixels.Camp("SymbolCamp"),
                 Pixels.Wreck("SymbolWreck"),
+                Pixels.Bones("SymbolBones"),
+                Pixels.Totem("SymbolTotem"),
                 Pixels.Crow("SymbolCrow"));
 
             return _sheet;
@@ -162,6 +171,15 @@ namespace Arna.App
             Vector3 right = facing * Vector3.right * (Size * 0.5f);
             Vector3 up = facing * Vector3.up * (Size * 0.5f);
 
+            // How many signs each tile has already been given.
+            //
+            // A trap site is bones *and* a totem driven into the ground beside them, and
+            // both are recorded on the one tile the site occupies. Left alone the second
+            // symbol lands exactly on top of the first and the map shows one sign where
+            // there are two — which is the same failure as drawing no sign at all, only
+            // harder to notice.
+            var crowded = new Dictionary<int, int>();
+
             foreach (var sign in signs)
             {
                 if (sign.Slot < 0 || sign.Slot >= sheet.Length) continue;
@@ -169,11 +187,20 @@ namespace Arna.App
 
                 grid.ToCoords(sign.Tile, out int x, out int y);
 
+                crowded.TryGetValue(sign.Tile, out int already);
+                crowded[sign.Tile] = already + 1;
+
                 float wx = (x + 0.5f) * TileGrid.TileSize;
                 float wz = (y + 0.5f) * TileGrid.TileSize;
                 float wy = grid.SurfaceElevation(wx, wz) * heightScale + Lift;
 
                 var at = new Vector3(wx, wy, wz);
+
+                // Sideways along the screen rather than across the ground, so a pair
+                // stands shoulder to shoulder from where the map is read. Three quarters
+                // of a symbol apart: touching, plainly two things, and still over the one
+                // piece of ground they both belong to.
+                if (already > 0) at += right * (Spread * already);
                 int v = vertices.Count;
 
                 vertices.Add(at - right - up);

@@ -1930,20 +1930,19 @@ namespace Arna.View
                     if (road != null && road.Contains(tile)) continue;
                     if (!occupied.Add(tile)) continue;
 
-                    Landmark.Note(found, LandmarkKind.Wreck, tile);
-
-                    placed += Wreck(parent, grid, tile, rng, decor, heightScale, occupied);
+                    placed += Wreck(parent, grid, tile, rng, decor, heightScale, occupied, found);
 
                     // And a totem beside it, where the pack has one. A wreck says
                     // something happened here; a banner driven into the ground says
                     // somebody *chose* here, which is the difference between an accident
                     // and an ambush and is what the GDD's §5 table is asking for.
-                    if (decor.Markers.Any)
-                        Mark(Place(parent, grid, tile, rng,
-                                   new Choice(decor.Markers, Any(decor.Markers, rng),
-                                              MarkerHeight, byWidth: false),
-                                   heightScale, occupied,
-                                   sink: Seat(grid, tile, heightScale, MarkerHeight)));
+                    if (decor.Markers.Any
+                        && Mark(Place(parent, grid, tile, rng,
+                                      new Choice(decor.Markers, Any(decor.Markers, rng),
+                                                 MarkerHeight, byWidth: false),
+                                      heightScale, occupied,
+                                      sink: Seat(grid, tile, heightScale, MarkerHeight))) != null)
+                        Landmark.Note(found, LandmarkKind.Totem, tile);
 
                     // Dead trees around it. A cart alone is small enough to miss from
                     // map height, and the signal is worthless if it is not noticed;
@@ -2107,14 +2106,23 @@ namespace Arna.View
         /// thing itself.
         /// </summary>
         static int Wreck(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,
-                         BiomeDecor decor, float heightScale, HashSet<int> occupied)
+                         BiomeDecor decor, float heightScale, HashSet<int> occupied,
+                         List<Landmark> found = null)
         {
+            // Drawn once and held, so the site can say which of the two it turned out to
+            // be. The same single call in the same place — hoisting it out of the Choice
+            // does not touch the order the random numbers come in, and every map stays
+            // exactly the map it was.
+            var chosen = Any(decor.Ruins, rng);
+
             var main = Mark(Place(parent, grid, tile, rng,
-                                  new Choice(decor.Ruins, Any(decor.Ruins, rng), RuinWidth,
+                                  new Choice(decor.Ruins, chosen, RuinWidth,
                                              byWidth: true),
                                   heightScale, occupied,
                                   sink: Seat(grid, tile, heightScale, RuinWidth)));
             if (main == null) return 0;
+
+            Landmark.Note(found, IsBones(chosen) ? LandmarkKind.Bones : LandmarkKind.Wreck, tile);
 
             int placed = 1;
             if (!decor.Wreckage.Any) return placed;
@@ -2144,6 +2152,30 @@ namespace Arna.View
             }
 
             return placed;
+        }
+
+        /// <summary>
+        /// Whether the thing standing at a trap site is remains rather than a wreck.
+        ///
+        /// By name, and that is worth defending because matching a third party's asset
+        /// names usually is not. These are not a third party's choices: the set is
+        /// written out prop by prop in this project's own <c>ArnaSetup</c>, where two
+        /// carts stand beside a skeleton, two skulls, a grave and a second skeleton from
+        /// the generic pack. What is being read here is a list this repository keeps.
+        ///
+        /// The distinction earns its place on the map. A cart that stopped here is a
+        /// mishap; bones are a killing, and the GDD's §5 table names bone piles as *the*
+        /// trap-field tell. Drawing both as a broken cart threw away the more important
+        /// of the two — and bones are the likelier draw of the set.
+        /// </summary>
+        static bool IsBones(GameObject prefab)
+        {
+            if (prefab == null) return false;
+
+            string name = prefab.name;
+
+            return name.Contains("Skull") || name.Contains("Skeleton")
+                || name.Contains("Bone") || name.Contains("Grave");
         }
 
         /// <summary>How wide a loose piece of wreckage is, and how far it lies from the cart.</summary>

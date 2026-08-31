@@ -730,6 +730,85 @@ namespace Arna.UI
         }
 
         /// <summary>
+        /// Bones: a skull over two crossed bones.
+        ///
+        /// The GDD's §5 table names bone piles as the trap-field tell, and the trap sites
+        /// are likelier to be bones than a cart — five of the eight props in that set are
+        /// remains. Drawing every site as a broken cart threw away the half of the signal
+        /// that says a killing rather than a mishap.
+        /// </summary>
+        public static Sprite Bones(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            var bone = new Color(0.90f, 0.88f, 0.80f, 1f);
+
+            // The two crossed bones first, so the skull sits over them.
+            for (int arm = 0; arm < 2; arm++)
+            {
+                float lean = arm == 0 ? 1f : -1f;
+
+                Draw(texture, Polygon(new[]
+                {
+                    new Vector2(s * (0.5f - 0.22f * lean), s * 0.22f),
+                    new Vector2(s * (0.5f + 0.22f * lean), s * 0.44f),
+                    new Vector2(s * (0.5f + 0.20f * lean), s * 0.50f),
+                    new Vector2(s * (0.5f - 0.24f * lean), s * 0.28f)
+                }), bone);
+
+                Draw(texture, Disc(s * (0.5f - 0.24f * lean), s * 0.25f, s * 0.055f), bone);
+                Draw(texture, Disc(s * (0.5f + 0.22f * lean), s * 0.47f, s * 0.055f), bone);
+            }
+
+            Draw(texture, Disc(s * 0.5f, s * 0.60f, s * 0.20f), bone);
+            Draw(texture, Rect(s * 0.40f, s * 0.42f, s * 0.60f, s * 0.60f), bone);
+
+            var socket = new Color(0.10f, 0.10f, 0.12f, 0.92f);
+            Draw(texture, Disc(s * 0.43f, s * 0.62f, s * 0.055f), socket);
+            Draw(texture, Disc(s * 0.57f, s * 0.62f, s * 0.055f), socket);
+            Draw(texture, Rect(s * 0.47f, s * 0.42f, s * 0.53f, s * 0.49f), socket);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>
+        /// A totem: a banner on a pole, driven into the ground.
+        ///
+        /// Beside the bones and not instead of them, because the two say different
+        /// things. Remains say something happened here; a pole somebody drove into the
+        /// ground says somebody *chose* here — which is the whole difference between an
+        /// accident and an ambush.
+        /// </summary>
+        public static Sprite Totem(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            var shaft = new Color(0.52f, 0.38f, 0.26f, 1f);
+            var cloth = new Color(0.72f, 0.24f, 0.22f, 1f);
+
+            Draw(texture, Rect(s * 0.40f, s * 0.18f, s * 0.47f, s * 0.82f), shaft);
+
+            // The pennant, notched at its fly so it reads as cloth and not a flag-shaped
+            // block.
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.47f, s * 0.78f),
+                new Vector2(s * 0.80f, s * 0.72f),
+                new Vector2(s * 0.70f, s * 0.62f),
+                new Vector2(s * 0.80f, s * 0.52f),
+                new Vector2(s * 0.47f, s * 0.48f)
+            }), cloth);
+
+            // A crosspiece low down, where a stake is lashed. Without it the pole is a
+            // line and the whole symbol is a flag.
+            Draw(texture, Rect(s * 0.28f, s * 0.30f, s * 0.59f, s * 0.36f), shaft);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>
         /// Crows: a bird over an open ring.
         ///
         /// Hollow where every other symbol is filled, and that carries the meaning. A
