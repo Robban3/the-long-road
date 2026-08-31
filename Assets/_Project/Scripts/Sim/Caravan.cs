@@ -30,10 +30,23 @@ namespace Arna.Sim
         public bool Destroyed => Hp <= 0f;
         public float HpFraction => MaxHp <= 0f ? 0f : Hp / MaxHp;
 
+        /// <summary>
+        /// Share of incoming damage this cart is spared.
+        ///
+        /// The treasure cart's, bought in the shop. It lives on the wagon rather than on
+        /// the caravan because damage arrives here from three places — the fighting, the
+        /// traps and anything added later — and a guard applied at each call site is a
+        /// guard that will be forgotten at the fourth.
+        /// </summary>
+        public float Guard;
+
         /// <summary>Damage that leaves the wagon at zero rather than below it.</summary>
         public float ApplyDamage(float amount)
         {
             if (amount <= 0f || Destroyed) return 0f;
+
+            if (Guard > 0f) amount *= 1f - (Guard > 0.8f ? 0.8f : Guard);
+
             float dealt = amount < Hp ? amount : Hp;
             Hp -= dealt;
             return dealt;
@@ -133,7 +146,13 @@ namespace Arna.Sim
         /// than looked up, so a caravan built by a test or by the headless capture is the
         /// standard one without anybody having to say so.
         /// </param>
-        public Caravan(TileGrid grid, IReadOnlyList<int> route, float wagonHealth = 1f)
+        /// <param name="treasureGuard">
+        /// Share of damage the treasure cart is spared, from the shop's lashings. Its
+        /// condition decides the loot, so this is as much an upgrade of the wage as of
+        /// the wagon.
+        /// </param>
+        public Caravan(TileGrid grid, IReadOnlyList<int> route, float wagonHealth = 1f,
+                       float treasureGuard = 0f)
         {
             _grid = grid;
 
@@ -189,7 +208,26 @@ namespace Arna.Sim
                 new Wagon(WagonKind.War, WarHp * wagonHealth),
                 new Wagon(WagonKind.Supply, SupplyHp * wagonHealth),
                 new Wagon(WagonKind.Treasure, TreasureHp * wagonHealth)
+                {
+                    Guard = treasureGuard < 0f ? 0f : treasureGuard
+                }
             };
+        }
+
+        /// <summary>
+        /// Mends every standing cart a little.
+        ///
+        /// Called by the run only while nothing is fighting — a wheelwright does not work
+        /// under fire, and repair that ticked through a battle would be a health
+        /// regeneration that quietly undoes the fighting rather than a reason to value a
+        /// quiet stretch of road. A destroyed cart is not mended: it is not damaged, it
+        /// is gone.
+        /// </summary>
+        public void Mend(float amount)
+        {
+            if (amount <= 0f) return;
+
+            foreach (var wagon in _wagons) wagon.Repair(amount);
         }
 
         public IReadOnlyList<Wagon> Wagons => _wagons;

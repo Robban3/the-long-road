@@ -189,7 +189,10 @@ namespace Arna.App
             var boons = Application.isPlaying ? Session.Campaign.Boons() : new Boons();
 
             var squad = new Squad(recipe.SquadBudget + boons.ExtraSquadPoints,
-                                  recipe.Posts + boons.ExtraPosts);
+                                  recipe.Posts + boons.ExtraPosts)
+            {
+                School = Application.isPlaying ? Session.Campaign.TroopBoons() : new TroopBoons()
+            };
 
             // What the player put together on the troop screen, when they came that way.
             // The Inspector array below is the fallback for opening this scene directly,

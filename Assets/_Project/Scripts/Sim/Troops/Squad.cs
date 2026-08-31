@@ -23,6 +23,16 @@ namespace Arna.Sim
         public int ArmourLevel;
         public int SpecialLevel;
 
+        /// <summary>
+        /// What gold has bought on this troop type, permanently.
+        ///
+        /// Beside the levels above rather than added to them: the field tracks keep their
+        /// cap of five and their flat multipliers, and this is a second and gentler one
+        /// on top. See TroopBoonTable for why folding the two together would have ended
+        /// the silver economy and the game with it.
+        /// </summary>
+        public TroopBoons School { get; }
+
         /// <summary>Models lost this level. Drives the flawless-victory bonus.</summary>
         public int ModelsLost { get; private set; }
 
@@ -56,12 +66,22 @@ namespace Arna.Sim
         /// </summary>
         public TrackedEnemy Watching => Target ?? Threat;
 
-        public TroopGroup(TroopKind kind, FormationSlot slot)
+        /// <param name="school">
+        /// What gold has bought on this troop type, or null for the table's own numbers.
+        ///
+        /// Taken here rather than set afterwards because the health it buys has to be in
+        /// the group *before* the first blow lands. Set later, permanent armour would
+        /// only raise the ceiling a priest may heal to — a group would still march out at
+        /// its base health, and an upgrade the player paid gold for would do nothing all
+        /// level unless somebody healed them.
+        /// </param>
+        public TroopGroup(TroopKind kind, FormationSlot slot, TroopBoons school = null)
         {
             Kind = kind;
             Slot = slot;
+            School = school ?? new TroopBoons();
             MaxHp = TroopTable.GroupHp(kind);
-            Hp = MaxHp;
+            Hp = EffectiveMaxHp;
         }
 
         public bool Alive => Hp > 0f;
@@ -77,7 +97,8 @@ namespace Arna.Sim
             }
         }
 
-        public float EffectiveMaxHp => MaxHp * TroopUpgrades.ArmourHpMultiplier(ArmourLevel);
+        public float EffectiveMaxHp =>
+            MaxHp * TroopUpgrades.ArmourHpMultiplier(ArmourLevel) * School.ArmourHealth(Kind);
 
         /// <summary>Damage per second, upgrades and terrain included.</summary>
         public float DamageAgainst(EnemyKind target, TerrainType terrain)
@@ -85,6 +106,7 @@ namespace Arna.Sim
             float baseDps = TroopTable.Dps(Kind) * (ModelsAlive / (float)TroopTable.Models(Kind));
             return baseDps
                    * TroopUpgrades.WeaponMultiplier(WeaponLevel)
+                   * School.Weapon(Kind)
                    * TroopTable.TerrainDamageMultiplier(Kind, terrain)
                    * TroopTable.DamageMultiplierAgainst(Kind, target);
         }
@@ -97,7 +119,8 @@ namespace Arna.Sim
         {
             float range = TroopTable.Range(Kind);
             if (TroopTable.HasRangedSpecial(Kind))
-                range = TroopUpgrades.EffectiveRange(range, SpecialLevel);
+                range = TroopUpgrades.EffectiveRange(range, SpecialLevel) * School.Range(Kind);
+
             return range * TroopTable.TerrainRangeMultiplier(Kind, terrain);
         }
 
@@ -117,7 +140,8 @@ namespace Arna.Sim
             if (amount <= 0f || !Alive) return 0f;
 
             float reduction = TroopTable.DamageReduction(Kind)
-                              + TroopUpgrades.ArmourDamageReduction(ArmourLevel);
+                              + TroopUpgrades.ArmourDamageReduction(ArmourLevel)
+                              + School.ArmourReduction(Kind);
             if (reduction > 0.8f) reduction = 0.8f;
 
             int modelsBefore = ModelsAlive;
@@ -273,6 +297,13 @@ namespace Arna.Sim
         /// </summary>
         public int Posts { get; }
 
+        /// <summary>
+        /// The permanent troop levels this escort was raised with. Empty by default, so a
+        /// squad built by a test or by the headless capture fights with the table's own
+        /// numbers.
+        /// </summary>
+        public TroopBoons School { get; set; } = new TroopBoons();
+
         public Squad(int budget = 12, int posts = TroopTable.LinePosts)
         {
             Budget = budget;
@@ -333,7 +364,7 @@ namespace Arna.Sim
             if (TroopTable.Scouts(kind) != (slot == FormationSlot.Scouting)) return false;
             if (TroopTable.Cost(kind) > PointsRemaining) return false;
 
-            _slots[(int)slot] = new TroopGroup(kind, slot);
+            _slots[(int)slot] = new TroopGroup(kind, slot, School);
             return true;
         }
 

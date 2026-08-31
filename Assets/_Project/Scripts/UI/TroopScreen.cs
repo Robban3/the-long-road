@@ -42,7 +42,10 @@ namespace Arna.UI
             if (_squad == null || _forChapter != Session.Chapter || _forLevel != Session.Level)
             {
                 _squad = new Squad(recipe.SquadBudget + boons.ExtraSquadPoints,
-                                   recipe.Posts + boons.ExtraPosts);
+                                   recipe.Posts + boons.ExtraPosts)
+                {
+                    School = Session.Campaign.TroopBoons()
+                };
                 _forChapter = Session.Chapter;
                 _forLevel = Session.Level;
 

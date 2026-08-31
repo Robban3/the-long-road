@@ -43,11 +43,16 @@ namespace Arna.Sim
         {
             Boons = boons ?? new Boons();
 
-            Caravan = new Caravan(map.Grid, route, Boons.WagonHealth);
+            Caravan = new Caravan(map.Grid, route, Boons.WagonHealth, Boons.TreasureGuard);
             Squad = squad;
             Detection = new DetectionSystem(map.Grid, map.Encounters.Enemies);
             Traps = new TrapField(map.Grid, map.Encounters.Traps);
-            Economy = new RunEconomy(1f, Boons.StartingSilver);
+            Economy = new RunEconomy(Boons.SilverIncome, Boons.StartingSilver, Boons.SilverPerGold);
+
+            // The eyes the shop bought. Added to the caravan's own rather than replacing
+            // it, and the squad's best still wins over both — see EffectiveSight.
+            LookoutSight += Boons.ExtraSight;
+            TrapSight += Boons.ExtraTrapSight;
 
             // Combat runs whether or not anyone came along to fight it.
             //
@@ -154,6 +159,13 @@ namespace Arna.Sim
             if (Combat == null || !Combat.Halted) TravelSeconds += StepSeconds;
 
             Caravan.Tick(StepSeconds);
+
+            // The wheelwright works only while nothing is fighting. Repair that ticked
+            // through a battle would quietly undo the fighting; here it makes a quiet
+            // stretch of road worth something, which is what the caravan has instead of
+            // a rest between waves.
+            if (Boons.RepairPerSecond > 0f && (Combat == null || !Combat.InContact))
+                Caravan.Mend(Boons.RepairPerSecond * StepSeconds);
 
             // The scout walks out in front while the road is quiet and falls back into
             // the ranks the moment anything is fighting. Set before the posts are worked

@@ -47,12 +47,22 @@ namespace Arna.Sim
         /// it buys the first field upgrade before the fighting rather than after it,
         /// which is a different thing to own than more silver later.
         /// </param>
-        public RunEconomy(float levelSilverMultiplier = 1f, int startingSilver = 0)
+        /// <param name="silverPerGold">
+        /// What leftover silver changes at. <see cref="SilverPerGold"/> is the game's own
+        /// rate and the shop's exchange only ever improves on it — never past the floor
+        /// in Boons.SilverPerGold, because spending silver in the field has to stay
+        /// better than hoarding it or the mid-run economy becomes a savings account.
+        /// </param>
+        public RunEconomy(float levelSilverMultiplier = 1f, int startingSilver = 0,
+                          int silverPerGold = SilverPerGold)
         {
             _levelMultiplier = levelSilverMultiplier <= 0f ? 1f : levelSilverMultiplier;
+            _silverPerGold = silverPerGold < 1 ? SilverPerGold : silverPerGold;
 
             if (startingSilver > 0) Silver = startingSilver;
         }
+
+        readonly int _silverPerGold;
 
         public int Silver { get; private set; }
         public bool HasMarauder { get; private set; }
@@ -139,7 +149,7 @@ namespace Arna.Sim
         /// </summary>
         public int ConvertLeftoverToGold()
         {
-            int gold = Silver / SilverPerGold;
+            int gold = Silver / _silverPerGold;
             Silver = 0;
             return gold;
         }

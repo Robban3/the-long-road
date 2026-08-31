@@ -48,6 +48,14 @@ namespace Arna.Sim
         /// <summary>Boons bought in the shop, by level. See <see cref="BoonTable"/>.</summary>
         readonly int[] _boons = new int[BoonTable.All.Length];
 
+        /// <summary>
+        /// Permanent troop levels, keyed by <see cref="TroopKey"/>. See
+        /// <see cref="TroopBoonTable"/>.
+        /// </summary>
+        readonly Dictionary<int, int> _troops = new Dictionary<int, int>();
+
+        static int TroopKey(TroopKind kind, UpgradeTrack track) => (int)kind * 8 + (int)track;
+
         /// <summary>Gold, the between-levels currency. Silver is spent inside a run.</summary>
         public int Gold { get; private set; }
 
@@ -184,6 +192,44 @@ namespace Arna.Sim
             return true;
         }
 
+        public int TroopLevel(TroopKind kind, UpgradeTrack track)
+            => _troops.TryGetValue(TroopKey(kind, track), out int level) ? level : 0;
+
+        /// <summary>What the next permanent level on this troop costs, or zero when done.</summary>
+        public int PriceOf(TroopKind kind, UpgradeTrack track)
+            => TroopBoonTable.Price(kind, track, TroopLevel(kind, track));
+
+        /// <summary>
+        /// Buys the next permanent level on one troop's track.
+        ///
+        /// Refused where the track is not sold at all — a swordsman's reach, which
+        /// nothing in the fighting reads — so the shop can offer the button and let this
+        /// decide, rather than working the rule out twice and disagreeing with itself.
+        /// </summary>
+        public bool TryBuy(TroopKind kind, UpgradeTrack track, out int cost)
+        {
+            cost = PriceOf(kind, track);
+
+            if (cost <= 0 || Gold < cost) { cost = 0; return false; }
+
+            Gold -= cost;
+            _troops[TroopKey(kind, track)] = TroopLevel(kind, track) + 1;
+
+            return true;
+        }
+
+        /// <summary>The permanent troop levels, in the form a squad can be raised with.</summary>
+        public TroopBoons TroopBoons()
+        {
+            var school = new TroopBoons();
+
+            foreach (var kind in TroopTable.All)
+                foreach (var track in TroopBoonTable.Tracks)
+                    school.Set(kind, track, TroopLevel(kind, track));
+
+            return school;
+        }
+
         /// <summary>What has been bought, in the form a run can use.</summary>
         public Boons Boons()
         {
@@ -217,17 +263,19 @@ namespace Arna.Sim
         }
 
         /// <summary>
-        /// The save string: <c>2|gold|gems|chapter.level.stars,…|boon.level,…</c>
+        /// The save string:
+        /// <c>3|gold|gems|chapter.level.stars,…|boon.level,…|troop.track.level,…</c>
         ///
         /// A line of text rather than JSON because Arna.Sim may not touch the engine and
         /// therefore has no JsonUtility, and because a save this small is easier to read
         /// in a bug report as text than as anything else. The leading number is the format
-        /// version: version 1 had no boons and still loads, with none.
+        /// version: version 1 had no boons and version 2 no troop levels. Both still
+        /// load, as campaigns without what they never had.
         /// </summary>
         public string Save()
         {
             var text = new StringBuilder();
-            text.Append('2').Append('|').Append(Gold).Append('|').Append(Gems).Append('|');
+            text.Append('3').Append('|').Append(Gold).Append('|').Append(Gems).Append('|');
 
             bool first = true;
             for (int chapter = 1; chapter <= HighestChapter; chapter++)
@@ -255,6 +303,22 @@ namespace Arna.Sim
                 leading = false;
             }
 
+            text.Append('|');
+
+            leading = true;
+            foreach (var kind in TroopTable.All)
+            {
+                foreach (var track in TroopBoonTable.Tracks)
+                {
+                    int level = TroopLevel(kind, track);
+                    if (level <= 0) continue;
+
+                    if (!leading) text.Append(',');
+                    text.Append((int)kind).Append('.').Append((int)track).Append('.').Append(level);
+                    leading = false;
+                }
+            }
+
             return text.ToString();
         }
 
@@ -273,7 +337,7 @@ namespace Arna.Sim
 
             // Version 1 is the same save without the boons on the end, and is read as a
             // campaign that has bought nothing — which is exactly what it was.
-            if (parts[0] != "1" && parts[0] != "2") return campaign;
+            if (parts[0] != "1" && parts[0] != "2" && parts[0] != "3") return campaign;
 
             if (int.TryParse(parts[1], out int gold) && gold > 0) campaign.Gold = gold;
             if (int.TryParse(parts[2], out int gems) && gems > 0) campaign.Gems = gems;
@@ -313,6 +377,29 @@ namespace Arna.Sim
 
                     int max = BoonTable.MaxLevel((Boon)boon);
                     campaign._boons[boon] = level > max ? max : level;
+                }
+            }
+
+            if (parts.Length > 5)
+            {
+                foreach (var entry in parts[5].Split(','))
+                {
+                    if (entry.Length == 0) continue;
+
+                    var field = entry.Split('.');
+                    if (field.Length != 3) continue;
+
+                    if (!int.TryParse(field[0], out int kind) ||
+                        !int.TryParse(field[1], out int track) ||
+                        !int.TryParse(field[2], out int level)) continue;
+
+                    if (kind < 0 || kind >= TroopTable.All.Length) continue;
+                    if (track < 0 || track > (int)UpgradeTrack.Special || level < 1) continue;
+
+                    if (!TroopBoonTable.Sells((TroopKind)kind, (UpgradeTrack)track)) continue;
+
+                    if (level > TroopBoonTable.Steps) level = TroopBoonTable.Steps;
+                    campaign._troops[TroopKey((TroopKind)kind, (UpgradeTrack)track)] = level;
                 }
             }
 

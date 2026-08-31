@@ -143,11 +143,15 @@ namespace Arna.Tests
         [Test]
         public void ABrokenSaveStartsAFreshCampaignRatherThanThrowing()
         {
-            // "3|…" is a save from a version that does not exist yet: refused rather than
-            // misread, which is the case this test is really about. It said "2|…" until
-            // the shop added boons and made version 2 the current format — at which point
-            // the test was asserting that the game cannot read its own save.
-            foreach (var rubbish in new[] { null, "", "nonsense", "3|0|0|1.1.3", "1|a|b" })
+            // A save from a version that does not exist yet, worked out from the one that
+            // does rather than written down. Twice now this test has named a number that
+            // later became the current format — at which point it was asserting that the
+            // game cannot read its own save. A version one past today's can never go
+            // stale, because it moves when the format does.
+            string ahead = (int.Parse(new Campaign().Save().Split('|')[0]) + 1)
+                           + "|0|0|1.1.3";
+
+            foreach (var rubbish in new[] { null, "", "nonsense", ahead, "1|a|b" })
             {
                 var campaign = Campaign.Load(rubbish);
 
