@@ -166,6 +166,32 @@ namespace Arna.UI
         public static bool Has(string name) => Find(name) != null;
 
         /// <summary>
+        /// What is actually in the backdrop folder, as a sentence.
+        ///
+        /// Put on the screen beside a missing painting, because after three rounds of
+        /// "the picture does not change" the one thing nobody has been able to establish
+        /// is what the folder holds. A name read off the screen settles in one look what
+        /// a console line has failed to settle three times: whether the file is missing,
+        /// or there under a name nothing is looking for.
+        /// </summary>
+        public static string Inventory()
+        {
+#if UNITY_EDITOR
+            if (!System.IO.Directory.Exists(Folder)) return "mappen finns inte";
+
+            var listed = new List<string>();
+
+            foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:Texture2D", new[] { Folder }))
+                listed.Add(System.IO.Path.GetFileNameWithoutExtension(
+                    UnityEditor.AssetDatabase.GUIDToAssetPath(guid)));
+
+            return listed.Count == 0 ? "mappen är tom" : "mappen innehåller: " + string.Join(", ", listed);
+#else
+            return string.Empty;
+#endif
+        }
+
+        /// <summary>
         /// Lays a painting behind a screen, cropped to cover it.
         ///
         /// Cover and not fit: a painting letterboxed inside a phone screen is a postcard

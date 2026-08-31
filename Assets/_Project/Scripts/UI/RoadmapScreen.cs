@@ -226,11 +226,12 @@ namespace Arna.UI
                 // looks deliberate is indistinguishable from one that is broken — which
                 // has now cost three rounds on the shop's own painting.
                 var note = Widgets.Label("Missing", frame,
-                    $"{Backdrops.Roadmap}.png saknas i Assets/_Project/Art/Resources",
-                    Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.8f));
+                    $"{Backdrops.Roadmap}.png hittades inte — {Backdrops.Inventory()}",
+                    Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.85f));
 
+                note.Wrap();
                 note.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 12f),
-                                         new Vector2(Widgets.SafeWidth, 30f));
+                                         new Vector2(Widgets.SafeWidth, 60f));
             }
 #endif
 

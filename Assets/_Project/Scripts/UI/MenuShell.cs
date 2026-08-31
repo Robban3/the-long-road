@@ -138,12 +138,12 @@ namespace Arna.UI
         {
 #if UNITY_EDITOR
             var note = Widgets.Label("Missing", _backdrop,
-                $"{backdrop}.png saknas i Assets/_Project/Art/Resources"
-                + (substituted ? " — visar startsidans bild" : " — ritar egen himmel"),
-                Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.75f));
+                $"{backdrop}.png hittades inte — {Backdrops.Inventory()}",
+                Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.85f));
 
+            note.Wrap();
             note.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 8f),
-                                     new Vector2(Widgets.SafeWidth, 32f));
+                                     new Vector2(Widgets.SafeWidth, 64f));
 #endif
         }
 
