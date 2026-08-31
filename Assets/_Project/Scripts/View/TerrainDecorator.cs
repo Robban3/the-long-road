@@ -748,7 +748,8 @@ namespace Arna.View
                                    IReadOnlyCollection<int> driveLine = null,
                                    IReadOnlyCollection<int> campSites = null,
                                    int driveMargin = DriveMarginTiles,
-                                   IReadOnlyCollection<int> travelled = null)
+                                   IReadOnlyCollection<int> travelled = null,
+                                   List<Landmark> found = null)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
@@ -767,7 +768,8 @@ namespace Arna.View
             var occupied = new HashSet<int>();
             placed += PlaceLandmarks(parent, grid, rng, decor, clear, occupied, heightScale,
                                      ruinSites, road,
-                                     travelled == null ? null : new HashSet<int>(travelled));
+                                     travelled == null ? null : new HashSet<int>(travelled),
+                                     found);
 
             // Two passes over the same ground, and the order is half the fix. The scatter
             // walks tiles in index order, so a mountain reaching tile 500 cannot un-place
@@ -844,7 +846,8 @@ namespace Arna.View
             placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale, road);
             placed += PlaceWillows(parent, grid, rng, decor, occupied, heightScale,
                                    densityScale, road);
-            placed += PlaceCamps(parent, grid, rng, decor, occupied, heightScale, campSites, road);
+            placed += PlaceCamps(parent, grid, rng, decor, occupied, heightScale, campSites, road,
+                                 found);
 
             Census(parent);
 
@@ -1046,7 +1049,8 @@ namespace Arna.View
         /// </summary>
         static int PlaceCamps(Transform parent, TileGrid grid, DeterministicRandom rng,
                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                              IReadOnlyCollection<int> sites, HashSet<int> road = null)
+                              IReadOnlyCollection<int> sites, HashSet<int> road = null,
+                              List<Landmark> found = null)
         {
             if (sites == null || !decor.Camps.Any) return 0;
 
@@ -1065,7 +1069,10 @@ namespace Arna.View
                 // its pegged edge meets the ground on a slope.
                 if (Scatter(parent, grid, rng, choice, tile, heightScale, spread: 1.6f, occupied,
                             lift: -Seat(grid, tile, heightScale, CampHeight), signal: true))
+                {
+                    Landmark.Note(found, LandmarkKind.Camp, tile);
                     placed++;
+                }
             }
 
             return placed;
@@ -1909,7 +1916,8 @@ namespace Arna.View
         static int PlaceLandmarks(Transform parent, TileGrid grid, DeterministicRandom rng,
                                   BiomeDecor decor, HashSet<int> clear, HashSet<int> occupied,
                                   float heightScale, IReadOnlyCollection<int> ruinSites,
-                                  HashSet<int> road = null, HashSet<int> travelled = null)
+                                  HashSet<int> road = null, HashSet<int> travelled = null,
+                                  List<Landmark> found = null)
         {
             int placed = 0;
 
@@ -1921,6 +1929,8 @@ namespace Arna.View
                     if (clear != null && clear.Contains(tile)) continue;
                     if (road != null && road.Contains(tile)) continue;
                     if (!occupied.Add(tile)) continue;
+
+                    Landmark.Note(found, LandmarkKind.Wreck, tile);
 
                     placed += Wreck(parent, grid, tile, rng, decor, heightScale, occupied);
 
@@ -1966,13 +1976,14 @@ namespace Arna.View
                 // foundation, a room and a roof; a castle tower is a base, a shaft and a
                 // top; a ruin is what is left of one with its stone lying around it.
                 if (decor.Kit != null
-                    && Built(parent, grid, rng, decor, i, heightScale, occupied, travelled))
+                    && Built(parent, grid, rng, decor, i, heightScale, occupied, travelled, found))
                 {
                     placed++;
                     continue;
                 }
 
                 Choice choice = default;
+                var kind = LandmarkKind.House;
 
                 switch (grid[i])
                 {
@@ -1985,20 +1996,24 @@ namespace Arna.View
                     // have not earned the right to send yet.
                     case TerrainType.Plains when decor.Farms.Any && NearRoad(grid, x, y, 2) && rng.Chance(0.16f):
                         choice = new Choice(decor.Farms, Any(decor.Farms, rng), FarmWidth, true);
+                        kind = LandmarkKind.Farm;
                         break;
 
                     case TerrainType.MountainPass when decor.Watchtowers.Any && rng.Chance(0.012f):
                         choice = new Choice(decor.Watchtowers, Any(decor.Watchtowers, rng),
                                             WatchtowerHeight, false);
+                        kind = LandmarkKind.Watchtower;
                         break;
 
                     case TerrainType.Forest when decor.Timber.Any && rng.Chance(0.006f):
                         choice = new Choice(decor.Timber, Any(decor.Timber, rng), TimberWidth, true);
+                        kind = LandmarkKind.Timber;
                         break;
                 }
 
                 if (choice.Prefab == null) continue;
 
+                Landmark.Note(found, kind, i);
                 occupied.Add(i);
 
                 // Buildings are set into the ground rather than stood on it.
@@ -2188,14 +2203,16 @@ namespace Arna.View
         /// </summary>
         static bool Built(Transform parent, TileGrid grid, DeterministicRandom rng,
                           BiomeDecor decor, int tile, float heightScale,
-                          HashSet<int> occupied, HashSet<int> line)
+                          HashSet<int> occupied, HashSet<int> line,
+                          List<Landmark> found = null)
         {
             var kit = decor.Kit;
             var terrain = grid[tile];
 
             if (terrain == TerrainType.MountainPass && kit.CanBuildTower && rng.Chance(TowerChance))
-                return Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),
-                             TowerHeight, heightScale, occupied);
+                return Note(found, LandmarkKind.Watchtower, tile,
+                            Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),
+                                  TowerHeight, heightScale, occupied));
 
             grid.ToCoords(tile, out int x, out int y);
 
@@ -2206,22 +2223,38 @@ namespace Arna.View
                         && Fall(grid, tile, heightScale) < BuildableFall;
 
             if (settled && kit.CanBuildHouse && rng.Chance(HouseChance))
-                return Raise(grid, tile, rng, BuildingBuilder.House(parent, kit, rng),
-                             HouseHeight, heightScale, occupied);
+                return Note(found, LandmarkKind.House, tile,
+                            Raise(grid, tile, rng, BuildingBuilder.House(parent, kit, rng),
+                                  HouseHeight, heightScale, occupied));
 
             if (settled && kit.CanBuildHouse && rng.Chance(FarmChance))
-                return Raise(grid, tile, rng, BuildingBuilder.House(parent, kit, rng),
-                             FarmHeight, heightScale, occupied);
+                return Note(found, LandmarkKind.Farm, tile,
+                            Raise(grid, tile, rng, BuildingBuilder.House(parent, kit, rng),
+                                  FarmHeight, heightScale, occupied));
 
             // Ruins go the other way: out in the country, away from the line, because a
             // ruin beside a living road reads as a building somebody would have repaired.
             if ((terrain == TerrainType.Plains || terrain == TerrainType.Forest)
                 && !Beside(grid, line, x, y, SettlementReach)
                 && kit.CanBuildRuin && rng.Chance(StoneRuinChance))
-                return Raise(grid, tile, rng, BuildingBuilder.Ruin(parent, kit, rng),
-                             StoneRuinHeight, heightScale, occupied);
+                return Note(found, LandmarkKind.Ruin, tile,
+                            Raise(grid, tile, rng, BuildingBuilder.Ruin(parent, kit, rng),
+                                  StoneRuinHeight, heightScale, occupied));
 
             return false;
+        }
+
+        /// <summary>
+        /// Writes down a building that actually went up, and passes the answer through.
+        ///
+        /// Wrapped around <see cref="Raise"/> rather than called before it, because Raise
+        /// can refuse — no room, or ground too steep — and a symbol on the map for a
+        /// house that was never built is worse than no symbol at all.
+        /// </summary>
+        static bool Note(List<Landmark> found, LandmarkKind kind, int tile, bool raised)
+        {
+            if (raised) Landmark.Note(found, kind, tile);
+            return raised;
         }
 
         /// <summary>

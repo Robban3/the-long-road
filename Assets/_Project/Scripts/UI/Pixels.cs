@@ -540,6 +540,238 @@ namespace Arna.UI
             return Make(texture, default);
         }
 
+        // ---------------------------------------------------------------------------
+        // Map symbols
+        //
+        // The signs on the planning map. Drawn here with everything else that is painted
+        // rather than imported, and drawn *whole* — plate, rim and figure in their final
+        // colours — because unlike a menu icon these are never tinted at the point of
+        // use: a house is a house whatever it stands on.
+        //
+        // Read from four hundred metres up, where a house and a ruin are both a brown
+        // smudge. So they are told apart by silhouette first and colour second, and each
+        // one is asked the same question: could you name it with the colour taken away?
+        // A gable with a chimney, a broken wall with a jagged top, a tent with smoke, a
+        // bird. Nothing here is a coloured dot with a letter in it.
+        // ---------------------------------------------------------------------------
+
+        /// <summary>Every map symbol is painted on this square, in pixels.</summary>
+        const int SymbolSize = 64;
+
+        static readonly Color Plate = new Color(0.07f, 0.07f, 0.09f, 0.86f);
+        static readonly Color Rim = new Color(0.83f, 0.76f, 0.58f, 0.95f);
+        static readonly Color Stone = new Color(0.72f, 0.71f, 0.68f, 1f);
+        static readonly Color Timberwork = new Color(0.86f, 0.74f, 0.52f, 1f);
+        static readonly Color Thatch = new Color(0.62f, 0.42f, 0.26f, 1f);
+
+        /// <summary>The dark disc and pale ring every symbol stands on.</summary>
+        static Texture2D SymbolPlate(string name, bool filled = true)
+        {
+            var texture = Canvas(SymbolSize, SymbolSize, name);
+            float c = SymbolSize * 0.5f;
+
+            if (filled) Draw(texture, Disc(c, c, SymbolSize * 0.46f), Plate);
+
+            Draw(texture, Ring(c, c, SymbolSize * 0.46f, SymbolSize * 0.40f), Rim);
+            return texture;
+        }
+
+        /// <summary>A dwelling: walls, a pitched roof and a chimney with something in it.</summary>
+        public static Sprite House(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            Draw(texture, Rect(s * 0.32f, s * 0.28f, s * 0.68f, s * 0.55f), Timberwork);
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.24f, s * 0.55f),
+                new Vector2(s * 0.50f, s * 0.76f),
+                new Vector2(s * 0.76f, s * 0.55f)
+            }), Thatch);
+
+            Draw(texture, Rect(s * 0.60f, s * 0.66f, s * 0.68f, s * 0.82f), Stone);
+            Draw(texture, Rect(s * 0.45f, s * 0.28f, s * 0.55f, s * 0.44f), Plate);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>A farm: the same roof, lower and wider, over ploughed rows.</summary>
+        public static Sprite Farm(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            Draw(texture, Rect(s * 0.28f, s * 0.46f, s * 0.60f, s * 0.62f), Timberwork);
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.22f, s * 0.62f),
+                new Vector2(s * 0.44f, s * 0.78f),
+                new Vector2(s * 0.66f, s * 0.62f)
+            }), Thatch);
+
+            // The field, which is what makes it a farm rather than a house on its own.
+            var furrow = new Color(0.55f, 0.68f, 0.34f, 1f);
+            for (int row = 0; row < 3; row++)
+            {
+                float y = s * (0.20f + row * 0.09f);
+                Draw(texture, Rect(s * 0.24f, y, s * 0.78f, y + s * 0.045f), furrow);
+            }
+
+            return Make(texture, default);
+        }
+
+        /// <summary>A watchtower: tall, narrow, crenellated.</summary>
+        public static Sprite Tower(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            Draw(texture, Rect(s * 0.40f, s * 0.22f, s * 0.60f, s * 0.68f), Stone);
+            Draw(texture, Rect(s * 0.34f, s * 0.68f, s * 0.66f, s * 0.76f), Stone);
+
+            // Three merlons. Two would read as a gap, four as a comb.
+            for (int merlon = 0; merlon < 3; merlon++)
+            {
+                float x = s * (0.34f + merlon * 0.13f);
+                Draw(texture, Rect(x, s * 0.76f, x + s * 0.07f, s * 0.84f), Stone);
+            }
+
+            Draw(texture, Rect(s * 0.46f, s * 0.40f, s * 0.54f, s * 0.56f), Plate);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>A ruin: one wall standing, one broken off, rubble at the foot.</summary>
+        public static Sprite Ruin(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            var ruined = new Color(0.60f, 0.59f, 0.56f, 1f);
+
+            // Broken at the top and at different heights, which is the whole of the
+            // difference from a house: no roof closes it, nothing is level.
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.28f, s * 0.26f),
+                new Vector2(s * 0.28f, s * 0.72f),
+                new Vector2(s * 0.38f, s * 0.62f),
+                new Vector2(s * 0.44f, s * 0.70f),
+                new Vector2(s * 0.44f, s * 0.26f)
+            }), ruined);
+
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.52f, s * 0.26f),
+                new Vector2(s * 0.52f, s * 0.52f),
+                new Vector2(s * 0.62f, s * 0.44f),
+                new Vector2(s * 0.70f, s * 0.50f),
+                new Vector2(s * 0.70f, s * 0.26f)
+            }), ruined);
+
+            Draw(texture, Rect(s * 0.20f, s * 0.20f, s * 0.80f, s * 0.26f), Stone);
+            Draw(texture, Disc(s * 0.74f, s * 0.32f, s * 0.05f), ruined);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>A camp: a tent with smoke going up from beside it.</summary>
+        public static Sprite Camp(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.22f, s * 0.26f),
+                new Vector2(s * 0.46f, s * 0.72f),
+                new Vector2(s * 0.70f, s * 0.26f)
+            }), new Color(0.78f, 0.72f, 0.60f, 1f));
+
+            // The doorway, so the tent is a tent and not a triangle.
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.40f, s * 0.26f),
+                new Vector2(s * 0.46f, s * 0.54f),
+                new Vector2(s * 0.52f, s * 0.26f)
+            }), Plate);
+
+            var smoke = new Color(0.85f, 0.85f, 0.88f, 0.75f);
+            Draw(texture, Disc(s * 0.74f, s * 0.46f, s * 0.045f), smoke);
+            Draw(texture, Disc(s * 0.78f, s * 0.58f, s * 0.055f), smoke);
+            Draw(texture, Disc(s * 0.73f, s * 0.70f, s * 0.065f), smoke);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>A wreck: a cart on its side with a wheel come off.</summary>
+        public static Sprite Wreck(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            var wood = new Color(0.55f, 0.40f, 0.28f, 1f);
+
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.24f, s * 0.30f),
+                new Vector2(s * 0.30f, s * 0.58f),
+                new Vector2(s * 0.62f, s * 0.50f),
+                new Vector2(s * 0.58f, s * 0.26f)
+            }), wood);
+
+            // The wheel, off the cart and lying beside it. That it is not under the cart
+            // is the picture: this thing is not going anywhere.
+            Draw(texture, Ring(s * 0.70f, s * 0.34f, s * 0.14f, s * 0.09f), Timberwork);
+            Draw(texture, Rect(s * 0.56f, s * 0.32f, s * 0.84f, s * 0.36f), Timberwork);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>
+        /// Crows: a bird over an open ring.
+        ///
+        /// Hollow where every other symbol is filled, and that carries the meaning. A
+        /// red disc on this map is a group the bird found and a fact; a flock circling
+        /// is a hint, and might be circling over nothing. The old marker said the same
+        /// thing by being nearly black at two metres across on a dark forest, which said
+        /// it so quietly that nobody ever saw a crow at all. A hint you cannot see is
+        /// not a hint.
+        /// </summary>
+        public static Sprite Crow(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name, filled: false);
+
+            var feather = new Color(0.09f, 0.09f, 0.12f, 1f);
+            var glow = new Color(0.86f, 0.84f, 0.80f, 0.55f);
+
+            // A pale wash inside the ring, so a black bird is not black on black forest.
+            Draw(texture, Disc(s * 0.5f, s * 0.5f, s * 0.40f), glow);
+
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.18f, s * 0.66f),
+                new Vector2(s * 0.42f, s * 0.48f),
+                new Vector2(s * 0.50f, s * 0.56f),
+                new Vector2(s * 0.58f, s * 0.48f),
+                new Vector2(s * 0.82f, s * 0.66f),
+                new Vector2(s * 0.58f, s * 0.38f),
+                new Vector2(s * 0.42f, s * 0.38f)
+            }), feather);
+
+            Draw(texture, Disc(s * 0.50f, s * 0.40f, s * 0.09f), feather);
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.50f, s * 0.44f),
+                new Vector2(s * 0.50f, s * 0.34f),
+                new Vector2(s * 0.66f, s * 0.30f)
+            }), feather);
+
+            return Make(texture, default);
+        }
+
         /// <summary>
         /// Packs several painted sprites into one texture, and hands back sprites cut
         /// from it.

@@ -108,6 +108,15 @@ namespace Arna.App
         public Color CrowMarker = new Color(0.10f, 0.10f, 0.12f, 0.85f);
 
         /// <summary>
+        /// Draws the signs that say what each built thing is (see <see cref="MapSymbols"/>).
+        ///
+        /// On, because without them a house, a farm, a ruin and a watchtower are four
+        /// brown smudges. Off to look at the country the generator made without the map
+        /// furniture on top of it, which is what this scene was originally for.
+        /// </summary>
+        public bool ShowSymbols = true;
+
+        /// <summary>
         /// Marker sizes in metres.
         ///
         /// The map is 256 m across and read from seventy up, so these are chosen against
@@ -172,6 +181,12 @@ namespace Arna.App
         /// </summary>
         Mesh _markerMesh;
 
+        Transform _symbols;
+        Mesh _symbolMesh;
+
+        /// <summary>What the decorator built and where, so each can be given a sign.</summary>
+        List<Landmark> _landmarks;
+
         /// <summary>
         /// The fog, and what it takes to lift it a piece at a time.
         ///
@@ -212,13 +227,28 @@ namespace Arna.App
         readonly HashSet<int> _revealed = new HashSet<int>();
 
         /// <summary>
-        /// How clear each tile is, from 0 for fog to 1 for fully seen.
+        /// How clear each ground *corner* is, from 0 for fog to 1 for fully seen.
         ///
         /// A tile used to be one or the other, which drew the flight as a stencil: a
         /// chewed hard edge in the shape of the tiles the sim happened to mark. Knowledge
         /// does not stop at a four-metre boundary. It thins out, so the edge does too.
+        ///
+        /// Held per corner and not per tile, and that is what makes the thinning visible.
+        /// Feathered over the tiles it still came out in four-metre squares of one flat
+        /// value each — the map is 64 tiles across and drawn from four hundred metres
+        /// back, so a tile is about sixteen screen pixels, and the fog's edge was a
+        /// staircase of them. The ground's own colours are already carried on the corners
+        /// (<c>TerrainMeshBuilder.CornerColor</c>) and interpolated smoothly across each
+        /// quad; putting the fog on the same corners lets it ride the same interpolation
+        /// instead of fighting it.
+        ///
+        /// Indexed <c>y * (Width + 1) + x</c>: one more corner than tile in each
+        /// direction.
         /// </summary>
         float[] _clarity;
+
+        /// <summary>Corners across the map, which is one more than tiles.</summary>
+        int _cornersWide;
 
         /// <summary>Reused rather than allocated per prop per frame.</summary>
         // Built on first use rather than here. A MonoBehaviour's fields are initialised
@@ -443,11 +473,11 @@ namespace Arna.App
 
             var marks = new List<MapMarkerBuilder.Marker>();
 
-            // Truthful and lying flocks are marked identically, and that is the design
-            // rather than an oversight: a signal you can tell is false is not a false
-            // positive, it is a second true one.
-            foreach (var flock in CrowSignal.Place(map))
-                marks.Add(new MapMarkerBuilder.Marker(flock.Tile, CrowMarker, CrowMarkerRadius));
+            // The crows are no longer a disc here — they are a symbol, in BuildSymbols
+            // below. A near-black mark two metres across on a dark forest, seen from four
+            // hundred metres up, was invisible; the intent behind it was right and the
+            // execution deleted the signal. What carries "hint, not fact" now is the
+            // shape: a hollow ring with a bird in it against the enemy's filled red disc.
 
             // Only where she has already been. RevealedEnemies is what the whole flight
             // finds; _revealed is what it has found so far, and the difference between
@@ -483,6 +513,60 @@ namespace Arna.App
         }
 
         /// <summary>
+        /// Puts a readable sign on every built thing and every flock of crows.
+        ///
+        /// A house and a ruin are the same brown smudge from map height, and the map had
+        /// no way to tell them apart because the decorator returned a count and threw the
+        /// rest away. It reports now, so this can draw a gable over one and a broken wall
+        /// over the other. See <see cref="MapSymbols"/>.
+        ///
+        /// Not fogged. What is *built* on this country is knowledge had by looking at it
+        /// — the same argument that already exempts a wrecked cart and a raiders' tent
+        /// from the overlay in <see cref="ApplyOverlay"/>. What the fog is for is hiding
+        /// where the enemies are now.
+        /// </summary>
+        void BuildSymbols(LevelMap map)
+        {
+            Clear("Symbols");
+            _symbols = null;
+
+            if (_symbolMesh != null)
+            {
+                if (Application.isPlaying) Destroy(_symbolMesh);
+                else DestroyImmediate(_symbolMesh);
+
+                _symbolMesh = null;
+            }
+
+            if (!ShowSymbols) return;
+
+            var signs = new List<MapSymbols.Sign>();
+
+            if (_landmarks != null)
+                foreach (var landmark in _landmarks)
+                {
+                    int slot = MapSymbols.SlotOf(landmark.Kind);
+                    if (slot >= 0) signs.Add(new MapSymbols.Sign(slot, landmark.Tile));
+                }
+
+            // Truthful and lying flocks are marked identically, and that is the design
+            // rather than an oversight: a signal you can tell is false is not a false
+            // positive, it is a second true one.
+            foreach (var flock in CrowSignal.Place(map))
+                signs.Add(MapSymbols.Crows(flock.Tile));
+
+            var facing = Camera.main != null
+                ? Camera.main.transform.rotation
+                : Quaternion.Euler(55f, 0f, 0f);
+
+            _symbolMesh = MapSymbols.Build(map.Grid, signs, HeightScale, facing);
+            _symbols = MapSymbols.Show(_symbolMesh, transform);
+
+            Debug.Log($"[Arna] Plan {Chapter}-{Level}: {signs.Count} map symbols "
+                      + $"({_landmarks?.Count ?? 0} landmarks reported).");
+        }
+
+        /// <summary>
         /// Mutes the ground and the scenery over every tile the bird did not reach.
         ///
         /// Two different mechanisms for the same effect, because the two things are made
@@ -509,7 +593,8 @@ namespace Arna.App
 
             // Four vertices per tile and tiles in order, which is what makes this cheap:
             // no lookup from a vertex back to the ground under it.
-            _clarity = new float[map.Grid.TileCount];
+            _cornersWide = map.Grid.Width + 1;
+            _clarity = new float[_cornersWide * (map.Grid.Height + 1)];
 
             if (colours != null && colours.Length == map.Grid.TileCount * 4)
             {
@@ -651,40 +736,88 @@ namespace Arna.App
         {
             if (_clarity == null || _map == null) return false;
 
-            _map.Grid.ToCoords(tile, out int cx, out int cy);
+            var grid = _map.Grid;
+            grid.ToCoords(tile, out int cx, out int cy);
+
             int reach = Mathf.CeilToInt(FogFeather);
             bool changed = false;
 
-            for (int dy = -reach; dy <= reach; dy++)
-                for (int dx = -reach; dx <= reach; dx++)
+            // Corner offsets run one further than tile offsets, because tile (tx, ty) is
+            // bounded by corners (tx, ty) through (tx + 1, ty + 1).
+            //
+            // Distance is measured from the tile's *edge*, not its middle: nought on the
+            // tile's own four corners and one per tile outward from there. Measured from
+            // the middle instead — the obvious version, and the one written first — the
+            // nearest corner is 0.707 tiles away, so ground the bird flew directly over
+            // would have topped out at 72% clear and the map would never have come fully
+            // out of the fog at all.
+            for (int dy = -reach; dy <= reach + 1; dy++)
+                for (int dx = -reach; dx <= reach + 1; dx++)
                 {
                     int x = cx + dx;
                     int y = cy + dy;
-                    if (!_map.Grid.InBounds(x, y)) continue;
+                    if (x < 0 || y < 0 || x > grid.Width || y > grid.Height) continue;
 
-                    float clarity = 1f - Mathf.Sqrt(dx * dx + dy * dy) / FogFeather;
+                    float ox = Mathf.Max(0f, Mathf.Abs(dx - 0.5f) - 0.5f);
+                    float oy = Mathf.Max(0f, Mathf.Abs(dy - 0.5f) - 0.5f);
+
+                    float clarity = 1f - Mathf.Sqrt(ox * ox + oy * oy) / FogFeather;
                     if (clarity <= 0f) continue;
 
-                    int near = _map.Grid.ToIndex(x, y);
-                    if (clarity <= _clarity[near]) continue;
+                    int corner = y * _cornersWide + x;
+                    if (clarity <= _clarity[corner]) continue;
 
-                    _clarity[near] = clarity;
-                    Paint(near, clarity);
+                    _clarity[corner] = clarity;
                     changed = true;
                 }
 
-            return changed;
+            if (!changed) return false;
+
+            // Every tile whose corners could have moved, repainted once. Painting from
+            // inside the corner loop instead would redraw each tile up to four times, and
+            // three of those would be reading corners that had not been raised yet.
+            //
+            // One tile further back than the corner loop reached, because the tile at
+            // -reach - 1 has its far corner at -reach and would otherwise be left holding
+            // a corner that had just brightened under it.
+            for (int dy = -reach - 1; dy <= reach; dy++)
+                for (int dx = -reach - 1; dx <= reach; dx++)
+                {
+                    int x = cx + dx;
+                    int y = cy + dy;
+                    if (!grid.InBounds(x, y)) continue;
+
+                    Paint(grid.ToIndex(x, y));
+                }
+
+            return true;
         }
 
-        /// <summary>Puts one tile's ground and scenery at the clarity it has earned.</summary>
-        void Paint(int tile, float clarity)
+        /// <summary>Puts one tile's ground and scenery at the clarity its corners have earned.</summary>
+        void Paint(int tile)
         {
+            _map.Grid.ToCoords(tile, out int x, out int y);
+
+            // The four corners in the order TerrainMeshBuilder lays its vertices down:
+            // near-left, near-right, far-right, far-left.
+            float c00 = Clarity(x, y);
+            float c10 = Clarity(x + 1, y);
+            float c11 = Clarity(x + 1, y + 1);
+            float c01 = Clarity(x, y + 1);
+
             if (_shown != null && _lit != null)
             {
                 int v = tile * 4;
-                for (int k = 0; k < 4; k++)
-                    _shown[v + k] = Color.Lerp(PlanningOverlay.Mute(_lit[v + k]), _lit[v + k], clarity);
+                Shade(v + 0, c00);
+                Shade(v + 1, c10);
+                Shade(v + 2, c11);
+                Shade(v + 3, c01);
             }
+
+            // One tile's worth for the scenery standing on it. A tree has one colour
+            // however finely the ground under it is graded, so it takes the average of
+            // the four corners rather than picking one of them.
+            float clarity = (c00 + c10 + c11 + c01) * 0.25f;
 
             if (_propsByTile == null) return;
             if (!_propsByTile.TryGetValue(tile, out var standing)) return;
@@ -711,6 +844,21 @@ namespace Arna.App
                 renderer.SetPropertyBlock(Block);
             }
         }
+
+        /// <summary>One ground corner's clarity, or nought where there is no such corner.</summary>
+        float Clarity(int cornerX, int cornerY)
+        {
+            if (_clarity == null) return 0f;
+            if (cornerX < 0 || cornerY < 0) return 0f;
+            if (cornerX >= _cornersWide) return 0f;
+
+            int index = cornerY * _cornersWide + cornerX;
+            return index < _clarity.Length ? _clarity[index] : 0f;
+        }
+
+        /// <summary>Sets one ground vertex between its fogged and its lit colour.</summary>
+        void Shade(int vertex, float clarity)
+            => _shown[vertex] = Color.Lerp(PlanningOverlay.Mute(_lit[vertex]), _lit[vertex], clarity);
 
         static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
@@ -868,6 +1016,9 @@ namespace Arna.App
             // After the eagle, because what it marks is what she found.
             BuildMarkers(map);
 
+            // After the props, because it draws signs for what they turned out to be.
+            BuildSymbols(map);
+
             // Last, because it reads what the eagle found and repaints what the other
             // three built.
             ApplyOverlay(mesh, map);
@@ -949,11 +1100,17 @@ namespace Arna.App
             _props = new GameObject("Props").transform;
             _props.SetParent(transform, false);
 
+            // The receipt for what was built, so the map can put a sign on each of them.
+            // Nothing about the placement changes; this is the decorator saying out loud
+            // what it was already deciding.
+            _landmarks = new List<Landmark>();
+
             int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
                 maxProps: MaxProps, densityScale: DensityScale,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
-                campSites: CampSignal.Tiles(map), travelled: Travelled(map));
+                campSites: CampSignal.Tiles(map), travelled: Travelled(map),
+                found: _landmarks);
 
             // Worth printing: a prop that is placed but too small and a prop that was
             // never placed look identical on a map read from seventy metres up.
@@ -1059,6 +1216,20 @@ namespace Arna.App
                 if (Application.isPlaying) Destroy(_props.gameObject);
                 else DestroyImmediate(_props.gameObject);
                 _props = null;
+            }
+
+            if (_symbols != null)
+            {
+                if (Application.isPlaying) Destroy(_symbols.gameObject);
+                else DestroyImmediate(_symbols.gameObject);
+                _symbols = null;
+            }
+
+            if (_symbolMesh != null)
+            {
+                if (Application.isPlaying) Destroy(_symbolMesh);
+                else DestroyImmediate(_symbolMesh);
+                _symbolMesh = null;
             }
 
             if (_mesh == null) return;
