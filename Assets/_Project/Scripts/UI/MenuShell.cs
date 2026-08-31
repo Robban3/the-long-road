@@ -84,7 +84,17 @@ namespace Arna.UI
         /// </summary>
         public void Show(Action<MenuShell, RectTransform> build, string backdrop = null)
         {
-            Repaint(backdrop ?? Backdrops.Menu);
+            // Naming no painting means *keep the one that is up*, and that is the whole
+            // point of the default.
+            //
+            // Every plain Show(Build) in this project is a screen rebuilding itself in
+            // place — a shop tab changing, a boon bought, a troop picked. Defaulting
+            // those to the front page's castle meant the shop painted the smithy on the
+            // way in and threw it away the moment you touched a tab, which is exactly
+            // what "switching tab goes back to the old picture" is. A screen that wants a
+            // particular painting says so when it is opened; a rebuild says nothing and
+            // keeps what it had.
+            Repaint(backdrop ?? _painted ?? Backdrops.Menu);
 
             for (int i = _screen.childCount - 1; i >= 0; i--)
                 Destroy(_screen.GetChild(i).gameObject);
@@ -113,12 +123,16 @@ namespace Arna.UI
             for (int i = _backdrop.childCount - 1; i >= 0; i--)
                 Destroy(_backdrop.GetChild(i).gameObject);
 
+            // The sky goes down first every time, painting or no painting. A painting is
+            // held to a phone-shaped column (see Backdrops.Paint), so on a window wider
+            // than a phone there is canvas either side of it, and the game's own night
+            // sky is a better thing to find there than black.
+            Sky(_backdrop);
+
             if (Backdrops.Paint(backdrop, _backdrop, 0.45f) != null) return;
 
             bool substituted = backdrop != Backdrops.Menu
                                && Backdrops.Paint(Backdrops.Menu, _backdrop, 0.45f) != null;
-
-            if (!substituted) Sky(_backdrop);
 
             Missing(backdrop, substituted);
         }
@@ -152,7 +166,8 @@ namespace Arna.UI
 
         /// <summary>A screen for a section that is designed but not yet built.</summary>
         public void ShowStub(string title, string explanation, string backdrop = null)
-            => Show((shell, root) => StubScreen.Build(shell, root, title, explanation), backdrop);
+            => Show((shell, root) => StubScreen.Build(shell, root, title, explanation),
+                    backdrop ?? Backdrops.Menu);
 
         /// <summary>
         /// Starts a level: the escort first, then the road.
@@ -166,7 +181,7 @@ namespace Arna.UI
         {
             Session.Choose(chapter, level);
             Session.Forget();
-            Show(TroopScreen.Build);
+            Show(TroopScreen.Build, Backdrops.Menu);
         }
 
         /// <summary>Off to the planning map with the escort that was chosen.</summary>

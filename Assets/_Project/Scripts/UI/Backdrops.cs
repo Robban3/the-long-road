@@ -284,8 +284,29 @@ namespace Arna.UI
             var sprite = Find(name);
             if (sprite == null) return null;
 
+            // A phone-shaped column, not the whole canvas.
+            //
+            // The scaler is driven by height, so a window wider than a phone is wider in
+            // *design units* too — a 16:9 editor Game view is 3413 units across. A tall
+            // painting covering that has to be blown up nearly four times before its
+            // edges reach, and what is left on screen is a small square out of the middle
+            // of it. That is the "the pictures are enormous", and it is a symptom of the
+            // window, not of the paintings.
+            //
+            // Held to the design's own 1080 the painting stays the size it was painted
+            // at whatever shape the window is. On a phone the canvas is 1080 units wide
+            // at most — 864 on a 20:9 — so the column is at least the screen's width and
+            // the painting still covers it edge to edge, which is the case that matters.
             var frame = Widgets.Node("Backdrop", parent);
-            frame.Fill();
+            frame.anchorMin = new Vector2(0.5f, 0f);
+            frame.anchorMax = new Vector2(0.5f, 1f);
+            frame.pivot = new Vector2(0.5f, 0.5f);
+            frame.offsetMin = new Vector2(-Widgets.Reference.x * 0.5f, 0f);
+            frame.offsetMax = new Vector2(Widgets.Reference.x * 0.5f, 0f);
+
+            // The crop has to stop at the column's edge or the painting spills across the
+            // sky it is supposed to be standing in front of.
+            frame.gameObject.AddComponent<RectMask2D>();
 
             var image = Widgets.Panel("Painting", frame, sprite, Color.white);
             image.type = Image.Type.Simple;

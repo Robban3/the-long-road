@@ -133,11 +133,19 @@ namespace Arna.UI
         /// <summary>Builds the scrolling path of levels for the open chapter.</summary>
         static void Path(MenuShell shell, RectTransform root, Campaign campaign)
         {
+            // As wide as everything else on this screen and no wider.
+            //
+            // Stretched to the canvas the board grew with the window, and the painting
+            // inside it is fitted width-first — so a wide editor Game view made a map
+            // several screens tall out of a picture drawn for a phone. Every other row
+            // here is built at SafeWidth and centred; the board is now too, so what the
+            // map looks like no longer depends on the shape of the window it is in.
             var frame = Widgets.Node("Levels", root);
-            frame.anchorMin = new Vector2(0f, 0f);
-            frame.anchorMax = new Vector2(1f, 1f);
-            frame.offsetMin = new Vector2(Widgets.Margin, NavHeight + 24f);
-            frame.offsetMax = new Vector2(-Widgets.Margin, -500f);
+            frame.anchorMin = new Vector2(0.5f, 0f);
+            frame.anchorMax = new Vector2(0.5f, 1f);
+            frame.pivot = new Vector2(0.5f, 0.5f);
+            frame.offsetMin = new Vector2(-Widgets.SafeWidth * 0.5f, NavHeight + 24f);
+            frame.offsetMax = new Vector2(Widgets.SafeWidth * 0.5f, -500f);
 
             var board = Widgets.Panel("Board", frame, Theme.Frame,
                                       new Color(0.14f, 0.16f, 0.12f, 1f));
