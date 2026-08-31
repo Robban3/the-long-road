@@ -115,10 +115,36 @@ namespace Arna.UI
 
             if (Backdrops.Paint(backdrop, _backdrop, 0.45f) != null) return;
 
-            if (backdrop != Backdrops.Menu
-                && Backdrops.Paint(Backdrops.Menu, _backdrop, 0.45f) != null) return;
+            bool substituted = backdrop != Backdrops.Menu
+                               && Backdrops.Paint(Backdrops.Menu, _backdrop, 0.45f) != null;
 
-            Sky(_backdrop);
+            if (!substituted) Sky(_backdrop);
+
+            Missing(backdrop, substituted);
+        }
+
+        /// <summary>
+        /// Says on the screen itself which painting is missing.
+        ///
+        /// The console has said this for three rounds and the answer kept not arriving,
+        /// because a fallback that looks deliberate is indistinguishable from a fallback
+        /// that is broken — "the shop still shows the castle" is exactly what a missing
+        /// shop painting looks like *and* exactly what a bug in the swapping would look
+        /// like. Putting the sentence where the person is looking ends that.
+        ///
+        /// Editor only. A player must never see a filename.
+        /// </summary>
+        void Missing(string backdrop, bool substituted)
+        {
+#if UNITY_EDITOR
+            var note = Widgets.Label("Missing", _backdrop,
+                $"{backdrop}.png saknas i Assets/_Project/Art/Resources"
+                + (substituted ? " — visar startsidans bild" : " — ritar egen himmel"),
+                Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.75f));
+
+            note.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 8f),
+                                     new Vector2(Widgets.SafeWidth, 32f));
+#endif
         }
 
         public void ShowMain() => Show(MainMenuScreen.Build, Backdrops.Menu);
