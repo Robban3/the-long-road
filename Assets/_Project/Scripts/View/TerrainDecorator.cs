@@ -184,6 +184,15 @@ namespace Arna.View
         /// only reads as part of something has to be placed as part of something. These
         /// are laid flat, small, and only ever beside a wreck that is already there.
         /// </summary>
+        /// <summary>
+        /// The building kit: the pieces houses, towers and ruins are stacked out of.
+        ///
+        /// Takes precedence over <see cref="Houses"/> and <see cref="Watchtowers"/> where
+        /// it can build the thing, and those stay as the fallback for a pack that ships
+        /// whole buildings instead of a kit. See BuildingBuilder.
+        /// </summary>
+        public BuildingKit Kit = new BuildingKit();
+
         public PropSet Wreckage = new PropSet();
 
         public PropSet Ruins = new PropSet();
@@ -276,7 +285,8 @@ namespace Arna.View
             !Has(GroundCover) && !Has(MarshPlants) && !Has(Lilypads) &&
             !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
             !Has(Timber) && !Has(Ruins) && !Has(Wreckage) && !Has(Markers) && !Has(Water) && !Has(Fords) &&
-            !Has(Cliffs) && !Has(Camps) && !Has(Willows) && !Has(Shore) && !Has(Backdrop);
+            !Has(Cliffs) && !Has(Camps) && !Has(Willows) && !Has(Shore) && !Has(Backdrop) &&
+            (Kit == null || Kit.IsEmpty);
 
         static bool Has(PropSet set) => set != null && set.Any;
     }
@@ -737,7 +747,8 @@ namespace Arna.View
                                    bool horizon = true,
                                    IReadOnlyCollection<int> driveLine = null,
                                    IReadOnlyCollection<int> campSites = null,
-                                   int driveMargin = DriveMarginTiles)
+                                   int driveMargin = DriveMarginTiles,
+                                   IReadOnlyCollection<int> travelled = null)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
@@ -755,7 +766,8 @@ namespace Arna.View
             // the one that loses.
             var occupied = new HashSet<int>();
             placed += PlaceLandmarks(parent, grid, rng, decor, clear, occupied, heightScale,
-                                     ruinSites, road);
+                                     ruinSites, road,
+                                     travelled == null ? null : new HashSet<int>(travelled));
 
             // Two passes over the same ground, and the order is half the fix. The scatter
             // walks tiles in index order, so a mountain reaching tile 500 cannot un-place
@@ -1897,7 +1909,7 @@ namespace Arna.View
         static int PlaceLandmarks(Transform parent, TileGrid grid, DeterministicRandom rng,
                                   BiomeDecor decor, HashSet<int> clear, HashSet<int> occupied,
                                   float heightScale, IReadOnlyCollection<int> ruinSites,
-                                  HashSet<int> road = null)
+                                  HashSet<int> road = null, HashSet<int> travelled = null)
         {
             int placed = 0;
 
@@ -1949,6 +1961,16 @@ namespace Arna.View
                 if (occupied.Contains(i)) continue;
 
                 grid.ToCoords(i, out int x, out int y);
+
+                // Built things first, where the pack came as a kit. A house is a
+                // foundation, a room and a roof; a castle tower is a base, a shaft and a
+                // top; a ruin is what is left of one with its stone lying around it.
+                if (decor.Kit != null
+                    && Built(parent, grid, rng, decor, i, heightScale, occupied, travelled))
+                {
+                    placed++;
+                    continue;
+                }
 
                 Choice choice = default;
 
@@ -2155,6 +2177,160 @@ namespace Arna.View
 
         /// <summary>What share of a tile's own fall a building is sunk by, on top of its taper.</summary>
         public const float SlopeSink = 0.6f;
+
+        /// <summary>
+        /// Builds whatever this tile has earned out of the kit, or nothing.
+        ///
+        /// Where they stand is unchanged and the reasons are the old ones: people build
+        /// beside roads, towers watch the passes. Ruins are the new one and they go the
+        /// other way — out in open country away from the road, because a ruin beside a
+        /// living road reads as a building somebody would have repaired.
+        /// </summary>
+        static bool Built(Transform parent, TileGrid grid, DeterministicRandom rng,
+                          BiomeDecor decor, int tile, float heightScale,
+                          HashSet<int> occupied, HashSet<int> line)
+        {
+            var kit = decor.Kit;
+            var terrain = grid[tile];
+
+            if (terrain == TerrainType.MountainPass && kit.CanBuildTower && rng.Chance(TowerChance))
+                return Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),
+                             TowerHeight, heightScale, occupied);
+
+            grid.ToCoords(tile, out int x, out int y);
+
+            // Somewhere a building could stand: open ground, near enough to the road the
+            // caravan is taking to be *on* it, and flat enough to have been built on.
+            bool settled = terrain == TerrainType.Plains
+                        && Beside(grid, line, x, y, SettlementReach)
+                        && Fall(grid, tile, heightScale) < BuildableFall;
+
+            if (settled && kit.CanBuildHouse && rng.Chance(HouseChance))
+                return Raise(grid, tile, rng, BuildingBuilder.House(parent, kit, rng),
+                             HouseHeight, heightScale, occupied);
+
+            if (settled && kit.CanBuildHouse && rng.Chance(FarmChance))
+                return Raise(grid, tile, rng, BuildingBuilder.House(parent, kit, rng),
+                             FarmHeight, heightScale, occupied);
+
+            // Ruins go the other way: out in the country, away from the line, because a
+            // ruin beside a living road reads as a building somebody would have repaired.
+            if ((terrain == TerrainType.Plains || terrain == TerrainType.Forest)
+                && !Beside(grid, line, x, y, SettlementReach)
+                && kit.CanBuildRuin && rng.Chance(StoneRuinChance))
+                return Raise(grid, tile, rng, BuildingBuilder.Ruin(parent, kit, rng),
+                             StoneRuinHeight, heightScale, occupied);
+
+            return false;
+        }
+
+        /// <summary>
+        /// Whether the caravan's road passes within <paramref name="radius"/> tiles.
+        ///
+        /// **This replaces asking the terrain for a road, and that is a bug fix and not a
+        /// refactor.** Houses were placed on Road tiles and farms on plains beside them,
+        /// and the generator lays no roads — it says so in LevelRecipe, in a comment about
+        /// why. Every generated map in this project has exactly zero road tiles, measured
+        /// across chapter one, so the whole settlement layer has been correct-looking dead
+        /// code for its entire life: not one house or field has ever been placed.
+        ///
+        /// What is used instead is the generator's own corridors: the natural ways
+        /// through this country, which both the planning map and the run can ask for and
+        /// which do not move. The line the *player* drew would have been the other
+        /// candidate and is wrong for a reason worth stating — redrawing the route would
+        /// move the houses, and the country has to exist before anybody decides how to
+        /// cross it.
+        /// </summary>
+        static bool Beside(TileGrid grid, HashSet<int> line, int x, int y, int radius)
+        {
+            if (line == null || line.Count == 0) return false;
+
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    int nx = x + dx, ny = y + dy;
+                    if (grid.InBounds(nx, ny) && line.Contains(grid.ToIndex(nx, ny))) return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>How often a road tile carries a house, a pass a tower, open country a ruin.</summary>
+        /// <summary>
+        /// Rates per qualifying tile, set from what they add up to rather than from what
+        /// they sound like.
+        ///
+        /// Counted over chapter one: about 480 plains tiles lie within three of a corridor
+        /// on a 64×64 map, 1750 sit out in the country beyond them, and 320 are pass. At
+        /// two percent each that came to <b>nineteen buildings a level</b> — a town, on a
+        /// road that goes through the provinces. Eight parts in a thousand gives three or
+        /// four buildings along the way, which is what a day's travel should pass.
+        ///
+        /// The others were already about right and stay: four towers on the passes, two
+        /// or three ruins in the empty country.
+        /// </summary>
+        public const float HouseChance = 0.008f;
+        public const float FarmChance = 0.008f;
+        public const float TowerChance = 0.012f;
+        public const float StoneRuinChance = 0.0015f;
+
+        /// <summary>How far from the caravan's road a building may still be said to be on it.</summary>
+        public const int SettlementReach = 3;
+
+        /// <summary>Most a tile may fall across before nobody would have built on it.</summary>
+        public const float BuildableFall = 1.6f;
+
+        /// <summary>A farmhouse stands lower and broader than a village house.</summary>
+        public const float FarmHeight = 5.5f;
+
+        /// <summary>How tall a built castle tower stands, and a stone ruin.</summary>
+        public const float TowerHeight = 15f;
+        public const float StoneRuinHeight = 4.5f;
+
+        /// <summary>
+        /// Puts an assembled building on the ground: turned square, seated into the slope,
+        /// scaled to the size the level wants and marked as something to walk round.
+        ///
+        /// The building arrives already stacked and standing at the origin (see
+        /// <see cref="BuildingBuilder"/>), which is why this is a separate step from
+        /// <see cref="Place"/>: one instantiates a prefab and the other finishes a thing
+        /// that was built out of several.
+        /// </summary>
+        static bool Raise(TileGrid grid, int tile, DeterministicRandom rng, GameObject building,
+                          float height, float heightScale, HashSet<int> occupied)
+        {
+            if (building == null) return false;
+
+            var at = Vec2.FromTile(grid, tile);
+
+            float surfaceY = grid.SurfaceElevation(at.X, at.Y) * heightScale;
+            float groundY = surfaceY - Seat(grid, tile, heightScale, height);
+
+            // Quarter turns, as for any building. A house at eleven degrees reads as
+            // subsidence, and this one is several pieces deep.
+            building.transform.rotation = Quaternion.Euler(0f, rng.Range(0, 4) * 90f, 0f);
+            building.transform.position = new Vector3(at.X, groundY, at.Y);
+
+            // Scaled about its own origin, which the builder put on the ground plane —
+            // not seated by its lowest point, which is what ModelScaling.Fit does and
+            // what every other prop here wants. A ruin has its wall deliberately sunk
+            // below that plane, and seating by the lowest point would dig it straight
+            // back up. So what is fitted is the height that shows.
+            // Against the surface rather than the seated origin, so the height asked for
+            // is the height the player sees. Measured from the sunk origin instead, a
+            // house on a slope would come out short by however far it was buried.
+            var standing = ModelScaling.Measure(building);
+            float above = standing.max.y - surfaceY;
+
+            if (above > 0.0001f) building.transform.localScale *= height / above;
+
+            Block(building, canopy: false);
+            Reserve(grid, occupied, building, at.X, at.Y);
+
+            return true;
+        }
 
         /// <summary>Stands one landmark on the centre of a tile, sized and seated.</summary>
         static GameObject Place(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,

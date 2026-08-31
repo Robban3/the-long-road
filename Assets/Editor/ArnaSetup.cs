@@ -737,21 +737,79 @@ namespace Arna.Editor
                 Houses = Knights("Buildings", "SM_Bld_Village_Well_01", "SM_Bld_Well_01",
                                  "SM_Bld_Leanto_01"),
 
-                // The mini towers are complete on their own, unlike the castle towers,
-                // which are base, shaft and top as separate pieces.
-                Watchtowers = Knights("Buildings", "SM_Bld_Castle_Tower_Mini_01",
-                                      "SM_Bld_Castle_Tower_Mini_02"),
+                // **Empty on purpose now.** These were the pack's two mini towers, which
+                // are whole pieces and were reported twice as standing on the grass. They
+                // are also two shapes, so every pass in the game had the same tower on it
+                // twice. The kit below builds them instead.
+                Watchtowers = new PropSet(),
 
-                // Farms are still empty: a farm needs a farmhouse and the pack has none
-                // whole. It comes with the builder.
+                // The kit. This is what the knights pack actually ships — parts, not
+                // buildings — and what BuildingBuilder stacks into a house, a tower or a
+                // ruin. The sets are index-matched: foundation 3, room 3, upper room 3
+                // and roof 3 are one house, so a style is drawn once and the pieces agree
+                // with each other rather than putting a round roof on a square room.
+                Kit = new BuildingKit
+                {
+                    Foundations = Knights("Buildings",
+                        "SM_Bld_House_Foundation_01", "SM_Bld_House_Foundation_02",
+                        "SM_Bld_House_Foundation_03", "SM_Bld_House_Foundation_04",
+                        "SM_Bld_House_Foundation_05", "SM_Bld_House_Foundation_06",
+                        "SM_Bld_House_Foundation_07"),
 
-                // Houses, Farms and Watchtowers are left empty, and that is the honest
-                // state rather than an oversight. Neither Synty pack has a medieval
-                // building: PolygonNature has none at all and PolygonGeneric's are
-                // modern city blocks. They come back with POLYGON Knights (§8). An
-                // empty set places nothing, so the map is wilderness until then — which
-                // is what the reference picture is, and arguably what a road through the
-                // provinces should have been all along.
+                    Rooms = Knights("Buildings",
+                        "SM_Bld_House_Room_01", "SM_Bld_House_Room_02", "SM_Bld_House_Room_03",
+                        "SM_Bld_House_Room_04", "SM_Bld_House_Room_05", "SM_Bld_House_Room_06",
+                        "SM_Bld_House_Room_07"),
+
+                    UpperRooms = Knights("Buildings",
+                        "SM_Bld_House_TopRoomSmall_01", "SM_Bld_House_TopRoomSmall_02",
+                        "SM_Bld_House_TopRoomSmall_03", "SM_Bld_House_TopRoomSmall_04",
+                        "SM_Bld_House_TopRoomSmall_05", "SM_Bld_House_TopRoomSmall_06",
+                        "SM_Bld_House_TopRoomSmall_07"),
+
+                    Roofs = Knights("Buildings",
+                        "SM_Bld_House_RoomTop_01", "SM_Bld_House_RoomTop_02",
+                        "SM_Bld_House_RoomTop_03", "SM_Bld_House_RoomTop_04",
+                        "SM_Bld_House_RoomTop_05", "SM_Bld_House_RoomTop_06",
+                        "SM_Bld_House_RoomTop_07"),
+
+                    Chimneys = Knights("Buildings",
+                        "SM_Bld_House_Chimney_01", "SM_Bld_House_Chimney_02",
+                        "SM_Bld_House_Chimney_03", "SM_Bld_House_Chimney_04",
+                        "SM_Bld_House_Chimney_05"),
+
+                    // The square castle family only. Round shafts and square tops are
+                    // both in the pack and they do not meet.
+                    TowerBases = Knights("Buildings",
+                        "SM_Bld_Castle_Tower_Base_01", "SM_Bld_Castle_Tower_Base_02"),
+
+                    TowerShafts = Knights("Buildings",
+                        "SM_Bld_Castle_Tower_01", "SM_Bld_Castle_Tower_02",
+                        "SM_Bld_Castle_Tower_03", "SM_Bld_Castle_Tower_04"),
+
+                    TowerTops = Knights("Buildings", "SM_Bld_Castle_Tower_Top_01"),
+
+                    // Free-standing stonework, for a ruin with no room left in it.
+                    Walls = Knights("Buildings",
+                        "SM_Bld_Rockwall_Straight_01", "SM_Bld_Rockwall_Archway_01",
+                        "SM_Bld_Castle_Wall_01"),
+
+                    // What came down. The same rock piles the shoreline uses, which is
+                    // right: a fallen wall and a river's stones are the same stone.
+                    Rubble = Mixed(
+                        Load($"{SyntyKnightsDir}/Environments", new[]
+                        {
+                            "SM_Env_RockPile_01", "SM_Env_RockPile_02", "SM_Env_RockPile_03"
+                        }),
+                        Load($"{SyntyNatureDir}/Rocks", new[]
+                        {
+                            "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03"
+                        }))
+                },
+
+                // Farms are built rather than wired, like the houses: a farmstead is a
+                // house standing on the open ground beside a road, and the pack has no
+                // whole farmhouse to load. See BuildingBuilder and TerrainDecorator.Built.
             };
         }
 
@@ -1673,6 +1731,97 @@ namespace Arna.Editor
 
                 UnityEngine.Object.DestroyImmediate(instance);
             }
+        }
+
+        /// <summary>
+        /// Measures the building kit and builds one of each thing out of it.
+        ///
+        /// The models are Git LFS pointers on the machine this builder was written on, so
+        /// nothing there could measure a foundation or check that room 3 and roof 3 are
+        /// the same footprint. This is how that gets checked: it prints every piece's
+        /// height and width, then stacks a house, a tower and a ruin and prints what came
+        /// out. A roof narrower than its room, or a shaft that is really a whole tower,
+        /// shows up here as two numbers rather than as a screenshot.
+        /// </summary>
+        [MenuItem("Arna/Report Building Kit")]
+        public static void ReportBuildingKit()
+        {
+            if (!Stopped("Report Building Kit")) return;
+
+            var decor = LoadForestDecor();
+            var kit = decor.Kit;
+
+            if (kit == null || kit.IsEmpty)
+            {
+                Debug.LogWarning("[Arna] No building kit is wired.");
+                return;
+            }
+
+            Measure("Foundations", kit.Foundations);
+            Measure("Rooms", kit.Rooms);
+            Measure("Upper rooms", kit.UpperRooms);
+            Measure("Roofs", kit.Roofs);
+            Measure("Chimneys", kit.Chimneys);
+            Measure("Tower bases", kit.TowerBases);
+            Measure("Tower shafts", kit.TowerShafts);
+            Measure("Tower tops", kit.TowerTops);
+
+            var host = new GameObject("KitReport");
+            var rng = new DeterministicRandom(1);
+
+            Assembled("house", BuildingBuilder.House(host.transform, kit, rng));
+            Assembled("tower", BuildingBuilder.Tower(host.transform, kit, rng));
+            Assembled("ruin", BuildingBuilder.Ruin(host.transform, kit, rng));
+
+            Object.DestroyImmediate(host);
+        }
+
+        static void Measure(string what, PropSet set)
+        {
+            if (set == null || !set.Any)
+            {
+                Debug.Log($"[Arna] {what}: none wired.");
+                return;
+            }
+
+            var lines = new System.Collections.Generic.List<string>();
+
+            foreach (var prefab in set.Models)
+            {
+                if (prefab == null) continue;
+
+                var instance = Object.Instantiate(prefab);
+                var bounds = ModelScaling.Measure(instance);
+
+                lines.Add($"{prefab.name} {bounds.size.x:0.0}×{bounds.size.z:0.0} "
+                          + $"× {bounds.size.y:0.0} m");
+
+                Object.DestroyImmediate(instance);
+            }
+
+            Debug.Log($"[Arna] {what}: {string.Join(", ", lines)}");
+        }
+
+        static void Assembled(string what, GameObject built)
+        {
+            if (built == null)
+            {
+                Debug.LogWarning($"[Arna] the kit could not build a {what}.");
+                return;
+            }
+
+            var bounds = ModelScaling.Measure(built);
+            var pieces = new System.Collections.Generic.List<string>();
+
+            foreach (Transform child in built.transform)
+            {
+                var piece = ModelScaling.Measure(child.gameObject);
+                pieces.Add($"{child.name.Replace("(Clone)", "")} at {piece.min.y:0.0}–{piece.max.y:0.0} m");
+            }
+
+            Debug.Log($"[Arna] A {what} came out {bounds.size.x:0.0}×{bounds.size.z:0.0} "
+                      + $"× {bounds.size.y:0.0} m from {pieces.Count} pieces: "
+                      + string.Join(", ", pieces));
         }
 
         [MenuItem("Arna/Report Model Dimensions")]

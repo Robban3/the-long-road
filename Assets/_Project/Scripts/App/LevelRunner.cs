@@ -201,7 +201,8 @@ namespace Arna.App
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
                 ruinSites: TrapSigns.Sites(map),
                 driveLine: _run.Caravan.Sweep(TerrainDecorator.DriveHalfWidth),
-                campSites: CampSignal.Tiles(map), driveMargin: 0);
+                campSites: CampSignal.Tiles(map), driveMargin: 0,
+                travelled: LevelPreview.Travelled(map));
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
             _visuals.FindBridges(_markerRoot);

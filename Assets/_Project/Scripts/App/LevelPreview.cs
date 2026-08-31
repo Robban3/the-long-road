@@ -953,7 +953,7 @@ namespace Arna.App
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
                 maxProps: MaxProps, densityScale: DensityScale,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
-                campSites: CampSignal.Tiles(map));
+                campSites: CampSignal.Tiles(map), travelled: Travelled(map));
 
             // Worth printing: a prop that is placed but too small and a prop that was
             // never placed look identical on a map read from seventy metres up.
@@ -1001,6 +1001,23 @@ namespace Arna.App
             // A drawn line neither casts nor catches shadow. It is not in the world.
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+        }
+
+        /// <summary>
+        /// Every tile any corridor crosses — the country's natural ways through, which is
+        /// where people build. Unlike <see cref="CorridorTiles"/> this is not gated on
+        /// ShowCorridors: the corridors stay hidden, the houses standing along them do not.
+        /// </summary>
+        internal static HashSet<int> Travelled(LevelMap map)
+        {
+            var tiles = new HashSet<int>();
+            if (map?.Corridors == null) return tiles;
+
+            foreach (var corridor in map.Corridors)
+                foreach (int tile in corridor.Tiles)
+                    tiles.Add(tile);
+
+            return tiles;
         }
 
         HashSet<int> CorridorTiles(LevelMap map)
