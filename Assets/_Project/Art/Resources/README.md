@@ -50,6 +50,12 @@ rather than cropped, and the ten level medallions are pinned to points on the ro
 the painting — first at the bottom, tenth at the top, so you can see where the journey
 starts and what it is heading for.
 
+The map is drawn larger than the frame it sits in and scrolled — a medallion is 194
+units across with its ring, and ten of them will not fit down a picture fitted to the
+board's width without piling on top of each other. At the current zoom a fifth of the
+picture's width is cropped at each edge, so a waypoint's `x` has to stay inside roughly
+0.21–0.79 to be on screen at all.
+
 Those points are a table in `UI/RoadmapScreen.cs` (`Waypoints`), given as fractions of
 the picture so they hold at any size. They belong to one painting: a chapter with its
 own picture wants its own table. While `ShowWaypoints` is on, each medallion prints its

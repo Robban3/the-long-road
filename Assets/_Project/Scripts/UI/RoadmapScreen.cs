@@ -22,6 +22,30 @@ namespace Arna.UI
     public static class RoadmapScreen
     {
         const float NodeSize = 160f;
+
+        /// <summary>The board's own width in design units: SafeWidth less the viewport's margin.</summary>
+        const float BoardWidth = Widgets.SafeWidth - 20f;
+
+        /// <summary>
+        /// How much larger than the board the painted map is drawn.
+        ///
+        /// Arithmetic, not taste. A medallion is 160 wide and 194 with its ring, so ten
+        /// of them need 1940 units of height merely to touch — and a painting fitted to
+        /// the board's 820 of width comes out about 1060 tall. They cannot fit, and what
+        /// that looked like on screen was a stack of overlapping rings down the middle of
+        /// the picture.
+        ///
+        /// So the map is drawn larger than the frame and scrolled, which is what it is
+        /// anyway: a journey climbing from the fortress at the bottom to the castle on
+        /// the skyline, not a postcard that has to sit inside a box. At 1.7 the map is
+        /// about 1800 tall, which leaves 178 units between medallions instead of 85.
+        ///
+        /// The cost is the sides: 820 of 1394 is on screen, so a fifth of the width is
+        /// cropped at each edge and a waypoint's x has to stay inside 0.21–0.79 of the
+        /// painting to be seen at all. Going further — 1.8 — would push the tenth
+        /// medallion off the right edge, so this is as large as the table allows.
+        /// </summary>
+        const float Zoom = 1.7f;
         const float Step = 260f;
         const float Swing = 300f;
         const float TopPad = 120f;
@@ -164,11 +188,8 @@ namespace Arna.UI
             catcher.rectTransform.Fill();
 
             var content = Widgets.Node("Content", viewport);
-            content.anchorMin = new Vector2(0f, 1f);
-            content.anchorMax = new Vector2(1f, 1f);
             content.pivot = new Vector2(0.5f, 1f);
-            content.offsetMin = new Vector2(0f, 0f);
-            content.offsetMax = new Vector2(0f, 0f);
+
             var painting = Painting();
 
             Debug.Log(painting != null
@@ -179,12 +200,20 @@ namespace Arna.UI
 
             if (painting != null)
             {
-                // The picture sets the shape of the board rather than being cropped to
-                // fit one. Its width is the viewport's — the content is stretched to that
-                // — and the fitter works the height out from the width every layout pass,
-                // which is the only way to get it right without knowing the width here:
-                // a rect's size is not decided until the layout runs, and this is built
-                // before it does.
+                // Wider than the board on purpose, and centred, so the viewport's mask
+                // takes the same slice off each side. The width can be stated outright
+                // because the board is a column of a fixed width now rather than
+                // something that grows with the window — which is what makes any of this
+                // arithmetic possible at all.
+                content.anchorMin = new Vector2(0.5f, 1f);
+                content.anchorMax = new Vector2(0.5f, 1f);
+                content.anchoredPosition = Vector2.zero;
+                content.sizeDelta = new Vector2(BoardWidth * Zoom, 0f);
+
+                // The fitter reads that width and works the height out from it every
+                // layout pass, so the painting is never stretched — and it has to be the
+                // fitter rather than a number here, because a rect has no size until the
+                // layout runs and this is built before it does.
                 var sheet = Widgets.Panel("Painting", content, painting, Color.white);
                 sheet.type = Image.Type.Simple;
                 sheet.raycastTarget = false;
@@ -196,6 +225,13 @@ namespace Arna.UI
             }
             else
             {
+                // The drawn board is built for the viewport's width, so it keeps the
+                // stretched anchors it always had.
+                content.anchorMin = new Vector2(0f, 1f);
+                content.anchorMax = new Vector2(1f, 1f);
+                content.offsetMin = Vector2.zero;
+                content.offsetMax = Vector2.zero;
+
                 content.sizeDelta =
                     new Vector2(0f, TopPad * 2f + Step * (Campaign.LevelsPerChapter - 1));
             }
@@ -285,18 +321,34 @@ namespace Arna.UI
         /// To move one: change its pair. The numbers are shown under each medallion in
         /// the editor, so a wrong one can be read off the screen rather than guessed at.
         /// </summary>
+        /// <remarks>
+        /// Spread over the whole picture rather than its middle two thirds, and swung
+        /// wider from side to side than the first reading of the road was.
+        ///
+        /// The heights are an even ladder from 0.945 to 0.055 — the first medallion just
+        /// above the bottom edge, the tenth just below the top — which is 0.0989 of the
+        /// picture between each, about 178 units on the map at its drawn size. The old
+        /// table spanned 0.845 to 0.140 on a map less than two thirds as tall, which came
+        /// to 85 units between medallions that are 194 wide.
+        ///
+        /// The sideways positions keep the shape the road was read at, stretched 1.8×
+        /// about their own centre line, so neighbours separate across the map as well as
+        /// up it. That stretch is arithmetic rather than another look at the painting, so
+        /// a point may well have wandered off the road; the pair under each medallion in
+        /// the editor is there to correct it in one line.
+        /// </remarks>
         static readonly Vector2[] Waypoints =
         {
-            new Vector2(0.508f, 0.845f),   // 1  — outside the fortress gate
-            new Vector2(0.487f, 0.762f),   // 2
-            new Vector2(0.520f, 0.680f),   // 3
-            new Vector2(0.500f, 0.598f),   // 4  — the lower stone bridge
-            new Vector2(0.452f, 0.522f),   // 5  — under the falls, by the village
-            new Vector2(0.497f, 0.462f),   // 6  — the upper bridge
-            new Vector2(0.548f, 0.400f),   // 7  — below the watchtower
-            new Vector2(0.532f, 0.318f),   // 8
-            new Vector2(0.548f, 0.232f),   // 9
-            new Vector2(0.640f, 0.140f)    // 10 — the castle road
+            new Vector2(0.496f, 0.945f),   // 1  — outside the fortress gate
+            new Vector2(0.458f, 0.846f),   // 2
+            new Vector2(0.517f, 0.747f),   // 3
+            new Vector2(0.481f, 0.648f),   // 4  — the lower stone bridge
+            new Vector2(0.395f, 0.549f),   // 5  — under the falls, by the village
+            new Vector2(0.476f, 0.451f),   // 6  — the upper bridge
+            new Vector2(0.568f, 0.352f),   // 7  — below the watchtower
+            new Vector2(0.539f, 0.253f),   // 8
+            new Vector2(0.568f, 0.154f),   // 9
+            new Vector2(0.733f, 0.055f)    // 10 — the castle road
         };
 
         /// <summary>
