@@ -163,6 +163,12 @@ namespace Arna.UI
             content.offsetMax = new Vector2(0f, 0f);
             var painting = Painting();
 
+            Debug.Log(painting != null
+                ? $"[Arna] Roadmap painting {painting.rect.width:0}×{painting.rect.height:0} px "
+                  + $"for chapter {_shown}."
+                : $"[Arna] No roadmap painting for chapter {_shown} — drawing the scattered "
+                  + "wood instead.");
+
             if (painting != null)
             {
                 // The picture sets the shape of the board rather than being cropped to
@@ -212,6 +218,21 @@ namespace Arna.UI
 
             for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 Node(shell, content, campaign, level, painting != null);
+
+#if UNITY_EDITOR
+            if (painting == null)
+            {
+                // On the screen and not only in the console, because a fallback that
+                // looks deliberate is indistinguishable from one that is broken — which
+                // has now cost three rounds on the shop's own painting.
+                var note = Widgets.Label("Missing", frame,
+                    $"{Backdrops.Roadmap}.png saknas i Assets/_Project/Art/Resources",
+                    Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.8f));
+
+                note.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 12f),
+                                         new Vector2(Widgets.SafeWidth, 30f));
+            }
+#endif
 
             // Over the scrolling board and outside it, so the dark stays at the edges of
             // the frame instead of travelling up the map with the trees.
