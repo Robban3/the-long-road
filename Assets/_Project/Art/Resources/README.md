@@ -19,6 +19,21 @@ dimming behind a result — so nothing is ever waiting on art to be usable.
 The import settings are set for you: anything landing in this folder is brought in as a
 full-size UI sprite. See Assets/Editor/BackdropImporter.cs.
 
+## Windows hides the extension, and that broke this three times
+
+Explorer hides known file extensions by default. Save a picture you have named
+`ArnaShop.png` into a folder where `.png` is hidden and what lands on disk is
+`ArnaShop.png.png`. Unity strips only the *last* extension, so the resource is called
+`ArnaShop.png`, and the lookup for `ArnaShop` finds nothing — a screen identical to one
+with no painting at all. Three of the first four paintings arrived that way; the fourth
+arrived as `ArnaBackdrop..png` and worked, which is why it looked like the code was
+picking favourites.
+
+The folder now straightens this out itself: a file dropped here with a doubled or empty
+extension is renamed on import, and the console says what it renamed. See
+Assets/Editor/BackdropImporter.cs. Nothing to do — but if you ever wonder why a picture
+is not showing, the filename is the first thing to look at, extensions turned on.
+
 ## Why this folder
 
 `Resources` is normally avoided, and here it is the point. Everything else the scenes

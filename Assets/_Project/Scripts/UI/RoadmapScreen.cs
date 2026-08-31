@@ -219,12 +219,20 @@ namespace Arna.UI
             for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 Node(shell, content, campaign, level, painting != null);
 
+            // Over the scrolling board and outside it, so the dark stays at the edges of
+            // the frame instead of travelling up the map with the trees.
+            var dark = Widgets.Panel("Vignette", frame, Theme.Vignette, Color.white);
+            dark.raycastTarget = false;
+            dark.rectTransform.Fill();
+
 #if UNITY_EDITOR
             if (painting == null)
             {
                 // On the screen and not only in the console, because a fallback that
                 // looks deliberate is indistinguishable from one that is broken — which
-                // has now cost three rounds on the shop's own painting.
+                // has now cost three rounds on the shop's own painting. Laid after the
+                // vignette so the darkening at the edges cannot swallow the one line
+                // that explains the screen.
                 var note = Widgets.Label("Missing", frame,
                     $"{Backdrops.Roadmap}.png hittades inte — {Backdrops.Inventory()}",
                     Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.85f));
@@ -234,12 +242,6 @@ namespace Arna.UI
                                          new Vector2(Widgets.SafeWidth, 60f));
             }
 #endif
-
-            // Over the scrolling board and outside it, so the dark stays at the edges of
-            // the frame instead of travelling up the map with the trees.
-            var dark = Widgets.Panel("Vignette", frame, Theme.Vignette, Color.white);
-            dark.raycastTarget = false;
-            dark.rectTransform.Fill();
 
             // Where the player is, as a fraction of the board rather than a pixel offset.
             //

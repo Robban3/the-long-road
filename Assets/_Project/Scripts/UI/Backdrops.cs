@@ -122,11 +122,49 @@ namespace Arna.UI
             return text.ToString();
         }
 
+        /// <summary>
+        /// A file's name with every image extension taken off, not only the last one.
+        ///
+        /// Windows Explorer hides known extensions by default. Save a file you have called
+        /// "ArnaShop.png" into a folder where ".png" is hidden and what lands on disk is
+        /// ArnaShop.png.png. Unity strips one extension, names the resource "ArnaShop.png",
+        /// and Resources.Load("ArnaShop") finds nothing — which is the whole reason the
+        /// shop kept showing the castle. "ArnaBackdrop..png" is the same slip one step
+        /// further, and it is the one that happened to survive the match below, which is
+        /// why exactly one painting out of four worked and nothing said why.
+        ///
+        /// Shared with the importer that renames such a file (Arna.Editor.BackdropImporter)
+        /// so the two agree on what the name was meant to be.
+        /// </summary>
+        public static string Bare(string path)
+        {
+            string file = System.IO.Path.GetFileName(path);
+
+            while (true)
+            {
+                string extension = System.IO.Path.GetExtension(file).ToLowerInvariant();
+
+                if (extension != ".png" && extension != ".jpg"
+                    && extension != ".jpeg" && extension != ".") break;
+
+                file = file.Substring(0, file.Length - extension.Length);
+            }
+
+            return file;
+        }
+
         static Sprite Search(string name)
         {
-            if (!System.IO.Directory.Exists(Folder)) return null;
-
             string wanted = Plain(name);
+
+            // No folder is not the end of the search — the file may be somewhere else
+            // in the project, which is its own thing to say.
+            if (!System.IO.Directory.Exists(Folder))
+            {
+                Debug.Log($"[Arna] {Folder} does not exist.");
+                return Elsewhere(name, wanted);
+            }
+
             string trimmed = wanted.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
 
             var listed = new List<string>();
@@ -134,11 +172,14 @@ namespace Arna.UI
             foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:Texture2D", new[] { Folder }))
             {
                 string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-                string file = System.IO.Path.GetFileNameWithoutExtension(path);
+                string file = System.IO.Path.GetFileName(path);
+                string bare = Bare(path);
 
+                // The real filename, doubled extension and all — the one thing that
+                // settles this in a glance.
                 listed.Add(file);
 
-                string plain = Plain(file);
+                string plain = Plain(bare);
                 if (plain != wanted && plain.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9') != trimmed)
                     continue;
 
@@ -158,6 +199,42 @@ namespace Arna.UI
                           + $"None of them is '{name}'.");
             else
                 Debug.Log($"[Arna] {Folder} holds no images at all.");
+
+            return Elsewhere(name, wanted);
+        }
+
+        /// <summary>
+        /// The last place to look: anywhere in the project, by name.
+        ///
+        /// A painting saved to the wrong folder is the one remaining way to have the file
+        /// and not have the picture, and it looks from the screen exactly like the other
+        /// ways. Asking the asset database for the name is cheap and targeted — it is a
+        /// filename query, not a sweep of two Synty packs — and it runs only when a
+        /// backdrop is already missing.
+        ///
+        /// It reports rather than merely coping. Loading from outside a Resources folder
+        /// works in the editor and cannot work in a build, so the console says where the
+        /// file is and where it belongs.
+        /// </summary>
+        static Sprite Elsewhere(string name, string wanted)
+        {
+            foreach (string guid in UnityEditor.AssetDatabase.FindAssets(name + " t:Texture2D"))
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+
+                if (path.StartsWith(Folder, System.StringComparison.Ordinal)) continue;
+                if (Plain(Bare(path)) != wanted) continue;
+
+                var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path)
+                             ?? FromTexture(UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(path));
+
+                if (sprite == null) continue;
+
+                Debug.LogWarning($"[Arna] Found '{name}' at {path}, outside {Folder}. "
+                                 + "Using it for now — move the file into that folder and "
+                                 + "it will work in a build too.");
+                return sprite;
+            }
 
             return null;
         }
@@ -182,7 +259,7 @@ namespace Arna.UI
             var listed = new List<string>();
 
             foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:Texture2D", new[] { Folder }))
-                listed.Add(System.IO.Path.GetFileNameWithoutExtension(
+                listed.Add(System.IO.Path.GetFileName(
                     UnityEditor.AssetDatabase.GUIDToAssetPath(guid)));
 
             return listed.Count == 0 ? "mappen är tom" : "mappen innehåller: " + string.Join(", ", listed);
