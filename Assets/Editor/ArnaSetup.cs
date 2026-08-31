@@ -326,7 +326,12 @@ namespace Arna.Editor
                 // is meant to look *at* rather than past, which makes matching the
                 // world they sit in worth more here than anywhere else.
                 SilverCache = One($"{SyntyNatureDir}/Props/SM_Prop_Chest_Wood_01.prefab"),
-                TrapMarker = One($"{SyntyNatureDir}/Props/SM_Prop_Skull_01.prefab")
+                TrapMarker = One($"{SyntyNatureDir}/Props/SM_Prop_Skull_01.prefab"),
+
+                // The one arrow in either pack. PolygonKnights ships swords, shields and
+                // polearms and no ammunition at all, which is worth knowing before
+                // looking for it there.
+                Arrow = One($"{SyntyNatureDir}/Props/SM_Prop_Arrow_01.prefab")
             };
         }
 

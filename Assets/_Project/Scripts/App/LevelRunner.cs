@@ -52,6 +52,14 @@ namespace Arna.App
 
         [Range(200, 4000)] public int MaxProps = 2200;
 
+        /// <summary>
+        /// Draws each troop group's reach as a circle on the ground.
+        ///
+        /// On, because it is the only way the player can see what the range track buys —
+        /// and what a wood costs an archer. Off for a screenshot of the country.
+        /// </summary>
+        public bool ShowReach = true;
+
         [Header("Camera")]
         public bool FollowCaravan = true;
 
@@ -204,7 +212,11 @@ namespace Arna.App
                 campSites: CampSignal.Tiles(map), driveMargin: 0,
                 travelled: LevelPreview.Travelled(map));
 
-            _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale) { Library = Models };
+            _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale)
+            {
+                Library = Models,
+                ShowReach = ShowReach
+            };
             _visuals.FindBridges(_markerRoot);
 
             // Before the first step, so nobody walks through a tree on the way to their
@@ -363,6 +375,11 @@ namespace Arna.App
             ReadCameraInput();
             StepWildlife(Time.deltaTime * TimeScale);
             _visuals.Sync(_run);
+
+            // Arrows and anything else that lives on the clock rather than on the state
+            // of the run. Scaled with the simulation, so a level watched at four times
+            // speed does not fill up with shafts hanging in the air.
+            _visuals.Advance(_run, Time.deltaTime * TimeScale);
             _visuals.SyncWildlife(_wildlife);
             AimCamera();
         }

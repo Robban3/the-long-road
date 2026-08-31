@@ -260,11 +260,26 @@ namespace Arna.UI
 
             var name = Widgets.Label("Name", row.transform, Name(group.Kind), Widgets.SmallSize,
                                      group.Alive ? Theme.Parchment : Theme.Dim, TextAnchor.MiddleLeft);
-            name.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(18f, 0f), new Vector2(210f, 60f));
+            name.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(18f, 6f), new Vector2(210f, 46f));
+
+            // The reach in metres, under the name — the same number the ring on the
+            // ground is drawn at, so the panel and the picture agree about what this
+            // group can hit.
+            float reach = Run.Combat.Reach(group, Run.Caravan.CurrentTerrain);
+
+            var span = Widgets.Label("Reach", row.transform, $"räckvidd {reach:F0} m",
+                                     Widgets.SmallSize - 8, Theme.Muted, TextAnchor.MiddleLeft);
+            span.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(18f, -26f),
+                                     new Vector2(210f, 34f));
 
             Track(row.transform, group, UpgradeTrack.Weapon, "VAPEN", 240f);
             Track(row.transform, group, UpgradeTrack.Armour, "SKYDD", 420f);
-            Track(row.transform, group, UpgradeTrack.Special, "SPEC", 600f);
+
+            // A bow's special track *is* its reach, and is priced at over half again as
+            // much for it. Saying so on the button is the difference between an upgrade
+            // the player understands and one they buy last.
+            Track(row.transform, group, UpgradeTrack.Special,
+                  TroopTable.HasRangedSpecial(group.Kind) ? "RÄCKV" : "SPEC", 600f);
 
             y -= 118f;
         }

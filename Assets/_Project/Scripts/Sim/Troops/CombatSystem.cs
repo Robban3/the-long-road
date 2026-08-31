@@ -326,11 +326,31 @@ namespace Arna.Sim
             wagon?.ApplyDamage(damage);
         }
 
+        /// <summary>
+        /// How far this group can actually hit, here, now.
+        ///
+        /// Public because the view draws it as a ring on the ground and the ring must be
+        /// the truth rather than a second opinion: it is this method the fighting itself
+        /// calls, so a circle that disagreed with what the troops can reach would be a
+        /// bug in one of them and there is now only one of them.
+        ///
+        /// Everything that moves it is in here. The table's reach for the kind, the range
+        /// upgrades bought on a bow or a staff, the terrain — a wood costs an archer two
+        /// fifths of a bowshot — the squad's own sight as a hard ceiling, since nothing
+        /// can be shot before it has been seen, and the engagement slack that makes melee
+        /// ranges actually meet.
+        /// </summary>
+        public float Reach(TroopGroup group, TerrainType terrain)
+        {
+            if (group == null) return 0f;
+
+            return TroopUpgrades.UsableRange(group.AttackRange(terrain), _squad.BestSight)
+                   + EngagementSlack;
+        }
+
         /// <summary>Troops strike the nearest revealed enemy they can both see and reach.</summary>
         void TroopsReturnFire(float deltaTime, TerrainType terrain)
         {
-            float squadSight = _squad.BestSight;
-
             foreach (var group in _squad.Slots)
             {
                 if (group == null || !group.Alive) continue;
@@ -351,8 +371,7 @@ namespace Arna.Sim
                 // 1.8 metres of reach swung at nothing — the escort died without ever
                 // landing a blow, which read as combat being far too lethal rather than
                 // as the melee ranges simply not meeting.
-                float reach = TroopUpgrades.UsableRange(group.AttackRange(terrain), squadSight)
-                              + EngagementSlack;
+                float reach = Reach(group, terrain);
 
                 // A formation fights what is fighting it. The bows fight everything.
                 //

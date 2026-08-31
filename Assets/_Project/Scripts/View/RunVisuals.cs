@@ -45,6 +45,11 @@ namespace Arna.View
         /// never resized: figures beyond the survivors are switched off, so a model
         /// keeps its place in the formation as the group is whittled down.
         /// </summary>
+        readonly Dictionary<TroopGroup, RangeRing> _rings = new Dictionary<TroopGroup, RangeRing>();
+        readonly Dictionary<TroopGroup, float> _reload = new Dictionary<TroopGroup, float>();
+        Volley _volley;
+        Material _ringMaterial;
+
         readonly Dictionary<TroopGroup, List<Transform>> _troops =
             new Dictionary<TroopGroup, List<Transform>>();
 
@@ -213,7 +218,13 @@ namespace Arna.View
                         VisualLibrary.HeightOf(group.Kind)));
 
                 _troops[group] = figures;
+
+                _rings[group] = new RangeRing(_root, $"Reach_{group.Slot}_{group.Kind}",
+                                              RingMaterial());
+                _reload[group] = 0f;
             }
+
+            _volley = new Volley(_root, Library.Arrow);
 
             ReportCast(run);
         }
@@ -547,10 +558,134 @@ namespace Arna.View
                     Place(figures[i], new Vector3(spot.X, GroundAt(spot), spot.Y), look);
                     Animate(figures[i], group.Engaged ? 0f : pace, group.Engaged, false);
                 }
+
+                DrawReach(run, group);
             }
 
             SyncEnemies(run);
             SyncTraps(run);
+        }
+
+        /// <summary>
+        /// Shows this group's reach as a bright circle on the ground.
+        ///
+        /// The radius is asked of the fighting rather than worked out again here (see
+        /// <see cref="CombatSystem.Reach"/>), so it moves for every reason the reach
+        /// itself moves: a range upgrade bought in the smithy widens it on the next
+        /// frame, and walking into a wood shrinks an archer's by two fifths — which is
+        /// the terrain rule made visible for the first time, having lived its whole life
+        /// as a number in a table.
+        /// </summary>
+        void DrawReach(LevelRun run, TroopGroup group)
+        {
+            if (!_rings.TryGetValue(group, out var ring)) return;
+
+            if (!group.Alive || !ShowReach) { ring.Hide(); return; }
+
+            float reach = run.Combat != null
+                ? run.Combat.Reach(group, run.Caravan.CurrentTerrain)
+                : 0f;
+
+            // Brighter with a target in it. A ring is a statement about what this group
+            // could hit; a ring with something inside it is a statement about what it is
+            // hitting, and the two should not look the same.
+            var colour = ReachColour(group.Kind);
+            colour.a = group.Target != null ? ReachLit : ReachIdle;
+
+            ring.Draw(group.Position, reach, colour, at => GroundAt(at));
+        }
+
+        /// <summary>Whether the reach rings are drawn at all.</summary>
+        public bool ShowReach = true;
+
+        public const float ReachIdle = 0.34f;
+        public const float ReachLit = 0.72f;
+
+        /// <summary>
+        /// A colour per post, so six overlapping circles are still six circles.
+        ///
+        /// Pale rather than saturated: these are laid over grass the player also has to
+        /// read, and six strong colours on the ground would win an argument the terrain
+        /// needs to win.
+        /// </summary>
+        static Color ReachColour(TroopKind kind)
+        {
+            switch (kind)
+            {
+                case TroopKind.Archers: return new Color(1f, 0.92f, 0.55f);
+                case TroopKind.Spearmen: return new Color(0.62f, 0.90f, 1f);
+                case TroopKind.Swordsmen: return new Color(1f, 0.72f, 0.52f);
+                case TroopKind.Shieldbearer: return new Color(0.68f, 1f, 0.72f);
+                case TroopKind.Scout: return new Color(0.84f, 0.72f, 1f);
+                case TroopKind.Mage: return new Color(0.66f, 0.80f, 1f);
+                case TroopKind.Priest: return new Color(1f, 0.86f, 0.92f);
+                default: return new Color(0.92f, 0.92f, 0.88f);
+            }
+        }
+
+        Material RingMaterial()
+        {
+            if (_ringMaterial == null) _ringMaterial = RangeRing.Material();
+            return _ringMaterial;
+        }
+
+        /// <summary>
+        /// Shortest reach at which a troop is shooting rather than swinging.
+        ///
+        /// Eight metres, which sorts the table: the bow is 22, the staff 18, the scout 12
+        /// and the engineer's crossbow 8, while every hand weapon is under three. Nothing
+        /// here is a judgement about weapons — it is the reach column, read for what it
+        /// already says.
+        /// </summary>
+        public const float ShootingRange = 8f;
+
+        /// <summary>Seconds between shafts from one group.</summary>
+        public const float Reload = 0.55f;
+
+        /// <summary>
+        /// Fires the bows and moves what is already in the air.
+        ///
+        /// Separate from <see cref="Sync"/> because it is the one piece of the view that
+        /// is about elapsed time rather than about the state of the run, and because the
+        /// headless capture steps the simulation without any time passing at all — arrows
+        /// hanging in mid-air across a screenshot would be worse than none.
+        /// </summary>
+        public void Advance(LevelRun run, float deltaTime)
+        {
+            if (_volley == null || run?.Squad == null) return;
+
+            _volley.Advance(deltaTime);
+
+            var terrain = run.Caravan.CurrentTerrain;
+
+            foreach (var group in run.Squad.Slots)
+            {
+                if (group == null || !group.Alive) continue;
+                if (!_reload.TryGetValue(group, out float since)) continue;
+
+                var target = group.Target;
+
+                // Nothing to shoot at: the clock is left run down rather than reset, so
+                // the first shaft at a pack breaking cover goes out at once instead of
+                // half a second after it is already being fought.
+                if (target == null || TroopTable.Range(group.Kind) < ShootingRange)
+                {
+                    _reload[group] = Reload;
+                    continue;
+                }
+
+                since += deltaTime;
+                if (since < Reload) { _reload[group] = since; continue; }
+
+                _reload[group] = 0f;
+
+                var from = new Vector3(group.Position.X, GroundAt(group.Position) + Volley.FromHeight,
+                                       group.Position.Y);
+                var to = new Vector3(target.Position.X, GroundAt(target.Position) + Volley.ToHeight,
+                                     target.Position.Y);
+
+                _volley.Loose(from, to);
+            }
         }
 
         /// <summary>

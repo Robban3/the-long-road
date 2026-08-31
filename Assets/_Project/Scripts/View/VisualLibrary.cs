@@ -378,6 +378,12 @@ namespace Arna.View
         public GameObject SilverCache;
         public GameObject TrapMarker;
 
+        /// <summary>
+        /// The shaft an archer looses. Optional: without one the bows fire a plain dart,
+        /// which at forty-five metres a second is very nearly the same picture.
+        /// </summary>
+        public GameObject Arrow;
+
         public ActorModel For(TroopKind kind)
         {
             switch (kind)
