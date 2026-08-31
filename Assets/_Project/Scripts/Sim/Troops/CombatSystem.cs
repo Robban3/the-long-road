@@ -334,18 +334,28 @@ namespace Arna.Sim
         /// calls, so a circle that disagreed with what the troops can reach would be a
         /// bug in one of them and there is now only one of them.
         ///
-        /// Everything that moves it is in here. The table's reach for the kind, the range
-        /// upgrades bought on a bow or a staff, the terrain — a wood costs an archer two
-        /// fifths of a bowshot — the squad's own sight as a hard ceiling, since nothing
-        /// can be shot before it has been seen, and the engagement slack that makes melee
-        /// ranges actually meet.
+        /// The table's reach for the kind, the range upgrades bought on a bow or a staff,
+        /// the terrain — a wood costs an archer two fifths of a bowshot — and the
+        /// engagement slack that makes melee ranges actually meet.
+        ///
+        /// <b>The squad's sight is deliberately not in here any more.</b> It used to be a
+        /// hard ceiling (see <see cref="TroopUpgrades.UsableRange"/>), on the argument
+        /// that nothing can be shot before it has been seen and that range should
+        /// therefore not replace the scout. The argument is right and the ceiling was the
+        /// wrong way to enforce it, twice over. It is already enforced: every target has
+        /// to be Revealed, in NearestEnemyInReach, and revealing is what sight does — so
+        /// the ceiling was a second lock on a door that was already locked. And it made
+        /// the upgrade a lie: an archer group without a scout is capped at eighteen
+        /// metres, so five levels of range bought exactly nothing and the ring drawn from
+        /// this refused to grow while the silver went out of the purse.
+        ///
+        /// Sight still decides what can be shot at. It no longer decides how far.
         /// </summary>
         public float Reach(TroopGroup group, TerrainType terrain)
         {
             if (group == null) return 0f;
 
-            return TroopUpgrades.UsableRange(group.AttackRange(terrain), _squad.BestSight)
-                   + EngagementSlack;
+            return group.AttackRange(terrain) + EngagementSlack;
         }
 
         /// <summary>Troops strike the nearest revealed enemy they can both see and reach.</summary>

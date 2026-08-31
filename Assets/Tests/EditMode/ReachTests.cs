@@ -52,22 +52,22 @@ namespace Arna.Tests
         }
 
         [Test]
-        public void RangeWithoutSightBuysNothing()
+        public void RangeGrowsWithoutAScout()
         {
-            // The complement rule from TroopUpgrades.UsableRange, and the reason the ring
-            // has to be drawn from this method rather than from the table: an archer who
-            // cannot see past eighteen metres does not shoot at twenty-two, and a circle
-            // drawn from the table would promise that they do.
+            // The reason this test exists: reach used to be clamped to the squad's sight,
+            // so an archer group with no scout was stuck at eighteen metres however much
+            // range was bought — the upgrade took the silver and the ring on the ground
+            // did not move. Sight still decides what may be shot at, through revelation;
+            // it no longer decides how far.
             var run = Run(Blind());
             var archers = run.Squad[FormationSlot.RightVan];
 
             float before = run.Combat.Reach(archers, TerrainType.Plains);
 
-            archers.SpecialLevel = 5;
+            archers.SpecialLevel = 3;
             float after = run.Combat.Reach(archers, TerrainType.Plains);
 
-            Assert.AreEqual(before, after, 0.001f,
-                "reach grew past what the squad can see");
+            Assert.Greater(after, before, "range bought without a scout bought nothing");
         }
 
         [Test]
@@ -108,7 +108,9 @@ namespace Arna.Tests
             float reach = run.Combat.Reach(archers, TerrainType.Plains);
 
             Assert.Greater(reach, 0f);
-            Assert.Less(reach, TroopTable.Range(TroopKind.Archers) + CombatSystem.EngagementSlack + 0.001f,
+            Assert.Less(reach, TroopTable.Range(TroopKind.Archers)
+                               * TroopUpgrades.RangeMultiplier(TroopUpgrades.MaxLevel)
+                               + CombatSystem.EngagementSlack + 0.001f,
                         "reported reach exceeded what an archer could possibly have");
         }
     }

@@ -38,19 +38,17 @@ namespace Arna.Tests
         }
 
         [Test]
-        public void RangeIsUselessWithoutSight()
+        public void RangeIsWorthBuyingWithoutAScout()
         {
-            // Buying reach without buying vision wastes the money outright. This is
-            // what makes range a complement to the scout rather than a way around her.
-            float upgraded = TroopUpgrades.EffectiveRange(ArcherBaseRange, 3);
+            // The rule this replaces clamped reach to the squad's sight, which meant an
+            // archer with no scout got nothing at all for five levels of range. What the
+            // scout buys is revelation — CombatSystem only ever fires on a Revealed
+            // enemy — and that is a different lever from how far the arrow goes.
+            float bought = TroopUpgrades.EffectiveRange(ArcherBaseRange, 3);
 
-            float alone = TroopUpgrades.UsableRange(upgraded, ArcherBaseSight);
-            float withScout = TroopUpgrades.UsableRange(upgraded, ScoutBaseSight);
-
-            Assert.AreEqual(ArcherBaseSight, alone,
-                "an archer with no scout used range she could not see to the end of");
-            Assert.AreEqual(upgraded, withScout, "the scout failed to unlock the archer's reach");
-            Assert.Greater(withScout, alone);
+            Assert.Greater(bought, ArcherBaseRange, "the range track bought no range");
+            Assert.Greater(bought, ArcherBaseSight,
+                "range that stops at the archer's own sight is range nobody can spend on");
         }
 
         [Test]

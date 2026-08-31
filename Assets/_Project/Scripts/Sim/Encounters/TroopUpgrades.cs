@@ -55,16 +55,18 @@ namespace Arna.Sim
         public static float EffectiveRange(float baseRange, int rangeLevel)
             => baseRange * RangeMultiplier(rangeLevel);
 
-        /// <summary>
-        /// Range a troop can actually use.
-        ///
-        /// Nothing can be shot before it has been revealed, so sight is a hard ceiling
-        /// on reach. This is what stops range upgrades from replacing the scout: buy
-        /// range without buying vision and the extra metres are simply wasted. The two
-        /// investments are complements, and the information economy survives.
-        /// </summary>
-        public static float UsableRange(float attackRange, float sightRadius)
-            => attackRange < sightRadius ? attackRange : sightRadius;
+        // UsableRange lived here: reach clamped to the squad's sight radius, on the
+        // argument that nothing can be shot before it has been revealed and that buying
+        // range should therefore not replace buying the scout.
+        //
+        // The argument still holds and this was the wrong way to hold it. Revelation is
+        // already required — CombatSystem.NearestEnemyInReach skips anything not Revealed
+        // — so the clamp was a second lock on a locked door, and it turned the range
+        // track into a lie for anyone without a scout: five levels bought on an archer
+        // capped at her own eighteen metres of sight changed nothing at all, and the
+        // reach ring drawn on the ground sat there refusing to grow while the silver
+        // went out of the purse. Reach is now CombatSystem.Reach and sight decides only
+        // what may be shot at, which is what it was always meant to decide.
 
         /// <summary>Cost multiplier for a track on a given troop.</summary>
         public static float CostMultiplier(UpgradeTrack track, bool isRangedSpecial)

@@ -45,7 +45,7 @@ namespace Arna.View
         /// never resized: figures beyond the survivors are switched off, so a model
         /// keeps its place in the formation as the group is whittled down.
         /// </summary>
-        readonly Dictionary<TroopGroup, RangeRing> _rings = new Dictionary<TroopGroup, RangeRing>();
+        RangeRing _ring;
         readonly Dictionary<TroopGroup, float> _reload = new Dictionary<TroopGroup, float>();
         Volley _volley;
         Material _ringMaterial;
@@ -218,12 +218,10 @@ namespace Arna.View
                         VisualLibrary.HeightOf(group.Kind)));
 
                 _troops[group] = figures;
-
-                _rings[group] = new RangeRing(_root, $"Reach_{group.Slot}_{group.Kind}",
-                                              RingMaterial());
                 _reload[group] = 0f;
             }
 
+            _ring = new RangeRing(_root, "Reach", RingMaterial());
             _volley = new Volley(_root, Library.Arrow);
 
             ReportCast(run);
@@ -558,70 +556,79 @@ namespace Arna.View
                     Place(figures[i], new Vector3(spot.X, GroundAt(spot), spot.Y), look);
                     Animate(figures[i], group.Engaged ? 0f : pace, group.Engaged, false);
                 }
-
-                DrawReach(run, group);
             }
+
+            DrawReach(run);
 
             SyncEnemies(run);
             SyncTraps(run);
         }
 
         /// <summary>
-        /// Shows this group's reach as a bright circle on the ground.
+        /// Shows the escort's reach as one bright circle round the column.
+        ///
+        /// <b>One, not one per post.</b> It was six — a ring under each group, each in its
+        /// own colour — and six circles of nearly the same size drawn a few metres apart
+        /// overlap into a knot of arcs that says less than any one of them would. What the
+        /// player needs from this is a single readable answer to "how far can we hit from
+        /// here", and that is the longest reach anybody in the column has.
         ///
         /// The radius is asked of the fighting rather than worked out again here (see
         /// <see cref="CombatSystem.Reach"/>), so it moves for every reason the reach
-        /// itself moves: a range upgrade bought in the smithy widens it on the next
-        /// frame, and walking into a wood shrinks an archer's by two fifths — which is
-        /// the terrain rule made visible for the first time, having lived its whole life
-        /// as a number in a table.
+        /// itself moves: a range upgrade bought in the smithy widens it on the next frame,
+        /// and walking into a wood shrinks an archer's by two fifths — which is the
+        /// terrain rule made visible for the first time, having lived its whole life as a
+        /// number in a table.
+        ///
+        /// Centred on the middle of the column rather than on the group that owns the
+        /// reach. The archers stand at one post and the ring is a statement about the
+        /// caravan, which is the thing being defended and the thing the player is looking
+        /// at; hung off the bows it would swing about the column as the formation shifted.
         /// </summary>
-        void DrawReach(LevelRun run, TroopGroup group)
+        void DrawReach(LevelRun run)
         {
-            if (!_rings.TryGetValue(group, out var ring)) return;
+            if (_ring == null) return;
 
-            if (!group.Alive || !ShowReach) { ring.Hide(); return; }
+            if (!ShowReach || run.Squad == null || run.Combat == null) { _ring.Hide(); return; }
 
-            float reach = run.Combat != null
-                ? run.Combat.Reach(group, run.Caravan.CurrentTerrain)
-                : 0f;
+            var terrain = run.Caravan.CurrentTerrain;
 
-            // Brighter with a target in it. A ring is a statement about what this group
-            // could hit; a ring with something inside it is a statement about what it is
+            float furthest = 0f;
+            bool engaged = false;
+
+            foreach (var group in run.Squad.Slots)
+            {
+                if (group == null || !group.Alive) continue;
+
+                float reach = run.Combat.Reach(group, terrain);
+                if (reach > furthest) furthest = reach;
+
+                if (group.Target != null) engaged = true;
+            }
+
+            if (furthest <= 0f) { _ring.Hide(); return; }
+
+            // Brighter with something in it. A ring is a statement about what the escort
+            // could hit; a ring with a target inside it is a statement about what it is
             // hitting, and the two should not look the same.
-            var colour = ReachColour(group.Kind);
-            colour.a = group.Target != null ? ReachLit : ReachIdle;
+            var colour = ReachColour;
+            colour.a = engaged ? ReachLit : ReachIdle;
 
-            ring.Draw(group.Position, reach, colour, at => GroundAt(at));
+            _ring.Draw(run.Caravan.ColumnCentre, furthest, colour, at => GroundAt(at));
         }
 
-        /// <summary>Whether the reach rings are drawn at all.</summary>
+        /// <summary>Whether the reach ring is drawn at all.</summary>
         public bool ShowReach = true;
 
         public const float ReachIdle = 0.34f;
         public const float ReachLit = 0.72f;
 
         /// <summary>
-        /// A colour per post, so six overlapping circles are still six circles.
-        ///
-        /// Pale rather than saturated: these are laid over grass the player also has to
-        /// read, and six strong colours on the ground would win an argument the terrain
-        /// needs to win.
+        /// Pale rather than saturated. It is laid over grass the player also has to read,
+        /// and a strong colour on the ground would win an argument the terrain needs to
+        /// win.
         /// </summary>
-        static Color ReachColour(TroopKind kind)
-        {
-            switch (kind)
-            {
-                case TroopKind.Archers: return new Color(1f, 0.92f, 0.55f);
-                case TroopKind.Spearmen: return new Color(0.62f, 0.90f, 1f);
-                case TroopKind.Swordsmen: return new Color(1f, 0.72f, 0.52f);
-                case TroopKind.Shieldbearer: return new Color(0.68f, 1f, 0.72f);
-                case TroopKind.Scout: return new Color(0.84f, 0.72f, 1f);
-                case TroopKind.Mage: return new Color(0.66f, 0.80f, 1f);
-                case TroopKind.Priest: return new Color(1f, 0.86f, 0.92f);
-                default: return new Color(0.92f, 0.92f, 0.88f);
-            }
-        }
+        public static readonly Color ReachColour = new Color(1f, 0.94f, 0.68f);
 
         Material RingMaterial()
         {
