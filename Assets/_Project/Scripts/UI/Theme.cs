@@ -51,6 +51,7 @@ namespace Arna.UI
         static Font _font;
         static Sprite _frame, _frameSoft, _round, _slab, _star, _lock, _flat, _banner;
         static Sprite _coin, _gem, _heart, _skull, _chevron, _gear;
+        static Sprite _ground, _conifer, _broadleaf, _shrub, _boulder, _vignette;
 
         /// <summary>
         /// The built-in font. Legacy <see cref="UnityEngine.UI.Text"/> rather than
@@ -81,12 +82,45 @@ namespace Arna.UI
         /// <summary>The medallion a level number sits in on the roadmap.</summary>
         public static Sprite Round => _round != null ? _round : _round = Pixels.Medallion("ArnaRound");
 
-        /// <summary>One stone of the winding path between levels.</summary>
-        public static Sprite Slab => _slab != null ? _slab : _slab = Pixels.Slab("ArnaSlab");
+        /// <summary>One stone of the winding path between levels. Packed with the wood.</summary>
+        public static Sprite Slab { get { Forest(); return _slab; } }
 
         public static Sprite Star => _star != null ? _star : _star = Pixels.Star("ArnaStar");
         public static Sprite Padlock => _lock != null ? _lock : _lock = Pixels.Padlock("ArnaLock");
         public static Sprite Banner => _banner != null ? _banner : _banner = Pixels.Banner("ArnaBanner");
+
+        /// <summary>The forest floor the level roadmap is laid on. Tiling.</summary>
+        public static Sprite Ground => _ground != null ? _ground : _ground = Pixels.Ground("ArnaGround");
+
+        /// <summary>
+        /// The wood and the road through it, all cut from one texture.
+        ///
+        /// Together because they are drawn together: three hundred of them on the roadmap
+        /// batch into a single draw call sharing a texture and into three hundred without.
+        /// See <see cref="Pixels.Pack"/>.
+        /// </summary>
+        static void Forest()
+        {
+            if (_conifer != null) return;
+
+            var packed = Pixels.Pack("ArnaForest",
+                Pixels.Conifer("Conifer"), Pixels.Broadleaf("Broadleaf"),
+                Pixels.Shrub("Shrub"), Pixels.Boulder("Boulder"), Pixels.Slab("Slab"));
+
+            _conifer = packed[0];
+            _broadleaf = packed[1];
+            _shrub = packed[2];
+            _boulder = packed[3];
+            _slab = packed[4];
+        }
+
+        public static Sprite Conifer { get { Forest(); return _conifer; } }
+        public static Sprite Broadleaf { get { Forest(); return _broadleaf; } }
+        public static Sprite Shrub { get { Forest(); return _shrub; } }
+        public static Sprite Boulder { get { Forest(); return _boulder; } }
+
+        /// <summary>The dark that closes in at the edges of the wood.</summary>
+        public static Sprite Vignette => _vignette != null ? _vignette : _vignette = Pixels.Vignette("ArnaVignette");
 
         public static Sprite CoinIcon => _coin != null ? _coin : _coin = Pixels.Coin("ArnaCoin");
         public static Sprite GemIcon => _gem != null ? _gem : _gem = Pixels.Gem("ArnaGem");

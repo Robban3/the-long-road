@@ -350,7 +350,8 @@ namespace Arna.UI
             Session.Choose(Chapter, Level);
             Session.Finish(stars, gold);
 
-            var sheet = Sheet(won ? "Seger" : "Nederlag");
+            var sheet = Sheet(won ? "Seger" : "Nederlag",
+                              won ? Backdrops.Victory : Backdrops.Defeat);
             var panel = (RectTransform)sheet.transform.GetChild(1);
 
             var row = Widgets.Stars("Stars", panel, stars, Campaign.MaxStars, 128f, 18f);
@@ -412,7 +413,9 @@ namespace Arna.UI
         }
 
         /// <summary>A dimmed screen with a framed panel and a ribbon title on it.</summary>
-        GameObject Sheet(string title)
+        GameObject Sheet(string title) => Sheet(title, null);
+
+        GameObject Sheet(string title, string backdrop)
         {
             if (_sheet != null) Destroy(_sheet);
 
@@ -420,7 +423,10 @@ namespace Arna.UI
             host.Fill();
             _sheet = host.gameObject;
 
-            Widgets.Scrim("Scrim", host);
+            // A painting behind the result, when there is one, in place of the plain
+            // dimming. Winning a level should not look like pausing one.
+            if (backdrop == null || Backdrops.Paint(backdrop, host, 0.5f) == null)
+                Widgets.Scrim("Scrim", host);
 
             var panel = Widgets.Panel("Panel", host, Theme.Frame, Color.white);
             panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Widgets.SafeWidth, 1100f));

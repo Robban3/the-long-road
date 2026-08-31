@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Arna.Sim;
 using UnityEngine;
 using UnityEngine.UI;
@@ -58,12 +59,12 @@ namespace Arna.UI
                         new Vector2(480f, 96f));
 
             var gold = Widgets.Counter("Gold", purse, Theme.CoinIcon, Theme.Coin,
-                campaign.Gold.ToString(), () => shell.ShowStub("Butik", "Inget säljs ännu."), 250f);
+                campaign.Gold.ToString(), () => shell.ShowStub("Butik", "Inget säljs ännu.", Backdrops.Shop), 250f);
             gold.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(1f, 0.5f), new Vector2(-260f, 0f), new Vector2(250f, 72f));
 
             var gems = Widgets.Counter("Gems", purse, Theme.GemIcon, Theme.Gem,
-                campaign.Gems.ToString(), () => shell.ShowStub("Butik", "Inget säljs ännu."), 250f);
+                campaign.Gems.ToString(), () => shell.ShowStub("Butik", "Inget säljs ännu.", Backdrops.Shop), 250f);
             gems.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(1f, 0.5f), new Vector2(0f, 0f), new Vector2(250f, 72f));
         }
@@ -170,17 +171,153 @@ namespace Arna.UI
             scroll.elasticity = 0.08f;
             scroll.scrollSensitivity = 40f;
 
+            // Ground, then the wood, then the road over it, then the levels on the road.
+            // Drawing order is hierarchy order in UGUI, so this list is the picture from
+            // back to front and reads that way.
+            //
+            // A painting takes the place of both when one is supplied: a painted forest
+            // is a better forest than a scattered one, and the road and the medallions
+            // still go on top of it wherever the levels happen to fall.
+            if (Backdrops.Paint(Backdrops.Roadmap, content, 0f) == null)
+            {
+                Turf(content);
+                Wood(content);
+            }
+
             for (int level = 1; level < Campaign.LevelsPerChapter; level++)
                 Stones(content, Spot(level), Spot(level + 1));
 
             for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 Node(shell, content, campaign, level);
 
+            // Over the scrolling board and outside it, so the dark stays at the edges of
+            // the frame instead of travelling up the map with the trees.
+            var dark = Widgets.Panel("Vignette", frame, Theme.Vignette, Color.white);
+            dark.raycastTarget = false;
+            dark.rectTransform.Fill();
+
             campaign.Furthest(out int _, out int next);
             float scrolled = Mathf.Clamp(TopPad + (next - 2) * Step, 0f,
                                          Mathf.Max(0f, content.sizeDelta.y - frame.rect.height));
             content.anchoredPosition = new Vector2(0f, scrolled);
         }
+
+        /// <summary>Forest floor under everything, tiled rather than stretched.</summary>
+        static void Turf(RectTransform content)
+        {
+            var turf = Widgets.Panel("Turf", content, Theme.Ground, Color.white);
+            turf.type = Image.Type.Tiled;
+            turf.raycastTarget = false;
+            turf.rectTransform.Fill();
+        }
+
+        /// <summary>
+        /// The wood the road goes through.
+        ///
+        /// Scattered from a seed rather than laid out by hand, for the same reason the
+        /// levels are generated: a hundred chapters of hand-placed trees is not a thing
+        /// anybody is going to do, and a board that is different every time you open it
+        /// is a board you cannot recognise. The seed is the chapter, so chapter one's
+        /// wood is chapter one's wood every time.
+        ///
+        /// Nothing grows on the road. Each candidate is measured against the path — the
+        /// same curve the paving stones are laid along — and against the level medallions,
+        /// and thrown away if it would stand on either. Density rises toward the edges,
+        /// which is what closes the view in around the road rather than dotting trees
+        /// evenly over a field.
+        /// </summary>
+        static void Wood(RectTransform content)
+        {
+            var rng = new DeterministicRandom(_shown * 977 + 5501);
+            var road = Road();
+
+            float halfWidth = Widgets.SafeWidth * 0.5f - 30f;
+            float height = content.sizeDelta.y;
+
+            // Generated first and sorted before anything is built: a tree lower on the
+            // board is nearer the viewer and has to draw over one behind it, and in UGUI
+            // that means being added later.
+            var standing = new List<(Vector2 at, Sprite sprite, float size)>();
+
+            for (int i = 0; i < Attempts; i++)
+            {
+                float x = rng.Range(-halfWidth, halfWidth);
+                float y = -rng.Range(0f, height);
+
+                // Thicker toward the edges: a tree in the middle of the board has to win
+                // a roll it is unlikely to win, and one at the margin is nearly certain.
+                float edge = Mathf.Abs(x) / halfWidth;
+                if (!rng.Chance(0.25f + edge * edge * 0.75f)) continue;
+
+                var at = new Vector2(x, y);
+                if (TooNear(at, road, ClearOfRoad)) continue;
+
+                float roll = rng.Range(0f, 1f);
+
+                Sprite sprite;
+                float size;
+
+                if (roll < 0.62f) { sprite = Theme.Conifer; size = rng.Range(120f, 190f); }
+                else if (roll < 0.78f) { sprite = Theme.Broadleaf; size = rng.Range(105f, 150f); }
+                else if (roll < 0.92f) { sprite = Theme.Shrub; size = rng.Range(44f, 74f); }
+                else { sprite = Theme.Boulder; size = rng.Range(40f, 72f); }
+
+                standing.Add((at, sprite, size));
+            }
+
+            standing.Sort((a, b) => b.at.y.CompareTo(a.at.y));
+
+            foreach (var (at, sprite, size) in standing)
+            {
+                float aspect = sprite.rect.height / sprite.rect.width;
+
+                var tree = Widgets.Icon("Tree", content, sprite, Color.white, size);
+                tree.rectTransform.Place(new Vector2(0.5f, 1f), at,
+                                         new Vector2(size / aspect, size));
+            }
+        }
+
+        /// <summary>How many places are tried. Most are refused; the road wins every argument.</summary>
+        const int Attempts = 420;
+
+        /// <summary>Metres — pixels here — of clear ground either side of the paving.</summary>
+        const float ClearOfRoad = 150f;
+
+        /// <summary>The line the road actually takes, sampled for the scatter to avoid.</summary>
+        static List<Vector2> Road()
+        {
+            var points = new List<Vector2>();
+
+            for (int level = 1; level < Campaign.LevelsPerChapter; level++)
+            {
+                var from = Spot(level);
+                var to = Spot(level + 1);
+                var mid = Bend(from, to);
+
+                for (int i = 0; i <= 10; i++)
+                    points.Add(Curve(from, mid, to, i / 10f));
+            }
+
+            points.Add(Spot(Campaign.LevelsPerChapter));
+            return points;
+        }
+
+        static bool TooNear(Vector2 at, List<Vector2> road, float clearance)
+        {
+            float squared = clearance * clearance;
+
+            foreach (var point in road)
+                if ((at - point).sqrMagnitude < squared) return true;
+
+            return false;
+        }
+
+        /// <summary>The offset midpoint that bows the road between two levels.</summary>
+        static Vector2 Bend(Vector2 from, Vector2 to)
+            => (from + to) * 0.5f + new Vector2((to.x - from.x) * -0.25f, 0f);
+
+        static Vector2 Curve(Vector2 from, Vector2 mid, Vector2 to, float t)
+            => Mathf.Pow(1f - t, 2f) * from + 2f * (1f - t) * t * mid + t * t * to;
 
         /// <summary>Where a level sits on the board, in content coordinates.</summary>
         static Vector2 Spot(int level)
@@ -189,23 +326,22 @@ namespace Arna.UI
         /// <summary>Lays the paving stones between two levels.</summary>
         static void Stones(RectTransform content, Vector2 from, Vector2 to)
         {
-            const int stones = 5;
-            var mid = (from + to) * 0.5f + new Vector2((to.x - from.x) * -0.25f, 0f);
+            // Enough that they touch. The mock-up's road is a continuous ribbon of
+            // flagstones and not a dotted line: five spaced stones between medallions
+            // read as stepping stones across a stream, which is a different place.
+            const int stones = 9;
+            var mid = Bend(from, to);
 
             for (int i = 1; i <= stones; i++)
             {
                 float t = i / (stones + 1f);
 
-                // Quadratic through the offset midpoint, so the path bows between the
-                // medallions instead of running straight between them.
-                var point = Mathf.Pow(1f - t, 2f) * from + 2f * (1f - t) * t * mid + t * t * to;
-                var ahead = Mathf.Pow(1f - (t + 0.05f), 2f) * from
-                          + 2f * (1f - (t + 0.05f)) * (t + 0.05f) * mid
-                          + (t + 0.05f) * (t + 0.05f) * to;
+                var point = Curve(from, mid, to, t);
+                var ahead = Curve(from, mid, to, Mathf.Min(1f, t + 0.05f));
 
                 var slab = Widgets.Icon("Stone", content, Theme.Slab,
-                                        new Color(1f, 1f, 1f, 0.55f), 56f);
-                slab.rectTransform.Place(new Vector2(0.5f, 1f), point, new Vector2(70f, 46f));
+                                        new Color(1f, 1f, 1f, 0.9f), 56f);
+                slab.rectTransform.Place(new Vector2(0.5f, 1f), point, new Vector2(112f, 74f));
 
                 var step = ahead - point;
                 float angle = Mathf.Atan2(step.y, step.x) * Mathf.Rad2Deg;

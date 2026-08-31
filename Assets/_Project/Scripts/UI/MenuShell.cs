@@ -45,6 +45,10 @@ namespace Arna.UI
         /// </summary>
         static void Backdrop(Transform parent)
         {
+            // The painting, when there is one. Everything below is what the screen draws
+            // for itself when there is not — see Backdrops.
+            if (Backdrops.Paint(Backdrops.Menu, parent, 0.45f) != null) return;
+
             var sky = Widgets.Panel("Backdrop", parent,
                 Pixels.Gradient(new Color32(0x1B, 0x1F, 0x2A, 0xFF),
                                 new Color32(0x0B, 0x09, 0x08, 0xFF), "ArnaSky"));
@@ -76,8 +80,8 @@ namespace Arna.UI
         public void ShowRoadmap() => Show(RoadmapScreen.Build);
 
         /// <summary>A screen for a section that is designed but not yet built.</summary>
-        public void ShowStub(string title, string explanation)
-            => Show((shell, root) => StubScreen.Build(shell, root, title, explanation));
+        public void ShowStub(string title, string explanation, string backdrop = null)
+            => Show((shell, root) => StubScreen.Build(shell, root, title, explanation, backdrop));
 
         /// <summary>
         /// Starts a level: the escort first, then the road.

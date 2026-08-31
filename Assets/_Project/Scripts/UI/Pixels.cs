@@ -23,13 +23,13 @@ namespace Arna.UI
         /// </summary>
         public const float PixelsPerUnit = 100f;
 
-        static Texture2D Canvas(int width, int height, string name)
+        static Texture2D Canvas(int width, int height, string name, bool tiling = false)
         {
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
             {
                 name = name,
                 filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
+                wrapMode = tiling ? TextureWrapMode.Repeat : TextureWrapMode.Clamp,
                 hideFlags = HideFlags.HideAndDontSave
             };
 
@@ -390,6 +390,256 @@ namespace Arna.UI
 
             Draw(texture, Disc(c, c, size * 0.13f), new Color(0f, 0f, 0f, 0f));
             return Make(texture, default);
+        }
+
+        /// <summary>
+        /// Deterministic value noise, so the ground is the same ground every time it is
+        /// painted. The same trick <see cref="Arna.Sim.DeterministicRandom"/> uses, and
+        /// for the same reason: a texture that differs between two runs is a texture
+        /// nobody can compare a screenshot of.
+        /// </summary>
+        static float Noise(int x, int y, int seed)
+        {
+            int h = x * 374761393 + y * 668265263 + seed * 1274126177;
+            h = (h ^ (h >> 13)) * 1274126177;
+
+            return ((h ^ (h >> 16)) & 0xFFFF) / 65535f;
+        }
+
+        /// <summary>
+        /// Forest floor: a tiling mottle of greens with darker clumps in it.
+        ///
+        /// Tiled rather than stretched, so the grain stays the same size however tall the
+        /// chapter's board is — a stretched texture on a board twice the height of the
+        /// screen is a smear, which is the same mistake as a flat prop on a hillside and
+        /// has been made in this project three times already.
+        /// </summary>
+        public static Sprite Ground(string name)
+        {
+            const int size = 96;
+            var texture = Canvas(size, size, name, tiling: true);
+
+            var dark = new Color32(0x2A, 0x3A, 0x22, 0xFF);
+            var mid = new Color32(0x36, 0x49, 0x2A, 0xFF);
+            var light = new Color32(0x41, 0x57, 0x31, 0xFF);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    // Two scales: broad patches of lighter and darker turf, and a fine
+                    // grain over the top. One alone reads as either a blur or as static.
+                    float broad = Noise(x / 12, y / 12, 7) * 0.6f
+                                + Noise(x / 6, y / 6, 19) * 0.4f;
+                    float grain = Noise(x, y, 41);
+
+                    var colour = Color.Lerp(dark, mid, Mathf.Clamp01(broad * 1.4f));
+                    colour = Color.Lerp(colour, light, grain * 0.18f);
+
+                    texture.SetPixel(x, y, colour);
+                }
+            }
+
+            return Make(texture, default);
+        }
+
+        /// <summary>
+        /// A spruce, seen from the side: three skirts of needles over a short trunk.
+        ///
+        /// Silhouettes rather than drawings. At the size a tree is on this board — about
+        /// a hundred and thirty pixels — shape is all that survives, and a shape that
+        /// reads as a conifer next to one that reads as a broadleaf is what makes a
+        /// scattering of them read as a wood rather than as clip art.
+        /// </summary>
+        public static Sprite Conifer(string name)
+        {
+            const int width = 72, height = 112;
+            var texture = Canvas(width, height, name);
+
+            var trunk = new Color32(0x3A, 0x2A, 0x1C, 0xFF);
+            var needle = new Color32(0x22, 0x33, 0x1E, 0xFF);
+            var lit = new Color32(0x33, 0x4A, 0x2A, 0xFF);
+
+            Draw(texture, Rect(width * 0.44f, 0f, width * 0.56f, height * 0.22f), trunk);
+
+            // Three skirts, each narrower and shorter than the one below it.
+            for (int tier = 0; tier < 3; tier++)
+            {
+                float bottom = height * (0.14f + tier * 0.24f);
+                float top = height * (0.48f + tier * 0.26f);
+                float half = width * (0.5f - tier * 0.11f);
+
+                Draw(texture, Polygon(new[]
+                {
+                    new Vector2(width * 0.5f, top),
+                    new Vector2(width * 0.5f + half, bottom),
+                    new Vector2(width * 0.5f - half, bottom)
+                }), needle);
+
+                // The light comes from the upper left, as it does everywhere else in this
+                // interface. One wedge is enough to stop the silhouette reading as a hole.
+                Draw(texture, Polygon(new[]
+                {
+                    new Vector2(width * 0.5f, top),
+                    new Vector2(width * 0.5f, bottom),
+                    new Vector2(width * 0.5f - half * 0.72f, bottom)
+                }), new Color(lit.r / 255f, lit.g / 255f, lit.b / 255f, 0.55f));
+            }
+
+            return Make(texture, default);
+        }
+
+        /// <summary>A round-crowned tree, for the minority that punctuates the conifers.</summary>
+        public static Sprite Broadleaf(string name)
+        {
+            const int width = 72, height = 84;
+            var texture = Canvas(width, height, name);
+
+            var trunk = new Color32(0x3A, 0x2A, 0x1C, 0xFF);
+            var leaf = new Color32(0x2C, 0x40, 0x24, 0xFF);
+            var lit = new Color32(0x40, 0x59, 0x30, 0xFF);
+
+            Draw(texture, Rect(width * 0.45f, 0f, width * 0.55f, height * 0.34f), trunk);
+
+            Draw(texture, Disc(width * 0.5f, height * 0.58f, width * 0.34f), leaf);
+            Draw(texture, Disc(width * 0.30f, height * 0.48f, width * 0.22f), leaf);
+            Draw(texture, Disc(width * 0.70f, height * 0.50f, width * 0.22f), leaf);
+            Draw(texture, Disc(width * 0.40f, height * 0.68f, width * 0.20f),
+                 new Color(lit.r / 255f, lit.g / 255f, lit.b / 255f, 0.6f));
+
+            return Make(texture, default);
+        }
+
+        /// <summary>Undergrowth. What stops a wood being trunks standing in a lawn.</summary>
+        public static Sprite Shrub(string name)
+        {
+            const int width = 56, height = 40;
+            var texture = Canvas(width, height, name);
+
+            var leaf = new Color32(0x28, 0x3B, 0x21, 0xFF);
+
+            Draw(texture, Disc(width * 0.32f, height * 0.40f, width * 0.26f), leaf);
+            Draw(texture, Disc(width * 0.62f, height * 0.44f, width * 0.30f), leaf);
+            Draw(texture, Disc(width * 0.48f, height * 0.62f, width * 0.24f),
+                 new Color(0.24f, 0.34f, 0.19f, 0.8f));
+
+            return Make(texture, default);
+        }
+
+        /// <summary>A boulder beside the path.</summary>
+        public static Sprite Boulder(string name)
+        {
+            const int width = 56, height = 44;
+            var texture = Canvas(width, height, name);
+
+            Draw(texture, Rounded(2f, 2f, width - 2f, height * 0.72f, 12f),
+                 new Color32(0x4A, 0x4A, 0x44, 0xFF));
+            Draw(texture, Rounded(6f, height * 0.28f, width - 10f, height * 0.78f, 10f),
+                 new Color32(0x5E, 0x5E, 0x56, 0xFF));
+
+            return Make(texture, default);
+        }
+
+        /// <summary>
+        /// Packs several painted sprites into one texture, and hands back sprites cut
+        /// from it.
+        ///
+        /// **A draw-call fix, and a necessary one.** The roadmap scatters something like
+        /// three hundred trees, shrubs, boulders and paving stones. UGUI batches adjacent
+        /// images only when they share a texture, so as five separate textures that board
+        /// costs three hundred draw calls on its own — twice the whole game's budget of
+        /// 150 (docs/technical-design.md). Packed together and drawn in one run of the
+        /// hierarchy, the same board is one.
+        ///
+        /// The parts are painted first and copied in afterwards rather than painted into
+        /// the atlas directly, so each shape's own code stays a drawing of that shape at
+        /// its own origin, with no offset arithmetic threaded through it.
+        /// </summary>
+        public static Sprite[] Pack(string name, params Sprite[] parts)
+        {
+            const int pad = 2;
+
+            // Shelf packing, which is enough for a handful of parts of similar height and
+            // is about ten lines rather than a hundred.
+            int width = 0, height = 0, shelf = 0, x = 0, y = 0;
+
+            foreach (var part in parts)
+            {
+                int w = (int)part.rect.width + pad;
+                int h = (int)part.rect.height + pad;
+
+                if (x + w > 256) { y += shelf; x = 0; shelf = 0; }
+
+                x += w;
+                if (h > shelf) shelf = h;
+                if (x > width) width = x;
+            }
+
+            height = y + shelf;
+
+            var atlas = Canvas(Mathf.NextPowerOfTwo(width), Mathf.NextPowerOfTwo(height), name);
+            var cut = new Sprite[parts.Length];
+
+            x = 0; y = 0; shelf = 0;
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i];
+                int w = (int)part.rect.width;
+                int h = (int)part.rect.height;
+
+                if (x + w + pad > 256) { y += shelf; x = 0; shelf = 0; }
+
+                atlas.SetPixels(x, y, w, h, part.texture.GetPixels());
+
+                cut[i] = Sprite.Create(atlas, new Rect(x, y, w, h), new Vector2(0.5f, 0.5f),
+                                       PixelsPerUnit, 0, SpriteMeshType.FullRect);
+                cut[i].name = part.name;
+                cut[i].hideFlags = HideFlags.HideAndDontSave;
+
+                x += w + pad;
+                if (h + pad > shelf) shelf = h + pad;
+
+                // The part's own texture has done its job. Left alone they are a handful
+                // of small leaks, which is not much and is not nothing.
+                var spent = part.texture;
+                Object.DestroyImmediate(part, true);
+                Object.DestroyImmediate(spent, true);
+            }
+
+            atlas.Apply(false, false);
+            return cut;
+        }
+
+        /// <summary>
+        /// The dark closing in at the edges of the board.
+        ///
+        /// Nine-sliced, so the darkness stays the same thickness whatever size the board
+        /// is: stretched as one image, a tall chapter would get a soft haze and a short
+        /// one a black frame. The middle slice is fully transparent, so it costs nothing
+        /// over the part of the picture the player is actually reading.
+        /// </summary>
+        public static Sprite Vignette(string name)
+        {
+            const int size = 96;
+            var texture = Canvas(size, size, name);
+
+            var edge = new Color(0.02f, 0.03f, 0.02f, 1f);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    // Distance from the nearest edge, in border widths. One at the very
+                    // edge, nothing by the time it reaches the middle slice.
+                    float near = Mathf.Min(Mathf.Min(x, size - 1 - x), Mathf.Min(y, size - 1 - y));
+                    float t = Mathf.Clamp01(1f - near / 34f);
+
+                    texture.SetPixel(x, y, new Color(edge.r, edge.g, edge.b, t * t * 0.88f));
+                }
+            }
+
+            return Make(texture, new Vector4(36, 36, 36, 36));
         }
 
         /// <summary>A vertical two-colour wash, for screen backdrops.</summary>
