@@ -29,26 +29,26 @@ namespace Arna.UI
         static void Title(RectTransform root)
         {
             var block = Widgets.Node("Title", root);
-            block.Place(new Vector2(0.5f, 1f), new Vector2(0f, -280f), new Vector2(900f, 340f));
+            block.Place(new Vector2(0.5f, 1f), new Vector2(0f, -280f), new Vector2(Widgets.SafeWidth, 340f));
 
             var above = Widgets.Label("Above", block, "THE", 44, Theme.Muted);
-            above.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(900f, 60f));
+            above.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(Widgets.SafeWidth, 60f));
 
             var name = Widgets.Label("Name", block, "LONG ROAD", Widgets.TitleSize, Theme.BrightGold);
-            name.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -58f), new Vector2(900f, 130f));
+            name.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -58f), new Vector2(Widgets.SafeWidth, 130f));
 
             var rule = Widgets.Panel("Rule", block, Theme.Flat, new Color(Theme.Gold.r, Theme.Gold.g, Theme.Gold.b, 0.55f));
             rule.type = Image.Type.Simple;
-            rule.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -196f), new Vector2(520f, 3f));
+            rule.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -196f), new Vector2(480f, 3f));
 
             var under = Widgets.Label("Under", block, "LEGENDEN OM ARNA", 38, Theme.Muted);
-            under.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -212f), new Vector2(900f, 56f));
+            under.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -212f), new Vector2(Widgets.SafeWidth, 56f));
         }
 
         static void Choices(MenuShell shell, RectTransform root)
         {
             var column = Widgets.Node("Choices", root);
-            column.Place(new Vector2(0.5f, 0.5f), new Vector2(0f, -60f), new Vector2(760f, 700f));
+            column.Place(new Vector2(0.5f, 0.5f), new Vector2(0f, -60f), new Vector2(Widgets.SafeWidth - 80f, 700f));
 
             float y = 0f;
             float step = Widgets.ButtonHeight + 24f;
@@ -75,7 +75,7 @@ namespace Arna.UI
         {
             var button = Widgets.Plate(text, column, text, role, clicked);
             button.image.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -y),
-                                             new Vector2(760f, Widgets.ButtonHeight));
+                                             new Vector2(Widgets.SafeWidth - 80f, Widgets.ButtonHeight));
             y += step;
         }
 
@@ -83,13 +83,13 @@ namespace Arna.UI
         static void Chips(MenuShell shell, RectTransform root)
         {
             var row = Widgets.Node("Chips", root);
-            row.Place(new Vector2(0.5f, 0f), new Vector2(0f, Widgets.Margin), new Vector2(960f, 210f));
+            row.Place(new Vector2(0.5f, 0f), new Vector2(0f, Widgets.Margin), new Vector2(Widgets.SafeWidth, 210f));
 
-            Chip(shell, row, -320f, "DAGLIG\nBELÖNING", Theme.CoinIcon, "!",
+            Chip(shell, row, -272f, "DAGLIG\nBELÖNING", Theme.CoinIcon, "!",
                  "Kom tillbaka i morgon för guld. Ännu inte byggt.");
             Chip(shell, row, 0f, "UPPDRAG", Theme.Star, "2",
                  "Dagliga uppdrag ska ge guld och ädelstenar. Ännu inte byggt.");
-            Chip(shell, row, 320f, "TOPPLISTA", Theme.SkullIcon, null,
+            Chip(shell, row, 272f, "TOPPLISTA", Theme.SkullIcon, null,
                  "Topplistan kräver en server. Ännu inte byggd.");
         }
 
@@ -97,7 +97,7 @@ namespace Arna.UI
                          string badge, string explanation)
         {
             var plate = Widgets.Panel(text, row, Theme.Frame, Theme.Secondary);
-            plate.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(x, 0f), new Vector2(290f, 200f));
+            plate.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(x, 0f), new Vector2(256f, 200f));
 
             var button = plate.gameObject.AddComponent<Button>();
             button.targetGraphic = plate;
@@ -107,7 +107,7 @@ namespace Arna.UI
             glyph.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -26f), new Vector2(76f, 76f));
 
             var label = Widgets.Label("Text", plate.transform, text, Widgets.SmallSize, Theme.Muted);
-            label.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(270f, 74f));
+            label.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(240f, 74f));
 
             if (badge == null) return;
 

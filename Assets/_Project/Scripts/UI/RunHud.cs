@@ -250,13 +250,13 @@ namespace Arna.UI
 
             var close = Widgets.Plate("Close", panel, "TILLBAKA", ButtonRole.Primary, Resume);
             close.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 40f),
-                                            new Vector2(620f, Widgets.ButtonHeight));
+                                            new Vector2(Widgets.SafeWidth - 220f, Widgets.ButtonHeight));
         }
 
         void Post(RectTransform panel, TroopGroup group, ref float y)
         {
             var row = Widgets.Panel("Post" + group.Slot, panel, Theme.SoftFrame, Color.white);
-            row.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(780f, 108f));
+            row.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(Widgets.SafeWidth - 60f, 108f));
 
             var name = Widgets.Label("Name", row.transform, Name(group.Kind), Widgets.SmallSize,
                                      group.Alive ? Theme.Parchment : Theme.Dim, TextAnchor.MiddleLeft);
@@ -361,11 +361,11 @@ namespace Arna.UI
                            : "Klarat — ditt rekord står kvar.";
 
             var note = Widgets.Label("Note", panel, verdict, Widgets.SmallSize, Theme.Muted);
-            note.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -330f), new Vector2(700f, 40f));
+            note.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -330f), new Vector2(Widgets.SafeWidth - 140f, 40f));
 
-            Reward(panel, -240f, Theme.CoinIcon, Theme.Coin, gold.ToString(), "GULD");
+            Reward(panel, -230f, Theme.CoinIcon, Theme.Coin, gold.ToString(), "GULD");
             Reward(panel, 0f, Theme.SkullIcon, Theme.Bone, Beaten() + "", "SLAGNA");
-            Reward(panel, 240f, Theme.HeartIcon, Theme.Heart, Standing() + "", "VAGNAR");
+            Reward(panel, 230f, Theme.HeartIcon, Theme.Heart, Standing() + "", "VAGNAR");
 
             float y = -640f;
             if (won && Session.HasNext(out int nextChapter, out int nextLevel))
@@ -423,11 +423,11 @@ namespace Arna.UI
             Widgets.Scrim("Scrim", host);
 
             var panel = Widgets.Panel("Panel", host, Theme.Frame, Color.white);
-            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880f, 1100f));
+            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Widgets.SafeWidth, 1100f));
 
             var ribbon = Widgets.Ribbon("Ribbon", panel.transform, title);
             ribbon.transform.parent.GetComponent<RectTransform>()
-                .Place(new Vector2(0.5f, 1f), new Vector2(0f, 40f), new Vector2(660f, 110f));
+                .Place(new Vector2(0.5f, 1f), new Vector2(0f, 40f), new Vector2(Widgets.SafeWidth - 220f, 110f));
 
             return host.gameObject;
         }
@@ -436,7 +436,7 @@ namespace Arna.UI
         {
             var button = Widgets.Plate(text, panel, text, role, () => clicked());
             button.image.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y),
-                                             new Vector2(620f, Widgets.ButtonHeight));
+                                             new Vector2(Widgets.SafeWidth - 220f, Widgets.ButtonHeight));
             y -= Widgets.ButtonHeight + 20f;
         }
 

@@ -16,12 +16,19 @@ namespace Arna.UI
     /// </summary>
     public static class Widgets
     {
-        /// <summary>
-        /// The design resolution. A tall phone, because that is what the mock-up is and
-        /// what the game is for; the scaler matches width and height evenly so a shorter
-        /// screen loses a little from top and bottom rather than clipping the sides.
-        /// </summary>
+        /// <summary>The design resolution. A tall phone, which is what the game is for.</summary>
         public static readonly Vector2 Reference = new Vector2(1080f, 1920f);
+
+        /// <summary>
+        /// The widest anything may be laid out, in design units.
+        ///
+        /// Narrower than the 1080 the design is drawn at, because the scaler below is
+        /// driven by height: on a 20:9 phone the design is 1920 tall and only 864 wide,
+        /// so a panel built at 1000 would have its edges off both sides of the screen.
+        /// Everything is kept inside this and centred, and the wider the screen the more
+        /// room there simply is either side.
+        /// </summary>
+        public const float SafeWidth = 840f;
 
         public const float ButtonHeight = 116f;
         public const float Margin = 48f;
@@ -51,7 +58,22 @@ namespace Arna.UI
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = Reference;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+
+            // Driven by height, not by a blend of the two, and this was a real bug rather
+            // than a preference.
+            //
+            // At 0.5 the scale is the geometric mean of the two ratios, which on a 16:9
+            // landscape Game view comes out at exactly 1: the canvas is then 1920 design
+            // units wide and *1080 tall*, against a layout drawn for 1920 of height. Half
+            // the screen was below the bottom edge, and everything anchored to that edge
+            // came up the screen into the middle of everything anchored to the top. The
+            // reported symptom was buttons lying on top of each other and a menu too big
+            // to see, which is exactly what that produces.
+            //
+            // At 1 the design's full height always maps to the screen's, whatever shape
+            // it is, so nothing is ever lost off the bottom. What varies instead is how
+            // much width there is, and that is what SafeWidth is for.
+            scaler.matchWidthOrHeight = 1f;
             scaler.referencePixelsPerUnit = Pixels.PixelsPerUnit;
 
             if (Object.FindFirstObjectByType<EventSystem>() == null)

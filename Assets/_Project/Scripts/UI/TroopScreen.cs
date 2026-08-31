@@ -84,12 +84,12 @@ namespace Arna.UI
             var ribbon = Widgets.Ribbon("Ribbon", root, "Eskort");
             ribbon.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, -Widgets.Margin),
-                       new Vector2(560f, 100f));
+                       new Vector2(480f, 100f));
 
             var level = Widgets.Label("Level", root,
                 $"KAPITEL {Session.Chapter}  ·  NIVÅ {Session.Level}", Widgets.SmallSize, Theme.Muted);
             level.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -172f),
-                                      new Vector2(700f, 44f));
+                                      new Vector2(Widgets.SafeWidth - 120f, 44f));
 
             // The two numbers that bind, said plainly. Points run out long before posts
             // do at the start of a chapter, and the other way round at the end of one.
@@ -103,7 +103,7 @@ namespace Arna.UI
                 + (recipe.Posts < TroopTable.LinePosts ? "  ·  fler öppnas längre fram" : ""),
                 Widgets.SmallSize - 4, Theme.Dim);
             posts.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -318f),
-                                      new Vector2(860f, 40f));
+                                      new Vector2(Widgets.SafeWidth, 40f));
         }
 
         // Where each post sits on the diagram, in the same shape as the real formation:
@@ -115,10 +115,10 @@ namespace Arna.UI
             {
                 case FormationSlot.Scouting: return new Vector2(0f, 300f);
                 case FormationSlot.Van: return new Vector2(0f, 150f);
-                case FormationSlot.RightVan: return new Vector2(230f, 40f);
-                case FormationSlot.LeftVan: return new Vector2(-230f, 40f);
-                case FormationSlot.RightRear: return new Vector2(230f, -120f);
-                case FormationSlot.LeftRear: return new Vector2(-230f, -120f);
+                case FormationSlot.RightVan: return new Vector2(268f, 40f);
+                case FormationSlot.LeftVan: return new Vector2(-268f, 40f);
+                case FormationSlot.RightRear: return new Vector2(268f, -120f);
+                case FormationSlot.LeftRear: return new Vector2(-268f, -120f);
                 default: return new Vector2(0f, -230f);
             }
         }
@@ -127,7 +127,7 @@ namespace Arna.UI
         {
             var board = Widgets.Panel("Board", root, Theme.Frame, new Color(0.13f, 0.15f, 0.12f, 1f));
             board.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0f, -40f),
-                                      new Vector2(1000f, 900f));
+                                      new Vector2(Widgets.SafeWidth, 900f));
 
             // The column the formation is drawn around, so the posts read as being beside
             // something rather than floating in a grid.
@@ -162,7 +162,7 @@ namespace Arna.UI
                 open ? (group != null ? Theme.Secondary : new Color(0.16f, 0.14f, 0.12f))
                      : Theme.Disabled);
 
-            plate.rectTransform.Place(new Vector2(0.5f, 0.5f), Spot(slot), new Vector2(300f, 150f));
+            plate.rectTransform.Place(new Vector2(0.5f, 0.5f), Spot(slot), new Vector2(268f, 150f));
 
             if (!open)
             {
@@ -173,7 +173,7 @@ namespace Arna.UI
                 var shut = Widgets.Label("Shut", plate.transform, "STÄNGD", Widgets.SmallSize - 6,
                                          Theme.Dim);
                 shut.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 20f),
-                                         new Vector2(280f, 36f));
+                                         new Vector2(250f, 36f));
                 return;
             }
 
@@ -192,7 +192,7 @@ namespace Arna.UI
             var name = Widgets.Label("Name", plate.transform, PostName(slot), Widgets.SmallSize - 6,
                                      Theme.Dim);
             name.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -12f),
-                                     new Vector2(280f, 34f));
+                                     new Vector2(250f, 34f));
 
             if (group == null)
             {
@@ -206,13 +206,13 @@ namespace Arna.UI
             var troop = Widgets.Label("Troop", plate.transform, Name(group.Kind), Widgets.BodySize - 4,
                                       Theme.Parchment);
             troop.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0f, 2f),
-                                      new Vector2(280f, 48f));
+                                      new Vector2(250f, 48f));
 
             var cost = Widgets.Label("Cost", plate.transform,
                 $"{TroopTable.Cost(group.Kind)} p  ·  {Role(group.Kind)}",
                 Widgets.SmallSize - 8, Theme.Muted);
             cost.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 16f),
-                                     new Vector2(280f, 36f));
+                                     new Vector2(250f, 36f));
         }
 
         /// <summary>The sheet of troops that will fit in the post being filled.</summary>
@@ -221,11 +221,11 @@ namespace Arna.UI
             Widgets.Scrim("Scrim", root, 0.7f);
 
             var panel = Widgets.Panel("Picker", root, Theme.Frame, Color.white);
-            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880f, 1180f));
+            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Widgets.SafeWidth, 1180f));
 
             var ribbon = Widgets.Ribbon("Ribbon", panel.transform, PostName(_picking));
             ribbon.transform.parent.GetComponent<RectTransform>()
-                .Place(new Vector2(0.5f, 1f), new Vector2(0f, 40f), new Vector2(620f, 100f));
+                .Place(new Vector2(0.5f, 1f), new Vector2(0f, 40f), new Vector2(Widgets.SafeWidth - 240f, 100f));
 
             float y = -130f;
 
@@ -250,7 +250,7 @@ namespace Arna.UI
                     });
 
                 row.image.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y),
-                                              new Vector2(760f, 104f));
+                                              new Vector2(Widgets.SafeWidth - 100f, 104f));
 
                 var role = Widgets.Label("Role", row.image.transform, Role(kind),
                                          Widgets.SmallSize - 8, Theme.Muted, TextAnchor.MiddleRight);
@@ -263,7 +263,7 @@ namespace Arna.UI
                 () => { _open = false; shell.Show(Build); });
 
             close.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 40f),
-                                            new Vector2(620f, Widgets.ButtonHeight));
+                                            new Vector2(Widgets.SafeWidth - 240f, Widgets.ButtonHeight));
         }
 
         static void Footer(MenuShell shell, RectTransform root)
@@ -274,8 +274,8 @@ namespace Arna.UI
                 shell.Show(Build);
             });
 
-            clear.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(-320f, Widgets.Margin),
-                                            new Vector2(240f, Widgets.ButtonHeight));
+            clear.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(-290f, Widgets.Margin),
+                                            new Vector2(220f, Widgets.ButtonHeight));
 
             var go = Widgets.Plate("Go", root, "RITA VÄGEN", ButtonRole.Primary, () =>
             {
@@ -283,7 +283,7 @@ namespace Arna.UI
                 shell.Draw(Session.Chapter, Session.Level);
             });
 
-            go.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(140f, Widgets.Margin),
+            go.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(130f, Widgets.Margin),
                                          new Vector2(560f, Widgets.ButtonHeight));
         }
 

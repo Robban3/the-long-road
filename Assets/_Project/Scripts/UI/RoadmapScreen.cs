@@ -55,7 +55,7 @@ namespace Arna.UI
 
             var purse = Widgets.Node("Purse", root);
             purse.Place(new Vector2(1f, 1f), new Vector2(-Widgets.Margin, -Widgets.Margin),
-                        new Vector2(500f, 96f));
+                        new Vector2(480f, 96f));
 
             var gold = Widgets.Counter("Gold", purse, Theme.CoinIcon, Theme.Coin,
                 campaign.Gold.ToString(), () => shell.ShowStub("Butik", "Inget säljs ännu."), 250f);
@@ -72,17 +72,17 @@ namespace Arna.UI
         {
             var ribbon = Widgets.Ribbon("Ribbon", root, "Välj nivå");
             ribbon.transform.parent.GetComponent<RectTransform>()
-                .Place(new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(720f, 100f));
+                .Place(new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(Widgets.SafeWidth - 120f, 100f));
 
             // One tab per chapter the player has reached, plus the next one — so the gate
             // that opens it is visible, rather than a chapter that simply is not there.
             int tabs = Mathf.Clamp(campaign.HighestChapter + 1, 2, 4);
 
             var row = Widgets.Node("Chapters", root);
-            row.Place(new Vector2(0.5f, 1f), new Vector2(0f, -310f), new Vector2(940f, 96f));
+            row.Place(new Vector2(0.5f, 1f), new Vector2(0f, -310f), new Vector2(Widgets.SafeWidth, 96f));
 
             // Narrower as they multiply, so four tabs still fit the width they have.
-            float width = Mathf.Min(360f, (940f - (tabs - 1) * 16f) / tabs);
+            float width = Mathf.Min(360f, (Widgets.SafeWidth - (tabs - 1) * 16f) / tabs);
             float start = -(tabs - 1) * (width + 16f) * 0.5f;
 
             for (int chapter = 1; chapter <= tabs; chapter++)
@@ -104,14 +104,14 @@ namespace Arna.UI
 
             var name = Widgets.Label("ChapterName", root, ChapterName(_shown), Widgets.SmallSize,
                                      Theme.Muted);
-            name.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -424f), new Vector2(900f, 48f));
+            name.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -424f), new Vector2(Widgets.SafeWidth, 48f));
 
             if (campaign.ChapterOpen(_shown)) return;
 
             var locked = Widgets.Label("Gate", root,
                 $"Behöver {Campaign.StarsToOpenNextChapter} stjärnor i kapitel {_shown - 1}" +
                 $" — du har {campaign.StarsIn(_shown - 1)}", Widgets.SmallSize, Theme.Danger);
-            locked.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -462f), new Vector2(900f, 48f));
+            locked.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -462f), new Vector2(Widgets.SafeWidth, 48f));
         }
 
         /// <summary>
@@ -272,13 +272,13 @@ namespace Arna.UI
             bar.rectTransform.offsetMax = new Vector2(0f, 0f);
             bar.rectTransform.sizeDelta = new Vector2(0f, NavHeight);
 
-            Tab(shell, bar.transform, -420f, "BUTIK", Theme.CoinIcon, false, "Inget säljs ännu.");
-            Tab(shell, bar.transform, -210f, "TRUPPER", Theme.HeartIcon, false, null,
+            Tab(shell, bar.transform, -336f, "BUTIK", Theme.CoinIcon, false, "Inget säljs ännu.");
+            Tab(shell, bar.transform, -168f, "TRUPPER", Theme.HeartIcon, false, null,
                 shell.ShowTroops);
             Tab(shell, bar.transform, 0f, "STRID", Theme.Star, true, null);
-            Tab(shell, bar.transform, 210f, "SMEDJA", Theme.GemIcon, false,
+            Tab(shell, bar.transform, 168f, "SMEDJA", Theme.GemIcon, false,
                 "Uppgraderingar köps i dag med silver mitt i ett uppdrag.");
-            Tab(shell, bar.transform, 420f, "KARTA", Theme.SkullIcon, false,
+            Tab(shell, bar.transform, 336f, "KARTA", Theme.SkullIcon, false,
                 "Världskartan över kapitlen är inte byggd.");
         }
 
@@ -289,7 +289,7 @@ namespace Arna.UI
             var slot = Widgets.Panel("Tab" + text, bar, here ? Theme.Frame : Theme.Flat,
                                      here ? Theme.Primary : new Color(0f, 0f, 0f, 0f));
             slot.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(x, here ? 12f : 0f),
-                                     new Vector2(196f, here ? 168f : 150f));
+                                     new Vector2(160f, here ? 168f : 150f));
 
             var button = slot.gameObject.AddComponent<Button>();
             button.targetGraphic = slot;
@@ -303,7 +303,7 @@ namespace Arna.UI
 
             var label = Widgets.Label("Text", slot.transform, text, Widgets.SmallSize,
                                       here ? Theme.Parchment : Theme.Muted);
-            label.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(190f, 42f));
+            label.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(156f, 42f));
         }
     }
 }

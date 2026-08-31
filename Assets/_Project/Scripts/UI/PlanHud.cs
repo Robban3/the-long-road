@@ -107,7 +107,7 @@ namespace Arna.UI
                 "Tryck på kartan för att lägga ut vägpunkter. Dra för att flytta.",
                 Widgets.SmallSize, Theme.Muted);
             hint.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 200f),
-                                     new Vector2(900f, 44f));
+                                     new Vector2(Widgets.SafeWidth, 44f));
 
             var undo = Widgets.Plate("Undo", _screen, "ÅNGRA", ButtonRole.Secondary,
                                      () => Undo?.Invoke());
