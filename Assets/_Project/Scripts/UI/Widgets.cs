@@ -191,6 +191,25 @@ namespace Arna.UI
         }
 
         /// <summary>
+        /// Makes a label wrap inside its rect instead of running off the end of it.
+        ///
+        /// A method rather than a line of `label.horizontalOverflow = …` at each call
+        /// site, and the reason is not tidiness. HorizontalWrapMode lives in UnityEngine
+        /// and *not* in UnityEngine.UI, which is where anybody writing UI code reaches for
+        /// it — a mistake that has now broken this project's build twice, and each time
+        /// took the whole Arna menu off the menu bar with it, because a broken UI assembly
+        /// takes the editor assembly that references it. It is written here once and
+        /// nowhere else, so there is one place left to get it wrong.
+        /// </summary>
+        public static Text Wrap(this Text label)
+        {
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+
+            return label;
+        }
+
+        /// <summary>
         /// A button in the mock-up's shape: framed plate, optional icon on the left, and
         /// a centred label.
         ///

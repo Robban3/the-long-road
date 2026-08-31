@@ -94,4 +94,44 @@ if [ -n "$REAL" ]; then
     exit 1
 fi
 
+# Unity API traps this checker is structurally blind to.
+#
+# The compiler pass above builds stand-ins for every type it does not have, so a name
+# that does not exist looks exactly like a Unity name it has never heard of, and an
+# ambiguity that only arises when the real UnityEngine.Object is present cannot arise at
+# all. Three builds have been broken by that blindness in one week, and each one took
+# the whole Arna menu off the menu bar with it, because a broken assembly takes every
+# assembly that references it.
+#
+# So the traps that have actually bitten are greppable rules. This is not a substitute
+# for compiling against Unity — it is the cheap half that would have caught all three.
+TRAPS=""
+
+# Types that live in UnityEngine and are reached for in UnityEngine.UI, because that is
+# where the code using them lives. Twice: HorizontalWrapMode, both times.
+STRAY=$(grep -rnE "UnityEngine\.UI\.(Horizontal|Vertical)WrapMode|UnityEngine\.UI\.(TextAnchor|FontStyle|Font|Color|Sprite|Texture2D|RectTransform|Canvas)\b" \
+        Assets/_Project/Scripts Assets/Editor 2>/dev/null || true)
+
+if [ -n "$STRAY" ]; then
+    TRAPS="$TRAPS
+$STRAY
+    ^ that type is in UnityEngine, not UnityEngine.UI. Drop the UI."
+fi
+
+# A bare Object in a file that also imports System: ambiguous with System.Object, which
+# is an error only when the real UnityEngine.Object exists.
+for file in $(grep -rl "^using System;" Assets/_Project/Scripts Assets/Editor 2>/dev/null || true); do
+    HIT=$(grep -nE "(^|[^.A-Za-z_])Object\.(Instantiate|Destroy|DestroyImmediate|FindObjectsByType|FindFirstObjectByType)" "$file" || true)
+    [ -z "$HIT" ] && continue
+
+    TRAPS="$TRAPS
+$file: $HIT
+    ^ 'Object' is ambiguous in a file with 'using System;'. Write UnityEngine.Object."
+done
+
+if [ -n "$TRAPS" ]; then
+    echo "$TRAPS"
+    exit 1
+fi
+
 echo "no reference-independent errors in View, App or Editor"

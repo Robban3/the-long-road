@@ -89,7 +89,7 @@ namespace Arna.UI
 
             var what = Widgets.Label("What", plate.transform, What(boon, owned),
                                      Widgets.SmallSize - 6, Theme.Muted, TextAnchor.UpperLeft);
-            what.horizontalOverflow = UnityEngine.UI.HorizontalWrapMode.Wrap;
+            what.Wrap();
             what.rectTransform.Place(new Vector2(0f, 1f), new Vector2(28f, -70f),
                                      new Vector2(500f, 80f));
 

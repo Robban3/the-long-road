@@ -94,7 +94,7 @@ namespace Arna.UI
         {
             var label = Widgets.Label("Line", panel, "", Widgets.SmallSize, Theme.Muted,
                                       TextAnchor.UpperLeft);
-            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.Wrap();
             label.rectTransform.Place(new Vector2(0f, 1f), new Vector2(28f, y), new Vector2(404f, 56f));
             y -= 58f;
 
