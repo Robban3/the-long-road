@@ -12,14 +12,7 @@ namespace Arna.UI
     public static class StubScreen
     {
         public static void Build(MenuShell shell, RectTransform root, string title, string explanation)
-            => Build(shell, root, title, explanation, null);
-
-        public static void Build(MenuShell shell, RectTransform root, string title,
-                                 string explanation, string backdrop)
         {
-            // A section that is designed and not built can at least look like the game it
-            // belongs to. The shop has a painting long before it has anything to sell.
-            if (backdrop != null) Backdrops.Paint(backdrop, root, 0.55f);
 
             var back = Widgets.Chip("Back", root, Theme.Chevron, shell.ShowMain);
             back.image.rectTransform.Place(new Vector2(0f, 1f),

@@ -22,8 +22,9 @@ namespace Arna.UI
     {
         public static void Build(MenuShell shell, RectTransform root)
         {
-            Backdrops.Paint(Backdrops.Shop, root, 0.62f);
-
+            // The painting is the shell's business now — see MenuShell.Repaint. A screen
+            // that painted its own backdrop laid it *over* whatever the shell had already
+            // put up rather than instead of it.
             var campaign = Session.Campaign;
 
             Header(shell, root, campaign);
