@@ -650,28 +650,41 @@ namespace Arna.UI
 
             var ruined = new Color(0.60f, 0.59f, 0.56f, 1f);
 
-            // Broken at the top and at different heights, which is the whole of the
+            // Broken at the top and at very different heights, which is the whole of the
             // difference from a house: no roof closes it, nothing is level.
+            //
+            // Two stumps and a wide gap between them, both heavier than they were. The
+            // first version put four thin uprights close together, and at map size that
+            // came out as one grey lump with a nick in it — legible only at the size
+            // nobody reads the map at.
             Draw(texture, Polygon(new[]
             {
-                new Vector2(s * 0.28f, s * 0.26f),
-                new Vector2(s * 0.28f, s * 0.72f),
-                new Vector2(s * 0.38f, s * 0.62f),
-                new Vector2(s * 0.44f, s * 0.70f),
-                new Vector2(s * 0.44f, s * 0.26f)
+                new Vector2(s * 0.22f, s * 0.24f),
+                new Vector2(s * 0.22f, s * 0.76f),
+                new Vector2(s * 0.34f, s * 0.64f),
+                new Vector2(s * 0.44f, s * 0.72f),
+                new Vector2(s * 0.44f, s * 0.24f)
             }), ruined);
 
             Draw(texture, Polygon(new[]
             {
-                new Vector2(s * 0.52f, s * 0.26f),
-                new Vector2(s * 0.52f, s * 0.52f),
-                new Vector2(s * 0.62f, s * 0.44f),
-                new Vector2(s * 0.70f, s * 0.50f),
-                new Vector2(s * 0.70f, s * 0.26f)
+                new Vector2(s * 0.58f, s * 0.24f),
+                new Vector2(s * 0.58f, s * 0.46f),
+                new Vector2(s * 0.70f, s * 0.38f),
+                new Vector2(s * 0.78f, s * 0.44f),
+                new Vector2(s * 0.78f, s * 0.24f)
             }), ruined);
 
-            Draw(texture, Rect(s * 0.20f, s * 0.20f, s * 0.80f, s * 0.26f), Stone);
-            Draw(texture, Disc(s * 0.74f, s * 0.32f, s * 0.05f), ruined);
+            // The course they both stand on, so the gap reads as a wall fallen in rather
+            // than as two separate things.
+            //
+            // Held inside a radius of 0.40 — the plate's ring runs from there out to 0.46,
+            // and drawn any wider the course laid a pale bar straight across it and broke
+            // the circle every symbol in the set is bounded by.
+            Draw(texture, Rect(s * 0.25f, s * 0.18f, s * 0.75f, s * 0.25f), Stone);
+
+            // A block out of the wall, lying where it fell.
+            Draw(texture, Rect(s * 0.47f, s * 0.24f, s * 0.55f, s * 0.31f), ruined);
 
             return Make(texture, default);
         }
@@ -711,20 +724,32 @@ namespace Arna.UI
             const float s = SymbolSize;
             var texture = SymbolPlate(name);
 
-            var wood = new Color(0.55f, 0.40f, 0.28f, 1f);
+            var wood = new Color(0.58f, 0.42f, 0.28f, 1f);
 
+            // Tipped, not parked. The body leans hard and its bed is off the ground on
+            // one side, which is the whole difference between a cart and a wreck — drawn
+            // level it was a brown box, and at map size a brown box is a brown smudge.
             Draw(texture, Polygon(new[]
             {
-                new Vector2(s * 0.24f, s * 0.30f),
-                new Vector2(s * 0.30f, s * 0.58f),
-                new Vector2(s * 0.62f, s * 0.50f),
-                new Vector2(s * 0.58f, s * 0.26f)
+                new Vector2(s * 0.18f, s * 0.30f),
+                new Vector2(s * 0.26f, s * 0.62f),
+                new Vector2(s * 0.56f, s * 0.50f),
+                new Vector2(s * 0.46f, s * 0.22f)
             }), wood);
 
-            // The wheel, off the cart and lying beside it. That it is not under the cart
-            // is the picture: this thing is not going anywhere.
-            Draw(texture, Ring(s * 0.70f, s * 0.34f, s * 0.14f, s * 0.09f), Timberwork);
-            Draw(texture, Rect(s * 0.56f, s * 0.32f, s * 0.84f, s * 0.36f), Timberwork);
+            // The shaft, up in the air where the ox is not.
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(s * 0.50f, s * 0.46f),
+                new Vector2(s * 0.56f, s * 0.54f),
+                new Vector2(s * 0.82f, s * 0.76f),
+                new Vector2(s * 0.76f, s * 0.66f)
+            }), wood);
+
+            // Two wheels, and the second one is the picture: off the cart, lying on its
+            // own. Open rings, because a filled disc at this size is a dot.
+            Draw(texture, Ring(s * 0.30f, s * 0.30f, s * 0.15f, s * 0.08f), Timberwork);
+            Draw(texture, Ring(s * 0.72f, s * 0.30f, s * 0.13f, s * 0.07f), Timberwork);
 
             return Make(texture, default);
         }
@@ -809,46 +834,62 @@ namespace Arna.UI
         }
 
         /// <summary>
-        /// Crows: a bird over an open ring.
+        /// Crows: two birds circling.
         ///
-        /// Hollow where every other symbol is filled, and that carries the meaning. A
-        /// red disc on this map is a group the bird found and a fact; a flock circling
-        /// is a hint, and might be circling over nothing. The old marker said the same
-        /// thing by being nearly black at two metres across on a dark forest, which said
-        /// it so quietly that nobody ever saw a crow at all. A hint you cannot see is
-        /// not a hint.
+        /// Two and not one, because it is a flock, and because a pair of birds is
+        /// unmistakable at a size where one bird is a smudge. It is the only symbol in
+        /// the set with nothing built in it, which is what separates a hint from a
+        /// building at a glance.
+        ///
+        /// Pale on the dark plate, like every other symbol. An earlier version turned it
+        /// inside out — a hollow rim over a pale wash, meaning to say "hint, not fact" by
+        /// being lighter than the rest — and it went wrong twice over: the wash filled
+        /// the ring, so it read as a *filled* pale disc rather than a hollow one, and
+        /// being the palest thing on the map it shouted louder than the red disc that
+        /// marks a group actually found. The hint outshouted the fact. What separates the
+        /// two is colour and always was: a filled red disc is a group the bird saw, and
+        /// this is not red.
+        ///
+        /// Before that it was nearly black at two metres across on a dark forest, which
+        /// nobody ever saw at all. A hint you cannot see is not a hint.
         /// </summary>
         public static Sprite Crow(string name)
         {
             const float s = SymbolSize;
-            var texture = SymbolPlate(name, filled: false);
+            var texture = SymbolPlate(name);
 
-            var feather = new Color(0.09f, 0.09f, 0.12f, 1f);
-            var glow = new Color(0.86f, 0.84f, 0.80f, 0.55f);
+            var feather = new Color(0.90f, 0.89f, 0.85f, 1f);
 
-            // A pale wash inside the ring, so a black bird is not black on black forest.
-            Draw(texture, Disc(s * 0.5f, s * 0.5f, s * 0.40f), glow);
-
-            Draw(texture, Polygon(new[]
-            {
-                new Vector2(s * 0.18f, s * 0.66f),
-                new Vector2(s * 0.42f, s * 0.48f),
-                new Vector2(s * 0.50f, s * 0.56f),
-                new Vector2(s * 0.58f, s * 0.48f),
-                new Vector2(s * 0.82f, s * 0.66f),
-                new Vector2(s * 0.58f, s * 0.38f),
-                new Vector2(s * 0.42f, s * 0.38f)
-            }), feather);
-
-            Draw(texture, Disc(s * 0.50f, s * 0.40f, s * 0.09f), feather);
-            Draw(texture, Polygon(new[]
-            {
-                new Vector2(s * 0.50f, s * 0.44f),
-                new Vector2(s * 0.50f, s * 0.34f),
-                new Vector2(s * 0.66f, s * 0.30f)
-            }), feather);
+            Bird(texture, s * 0.44f, s * 0.56f, s * 0.34f, feather);
+            Bird(texture, s * 0.66f, s * 0.33f, s * 0.20f, feather);
 
             return Make(texture, default);
+        }
+
+        /// <summary>
+        /// One bird seen from below: two swept wings, a body between them, a head.
+        ///
+        /// The wings dip in the middle rather than meeting in a point, which is the
+        /// difference between a bird and a letter W — and at map size that difference is
+        /// the whole silhouette.
+        /// </summary>
+        static void Bird(Texture2D texture, float cx, float cy, float span, Color colour)
+        {
+            float w = span * 0.5f;
+
+            Draw(texture, Polygon(new[]
+            {
+                new Vector2(cx - w, cy + w * 0.34f),
+                new Vector2(cx - w * 0.42f, cy - w * 0.18f),
+                new Vector2(cx, cy + w * 0.06f),
+                new Vector2(cx + w * 0.42f, cy - w * 0.18f),
+                new Vector2(cx + w, cy + w * 0.34f),
+                new Vector2(cx + w * 0.40f, cy - w * 0.44f),
+                new Vector2(cx, cy - w * 0.30f),
+                new Vector2(cx - w * 0.40f, cy - w * 0.44f)
+            }), colour);
+
+            Draw(texture, Disc(cx, cy - w * 0.34f, w * 0.20f), colour);
         }
 
         /// <summary>
