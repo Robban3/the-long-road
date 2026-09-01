@@ -37,12 +37,25 @@ namespace Arna.View
         /// <summary>Free-standing stonework, for the walls a ruin has left.</summary>
         public PropSet Walls = new PropSet();
 
+        /// <summary>
+        /// Castle curtain, kept apart from <see cref="Walls"/>.
+        ///
+        /// Walls mixes dry stone in with castle courses, which is right for a ruin — what
+        /// is left of a building is whatever stone was nearest — and wrong for a curtain.
+        /// A castle ringed with field wall is a castle with a garden fence.
+        /// </summary>
+        public PropSet CurtainWalls = new PropSet();
+
+        /// <summary>The archway a road goes through.</summary>
+        public PropSet Gates = new PropSet();
+
         /// <summary>Fallen stone. What a building leaves behind when it stops being one.</summary>
         public PropSet Rubble = new PropSet();
 
         public bool CanBuildHouse => Foundations.Any && Rooms.Any && Roofs.Any;
         public bool CanBuildTower => TowerShafts.Any && TowerTops.Any;
         public bool CanBuildRuin => Rooms.Any || Walls.Any;
+        public bool CanBuildCastle => CurtainWalls.Any && CanBuildTower;
 
         public bool IsEmpty => !CanBuildHouse && !CanBuildTower && !CanBuildRuin;
     }
@@ -194,6 +207,145 @@ namespace Arna.View
             }
 
             return host;
+        }
+
+        /// <summary>
+        /// A castle: four runs of curtain wall, a tower on each corner, a gate in the front.
+        ///
+        /// The one place on the map where something has always been missing. The caravan
+        /// is escorted to the goal, and the goal is a differently coloured tile — the
+        /// journey ends at a square of paint. This is what it ends at instead, and it is
+        /// what the level roadmap has been climbing towards all along.
+        ///
+        /// Built facing +Z, so the gate is in the wall at the near end and the caller
+        /// turns the whole thing to point that at the road. Assembled at the origin and
+        /// unrotated like every other building here, for the reason the file gives at the
+        /// top: aligning children inside a rotated parent is arithmetic nobody needs.
+        ///
+        /// How wide it comes out is not decided here. Two to three wall pieces a side,
+        /// and the pieces' own measured width does the rest — nothing in this repository
+        /// knows how long a Synty wall is, and a number written down here would be a
+        /// second source of truth that goes stale the first time the pack is updated.
+        /// </summary>
+        public static GameObject Castle(Transform parent, BuildingKit kit, DeterministicRandom rng)
+        {
+            if (kit == null || !kit.CanBuildCastle) return null;
+
+            var host = new GameObject("Castle");
+            host.transform.SetParent(parent, false);
+
+            int style = rng.Range(0, Length(kit.CurtainWalls));
+
+            // Measured off a piece that is then thrown away, because the length of a run
+            // has to be known before the run can be centred on the origin — and the only
+            // way to know it is to instantiate one and look.
+            float span = WallLength(host.transform, kit, style);
+            if (span <= 0f) return host;
+
+            int across = rng.Range(2, 4);
+            int deep = rng.Range(2, 4);
+
+            float halfX = across * span * 0.5f;
+            float halfZ = deep * span * 0.5f;
+
+            // The two side walls, run from the near corner to the far one.
+            for (int i = 0; i < deep; i++)
+            {
+                float z = -halfZ + (i + 0.5f) * span;
+
+                Run(host.transform, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp,
+                    new Vector3(-halfX, 0f, z), 90f);
+                Run(host.transform, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp,
+                    new Vector3(halfX, 0f, z), 90f);
+            }
+
+            // The back wall, whole. The front wall with its middle piece left out for the
+            // gate — a gateway is a hole in a wall, so the wall has to actually be short
+            // a piece rather than have an arch parked in front of it.
+            int gateAt = across / 2;
+
+            for (int i = 0; i < across; i++)
+            {
+                float x = -halfX + (i + 0.5f) * span;
+
+                Run(host.transform, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp,
+                    new Vector3(x, 0f, halfZ), 0f);
+
+                if (i == gateAt && kit.Gates.Any)
+                    Run(host.transform, Any(kit.Gates, rng), kit.Gates.ZUp,
+                        new Vector3(x, 0f, -halfZ), 0f);
+                else
+                    Run(host.transform, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp,
+                        new Vector3(x, 0f, -halfZ), 0f);
+            }
+
+            // A tower on each corner, which is what stops the curtain reading as a fence.
+            foreach (var corner in new[]
+            {
+                new Vector3(-halfX, 0f, -halfZ), new Vector3(halfX, 0f, -halfZ),
+                new Vector3(-halfX, 0f, halfZ), new Vector3(halfX, 0f, halfZ)
+            })
+            {
+                var tower = Tower(host.transform, kit, rng);
+                if (tower != null) tower.transform.localPosition = corner;
+            }
+
+            return host;
+        }
+
+        /// <summary>
+        /// How long one wall piece is, measured rather than assumed.
+        ///
+        /// Instantiated, measured and destroyed. The alternative is a constant, and a
+        /// constant here would be wrong the moment somebody swaps the set — which is
+        /// exactly the trap this file was written to avoid.
+        ///
+        /// The longer of the two ground axes, because a piece may be authored running
+        /// along either.
+        /// </summary>
+        static float WallLength(Transform host, BuildingKit kit, int style)
+        {
+            var sample = Pick(kit.CurtainWalls, style);
+            if (sample == null) return 0f;
+
+            var probe = Object.Instantiate(sample, host);
+            probe.transform.localRotation = kit.CurtainWalls.ZUp
+                ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.identity;
+
+            var bounds = ModelScaling.Measure(probe);
+
+            if (Application.isPlaying) Object.Destroy(probe);
+            else Object.DestroyImmediate(probe);
+
+            return Mathf.Max(bounds.size.x, bounds.size.z);
+        }
+
+        /// <summary>
+        /// Lays one piece flat on the ground at a spot, turned to face along a wall.
+        ///
+        /// The horizontal counterpart of <see cref="Stack"/>: same measure-don't-table
+        /// rule, same seating of the piece's own lowest point on the ground, but placed
+        /// beside its neighbours instead of on top of them.
+        /// </summary>
+        static GameObject Run(Transform host, GameObject prefab, bool zUp, Vector3 at, float turn)
+        {
+            if (prefab == null) return null;
+
+            var piece = Object.Instantiate(prefab, host);
+
+            piece.transform.localRotation = zUp
+                ? Quaternion.Euler(-90f, turn, 0f)
+                : Quaternion.Euler(0f, turn, 0f);
+
+            var bounds = ModelScaling.Measure(piece);
+            if (bounds.size == Vector3.zero) return piece;
+
+            // Centred on the spot and standing on the ground, which for a wall means its
+            // own lowest point at nought — the caller seats the castle as one thing.
+            piece.transform.position += new Vector3(at.x - bounds.center.x,
+                                                    at.y - bounds.min.y,
+                                                    at.z - bounds.center.z);
+            return piece;
         }
 
         /// <summary>
