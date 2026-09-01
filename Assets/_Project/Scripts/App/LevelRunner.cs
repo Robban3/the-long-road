@@ -241,7 +241,7 @@ namespace Arna.App
                 ruinSites: TrapSigns.Sites(map),
                 driveLine: _run.Caravan.Sweep(TerrainDecorator.DriveHalfWidth),
                 campSites: CampSignal.Tiles(map), driveMargin: 0,
-                travelled: LevelPreview.Travelled(map));
+                travelled: LevelPreview.Travelled(map), goalTile: map.GoalIndex);
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale)
             {

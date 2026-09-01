@@ -755,6 +755,43 @@ namespace Arna.UI
         }
 
         /// <summary>
+        /// A castle: a long curtain wall with a gate in it and a tower at each end.
+        ///
+        /// **Wide where the watchtower is tall**, and that is the whole design of it.
+        /// The tower glyph is already a crenellated shaft, so a castle drawn as a bigger
+        /// version of one would be the same silhouette at a size where size is exactly
+        /// what does not survive. A pair of towers with a wall between them cannot be
+        /// mistaken for a single tower however small it gets.
+        /// </summary>
+        public static Sprite Castle(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            // The curtain between the towers.
+            Draw(texture, Rect(s * 0.30f, s * 0.24f, s * 0.70f, s * 0.56f), Stone);
+
+            // Two towers, out at the ends and standing above the wall.
+            for (int side = 0; side < 2; side++)
+            {
+                float x = side == 0 ? s * 0.16f : s * 0.64f;
+
+                Draw(texture, Rect(x, s * 0.24f, x + s * 0.20f, s * 0.66f), Stone);
+
+                // Two merlons apiece. Three would close the gap between the towers and
+                // the whole thing would read as one block.
+                Draw(texture, Rect(x, s * 0.66f, x + s * 0.07f, s * 0.74f), Stone);
+                Draw(texture, Rect(x + s * 0.13f, s * 0.66f, x + s * 0.20f, s * 0.74f), Stone);
+            }
+
+            // The gate, cut out of the wall rather than laid over it — an arch is a hole.
+            Draw(texture, Rect(s * 0.44f, s * 0.24f, s * 0.56f, s * 0.44f), Plate);
+            Draw(texture, Disc(s * 0.50f, s * 0.44f, s * 0.06f), Plate);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>
         /// Bones: a skull over two crossed bones.
         ///
         /// The GDD's §5 table names bone piles as the trap-field tell, and the trap sites

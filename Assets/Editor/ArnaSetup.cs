@@ -800,6 +800,18 @@ namespace Arna.Editor
                         "SM_Bld_Rockwall_Straight_01", "SM_Bld_Rockwall_Archway_01",
                         "SM_Bld_Castle_Wall_01"),
 
+                    // The curtain, kept apart from Walls above. That set mixes dry stone
+                    // in with castle courses, which is right for a ruin — what is left of
+                    // a building is whatever stone was nearest — and wrong for a castle.
+                    // Ringed with field wall it would be a castle with a garden fence.
+                    CurtainWalls = Knights("Buildings", "SM_Bld_Castle_Wall_01"),
+
+                    // The archway the road goes through. It is dry stone rather than
+                    // castle courses, being the pack's only arch, so the gate is a shade
+                    // rougher than the wall it stands in. Worth seeing before deciding it
+                    // is wrong: a rough gate in a good wall is how most of them were.
+                    Gates = Knights("Buildings", "SM_Bld_Rockwall_Archway_01"),
+
                     // What came down. The same rock piles the shoreline uses, which is
                     // right: a fallen wall and a river's stones are the same stone.
                     Rubble = Mixed(

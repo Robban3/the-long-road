@@ -749,7 +749,8 @@ namespace Arna.View
                                    IReadOnlyCollection<int> campSites = null,
                                    int driveMargin = DriveMarginTiles,
                                    IReadOnlyCollection<int> travelled = null,
-                                   List<Landmark> found = null)
+                                   List<Landmark> found = null,
+                                   int goalTile = -1)
         {
             if (decor == null || decor.IsEmpty) return 0;
 
@@ -766,6 +767,16 @@ namespace Arna.View
             // farmhouse, and the building — the thing the eye was meant to find — is
             // the one that loses.
             var occupied = new HashSet<int>();
+
+            // The castle first of anything, and the order is the point.
+            //
+            // PlaceLandmarks argues below why the built things take their ground before
+            // the scatter — otherwise a pine grows through the farmhouse roof and the
+            // building, the thing the eye was meant to find, is the one that loses. A
+            // castle is the largest of them by a long way, so it claims first.
+            placed += PlaceCastle(parent, grid, rng, decor, occupied, heightScale,
+                                  goalTile, travelled, found);
+
             placed += PlaceLandmarks(parent, grid, rng, decor, clear, occupied, heightScale,
                                      ruinSites, road,
                                      travelled == null ? null : new HashSet<int>(travelled),
@@ -1905,6 +1916,97 @@ namespace Arna.View
         static bool IsBulky(TerrainType terrain, Choice choice) => choice.Size >= BulkySize;
 
         /// <summary>
+        /// The one building the whole journey is aimed at, standing on the goal.
+        ///
+        /// Until now the caravan was escorted to a differently coloured tile. The goal is
+        /// painted by TerrainMeshBuilder and nothing was ever built on it, because the
+        /// decorator was never told where it was — so the road ended at a square of
+        /// paint. It ends here instead, which is also what the level roadmap has been
+        /// climbing towards: its tenth waypoint is called the castle road.
+        ///
+        /// Centred *on* the goal rather than beside it, so arriving means going in
+        /// through the gate.
+        /// </summary>
+        static int PlaceCastle(Transform parent, TileGrid grid, DeterministicRandom rng,
+                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                               int goalTile, IReadOnlyCollection<int> travelled,
+                               List<Landmark> found)
+        {
+            if (goalTile < 0 || goalTile >= grid.TileCount) return 0;
+            if (decor.Kit == null || !decor.Kit.CanBuildCastle) return 0;
+
+            var castle = BuildingBuilder.Castle(parent, decor.Kit, rng);
+            if (castle == null) return 0;
+
+            if (!Raise(grid, goalTile, rng, castle, CastleHeight, heightScale, occupied,
+                       GateYaw(grid, goalTile, travelled)))
+                return 0;
+
+            Landmark.Note(found, LandmarkKind.Castle, goalTile);
+            return 1;
+        }
+
+        /// <summary>How tall the castle stands, in metres. Half again the watchtower.</summary>
+        public const float CastleHeight = 22f;
+
+        /// <summary>Tiles around the goal that are looked at to find which way the road comes in.</summary>
+        public const int GateLookback = 8;
+
+        /// <summary>
+        /// Which way to turn the castle so its gate faces the road.
+        ///
+        /// The gate is built at -Z (see <see cref="BuildingBuilder.Castle"/>), so the
+        /// castle is turned until that points at where the caravan is coming from. That
+        /// direction is the average of the travelled tiles near the goal — an average
+        /// rather than the single nearest one, because one tile of a winding approach
+        /// points wherever that tile happens to lie.
+        ///
+        /// Snapped to a quarter turn, for the reason <see cref="Raise"/> gives about
+        /// buildings at eleven degrees. With nothing to go on it faces west, which is
+        /// where the caravan starts: the start is chosen from the leftmost columns.
+        /// </summary>
+        static float GateYaw(TileGrid grid, int goalTile, IReadOnlyCollection<int> travelled)
+        {
+            float toX = -1f, toZ = 0f;
+
+            if (travelled != null)
+            {
+                grid.ToCoords(goalTile, out int gx, out int gy);
+                float sumX = 0f, sumY = 0f;
+                int seen = 0;
+
+                foreach (int tile in travelled)
+                {
+                    if (tile < 0 || tile >= grid.TileCount) continue;
+
+                    grid.ToCoords(tile, out int x, out int y);
+                    int dx = x - gx, dy = y - gy;
+
+                    if (dx * dx + dy * dy > GateLookback * GateLookback) continue;
+
+                    sumX += dx;
+                    sumY += dy;
+                    seen++;
+                }
+
+                if (seen > 0 && (sumX != 0f || sumY != 0f))
+                {
+                    toX = sumX;
+                    toZ = sumY;
+                }
+            }
+
+            // Whichever axis the road lies along more strongly wins the quarter turn.
+            //
+            // A yaw of nought leaves the gate pointing down -Z, ninety turns it to -X,
+            // a hundred and eighty to +Z and two hundred and seventy to +X. Written the
+            // other way round the castle presents its back wall to the road, which is
+            // the one thing this function exists to prevent.
+            if (Mathf.Abs(toX) >= Mathf.Abs(toZ)) return toX < 0f ? 90f : 270f;
+            return toZ < 0f ? 0f : 180f;
+        }
+
+        /// <summary>
         /// Places the things that were built rather than grown.
         ///
         /// Each kind goes where it would actually stand: houses on roads, fields on the
@@ -2363,8 +2465,15 @@ namespace Arna.View
         /// <see cref="Place"/>: one instantiates a prefab and the other finishes a thing
         /// that was built out of several.
         /// </summary>
+        /// <param name="yaw">
+        /// Which way it faces, or -1 to let it fall on a random quarter turn.
+        ///
+        /// Every building here may point wherever it likes except one: a castle's gate
+        /// has to face the road, or the caravan arrives at a wall.
+        /// </param>
         static bool Raise(TileGrid grid, int tile, DeterministicRandom rng, GameObject building,
-                          float height, float heightScale, HashSet<int> occupied)
+                          float height, float heightScale, HashSet<int> occupied,
+                          float yaw = -1f)
         {
             if (building == null) return false;
 
@@ -2375,7 +2484,8 @@ namespace Arna.View
 
             // Quarter turns, as for any building. A house at eleven degrees reads as
             // subsidence, and this one is several pieces deep.
-            building.transform.rotation = Quaternion.Euler(0f, rng.Range(0, 4) * 90f, 0f);
+            building.transform.rotation = Quaternion.Euler(
+                0f, yaw >= 0f ? yaw : rng.Range(0, 4) * 90f, 0f);
             building.transform.position = new Vector3(at.X, groundY, at.Y);
 
             // Scaled about its own origin, which the builder put on the ground plane —

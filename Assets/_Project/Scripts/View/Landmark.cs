@@ -17,7 +17,10 @@ namespace Arna.View
         Bones = 7,
 
         /// <summary>A banner or a gravestone driven into the ground beside one.</summary>
-        Totem = 8
+        Totem = 8,
+
+        /// <summary>The keep at the goal — where the road is taking the caravan.</summary>
+        Castle = 9
     }
 
     /// <summary>

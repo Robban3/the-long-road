@@ -58,11 +58,11 @@ namespace Arna.App
         {
             LandmarkKind.House, LandmarkKind.Farm, LandmarkKind.Watchtower,
             LandmarkKind.Ruin, LandmarkKind.Camp, LandmarkKind.Wreck,
-            LandmarkKind.Bones, LandmarkKind.Totem
+            LandmarkKind.Bones, LandmarkKind.Totem, LandmarkKind.Castle
         };
 
         /// <summary>Index into the sheet for the crows, which are not a landmark.</summary>
-        const int CrowSlot = 8;
+        const int CrowSlot = 9;
 
         /// <summary>
         /// Paints the sheet once and packs it into one texture.
@@ -88,6 +88,7 @@ namespace Arna.App
                 Pixels.Wreck("SymbolWreck"),
                 Pixels.Bones("SymbolBones"),
                 Pixels.Totem("SymbolTotem"),
+                Pixels.Castle("SymbolCastle"),
                 Pixels.Crow("SymbolCrow"));
 
             return _sheet;

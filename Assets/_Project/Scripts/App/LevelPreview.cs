@@ -1121,7 +1121,7 @@ namespace Arna.App
                 maxProps: MaxProps, densityScale: DensityScale,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
                 campSites: CampSignal.Tiles(map), travelled: Travelled(map),
-                found: _landmarks);
+                found: _landmarks, goalTile: map.GoalIndex);
 
             // Worth printing: a prop that is placed but too small and a prop that was
             // never placed look identical on a map read from seventy metres up.
