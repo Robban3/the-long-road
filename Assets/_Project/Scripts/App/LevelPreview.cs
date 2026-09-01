@@ -380,6 +380,11 @@ namespace Arna.App
         {
             if (_eagle == null || _flight == null || _flight.Path.Count < 2) return;
 
+            // Down, and staying down. Above the editor's redraw request on purpose: a
+            // landed bird should stop asking the editor to draw another frame, or looking
+            // at a finished plan spins the loop for nothing.
+            if (_lapped) return;
+
 #if UNITY_EDITOR
             // Queued before the delta is looked at, and that ordering is the whole of it.
             //
@@ -397,10 +402,17 @@ namespace Arna.App
             if (deltaTime <= 0f) return;
             if (_milestones == null || _flightLength <= 0f) return;
 
-            float before = _flown;
-            _flown = Mathf.Repeat(_flown + deltaTime * ScoutingAbility.Speed, _flightLength);
+            // Clamped at the end of the flight, not wrapped round to the start.
+            //
+            // Mathf.Repeat sent her back to the beginning the moment she reached the end,
+            // so she flew the same circuit over and over. The ability is one flight: she
+            // is aloft for her seconds, she looks at what she looks at, and she is done.
+            // A bird that sets off again has nothing left to find — the fog she would
+            // lift is already lifted — so the second lap is a decoration that contradicts
+            // what the plan is telling you.
+            _flown = Mathf.Min(_flown + deltaTime * ScoutingAbility.Speed, _flightLength);
 
-            if (_flown < before && !_lapped)
+            if (_flown >= _flightLength && !_lapped)
             {
                 _lapped = true;
 
@@ -673,17 +685,16 @@ namespace Arna.App
         /// metre, so the map opened with the answer on it and the bird was a decoration
         /// crossing ground that had already told you everything.
         ///
-        /// Revealed ground stays revealed when the flight loops. A map that re-fogs
-        /// every twenty seconds is one you cannot plan on, and the second lap has
-        /// nothing to add anyway.
+        /// Revealed ground stays revealed once she has passed. A map that re-fogs behind
+        /// the bird is one you cannot plan on.
         /// </summary>
         void Reveal(float flown)
         {
             if (_revealAt == null || _map == null) return;
 
-            // The lag means the last stretch of the flight would never come due: _flown
-            // wraps just short of the full length and never reaches length + lag. Once
-            // she has been round once, everything she flies over is behind her.
+            // The lag means the last stretch of the flight would never come due on its
+            // own: _flown stops at the full length and never reaches length + lag. Once
+            // she has landed, everything she flew over is behind her.
             float reached = _lapped ? _flightLength + RevealLag : flown;
 
             bool ground = false;
