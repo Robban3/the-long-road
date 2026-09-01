@@ -223,7 +223,7 @@ namespace Arna.View
                 _reload[group] = 0f;
             }
 
-            _volley = new Volley(_root, Library.Arrow);
+            _volley = new Volley(_root, Library.Arrow, RingMaterial());
 
             ReportCast(run);
         }

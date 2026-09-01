@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Arna.View
 {
@@ -57,6 +58,39 @@ namespace Arna.View
         public const float FromHeight = 1.35f;
         public const float ToHeight = 0.8f;
 
+        /// <summary>
+        /// How long the streak behind a shaft lasts, in seconds, and how wide it starts.
+        ///
+        /// The size and the speed made a shaft you could see; the streak is what makes it
+        /// a *bowshot*. A moving object with nothing behind it has to be caught in the
+        /// act, and the eye keeps losing one against grass and trees at this range. A
+        /// tail is the thing that is still there a moment after the arrow has gone past,
+        /// so the shot registers even when the shaft itself did not.
+        ///
+        /// Fifteen hundredths of a second, which at <see cref="Speed"/> is about four
+        /// metres — a shaft and a half. Long enough to read as a line through the air,
+        /// short enough that it is a trace and not a rope: at half a second the volley
+        /// turns into a cat's cradle strung between the archers and the wolves, which is
+        /// worse than the invisibility it was meant to fix.
+        ///
+        /// Width tapers to nothing on its own; only the head needs a number, and it is
+        /// the shaft's own thickness so the streak leaves the arrow rather than sitting
+        /// around it.
+        /// </summary>
+        public const float TrailSeconds = 0.15f;
+        public const float TrailWidth = Thickness;
+
+        /// <summary>
+        /// The colour of the streak, head and tail.
+        ///
+        /// Pale and thin rather than bright. It is drawn over grass, trees and the troops
+        /// themselves, and a saturated tail at this width is a scratch on the lens; what
+        /// is wanted is the suggestion of disturbed air. Alpha does nearly all the work
+        /// and it ends at nothing, so the trace dissolves instead of being cut off.
+        /// </summary>
+        public static readonly Color TrailHead = new Color(1f, 0.97f, 0.88f, 0.45f);
+        public static readonly Color TrailTail = new Color(1f, 0.94f, 0.80f, 0f);
+
         /// <summary>How far apart a rank's shafts land, per shooter, in metres.</summary>
         // A metre and a half. Enough that three arrows into one pack read as three, and
         // small enough that they are all plainly aimed at the same thing.
@@ -90,6 +124,7 @@ namespace Arna.View
         sealed class Shaft
         {
             public Transform Holder;
+            public TrailRenderer Trail;
             public Vector3 From, To;
             public float Flight, Flown;
             public bool Live;
@@ -102,6 +137,8 @@ namespace Arna.View
 
         readonly Transform _parent;
         readonly GameObject _model;
+        readonly Material _trail;
+        Material _dart;
         static bool _warned;
         readonly List<Shaft> _shafts = new List<Shaft>();
         readonly int _capacity;
@@ -111,10 +148,19 @@ namespace Arna.View
         // rank now looses its own, so five ranged posts can have thirty-odd in the air at
         // once. A full pool drops shafts silently, which reads as a bow that missed a
         // turn.
-        public Volley(Transform parent, GameObject model, int capacity = 64)
+        /// <param name="trail">
+        /// The material every shaft's tail is drawn with. Passed in rather than made here
+        /// so it is the *same* material as the reach rings' — they want the identical
+        /// shader for identical reasons, and two instances of a shader with no properties
+        /// is two draw-call batches where there should be one. Null falls back to making
+        /// one, so a caller that has none still gets tails.
+        /// </param>
+        public Volley(Transform parent, GameObject model, Material trail = null,
+                      int capacity = 64)
         {
             _parent = parent;
             _model = model;
+            _trail = trail != null ? trail : RangeRing.Material();
             _capacity = capacity;
         }
 
@@ -140,8 +186,18 @@ namespace Arna.View
             shaft.Flight = Mathf.Max(0.08f, Vector3.Distance(from, to) / Speed);
             shaft.Live = true;
 
-            shaft.Holder.gameObject.SetActive(true);
+            // Placed before it is switched on, and cleared after. A pooled trail keeps
+            // the points it laid down last time, so a shaft reused across the map draws a
+            // streak from where the previous one landed to where this one starts — a
+            // white line straight through the caravan, once per reuse.
             shaft.Holder.position = from;
+            shaft.Holder.gameObject.SetActive(true);
+
+            if (shaft.Trail != null)
+            {
+                shaft.Trail.Clear();
+                shaft.Trail.emitting = true;
+            }
         }
 
         /// <summary>
@@ -165,6 +221,11 @@ namespace Arna.View
                     shaft.Holder.gameObject.SetActive(false);
                     continue;
                 }
+
+                // Landed: the shaft stands in the ground and the streak it came in on
+                // fades off it over TrailSeconds, rather than hanging there whole.
+                if (shaft.Trail != null && shaft.Flown >= shaft.Flight)
+                    shaft.Trail.emitting = false;
 
                 float t = Mathf.Clamp01(shaft.Flown / shaft.Flight);
 
@@ -205,7 +266,8 @@ namespace Arna.View
 
             if (_shafts.Count >= _capacity) return null;
 
-            var made = new Shaft { Holder = Build().transform };
+            var holder = Build().transform;
+            var made = new Shaft { Holder = holder, Trail = Streak(holder) };
             _shafts.Add(made);
 
             return made;
@@ -219,6 +281,64 @@ namespace Arna.View
         /// the longest axis of the mesh is the shaft — and turned onto the holder's +Z.
         /// A rule written from one pack's arrow would be wrong for the next one's.
         /// </summary>
+        /// <summary>
+        /// The tail behind one shaft.
+        ///
+        /// A TrailRenderer rather than anything hand-built: it is the one piece of Unity
+        /// that already knows how to lay a ribbon along a path that is only known a frame
+        /// at a time, and the arc here is exactly that.
+        ///
+        /// It shares the reach rings' material (see <see cref="RangeRing.Material"/>),
+        /// which is the same shader this wants for the same three reasons — unlit, so a
+        /// streak on the shaded side of a hill does not go out; transparent; and
+        /// vertex-coloured, which is what carries the gradient. <b>URP's own Unlit
+        /// ignores vertex colours</b>, so without that shader the tail comes out one flat
+        /// opaque band whatever the gradient says.
+        /// </summary>
+        TrailRenderer Streak(Transform holder)
+        {
+            if (_trail == null) return null;
+
+            var trail = holder.gameObject.AddComponent<TrailRenderer>();
+
+            // sharedMaterial, not material. Renderer.material *instantiates a copy* on
+            // first touch, so assigning it here would quietly make sixty-four materials
+            // out of the one passed in — the opposite of why it is passed in — and break
+            // batching for every shaft in the air. RangeRing assigns the same way.
+            trail.sharedMaterial = _trail;
+            trail.time = TrailSeconds;
+            trail.startWidth = TrailWidth;
+            trail.endWidth = 0f;
+            trail.emitting = false;
+            trail.autodestruct = false;
+
+            // Every 20 cm rather than every frame: at 28 m/s a frame is half a metre, so
+            // this costs nothing on a fast machine and keeps the ribbon smooth on a slow
+            // one, where a per-frame trail would come out as three long facets.
+            trail.minVertexDistance = 0.2f;
+
+            trail.shadowCastingMode = ShadowCastingMode.Off;
+            trail.receiveShadows = false;
+            trail.alignment = LineAlignment.View;
+
+            var gradient = new Gradient();
+            gradient.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(TrailHead, 0f),
+                    new GradientColorKey(TrailTail, 1f)
+                },
+                new[]
+                {
+                    new GradientAlphaKey(TrailHead.a, 0f),
+                    new GradientAlphaKey(TrailTail.a, 1f)
+                });
+
+            trail.colorGradient = gradient;
+
+            return trail;
+        }
+
         GameObject Build()
         {
             var holder = new GameObject("Arrow");
@@ -251,7 +371,24 @@ namespace Arna.View
                 // Thickness with the length. A shaft drawn three times life size and left
                 // life-size thick is a wire, and a wire is what nobody could see.
                 dart.transform.localScale = new Vector3(Thickness, Thickness, ShaftLength);
-                dart.GetComponent<Renderer>().sharedMaterial.color = new Color(0.35f, 0.26f, 0.16f);
+
+                var skin = dart.GetComponent<Renderer>();
+
+                // Its own material, made once and shared by every dart.
+                //
+                // Writing to `sharedMaterial.color` here — which is what this did — sets
+                // the colour on the *default material every primitive Unity makes shares*.
+                // One brown dart therefore turned every fallback cube, capsule and sphere
+                // in the scene brown, which is a wide blast radius for a code path that
+                // only runs when an art asset is missing.
+                if (_dart == null)
+                    _dart = new Material(skin.sharedMaterial)
+                    {
+                        name = "Dart",
+                        color = new Color(0.35f, 0.26f, 0.16f)
+                    };
+
+                skin.sharedMaterial = _dart;
 
                 return holder;
             }
