@@ -995,14 +995,14 @@ def build_band(grid: TileGrid, level_start: int, level_goal: int,
         if speed <= 0.0:
             continue
 
-        # Threat follows cover, and nothing else, cubed — see EncounterPlacer.cs for
-        # why the speed factor came out and why the table's own range is too narrow to
-        # choose with. This line had drifted: it still read `speed * AMBUSH[terrain]`,
+        # Cover cubed, times the root of speed — see EncounterPlacer.cs for why the
+        # range is too narrow to choose with uncubed, and why the root rather than speed
+        # itself (at full speed level 2-3 stopped keeping its promise). This line had drifted: it still read `speed * AMBUSH[terrain]`,
         # the formula the C# replaced, so every measurement taken through this port was
         # answering about a placer the game no longer has.
         tiles.append(i)
         ambush = AMBUSH[terrain]
-        weight[i] = ambush * ambush * ambush
+        weight[i] = math.sqrt(speed) * ambush * ambush * ambush
 
     if not tiles:
         return None

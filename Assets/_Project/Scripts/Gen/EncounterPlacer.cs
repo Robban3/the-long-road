@@ -12,8 +12,10 @@ namespace Arna.Gen
     /// to their travel time. That was right while those three were the only routes on
     /// offer. The player draws the line now, and a line drawn between the corridors
     /// would have met nothing at all — so threat lives on the whole band instead, and
-    /// the rule survives restated per tile: fast ground carries the most, the fen the
-    /// least. The quick way is still the dangerous way.
+    /// the rule survives restated per tile: cover first, then speed. The wood carries
+    /// the most and the road close behind it; the fen and the pass carry least, because
+    /// the long slow way round has to be the quiet one for the detour to be a decision
+    /// rather than a doodle. Taking it costs time, and time is the third star.
     ///
     /// What placement alone cannot promise is that the player meets anything, and that
     /// promise is the difference between a level and a walk. Three things buy it:
@@ -267,32 +269,44 @@ namespace Arna.Gen
 
                     if (TerrainTable.Speed(grid[i]) <= 0f) continue;
 
-                    // Threat follows cover, and nothing else. This used to be
-                    // `speed * AmbushWeight` — the corridor rule, the quick way is the
-                    // dangerous way, restated per tile — and the two factors pull against
-                    // each other: docs/GDD.md §3.1 puts its highest ambush weight on the
-                    // forest at 1.5, which is also among the slowest ground at ×0.70.
-                    // Multiplied by speed, the forest scored 1.05 and the open plain
-                    // 0.80, so groups drifted out of the cover the table sends them to.
+                    // Threat follows cover *and* speed, and the shape of that is the
+                    // whole balance of the level.
                     //
-                    // Speed against safety is not lost with it. The road carries that on
-                    // its own: fastest ground on the map at ×1.25, and second most
-                    // dangerous at 1.2. Taking it is still a trade.
-                    // Cubed, because the table's own range is too narrow to choose with.
+                    // Cover cubed, because the table's own range is too narrow to choose
+                    // with: ambush weight runs from 0.8 on the plain to 1.5 in the
+                    // forest, so a weighted draw preferred cover by less than two to one
+                    // — barely a lean. It went unnoticed while the corridors ran close
+                    // together and the ground a route could reach was mostly the same
+                    // ground; once they spread across the map the reachable country grew
+                    // more varied than the placer's picks, and the enemies ended up in
+                    // cover *thinner* than the average the routes crossed. Cubing turns
+                    // the same ordering into a six-to-one preference.
                     //
-                    // Ambush weight runs from 0.8 on the plain to 1.5 in the forest, so
-                    // a weighted draw preferred cover by less than two to one — barely a
-                    // lean. It went unnoticed while the corridors ran close together and
-                    // the ground a route could reach was mostly the same ground; once
-                    // they spread across the map the reachable country grew more varied
-                    // than the placer's picks, and the enemies ended up in cover that was
-                    // *thinner* than the average the routes crossed. Cubing turns the
-                    // same ordering into a six-to-one preference and nothing else about
-                    // the table changes.
+                    // Times the *square root* of speed, because the long way round has
+                    // to be the quiet way or there is no decision to make. The player
+                    // draws the line; what makes that a choice rather than a doodle is
+                    // that the quick crossing is dangerous and the detour is safe but
+                    // late — and late is a star, by way of the par time in LevelRun.
+                    //
+                    // **This is not the multiplication that was tried and reverted.** That
+                    // one was `speed * ambush` on the raw table: forest 1.05 against plain
+                    // 0.80, a lean of 1.3 to 1, and groups drifted out of the cover the
+                    // table sends them to. With cover cubed first the lean stays five to
+                    // one and speed only sorts what is left.
+                    //
+                    // The root rather than speed itself, and the test chose it, not taste.
+                    // At full speed the weights come out forest 2.36, road 2.16, ford
+                    // 1.10, fen 0.45 — and level 2-3 could no longer put five groups on
+                    // every drawn route, which is the one promise this class exists to
+                    // keep. Rooted it is forest 2.82, road 1.93, ford 1.55, plain 0.51,
+                    // fen 0.67, pass 0.56, and every level keeps its promise. The fen
+                    // still loses a third of what it carried and the road still gains, so
+                    // the trade is there; it is simply not steep enough to strip the
+                    // middle of the map bare.
                     float ambush = TerrainTable.AmbushWeight(grid[i]);
 
                     band.Tiles.Add(i);
-                    band.Weight[i] = ambush * ambush * ambush;
+                    band.Weight[i] = MathF.Sqrt(TerrainTable.Speed(grid[i])) * ambush * ambush * ambush;
                 }
 
                 // Weighting the flanks up from here was tried and reverted, and the
