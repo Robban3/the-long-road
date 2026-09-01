@@ -187,8 +187,8 @@ namespace Arna.UI
             var label = _scout.GetComponentInChildren<UnityEngine.UI.Text>();
             if (label != null)
                 label.text = Session.ScoutFlights == 0
-                    ? $"SPANA  ·  {price} G"
-                    : $"SPANA IGEN  ·  {price} G";
+                    ? $"EAGLE-EYE  ·  {price} G"
+                    : $"EAGLE-EYE IGEN  ·  {price} G";
 
             _scout.interactable = afford;
             _scout.image.color = Theme.Fill(afford ? ButtonRole.Secondary : ButtonRole.Disabled);

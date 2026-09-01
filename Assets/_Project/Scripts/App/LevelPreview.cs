@@ -117,6 +117,42 @@ namespace Arna.App
         public bool ShowSymbols = true;
 
         /// <summary>
+        /// Flies the real crow flocks over the plan instead of drawing a bird on a plate.
+        ///
+        /// The prefab and the placement already existed for the play view — see
+        /// <see cref="Arna.View.RunVisuals.BuildCrowFlocks"/> — and the plan was the one
+        /// screen still using an icon for them. Birds that circle read as birds; an icon
+        /// reads as a note somebody left about birds.
+        /// </summary>
+        public bool ShowCrows = true;
+
+        /// <summary>
+        /// Draws the crow *symbol* as well, which is off because the birds replace it.
+        ///
+        /// Kept as a switch rather than deleted, and for a reason with history: a crow is
+        /// about a metre across, the map is 256 m wide and read from four hundred back,
+        /// and "kråkorna syns inte" is exactly the report that produced the symbol in the
+        /// first place. <see cref="CrowScale"/> is the answer to that and it is a number
+        /// nobody has looked at yet. If the birds turn out to be specks, this is one tick
+        /// box away from having the plate back.
+        /// </summary>
+        public bool ShowCrowSymbols;
+
+        /// <summary>
+        /// How much bigger than life the flock is drawn.
+        ///
+        /// The same trick and the same reason as <see cref="VisualLibrary.EagleSpan"/>,
+        /// which draws a two-metre eagle at ten: over a map four tiles to the finger,
+        /// life size is a speck, and the bird is a marker that happens to be shaped like
+        /// a bird. A crow is about a metre across, so six puts the flock at roughly the
+        /// eagle's read.
+        ///
+        /// Guessed from that arithmetic rather than measured on a render, which is what
+        /// settled the eagle's ten. It is the first number to move.
+        /// </summary>
+        public float CrowScale = 6f;
+
+        /// <summary>
         /// Marker sizes in metres.
         ///
         /// The map is 256 m across and read from seventy up, so these are chosen against
@@ -183,6 +219,7 @@ namespace Arna.App
 
         Transform _symbols;
         Mesh _symbolMesh;
+        Transform _crows;
 
         /// <summary>What the decorator built and where, so each can be given a sign.</summary>
         List<Landmark> _landmarks;
@@ -525,6 +562,62 @@ namespace Arna.App
         }
 
         /// <summary>
+        /// Sets the crow flocks circling over the plan.
+        ///
+        /// The same prefab and the same twenty-two metres the play view uses, so a flock
+        /// looks like the same flock on both screens — which matters, because the whole
+        /// job of a crow here is to be the thing you noticed on the map and then met on
+        /// the ground.
+        ///
+        /// Not fogged, like every other signal. What is *circling over* this country is
+        /// knowledge had by looking at it — the same argument that exempts a wrecked cart
+        /// and a raiders' tent in ApplyOverlay. What the fog hides is where the enemies
+        /// are now, and a flock is a hint about that rather than an answer: some of them
+        /// are circling over nothing (see CrowSignal.FalseShare).
+        /// </summary>
+        void BuildCrows(LevelMap map)
+        {
+            Clear("Crows");
+            _crows = null;
+
+            if (!ShowCrows) return;
+
+            if (Models == null || Models.CrowFlockPrefab == null)
+            {
+                Debug.LogWarning("[Arna] No crow flock prefab — run Arna > Setup Project. "
+                                 + "The plan will fall back to nothing at all unless "
+                                 + "ShowCrowSymbols is ticked.");
+                return;
+            }
+
+            _crows = new GameObject("Crows").transform;
+            _crows.SetParent(transform, false);
+
+            int placed = 0;
+
+            foreach (var flock in CrowSignal.Place(map))
+            {
+                var at = Vec2.FromTile(map.Grid, flock.Tile);
+
+                var instance = Instantiate(Models.CrowFlockPrefab, _crows);
+                instance.name = $"Crows_{flock.Tile}";
+                instance.transform.position = new Vector3(
+                    at.X, GroundAt(at.X, at.Y) + RunVisuals.CrowAltitude, at.Y);
+
+                // Scaled as one thing, so the birds and the circle they turn in grow
+                // together. Scaling only the models would leave a handful of large crows
+                // orbiting a ring too small to read, which is neither of the two things
+                // worth having.
+                instance.transform.localScale *= CrowScale;
+
+                placed++;
+            }
+
+            Debug.Log($"[Arna] Plan {Chapter}-{Level}: {placed} crow flock(s) circling at "
+                      + $"{CrowScale:0.#}x life size.");
+        }
+
+        /// <summary>
         /// Puts a readable sign on every built thing and every flock of crows.
         ///
         /// A house and a ruin are the same brown smudge from map height, and the map had
@@ -564,8 +657,9 @@ namespace Arna.App
             // Truthful and lying flocks are marked identically, and that is the design
             // rather than an oversight: a signal you can tell is false is not a false
             // positive, it is a second true one.
-            foreach (var flock in CrowSignal.Place(map))
-                signs.Add(MapSymbols.Crows(flock.Tile));
+            if (ShowCrowSymbols)
+                foreach (var flock in CrowSignal.Place(map))
+                    signs.Add(MapSymbols.Crows(flock.Tile));
 
             var facing = Camera.main != null
                 ? Camera.main.transform.rotation
@@ -1045,6 +1139,7 @@ namespace Arna.App
 
             // After the props, because it draws signs for what they turned out to be.
             BuildSymbols(map);
+            BuildCrows(map);
 
             // Last, because it reads what the eagle found and repaints what the other
             // three built.
@@ -1250,6 +1345,13 @@ namespace Arna.App
                 if (Application.isPlaying) Destroy(_symbols.gameObject);
                 else DestroyImmediate(_symbols.gameObject);
                 _symbols = null;
+            }
+
+            if (_crows != null)
+            {
+                if (Application.isPlaying) Destroy(_crows.gameObject);
+                else DestroyImmediate(_crows.gameObject);
+                _crows = null;
             }
 
             if (_symbolMesh != null)
