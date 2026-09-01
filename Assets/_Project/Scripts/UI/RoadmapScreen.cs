@@ -348,7 +348,16 @@ namespace Arna.UI
             new Vector2(0.568f, 0.352f),   // 7  — below the watchtower
             new Vector2(0.539f, 0.253f),   // 8
             new Vector2(0.568f, 0.154f),   // 9
-            new Vector2(0.733f, 0.055f)    // 10 — the castle road
+            // Off the even ladder on purpose, and not to be tidied back onto it: at
+            // 0.055 the medallion's top edge sat one per cent from the top of the
+            // picture and covered the castle's roof — the one thing the whole climb
+            // is heading towards. A whole medallion lower clears it.
+            //
+            // It can sit level with the ninth because it is 0.165 of the width away,
+            // which is 230 units against the 194 a medallion takes with its ring. The
+            // two stand side by side, the tenth to the right, which is the way the
+            // road bends towards the gate anyway.
+            new Vector2(0.733f, 0.145f)    // 10 — the castle road
         };
 
         /// <summary>
