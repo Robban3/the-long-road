@@ -1926,6 +1926,24 @@ namespace Arna.View
         ///
         /// Centred *on* the goal rather than beside it, so arriving means going in
         /// through the gate.
+        ///
+        /// **And not an obstacle, which is the one thing it must not be.** Raise blocks
+        /// everything it seats — right for a house, and wrong for the one building that
+        /// is a destination. Block laid a solid disc on the goal tile (capped by
+        /// ObstacleField.MaxRadius at six metres), RunVisuals.FindObstacles handed it to
+        /// the run, and Squad.Advance pushes every troop group out of an obstacle.
+        ///
+        /// So the escort was shoved out of the castle in the last seconds of every level
+        /// while the wagons drove in past them. The caravan itself is unaffected — it
+        /// travels a fixed path by arc length and never consults the field, which is why
+        /// this is a wrongness to watch rather than a level that cannot be finished.
+        ///
+        /// Walls that can be driven through is the lesser wrong. From four hundred metres
+        /// up nobody sees the column clip a course of stone, and everybody sees an escort
+        /// slide off its posts at the gate. The better answer is a solid per wall piece
+        /// with the gateway left open, and it is a bigger risk than it looks — the troops'
+        /// avoidance would then have to thread an opening, and a gap a little too narrow
+        /// bunches them just the same, only less obviously.
         /// </summary>
         static int PlaceCastle(Transform parent, TileGrid grid, DeterministicRandom rng,
                                BiomeDecor decor, HashSet<int> occupied, float heightScale,
@@ -1941,6 +1959,14 @@ namespace Arna.View
             if (!Raise(grid, goalTile, rng, castle, CastleHeight, heightScale, occupied,
                        GateYaw(grid, goalTile, travelled)))
                 return 0;
+
+            // The Solid that Raise just added, taken straight back off. See the note
+            // above: on this one building it walls the caravan out of its own gate.
+            foreach (var solid in castle.GetComponentsInChildren<Solid>(true))
+            {
+                if (Application.isPlaying) Object.Destroy(solid);
+                else Object.DestroyImmediate(solid);
+            }
 
             Landmark.Note(found, LandmarkKind.Castle, goalTile);
             return 1;

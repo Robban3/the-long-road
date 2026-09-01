@@ -167,7 +167,7 @@ namespace Arna.Editor
                 // pack that reads as *broad* from above rather than merely tall.
                 Shieldbearer = Army("MC_Knight_01"),
 
-                Archers = Army("MC_Archer_01"),
+                Archers = Archer("MC_Archer_01"),
 
                 // No mage in a medieval army pack, and that is not a gap to paper over
                 // with a knight. A robed figure with no helmet is the one silhouette
@@ -246,7 +246,7 @@ namespace Arna.Editor
                 // shadow is its hue — but colour on top of a silhouette that already
                 // differs is what makes the call instant.
                 Bandit = Army("MC_Levy_05"),
-                BanditArcher = Army("MC_Levy_07"),
+                BanditArcher = Archer("MC_Levy_07"),
 
                 // The wildlife of GDD §3.5.
                 //
@@ -376,6 +376,17 @@ namespace Arna.Editor
         /// </summary>
         static ActorModel Army(string name)
             => Actor($"{ArmyDir}/{name}.prefab", animator: AnimatorBuilder.ArmyController,
+                     borrowed: true);
+
+        /// <summary>
+        /// One of the army pack's bowmen, on the controller that draws instead of swings.
+        ///
+        /// Same prefab folder, same shared skeleton, same borrowed clips — only the
+        /// Attack state differs. Before this every character in the pack played one
+        /// controller, so the archer swung his bow like a club while his arrows flew.
+        /// </summary>
+        static ActorModel Archer(string name)
+            => Actor($"{ArmyDir}/{name}.prefab", animator: AnimatorBuilder.ArcherController,
                      borrowed: true);
 
         static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f,

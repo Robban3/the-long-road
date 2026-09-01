@@ -46,6 +46,25 @@ namespace Arna.Editor
             "Slash", "Swing", "Strike", "Stab", "Melee", "Chop"
         };
 
+        /// <summary>
+        /// What an archer does, tried before <see cref="AttackNames"/> for a bow.
+        ///
+        /// Its own list because the matcher takes the first name that hits and every
+        /// entry in AttackNames is a melee move. The archer therefore bound to a sword
+        /// slash and stood there swinging his bow like a club while his arrows flew —
+        /// the one troop whose whole point is fighting at a distance, animated as if it
+        /// fought at arm's length.
+        ///
+        /// "Bow" first and alone at the top, because a Mixamo file is called what the
+        /// animation is called on the website and every bow animation there has the word
+        /// in it. The rest are what the same move is called elsewhere.
+        /// </summary>
+        static readonly string[] BowNames =
+        {
+            "Bow", "Crossbow", "Shoot", "Shooting", "Draw", "Aim", "Fire",
+            "Arrow", "Loose", "Release", "Archer", "Archery"
+        };
+
         static readonly string[] DeathNames = { "Death", "Die", "Dying", "Killed", "Fall" };
 
         static readonly string[] Models =
@@ -114,6 +133,18 @@ namespace Arna.Editor
         // controller named after whichever one happened to win is a controller nothing
         // else can refer to. ArnaSetup needs this path at compile time.
         const string ArmyName = "Army";
+
+        /// <summary>
+        /// The archers' controller: the same clips, a different choice for Attack.
+        ///
+        /// A second controller rather than a second skeleton, and that is what makes it
+        /// cheap. All fifty-two army characters share one rig, so both controllers are
+        /// assembled from the same borrowed clip pool — only the Attack state differs,
+        /// picked from <see cref="BowNames"/> instead of the melee list.
+        /// </summary>
+        public const string ArcherController = OutputDir + "/" + ArcherName + ".controller";
+
+        const string ArcherName = "ArmyArcher";
 
         /// <summary>Where to drop humanoid clips brought in from outside.</summary>
         // Anything here is tried before the packs, because the packs cannot supply what
@@ -373,8 +404,20 @@ namespace Arna.Editor
             // nothing. Twice, and under two names — the source's own, because its own
             // models still play it, and the army's, because ArnaSetup asks for that path
             // at compile time and cannot know which file won.
-            if (borrowed > 0) BuildFromFolder(ArmyName, BorrowedClips);
-            else { Build(source); Build(source, ArmyName); }
+            // Two controllers out of the one pool: the army's, and the archers'. Same
+            // clips and same skeleton — only the Attack state is chosen differently, so
+            // a bowman draws where a swordsman swings.
+            if (borrowed > 0)
+            {
+                BuildFromFolder(ArmyName, BorrowedClips);
+                BuildFromFolder(ArcherName, BorrowedClips, BowNames);
+            }
+            else
+            {
+                Build(source);
+                Build(source, ArmyName);
+                BuildFromFolder(ArcherName, Path.GetDirectoryName(source), BowNames);
+            }
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -673,7 +716,8 @@ namespace Arna.Editor
         /// binds to one binds to all of them, and 52 identical controllers would be 52
         /// assets saying the same thing.
         /// </summary>
-        public static AnimatorController BuildFromFolder(string name, string folder)
+        public static AnimatorController BuildFromFolder(string name, string folder,
+                                                        string[] prefer = null)
         {
             if (!AssetDatabase.IsValidFolder(folder))
             {
@@ -723,14 +767,14 @@ namespace Arna.Editor
             // between is the clip repeating.
             if (Looped(Match(clips, IdleNames)) | Looped(Match(clips, WalkNames))
                                                  | Looped(Match(clips, AttackNames)))
-                return BuildFromFolder(name, folder);
+                return BuildFromFolder(name, folder, prefer);
 
             var names = new List<string>();
             foreach (var clip in clips) names.Add(Label(clip));
 
             Debug.Log($"[Arna] {clips.Count} clip(s) under {folder}: {string.Join(", ", names)}");
 
-            return Assemble(name, $"{folder} (folder)", clips);
+            return Assemble(name, $"{folder} (folder)", clips, prefer);
         }
 
         public static AnimatorController Build(string modelPath, string name = null)
@@ -777,12 +821,33 @@ namespace Arna.Editor
         /// clips found anywhere — one FBX, or a whole pack folder. Which clip fills which
         /// state is the only decision in here, and it is made the same way either way.
         /// </summary>
-        static AnimatorController Assemble(string name, string source, List<AnimationClip> clips)
+        /// <param name="prefer">
+        /// Names tried for the Attack state before the melee list, or null for melee.
+        /// The archers pass <see cref="BowNames"/>; everything else passes nothing and
+        /// gets exactly the controller it got before.
+        /// </param>
+        static AnimatorController Assemble(string name, string source, List<AnimationClip> clips,
+                                           string[] prefer = null)
         {
             var idle = Match(clips, IdleNames);
             var walk = Match(clips, WalkNames);
-            var attack = Match(clips, AttackNames);
             var death = Match(clips, DeathNames);
+
+            var wanted = prefer == null ? null : Match(clips, prefer);
+            var attack = wanted ?? Match(clips, AttackNames);
+
+            // Said out loud, because a bow that turned out to be a sword is invisible
+            // from the outside and the reason for it is not a code fault.
+            //
+            // If this warns, the clips brought in do not contain an archer — nothing in
+            // BowNames matched anything in the pool — and no amount of work in this file
+            // will produce one. What is needed then is the clip: `Arna > List Clips`
+            // says what is there, and a Mixamo "Standing Draw Arrow" dropped into
+            // BorrowedClips is enough.
+            if (prefer != null && wanted == null)
+                Debug.LogWarning($"[Arna] {name}: no bow clip among {clips.Count} in {source}, "
+                                 + $"so the archers fall back to '{Label(attack)}' and swing "
+                                 + "instead of drawing. This is a missing clip, not a bug.");
 
             SortOutTheFlying(clips, ref idle, ref walk);
 
