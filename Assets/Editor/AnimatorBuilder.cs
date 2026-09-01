@@ -346,7 +346,23 @@ namespace Arna.Editor
             string source = null;
             var refused = new List<string>();
 
-            if (borrowed == 0) source = FindClipSource(out refused);
+            // The borrowed folder *supplements* the packs; it does not replace them.
+            //
+            // It used to: one humanoid file in there and the packs were never asked, on
+            // the reasoning that anything brought in on purpose is better than anything
+            // found. That is true clip for clip and false for a controller, because a
+            // controller needs an idle before it needs anything else. One Mixamo download
+            // is one clip. So a single bow animation dropped in this folder skipped the
+            // search, converted all 17 army rigs to Humanoid, then built both controllers
+            // out of a pool with no idle in it — Assemble returns null — and left the
+            // army humanoid with no controller at all. Adding a clip made the army worse.
+            //
+            // So the question is not "is there anything here" but "can what is here fill
+            // the idle", and the packs are asked whenever it cannot.
+            var lent = Gather(BorrowedClips);
+            bool lentIsEnough = borrowed > 0 && HasIdle(lent);
+
+            if (!lentIsEnough) source = FindClipSource(out refused);
 
             // Every refused source was converted and put back, and a round trip through
             // Humanoid regenerates the clips inside the file. Its own controller refers
@@ -354,6 +370,30 @@ namespace Arna.Editor
             // candidate that was only ever asked a question should not be left worse for
             // having been asked.
             foreach (string path in refused) Build(path);
+
+            // Nothing to stand still on, from either half. Said here, before the rigs are
+            // touched, because there is then nothing to undo: they are all still Generic
+            // and still playing whatever they came with.
+            if (source == null && borrowed > 0 && !lentIsEnough)
+            {
+                NameFromFile(lent);
+
+                var have = new List<string>();
+                foreach (var clip in lent) have.Add(Label(clip));
+
+                Debug.LogWarning($"[Arna] {BorrowedClips} holds {lent.Count} clip(s) — "
+                                 + $"{string.Join(", ", have)} — and not one of them is an "
+                                 + "idle, so there is no controller to build: a rig with no "
+                                 + "standing-still state has nowhere to be when it is not "
+                                 + "doing anything. Not one army rig has been touched: they are "
+                                 + "all still Generic and still playing their own animation. Add at "
+                                 + "least an idle to that folder"
+                                 + (Missing(lent).Count > 0
+                                    ? $" (missing: {string.Join(", ", Missing(lent))})"
+                                    : string.Empty)
+                                 + " and run this again.");
+                return;
+            }
 
             if (borrowed == 0 && source == null)
             {
@@ -401,30 +441,37 @@ namespace Arna.Editor
 
             // The clips are humanoid now, so the controllers built from them have to be
             // built again: the old ones hold the generic versions, which retarget onto
-            // nothing. Twice, and under two names — the source's own, because its own
-            // models still play it, and the army's, because ArnaSetup asks for that path
-            // at compile time and cannot know which file won.
-            // Two controllers out of the one pool: the army's, and the archers'. Same
-            // clips and same skeleton — only the Attack state is chosen differently, so
-            // a bowman draws where a swordsman swings.
-            if (borrowed > 0)
-            {
-                BuildFromFolder(ArmyName, BorrowedClips);
-                BuildFromFolder(ArcherName, BorrowedClips, BowNames);
-            }
-            else
-            {
-                Build(source);
-                Build(source, ArmyName);
-                BuildFromFolder(ArcherName, Path.GetDirectoryName(source), BowNames);
-            }
+            // nothing.
+            //
+            // Two controllers out of one pool — the army's and the archers'. Same clips
+            // and same skeleton; only the Attack state is chosen differently, so a bowman
+            // draws where a swordsman swings. The army's is built under its own name
+            // rather than the source file's, because ArnaSetup asks for that path at
+            // compile time and cannot know which file won.
+            //
+            // Both pools, borrowed first. Match tries an exact name across the whole pool
+            // before it tries EndsWith and Contains, so a pack's plain `Idle` still wins
+            // the idle state over a long borrowed filename that merely contains the word —
+            // and BowNames finds `Aim` only in what was brought in, which is the whole
+            // reason for bringing it in.
+            var pools = new List<string>();
+            if (borrowed > 0) pools.Add(BorrowedClips);
+            if (source != null) pools.Add(Path.GetDirectoryName(source));
+
+            BuildFromFolders(ArmyName, pools);
+            BuildFromFolders(ArcherName, pools, BowNames);
+
+            // The source's own models still play its own controller, under its own name.
+            if (source != null) Build(source);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            string chose = borrowed > 0
-                ? $"{borrowed} humanoid file(s) in {BorrowedClips}"
-                : $"{Path.GetFileNameWithoutExtension(source)}'s";
+            var from = new List<string>();
+            if (borrowed > 0) from.Add($"{borrowed} humanoid file(s) in {BorrowedClips}");
+            if (source != null) from.Add($"{Path.GetFileNameWithoutExtension(source)}'s");
+
+            string chose = string.Join(" and ", from);
 
             Debug.Log($"[Arna] {rigs.Count} army rig(s), {changed} now Humanoid. They play "
                       + $"{chose} clips through {ArmyController}."
@@ -718,39 +765,48 @@ namespace Arna.Editor
         /// </summary>
         public static AnimatorController BuildFromFolder(string name, string folder,
                                                         string[] prefer = null)
-        {
-            if (!AssetDatabase.IsValidFolder(folder))
-            {
-                Debug.LogWarning($"[Arna] {folder} is not a folder in this project.");
-                return null;
-            }
+            => BuildFromFolders(name, new List<string> { folder }, prefer);
 
+        /// <summary>
+        /// The same, out of several folders at once, earliest folder first.
+        ///
+        /// Because the borrowed clips and a pack's clips are not alternatives. One Mixamo
+        /// download is one clip, so what somebody drops in the borrowed folder is a bow
+        /// draw or a walk — never a whole character's worth — and a controller assembled
+        /// from it alone has holes in it. Read together, the borrowed clip fills the one
+        /// state it was downloaded for and the pack fills the rest.
+        /// </summary>
+        public static AnimatorController BuildFromFolders(string name, IList<string> folders,
+                                                          string[] prefer = null)
+        {
             var clips = new List<AnimationClip>();
             var seen = new HashSet<string>();
+            var read = new List<string>();
 
-            foreach (var guid in AssetDatabase.FindAssets("t:AnimationClip", new[] { folder }))
+            foreach (string folder in folders)
             {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-
-                foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                if (!AssetDatabase.IsValidFolder(folder))
                 {
-                    if (!(asset is AnimationClip clip)) continue;
-                    if (clip.name.StartsWith("__preview")) continue;
-                    if (!seen.Add($"{path}:{clip.name}")) continue;
-
-                    clips.Add(clip);
+                    Debug.LogWarning($"[Arna] {folder} is not a folder in this project.");
+                    continue;
                 }
+
+                read.Add(folder);
+                Gather(folder, clips, seen);
             }
 
             if (clips.Count == 0)
             {
-                Debug.LogWarning($"[Arna] No animation clips anywhere under {folder}. The pack "
-                                 + "ships none, so its characters will hold their bind pose. "
-                                 + "The way out is Humanoid retargeting — set both this pack's "
-                                 + "rigs and a pack that does have clips to Humanoid, and Unity "
-                                 + "will play one on the other.");
+                Debug.LogWarning("[Arna] No animation clips anywhere under "
+                                 + $"{string.Join(", ", folders)}. The pack ships none, so its "
+                                 + "characters will hold their bind pose. The way out is "
+                                 + "Humanoid retargeting — set both this pack's rigs and a pack "
+                                 + "that does have clips to Humanoid, and Unity will play one "
+                                 + "on the other.");
                 return null;
             }
+
+            string folder0 = string.Join(" + ", read);
 
             NameFromFile(clips);
 
@@ -767,14 +823,70 @@ namespace Arna.Editor
             // between is the clip repeating.
             if (Looped(Match(clips, IdleNames)) | Looped(Match(clips, WalkNames))
                                                  | Looped(Match(clips, AttackNames)))
-                return BuildFromFolder(name, folder, prefer);
+                return BuildFromFolders(name, folders, prefer);
 
             var names = new List<string>();
             foreach (var clip in clips) names.Add(Label(clip));
 
-            Debug.Log($"[Arna] {clips.Count} clip(s) under {folder}: {string.Join(", ", names)}");
+            Debug.Log($"[Arna] {clips.Count} clip(s) under {folder0}: {string.Join(", ", names)}");
 
-            return Assemble(name, $"{folder} (folder)", clips, prefer);
+            return Assemble(name, $"{folder0} (folder)", clips, prefer);
+        }
+
+        /// <summary>Every clip under a folder, wherever in a file it lives.</summary>
+        static void Gather(string folder, List<AnimationClip> clips, HashSet<string> seen)
+        {
+            foreach (var guid in AssetDatabase.FindAssets("t:AnimationClip", new[] { folder }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+
+                foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                {
+                    if (!(asset is AnimationClip clip)) continue;
+                    if (clip.name.StartsWith("__preview")) continue;
+                    if (!seen.Add($"{path}:{clip.name}")) continue;
+
+                    clips.Add(clip);
+                }
+            }
+        }
+
+        /// <summary>Every clip under a folder, as a list. Reads nothing and changes nothing.</summary>
+        static List<AnimationClip> Gather(string folder)
+        {
+            var clips = new List<AnimationClip>();
+            if (!AssetDatabase.IsValidFolder(folder)) return clips;
+
+            Gather(folder, clips, new HashSet<string>());
+            return clips;
+        }
+
+        /// <summary>Whether a pool has something to stand still on, which is the one state
+        /// <see cref="Assemble"/> refuses to build without.</summary>
+        static bool HasIdle(List<AnimationClip> clips)
+        {
+            if (clips.Count == 0) return false;
+
+            NameFromFile(clips);
+            return Match(clips, IdleNames) != null;
+        }
+
+        /// <summary>Which of the four states a pool cannot fill, by name.</summary>
+        // For the warning, so somebody who has to go back to Mixamo knows what to search
+        // for rather than being told to try again.
+        static List<string> Missing(List<AnimationClip> clips)
+        {
+            NameFromFile(clips);
+
+            var missing = new List<string>();
+
+            if (Match(clips, IdleNames) == null) missing.Add("an idle (Mixamo: \"Idle\")");
+            if (Match(clips, WalkNames) == null) missing.Add("a walk (\"Walking\")");
+            if (Match(clips, AttackNames) == null) missing.Add("a melee attack (\"Sword And Shield Slash\")");
+            if (Match(clips, BowNames) == null) missing.Add("a bow attack (\"Standing Draw Arrow\")");
+            if (Match(clips, DeathNames) == null) missing.Add("a death (\"Dying\")");
+
+            return missing;
         }
 
         public static AnimatorController Build(string modelPath, string name = null)

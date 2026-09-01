@@ -53,6 +53,25 @@ namespace Arna.App
         [Range(200, 4000)] public int MaxProps = 2200;
 
         /// <summary>
+        /// What every landmark's own size is multiplied by in the run.
+        ///
+        /// 1.6, and it is measured rather than nudged. A house is built at six metres
+        /// and a wagon is 3.2 (<see cref="Arna.View.VisualLibrary.WagonHeight"/>), so a
+        /// cottage stands 1.9 times a cart. A real cottage is five to seven metres to the
+        /// ridge and a real cart about two, which is nearer three to one — so the honest
+        /// proportion was never the one on the screen, and the wagons are what the eye
+        /// anchors on. 6 x 1.6 = 9.6, and three to one.
+        ///
+        /// A multiplier here, where the planning map uses a floor
+        /// (<see cref="LevelPreview.LandmarkFloor"/>), because the two views want
+        /// different things. On the map everything built is a marker and all that matters
+        /// is that it can be told apart, so lifting the small ones costs nothing. Down
+        /// among them relative size is the whole of it: a floor here would stand a
+        /// raiders' tent as high as a farmhouse.
+        /// </summary>
+        [Range(1f, 3f)] public float LandmarkScale = 1.6f;
+
+        /// <summary>
         /// Draws each troop group's reach as a circle on the ground.
         ///
         /// On, because it is the only way the player can see what the range track buys —
@@ -251,7 +270,8 @@ namespace Arna.App
                 // The other nine goals are bare again, as they were. What ought to stand
                 // on them — a village, a waystation — is a separate question and not one
                 // to answer by leaving the wrong building there.
-                goalTile: Level >= Campaign.LevelsPerChapter ? map.GoalIndex : -1);
+                goalTile: Level >= Campaign.LevelsPerChapter ? map.GoalIndex : -1,
+                landmarkScale: LandmarkScale);
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale)
             {

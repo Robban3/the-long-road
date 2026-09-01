@@ -766,6 +766,24 @@ namespace Arna.View
         /// </summary>
         static float _landmarkFloor;
 
+        /// <summary>
+        /// What every landmark's own size is multiplied by, or one for life size.
+        ///
+        /// **A multiplier where the plan uses a floor, and the two are different tools
+        /// for different jobs rather than one tool used twice.** On the map everything
+        /// built is a marker and all that matters is that it can be made out, so a floor
+        /// is right and a tent coming out as tall as a house costs nothing. In the run
+        /// you are down among them and relative size is the whole of it: a floor there
+        /// would stand a raiders' tent as high as a farmhouse, which is worse than the
+        /// problem it fixes.
+        ///
+        /// It exists because a house at six metres beside a wagon at 3.2 reads as small.
+        /// The proportions are honest — a real cottage is about that against a real cart
+        /// — but the wagons are what the eye anchors on, and a building barely twice one
+        /// of them does not read as a building somebody lives in.
+        /// </summary>
+        static float _landmarkScale = 1f;
+
         public static int Decorate(Transform parent, TileGrid grid, int seed, BiomeDecor decor,
                                    IReadOnlyCollection<int> keepClear = null,
                                    float heightScale = 0f, int maxProps = 600,
@@ -778,12 +796,14 @@ namespace Arna.View
                                    IReadOnlyCollection<int> travelled = null,
                                    List<Landmark> found = null,
                                    int goalTile = -1,
-                                   float minimumLandmark = 0f)
+                                   float minimumLandmark = 0f,
+                                   float landmarkScale = 1f)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
             // last one did.
             _landmarkFloor = minimumLandmark;
+            _landmarkScale = landmarkScale <= 0f ? 1f : landmarkScale;
 
             if (decor == null || decor.IsEmpty) return 0;
 
@@ -2536,7 +2556,7 @@ namespace Arna.View
         {
             if (building == null) return false;
 
-            height = Mathf.Max(height, _landmarkFloor);
+            height = Mathf.Max(height * _landmarkScale, _landmarkFloor);
 
             var at = Vec2.FromTile(grid, tile);
 
@@ -2589,7 +2609,7 @@ namespace Arna.View
             // Never smaller than the floor. Across or up depending on which way this
             // kind is measured, and either reading of "at least this many metres" is the
             // one that decides whether it can be made out from map height.
-            float size = Mathf.Max(choice.Size, _landmarkFloor);
+            float size = Mathf.Max(choice.Size * _landmarkScale, _landmarkFloor);
 
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
             else ModelScaling.Fit(instance, size, groundY);

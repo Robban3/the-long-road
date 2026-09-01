@@ -45,7 +45,9 @@ namespace Arna.View
         /// never resized: figures beyond the survivors are switched off, so a model
         /// keeps its place in the formation as the group is whittled down.
         /// </summary>
-        RangeRing _ring;
+        /// <summary>One reach ring per troop that has a reach worth drawing. See DrawReach.</summary>
+        readonly Dictionary<TroopGroup, RangeRing> _rings =
+            new Dictionary<TroopGroup, RangeRing>();
         readonly Dictionary<TroopGroup, float> _reload = new Dictionary<TroopGroup, float>();
         Volley _volley;
         Material _ringMaterial;
@@ -221,7 +223,6 @@ namespace Arna.View
                 _reload[group] = 0f;
             }
 
-            _ring = new RangeRing(_root, "Reach", RingMaterial());
             _volley = new Volley(_root, Library.Arrow);
 
             ReportCast(run);
@@ -565,56 +566,93 @@ namespace Arna.View
         }
 
         /// <summary>
-        /// Shows the escort's reach as one bright circle round the column.
+        /// Draws each shooting troop's own reach, as a ring round that troop.
         ///
-        /// <b>One, not one per post.</b> It was six — a ring under each group, each in its
-        /// own colour — and six circles of nearly the same size drawn a few metres apart
-        /// overlap into a knot of arcs that says less than any one of them would. What the
-        /// player needs from this is a single readable answer to "how far can we hit from
-        /// here", and that is the longest reach anybody in the column has.
+        /// <b>One per troop, not one round the caravan.</b> It was one — the longest
+        /// reach in the column, centred on the middle of the wagons — and that is a
+        /// circle drawn round something that does not own it. The longest reach in the
+        /// column is almost always the archers' 22 m, so what the player saw was the
+        /// archers' number in the caravan's place: a ring that did not move when the
+        /// bows moved, did not shrink when the bows walked into a wood, and said nothing
+        /// at all about any of the other posts.
+        ///
+        /// Before that it was six rings, one under every group, and they were collapsed
+        /// into that one because six circles a few metres apart overlap into a knot of
+        /// arcs. <b>That was the right complaint about the wrong thing.</b> What makes
+        /// the knot is the hand weapons — spear 2.5, cavalry 2.2, sword and shield 1.8 —
+        /// six near-identical small circles round men standing close together, drawn for
+        /// a number nobody has a decision to make about. Take those away and what is
+        /// left is 22, 18, 12, 12 and 8 metres, which do not sit on top of each other.
+        ///
+        /// So the cut is by <see cref="ShootingRange"/> rather than by count, and it is
+        /// the same threshold <see cref="Advance"/> uses to decide who looses arrows
+        /// instead of swinging. The ring and the arrows then answer the same question,
+        /// which is the point: everything that shoots is drawn, and it is drawn where it
+        /// stands.
         ///
         /// The radius is asked of the fighting rather than worked out again here (see
         /// <see cref="CombatSystem.Reach"/>), so it moves for every reason the reach
-        /// itself moves: a range upgrade bought in the smithy widens it on the next frame,
-        /// and walking into a wood shrinks an archer's by two fifths — which is the
-        /// terrain rule made visible for the first time, having lived its whole life as a
-        /// number in a table.
-        ///
-        /// Centred on the middle of the column rather than on the group that owns the
-        /// reach. The archers stand at one post and the ring is a statement about the
-        /// caravan, which is the thing being defended and the thing the player is looking
-        /// at; hung off the bows it would swing about the column as the formation shifted.
+        /// itself moves: a range upgrade bought in the smithy widens it on the next
+        /// frame, and walking into a wood shrinks an archer's by two fifths — which is
+        /// the terrain rule made visible, having lived its whole life as a number in a
+        /// table.
         /// </summary>
         void DrawReach(LevelRun run)
         {
-            if (_ring == null) return;
-
-            if (!ShowReach || run.Squad == null || run.Combat == null) { _ring.Hide(); return; }
+            if (!ShowReach || run.Squad == null || run.Combat == null) { HideRings(); return; }
 
             var terrain = run.Caravan.CurrentTerrain;
 
-            float furthest = 0f;
-            bool engaged = false;
-
             foreach (var group in run.Squad.Slots)
             {
-                if (group == null || !group.Alive) continue;
+                if (group == null) continue;
+
+                // Dead groups and hand-weapon groups both get nothing, and for the same
+                // reason: a ring is only worth the space it takes when it tells the
+                // player something they can act on.
+                if (!group.Alive || TroopTable.Range(group.Kind) < ShootingRange)
+                {
+                    if (_rings.TryGetValue(group, out var idle)) idle.Hide();
+                    continue;
+                }
 
                 float reach = run.Combat.Reach(group, terrain);
-                if (reach > furthest) furthest = reach;
 
-                if (group.Target != null) engaged = true;
+                if (reach <= 0f)
+                {
+                    if (_rings.TryGetValue(group, out var empty)) empty.Hide();
+                    continue;
+                }
+
+                // Brighter with something in it, and now per troop rather than per
+                // column. A ring is a statement about what that post could hit; a ring
+                // with a target inside it is a statement about what it is hitting, and
+                // the two should not look the same. The one ring used to light the moment
+                // anybody anywhere in the column was fighting, which is the wrong answer
+                // to "what are these men busy with".
+                var colour = ReachColour(group.Kind);
+                colour.a = group.Target != null ? ReachLit : ReachIdle;
+
+                Ring(group).Draw(group.Position, reach, colour, at => GroundAt(at));
             }
+        }
 
-            if (furthest <= 0f) { _ring.Hide(); return; }
+        /// <summary>The ring belonging to one troop, made the first time it is asked for.</summary>
+        // Lazily rather than beside the figures in Build, so a column of six swordsmen
+        // creates no ring meshes at all.
+        RangeRing Ring(TroopGroup group)
+        {
+            if (_rings.TryGetValue(group, out var ring)) return ring;
 
-            // Brighter with something in it. A ring is a statement about what the escort
-            // could hit; a ring with a target inside it is a statement about what it is
-            // hitting, and the two should not look the same.
-            var colour = ReachColour;
-            colour.a = engaged ? ReachLit : ReachIdle;
+            ring = new RangeRing(_root, $"Reach_{group.Slot}_{group.Kind}", RingMaterial());
+            _rings[group] = ring;
 
-            _ring.Draw(run.Caravan.ColumnCentre, furthest, colour, at => GroundAt(at));
+            return ring;
+        }
+
+        void HideRings()
+        {
+            foreach (var ring in _rings.Values) ring.Hide();
         }
 
         /// <summary>Whether the reach ring is drawn at all.</summary>
@@ -624,11 +662,34 @@ namespace Arna.View
         public const float ReachLit = 0.72f;
 
         /// <summary>
-        /// Pale rather than saturated. It is laid over grass the player also has to read,
-        /// and a strong colour on the ground would win an argument the terrain needs to
-        /// win.
+        /// What colour one troop's ring is drawn in.
+        ///
+        /// Pale rather than saturated, all of them. These are laid over grass the player
+        /// also has to read, and a strong colour on the ground would win an argument the
+        /// terrain needs to win.
+        ///
+        /// Different per troop, because two rings can overlap and a pair of identical
+        /// pale circles crossing is worse than either alone. This is what the custom
+        /// shader is for — see <see cref="RangeRing.Material"/>: URP's Unlit ignores
+        /// vertex colours, so every ring would otherwise come out the same regardless of
+        /// what is written into the mesh.
+        ///
+        /// The priest is green and is not a mistake. His reach is a healing radius, not
+        /// a threat one — 0 damage, 15 health a second to whoever inside it is worst hurt
+        /// — and drawing that in the same warm tone as a bow would say the wrong thing
+        /// about the one post that does not attack.
         /// </summary>
-        public static readonly Color ReachColour = new Color(1f, 0.94f, 0.68f);
+        public static Color ReachColour(TroopKind kind)
+        {
+            switch (kind)
+            {
+                case TroopKind.Mage: return new Color(0.82f, 0.72f, 1f);
+                case TroopKind.Scout: return new Color(0.72f, 0.90f, 1f);
+                case TroopKind.Priest: return new Color(0.72f, 1f, 0.78f);
+                case TroopKind.Engineer: return new Color(1f, 0.80f, 0.62f);
+                default: return new Color(1f, 0.94f, 0.68f);
+            }
+        }
 
         Material RingMaterial()
         {
@@ -639,10 +700,15 @@ namespace Arna.View
         /// <summary>
         /// Shortest reach at which a troop is shooting rather than swinging.
         ///
-        /// Eight metres, which sorts the table: the bow is 22, the staff 18, the scout 12
-        /// and the engineer's crossbow 8, while every hand weapon is under three. Nothing
-        /// here is a judgement about weapons — it is the reach column, read for what it
-        /// already says.
+        /// Eight metres, which sorts the table: the bow is 22, the staff 18, the scout
+        /// and the priest 12 and the engineer's crossbow 8, while every hand weapon is
+        /// under three. Nothing here is a judgement about weapons — it is the reach
+        /// column, read for what it already says.
+        ///
+        /// It decides two things now, not one: who looses arrows in <see cref="Advance"/>,
+        /// and who gets a reach ring in <see cref="DrawReach"/>. That they are the same
+        /// threshold is deliberate — a troop drawing a circle it never shoots inside of
+        /// would be a worse lie than no circle.
         /// </summary>
         public const float ShootingRange = 8f;
 

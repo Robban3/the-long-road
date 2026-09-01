@@ -364,7 +364,13 @@ namespace Arna.App
                 Rebuild();
             }
 
-            FlyEagle(Elapsed(Time.deltaTime));
+            // One reading of the clock, spent twice. Elapsed advances _ticked, so asking
+            // it again in the same frame hands back nothing at all — which is how the
+            // flocks came to be stepped by zero seconds while the bird had the whole tick.
+            float deltaTime = Elapsed(Time.deltaTime);
+
+            FlyEagle(deltaTime);
+            TickCrows(deltaTime);
         }
 
         /// <summary>Wall-clock reading at the last tick, outside play mode.</summary>
@@ -599,6 +605,12 @@ namespace Arna.App
             Clear("Crows");
             _crows = null;
 
+            // Before every early return below, not only on the path that rebuilds. An
+            // [ExecuteAlways] component rebuilds on any inspector change, so this runs
+            // whenever anything at all is touched, and the flocks it is about have just
+            // been destroyed.
+            ForgetFlocks();
+
             if (!ShowCrows) return;
 
             if (Models == null || Models.CrowFlockPrefab == null)
@@ -629,11 +641,170 @@ namespace Arna.App
                 // worth having.
                 instance.transform.localScale *= CrowScale;
 
+                WakeFlock(instance);
+
                 placed++;
             }
 
             Debug.Log($"[Arna] Plan {Chapter}-{Level}: {placed} crow flock(s) circling at "
-                      + $"{CrowScale:0.#}x life size.");
+                      + $"{CrowScale:0.#}x life size"
+                      + (Application.isPlaying
+                         ? "."
+                         : $", driven by hand from {_flapping.Count} behaviour(s) and "
+                           + $"{_wings.Count} animator(s) — see TickCrows."));
+        }
+
+        /// <summary>
+        /// What is under the crow prefab that has to be poked by hand outside play mode,
+        /// and what has already thrown once and is not being poked again.
+        /// </summary>
+        readonly List<MonoBehaviour> _flapping = new List<MonoBehaviour>();
+        readonly List<Animator> _wings = new List<Animator>();
+        readonly HashSet<MonoBehaviour> _seized = new HashSet<MonoBehaviour>();
+
+        /// <summary>Drops what was collected off flocks that no longer exist.</summary>
+        // The lists hold references into destroyed GameObjects. Left in place they would
+        // be poked every frame as fake-null MonoBehaviours, which is the one way this
+        // could throw on its own account.
+        void ForgetFlocks()
+        {
+            _flapping.Clear();
+            _wings.Clear();
+            _seized.Clear();
+        }
+
+        /// <summary>
+        /// Starts a freshly placed flock, outside play mode, without knowing what drives it.
+        ///
+        /// <b>The flock is a third-party prefab this repository cannot read.</b>
+        /// `Assets/Unluck Software` has no tracked files here — it is on the artist's
+        /// machine and not in git — so the script's name, its API and whether it even has
+        /// an Update are all unknown. Calling `BirdFlock.Fly()` would be a guess about a
+        /// name, and a wrong guess would not compile.
+        ///
+        /// So: whatever MonoBehaviours are under the root, invoked by reflection. There
+        /// is exactly one way this can be worse than the status quo — it cannot be, since
+        /// a prefab with no Update simply stands as still as it does now.
+        ///
+        /// Skipped for anything marked [ExecuteAlways] or [ExecuteInEditMode]: Unity is
+        /// already running those, and calling Awake a second time on a script that has
+        /// had it is how a working prefab gets broken by the code meant to help it.
+        /// </summary>
+        void WakeFlock(GameObject flock)
+        {
+            if (Application.isPlaying || flock == null) return;
+
+            foreach (var animator in flock.GetComponentsInChildren<Animator>(true))
+                if (animator != null) _wings.Add(animator);
+
+            foreach (var behaviour in flock.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (behaviour == null || Driven(behaviour.GetType())) continue;
+
+                _flapping.Add(behaviour);
+
+                // Awake, OnEnable and Start in that order, which is the order Unity would
+                // have used. A script that keeps its circle's centre or its bird array in
+                // one of them has nothing to fly around until they have run.
+                Poke(behaviour, "Awake");
+                Poke(behaviour, "OnEnable");
+                Poke(behaviour, "Start");
+            }
+        }
+
+        /// <summary>Whether Unity already ticks this type outside play mode.</summary>
+        static bool Driven(System.Type type)
+            => type.IsDefined(typeof(ExecuteAlways), true)
+               || type.IsDefined(typeof(ExecuteInEditMode), true);
+
+        /// <summary>
+        /// Runs the flocks on for one frame, outside play mode, and asks for another.
+        ///
+        /// The editor has no game loop. [ExecuteAlways] earns this component an Update
+        /// only when something asks the editor to redraw, and nothing asks while you sit
+        /// and look at the map — which is why <see cref="FlyEagle"/> queues its own. It
+        /// cannot be left to do so for both: with ShowEagle off, or once the bird has
+        /// landed, that request stops and the flocks would freeze with it.
+        /// </summary>
+        void TickCrows(float deltaTime)
+        {
+            if (Application.isPlaying) return;
+            if (_flapping.Count == 0 && _wings.Count == 0) return;
+
+#if UNITY_EDITOR
+            // Before the delta check, for the reason FlyEagle spells out: outside play
+            // mode the first tick has nothing to measure and would return before asking
+            // for the second.
+            UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+#endif
+
+            if (deltaTime <= 0f) return;
+
+            foreach (var behaviour in _flapping) Poke(behaviour, "Update");
+
+            // Stepped by hand for the same reason RunVisuals.AdvanceAnimators does it:
+            // Unity does not run animators outside play mode, and an unstepped one holds
+            // its bind pose — which for a bird is a pair of wings that never beat.
+            foreach (var animator in _wings)
+                if (animator != null && animator.runtimeAnimatorController != null)
+                    animator.Update(deltaTime);
+        }
+
+        /// <summary>
+        /// Calls one Unity message on one behaviour, and gives up on it if it throws.
+        ///
+        /// <b>Once, then never again.</b> A third-party script that assumes play mode can
+        /// throw from its Update, and an Update that throws every frame in the editor
+        /// fills the console in seconds — the one outcome worse than birds that do not
+        /// move. So the first exception takes that behaviour out of the list for good and
+        /// is logged a single time, with the type name, which is the thing anybody
+        /// debugging this actually needs.
+        /// </summary>
+        void Poke(MonoBehaviour behaviour, string message)
+        {
+            if (behaviour == null || _seized.Contains(behaviour)) return;
+
+            var method = Message(behaviour.GetType(), message);
+            if (method == null) return;
+
+            try
+            {
+                method.Invoke(behaviour, null);
+            }
+            catch (System.Exception error)
+            {
+                _seized.Add(behaviour);
+
+                Debug.LogWarning($"[Arna] {behaviour.GetType().Name}.{message} threw outside "
+                                 + "play mode, so the crow flock it drives is being left "
+                                 + $"alone from here: {(error.InnerException ?? error).Message}. "
+                                 + "The birds will hold still on the plan map; everything else "
+                                 + "is unaffected. Press Play to see them fly.");
+            }
+        }
+
+        /// <summary>
+        /// A Unity message on a type or on anything it inherits from, or null.
+        ///
+        /// Up the chain by hand, because GetMethod will not find a private member of a
+        /// base class however the binding flags are set — and Update is private by
+        /// convention in nearly every script anybody writes.
+        /// </summary>
+        static System.Reflection.MethodInfo Message(System.Type type, string name)
+        {
+            const System.Reflection.BindingFlags Where =
+                System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.Public
+                | System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.DeclaredOnly;
+
+            for (var at = type; at != null && at != typeof(MonoBehaviour); at = at.BaseType)
+            {
+                var method = at.GetMethod(name, Where, null, System.Type.EmptyTypes, null);
+                if (method != null) return method;
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -1382,6 +1553,8 @@ namespace Arna.App
                 if (Application.isPlaying) Destroy(_crows.gameObject);
                 else DestroyImmediate(_crows.gameObject);
                 _crows = null;
+
+                ForgetFlocks();
             }
 
             if (_symbolMesh != null)
