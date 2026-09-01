@@ -223,6 +223,21 @@ namespace Arna.Sim
 
                         if (!Standable(grid, spot)) continue;
 
+                        // And clear of the enemy, which only the founder ever was.
+                        //
+                        // The founder is checked in tile coordinates and stands on its
+                        // tile's centre, so five tiles between indices really is five
+                        // tiles between positions. A companion is offset by up to
+                        // HerdSpread on each axis — seven metres on the diagonal — and
+                        // was checked for standable ground and nothing else, so it could
+                        // walk most of that straight at the camp. Measured: a doe 15.84 m
+                        // from a group where the rule promises sixteen.
+                        //
+                        // In metres here rather than tiles, because a companion's home is
+                        // a position and not a tile, and a rule enforced in one unit and
+                        // promised in another is the whole of this bug.
+                        if (NearAnEnemy(map, spot)) continue;
+
                         home = spot;
                         break;
                     }
@@ -324,6 +339,9 @@ namespace Arna.Sim
             return grid[grid.ToIndex(x, y)] != TerrainType.Ford;
         }
 
+        /// <summary>Tiles an animal keeps between itself and any enemy group.</summary>
+        public const float ClearOfEnemiesTiles = 5f;
+
         static bool NearAnEnemy(LevelMap map, int x, int y)
         {
             if (map.Encounters == null) return false;
@@ -332,8 +350,21 @@ namespace Arna.Sim
             {
                 map.Grid.ToCoords(spawn.Tile, out int gx, out int gy);
                 float dx = gx - x, dy = gy - y;
-                if (dx * dx + dy * dy <= 5f * 5f) return true;
+                if (dx * dx + dy * dy <= ClearOfEnemiesTiles * ClearOfEnemiesTiles) return true;
             }
+
+            return false;
+        }
+
+        /// <summary>The same rule for a position rather than a tile — see the herd loop.</summary>
+        static bool NearAnEnemy(LevelMap map, Vec2 at)
+        {
+            if (map.Encounters == null) return false;
+
+            float clear = ClearOfEnemiesTiles * TileGrid.TileSize;
+
+            foreach (var spawn in map.Encounters.Enemies)
+                if (Within(at, Vec2.FromTile(map.Grid, spawn.Tile), clear)) return true;
 
             return false;
         }
