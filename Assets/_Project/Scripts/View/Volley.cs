@@ -23,8 +23,24 @@ namespace Arna.View
     /// </summary>
     public sealed class Volley
     {
-        /// <summary>Metres a second. Fast enough to read as loosed, slow enough to see.</summary>
-        public const float Speed = 45f;
+        /// <summary>
+        /// Metres a second, and deliberately not a bowshot's.
+        ///
+        /// 28, against a real arrow's fifty to sixty. <b>A real arrow is invisible</b>,
+        /// which is the fact the first number missed: the eye follows a moving thing by
+        /// how many of its own lengths it crosses in a second, and a 0.75 m shaft at
+        /// 50 m/s crosses sixty-seven of them. Nobody sees that in life either — what a
+        /// person actually sees at an archery butt is a bow, a pause, and a thud.
+        ///
+        /// Ten or twelve lengths a second is about where the eye starts tracking rather
+        /// than inferring. At <see cref="ShaftLength"/> = 2.6 m that is 26 to 31 m/s, so
+        /// 28. Over an archer's twenty-two metres it makes the flight eight tenths of a
+        /// second, which is long enough to watch a shaft leave, arc and land.
+        ///
+        /// It is tied to the length above and should move with it: draw the shaft bigger
+        /// and this has to rise, or the volley turns to treacle.
+        /// </summary>
+        public const float Speed = 28f;
 
         /// <summary>
         /// How high the shot arcs, as a share of how far it goes.
@@ -41,8 +57,35 @@ namespace Arna.View
         public const float FromHeight = 1.35f;
         public const float ToHeight = 0.8f;
 
-        /// <summary>Length a shaft is scaled to, whatever the model measures.</summary>
-        public const float ShaftLength = 0.85f;
+        /// <summary>How far apart a rank's shafts land, per shooter, in metres.</summary>
+        // A metre and a half. Enough that three arrows into one pack read as three, and
+        // small enough that they are all plainly aimed at the same thing.
+        public const float Fan = 1.5f;
+
+        /// <summary>
+        /// Length a shaft is drawn at, whatever the model measures.
+        ///
+        /// <b>2.6 m against a real arrow's 0.75, and the exaggeration is the point.</b>
+        /// The bows fired from the day the volley was written and nobody could see it,
+        /// which reads exactly like nothing being fired at all — so it was reported as
+        /// missing rather than as small, and that is the shape of the mistake.
+        ///
+        /// It is arithmetic, not taste. The camera sits 40 m back and 47 up
+        /// (LevelRunner.FollowDistance / FollowHeight), so it watches from about 62 m. A
+        /// life-size shaft there is nine tenths of a degree long and four hundredths of a
+        /// degree thick — on a 1080-wide phone, roughly thirty pixels by one and a half,
+        /// dark brown against grass, crossing the screen in half a second. There is no
+        /// contrast trick that rescues one and a half pixels.
+        ///
+        /// The same argument the eagle already won, and by the same factor: she is drawn
+        /// at a ten-metre wingspan against a real bird's two because at life size she is
+        /// a speck over a 256 m map (see VisualLibrary.EagleSpan). Three times over puts
+        /// a shaft at about ninety pixels by five, which is an arrow.
+        ///
+        /// Scale it back towards life if the camera is ever brought in close. This number
+        /// is a function of the viewing distance and of nothing else.
+        /// </summary>
+        public const float ShaftLength = 2.6f;
 
         sealed class Shaft
         {
@@ -52,12 +95,23 @@ namespace Arna.View
             public bool Live;
         }
 
+        /// <summary>How thick the fallback dart is drawn, in metres.</summary>
+        // A thirtieth of its length, which is about what a real shaft with its fletching
+        // measures. The model, when there is one, keeps its own proportions.
+        public const float Thickness = ShaftLength / 30f;
+
         readonly Transform _parent;
         readonly GameObject _model;
+        static bool _warned;
         readonly List<Shaft> _shafts = new List<Shaft>();
         readonly int _capacity;
 
-        public Volley(Transform parent, GameObject model, int capacity = 40)
+        // Sixty-four rather than forty. Each shaft is alive for its flight plus Linger —
+        // at the slower speed above that is a second and a bit — and every archer in a
+        // rank now looses its own, so five ranged posts can have thirty-odd in the air at
+        // once. A full pool drops shafts silently, which reads as a bow that missed a
+        // turn.
+        public Volley(Transform parent, GameObject model, int capacity = 64)
         {
             _parent = parent;
             _model = model;
@@ -174,12 +228,29 @@ namespace Arna.View
             if (_model == null)
             {
                 // No arrow in the packs: a dart, which at this size and speed is the same
-                // picture. Better than no bowshot at all, and it says so in the console.
+                // picture. Better than no bowshot at all.
+                //
+                // And said out loud, at last. The comment here has always promised the
+                // console would mention it and the console never did, so an unassigned
+                // arrow model and a working one were the same silence — which is a bad
+                // way to spend an evening wondering why the archers look idle.
+                if (!_warned)
+                {
+                    _warned = true;
+                    Debug.LogWarning("[Arna] No arrow model on the visual library, so the "
+                                     + "volley is firing plain darts. Run Arna > Setup "
+                                     + "Project — it assigns SM_Prop_Arrow_01, which is in "
+                                     + "the project.");
+                }
+
                 var dart = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 Object.Destroy(dart.GetComponent<Collider>());
 
                 dart.transform.SetParent(holder.transform, false);
-                dart.transform.localScale = new Vector3(0.045f, 0.045f, ShaftLength);
+
+                // Thickness with the length. A shaft drawn three times life size and left
+                // life-size thick is a wire, and a wire is what nobody could see.
+                dart.transform.localScale = new Vector3(Thickness, Thickness, ShaftLength);
                 dart.GetComponent<Renderer>().sharedMaterial.color = new Color(0.35f, 0.26f, 0.16f);
 
                 return holder;

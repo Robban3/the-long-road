@@ -273,22 +273,57 @@ namespace Arna.Sim
         public float LeadDistance => _distance;
 
         /// <summary>
-        /// Unit vector along the route. The formation rotates with it, so the van is
-        /// always the front whichever way the road happens to run.
+        /// Unit vector along the route at the lead wagon. The formation rotates with it,
+        /// so the van is always the front whichever way the road happens to run.
         /// </summary>
-        public Vec2 Heading
+        public Vec2 Heading => HeadingAt(_distance);
+
+        /// <summary>How far either side of a point the tangent is measured over.</summary>
+        // A metre. Short enough that a bend is a bend rather than a chord across it, long
+        // enough that the polyline's corners are crossed over two metres instead of
+        // snapped through in one frame.
+        public const float TangentSpan = 1f;
+
+        /// <summary>
+        /// Which way the road runs at one distance along it.
+        ///
+        /// Split out of <see cref="Heading"/> because the column is not a rigid body.
+        /// Every wagon has its own place on the path — <see cref="WagonPosition"/> trails
+        /// them along it rather than offsetting them in a straight line — so every wagon
+        /// has its own tangent, and they differ by most of a right angle on a sharp bend.
+        /// </summary>
+        public Vec2 HeadingAt(float distanceAlong)
         {
-            get
-            {
-                if (_points.Length < 2) return new Vec2(1f, 0f);
+            if (_points.Length < 2) return new Vec2(1f, 0f);
 
-                var ahead = PositionAt(_distance + 1f);
-                var behind = PositionAt(_distance - 1f > 0f ? _distance - 1f : 0f);
-                var delta = ahead - behind;
+            float back = distanceAlong - TangentSpan;
 
-                float length = Vec2.Distance(Vec2.Zero, delta);
-                return length < 0.0001f ? new Vec2(1f, 0f) : new Vec2(delta.X / length, delta.Y / length);
-            }
+            var ahead = PositionAt(distanceAlong + TangentSpan);
+            var behind = PositionAt(back > 0f ? back : 0f);
+            var delta = ahead - behind;
+
+            float length = Vec2.Distance(Vec2.Zero, delta);
+            return length < 0.0001f ? new Vec2(1f, 0f) : new Vec2(delta.X / length, delta.Y / length);
+        }
+
+        /// <summary>
+        /// Which way one wagon is pointing: the tangent where that wagon actually is.
+        ///
+        /// <b>The whole column used to be turned to the lead wagon's heading.</b> Their
+        /// positions were right — WagonPosition has always trailed them along the path —
+        /// so on a bend the rear wagons stood on curved ground pointing the way the front
+        /// one pointed, and travelled sideways to their own wheels. That is exactly what
+        /// a caravan sliding round a corner looks like, and it is worst where it is most
+        /// visible: a wagon thirty metres back on a right-angle turn was drawn broadside
+        /// to its own direction of travel.
+        ///
+        /// Per wagon, and cheap: the same two samples <see cref="Heading"/> takes, at
+        /// this wagon's distance rather than at the lead's.
+        /// </summary>
+        public Vec2 WagonHeading(int wagonIndex)
+        {
+            float trail = _distance - wagonIndex * WagonSpacing;
+            return HeadingAt(trail < 0f ? 0f : trail);
         }
 
         /// <summary>All three wagons destroyed. The one true failure state.</summary>

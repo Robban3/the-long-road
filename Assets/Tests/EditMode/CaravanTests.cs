@@ -234,6 +234,80 @@ namespace Arna.Tests
             Assert.AreNotEqual(lead, rear, "the wagons are stacked on top of each other");
         }
 
+        /// <summary>
+        /// Every wagon points the way it is actually travelling, all the way round a bend.
+        ///
+        /// The positions were always right and the rotations were not: the view turned
+        /// the whole column to the *lead* wagon's heading, so a wagon thirty metres back
+        /// on a right-angle turn stood on the first leg drawn facing down the second one
+        /// and crabbed sideways to its own wheels. It reads as the caravan sliding, which
+        /// is what it was doing.
+        ///
+        /// Measured rather than asserted about: the wagon's real direction of travel is
+        /// where it moved between two ticks, and that is compared with what it is drawn
+        /// pointing at. The comparison is against both headings, because "its own is
+        /// better" is the claim and a test that only checks the new one would pass on a
+        /// straight road where the two are the same.
+        /// </summary>
+        [Test]
+        public void EachWagonPointsTheWayItIsTravellingRoundABend()
+        {
+            var grid = new TileGrid(30, 30);
+            var route = new List<int>();
+            for (int x = 0; x < 15; x++) route.Add(grid.ToIndex(x, 5));
+            for (int y = 6; y < 20; y++) route.Add(grid.ToIndex(14, y));
+
+            var caravan = new Caravan(grid, route);
+
+            var was = new Vec2[3];
+            for (int i = 0; i < 3; i++) was[i] = caravan.WagonPosition(i);
+
+            // 1 is dead ahead, 0 is broadside. The worst either way of drawing them
+            // manages at any point in the run.
+            float worstOwn = 1f, worstLead = 1f;
+
+            for (int step = 0; step < 600; step++)
+            {
+                caravan.Tick(0.05f);
+
+                var lead = caravan.WagonHeading(0);
+
+                for (int i = 0; i < 3; i++)
+                {
+                    var now = caravan.WagonPosition(i);
+                    var moved = now - was[i];
+                    was[i] = now;
+
+                    float length = Vec2.Distance(Vec2.Zero, moved);
+                    if (length < 0.01f) continue;
+
+                    var going = new Vec2(moved.X / length, moved.Y / length);
+                    var own = caravan.WagonHeading(i);
+
+                    float alongOwn = going.X * own.X + going.Y * own.Y;
+                    float alongLead = going.X * lead.X + going.Y * lead.Y;
+
+                    if (alongOwn < worstOwn) worstOwn = alongOwn;
+                    if (alongLead < worstLead) worstLead = alongLead;
+                }
+            }
+
+            // Forty-five degrees is the floor and it is the tangent window, not a fault:
+            // the heading is averaged over a metre either side (Caravan.TangentSpan), so
+            // at the vertex itself it is the bisector of the two legs while the wagon is
+            // still travelling down one of them. That averaging is what turns the wagon
+            // over two metres instead of snapping it in one frame.
+            Assert.Greater(worstOwn, 0.70f,
+                "a wagon was drawn more than 45 degrees off its own direction of travel");
+
+            // And the bug this replaces: the two legs are perpendicular, so a rear wagon
+            // still on the first one while the lead is down the second was drawn exactly
+            // broadside to where it was going.
+            Assert.Less(worstLead, 0.10f,
+                "the bend is too gentle to tell the two apart — this test proves nothing "
+                + "unless the lead's heading is plainly wrong for the wagons behind it");
+        }
+
         [Test]
         public void WagonsStartHealthyAndTakeDamageDownToZero()
         {

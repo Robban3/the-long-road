@@ -479,7 +479,6 @@ namespace Arna.View
         {
             var heading = run.Caravan.Heading;
             var road = new Vector3(heading.X, 0f, heading.Y);
-            var facing = Quaternion.LookRotation(road, Vector3.up);
 
             for (int i = 0; i < _wagons.Count; i++)
             {
@@ -489,7 +488,16 @@ namespace Arna.View
 
                 var position = run.Caravan.WagonPosition(i);
                 var here = new Vector3(position.X, GroundAt(position), position.Y);
-                Place(_wagons[i], here, facing);
+
+                // Its own tangent, not the lead's. The positions were always right — they
+                // trail along the path rather than sitting at a straight-line offset — so
+                // handing every wagon the front one's rotation put the rear of the column
+                // on curved ground pointing the wrong way, and it crabbed round every
+                // bend. See Caravan.WagonHeading.
+                var along = run.Caravan.WagonHeading(i);
+                var mine = Quaternion.LookRotation(new Vector3(along.X, 0f, along.Y), Vector3.up);
+
+                Place(_wagons[i], here, mine);
 
                 // Across the ground rather than through it. Including the climb would
                 // add the terrain sampler's own jitter to the roll, and on a slope of
@@ -752,13 +760,61 @@ namespace Arna.View
 
                 _reload[group] = 0f;
 
-                var from = new Vector3(group.Position.X, GroundAt(group.Position) + Volley.FromHeight,
-                                       group.Position.Y);
                 var to = new Vector3(target.Position.X, GroundAt(target.Position) + Volley.ToHeight,
                                      target.Position.Y);
 
-                _volley.Loose(from, to);
+                Volleys(group, to);
             }
+        }
+
+        /// <summary>
+        /// One shaft from every archer still standing, rather than one from the group.
+        ///
+        /// A group is a pooled health bar in the simulation and three men on the screen
+        /// (TroopTable.Models), and it used to loose a single arrow from the group's
+        /// centre point — so three archers drew together and one arrow left, from a spot
+        /// between them where nobody was standing. A volley is what a rank of bows looks
+        /// like, and there was already a list of exactly who is in it.
+        ///
+        /// The dead are switched off rather than removed from the list (see Build), so
+        /// activeSelf is the survivor test and a whittled-down group thins its volley
+        /// without any extra bookkeeping.
+        /// </summary>
+        void Volleys(TroopGroup group, Vector3 to)
+        {
+            if (!_troops.TryGetValue(group, out var figures) || figures == null)
+            {
+                var alone = new Vector3(group.Position.X,
+                                        GroundAt(group.Position) + Volley.FromHeight,
+                                        group.Position.Y);
+                _volley.Loose(alone, to);
+                return;
+            }
+
+            int shot = 0;
+
+            for (int i = 0; i < figures.Count; i++)
+            {
+                var figure = figures[i];
+                if (figure == null || !figure.gameObject.activeSelf) continue;
+
+                var at = figure.position;
+                var from = new Vector3(at.x, at.y + Volley.FromHeight, at.z);
+
+                // Fanned by a hand's width at the far end, spread from the shooter's
+                // index rather than at random: three arrows sent at one point arrive as
+                // one arrow, and a headless capture should draw the same picture twice.
+                float spread = (i - (figures.Count - 1) * 0.5f) * Volley.Fan;
+                var across = Vector3.Cross(Vector3.up, (to - from).normalized) * spread;
+
+                _volley.Loose(from, to + across);
+                shot++;
+            }
+
+            if (shot == 0)
+                _volley.Loose(new Vector3(group.Position.X,
+                                          GroundAt(group.Position) + Volley.FromHeight,
+                                          group.Position.Y), to);
         }
 
         /// <summary>
