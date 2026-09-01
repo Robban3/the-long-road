@@ -995,14 +995,21 @@ def build_band(grid: TileGrid, level_start: int, level_goal: int,
         if speed <= 0.0:
             continue
 
-        # Threat follows speed: fast ground carries the most, the fen the least. It is
-        # the corridor rule — the quick way is the dangerous way — restated per tile,
-        # which is the only form of it that survives the player drawing their own line.
+        # Threat follows cover, and nothing else, cubed — see EncounterPlacer.cs for
+        # why the speed factor came out and why the table's own range is too narrow to
+        # choose with. This line had drifted: it still read `speed * AMBUSH[terrain]`,
+        # the formula the C# replaced, so every measurement taken through this port was
+        # answering about a placer the game no longer has.
         tiles.append(i)
-        weight[i] = speed * AMBUSH[terrain]
+        ambush = AMBUSH[terrain]
+        weight[i] = ambush * ambush * ambush
 
     if not tiles:
         return None
+
+    # Weighting the flanks up from here was tried and reverted: see EncounterPlacer.cs.
+    # The budget is a fixed number of groups, so weight moved to the sides comes off the
+    # waist every route must pass through, and level 2-5 stopped keeping its promise.
     return ThreatBand(tiles, weight, from_start, from_goal, fastest)
 
 
@@ -1242,6 +1249,39 @@ def _tally_silver(layout: EncounterLayout, recipe: "LevelRecipe") -> None:
 
 # --- Verification -----------------------------------------------------------------
 
+FRINGE_SHARE = 0.2
+MIN_FLANK_SPAN = 10
+
+
+def _fringe(grid: TileGrid, band: ThreatBand) -> List[int]:
+    """The band's two flanks, taken per column because the band is a lens: its top edge
+    near the start lies well below its top edge at the waist."""
+    lowest: dict = {}
+    highest: dict = {}
+
+    for tile in band.tiles:
+        x, y = grid.to_coords(tile)
+        if x not in lowest or y < lowest[x]:
+            lowest[x] = y
+        if x not in highest or y > highest[x]:
+            highest[x] = y
+
+    out = []
+    for tile in sorted(band.tiles):
+        x, y = grid.to_coords(tile)
+        span = highest[x] - lowest[x]
+        # Pinched columns have no flanks. The band closes to a point at both ends, and
+        # without this the whole neck counts as fringe — which is where every route goes
+        # anyway.
+        if span < MIN_FLANK_SPAN:
+            continue
+        across = (y - lowest[x]) / span
+        if across <= FRINGE_SHARE or across >= 1.0 - FRINGE_SHARE:
+            out.append(tile)
+
+    return out
+
+
 def sample_routes(grid: TileGrid, band: ThreatBand, corridors: Sequence[Corridor],
                   rng: DeterministicRandom, level_start: int, level_goal: int,
                   count: int = SAMPLE_ROUTES) -> List[List[int]]:
@@ -1258,9 +1298,16 @@ def sample_routes(grid: TileGrid, band: ThreatBand, corridors: Sequence[Corridor
     pathfinder = GridPathfinder(grid)
     routes = [list(c.tiles) for c in corridors if c.tiles]
     pool = sorted(band.tiles)
+    fringe = _fringe(grid, band)
 
     while len(routes) < count and pool:
-        waypoints = [pool[rng.range_int(0, len(pool))]
+        # Every fourth sample is sent out to a flank. A uniform draw from the band is
+        # not a uniform draw over the map: the band is lens-shaped, so a waypoint out
+        # of it lands in the waist nearly every time and every sample was a middle
+        # route. The corrector can only repair what it is shown.
+        draw = fringe if fringe and len(routes) % 4 == 3 else pool
+
+        waypoints = [draw[rng.range_int(0, len(draw))]
                      for _ in range(1 + rng.range_int(0, 2))]
 
         tiles: List[int] = []

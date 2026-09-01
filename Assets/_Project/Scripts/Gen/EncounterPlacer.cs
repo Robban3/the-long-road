@@ -295,6 +295,21 @@ namespace Arna.Gen
                     band.Weight[i] = ambush * ambush * ambush;
                 }
 
+                // Weighting the flanks up from here was tried and reverted, and the
+                // reason is worth keeping.
+                //
+                // The band is a lens, so its flanks hold a fraction of the tiles its
+                // waist does and draw a proportional fraction of the threat — which is
+                // why hugging an edge crosses country that is nearly empty. Multiplying
+                // the flanks' weight fixes that and costs the promise this whole class
+                // exists to keep: the budget is a fixed number of groups, so weight moved
+                // out to the sides comes off the waist, and the waist is where every
+                // route has to pass. Level 2-5 stopped being able to put five groups on
+                // every drawn route at a multiplier of 1.15 — the gentlest one worth
+                // trying — and at 1.35.
+                //
+                // Filling the flanks therefore needs a bigger budget, not a rearranged
+                // one, and that is a difficulty change rather than a placement fix.
                 return band.Tiles.Count == 0 ? null : band;
             }
 
@@ -826,6 +841,77 @@ namespace Arna.Gen
                 : SampleRoutes(grid, band, corridors, rng, startIndex, goalIndex, count);
         }
 
+        /// <summary>
+        /// How near an edge of the band a tile has to be to count as its fringe, as a
+        /// share of the band's own width across the caravan's travel.
+        ///
+        /// A fifth off each side. Less and the fringe is a line rather than a flank, and
+        /// the routes drawn through it are the middle ones again; much more and it stops
+        /// being an edge at all and the samples say nothing new.
+        /// </summary>
+        public const float FringeShare = 0.2f;
+
+        /// <summary>
+        /// How wide the band has to be across a column before that column has flanks at
+        /// all, in tiles.
+        ///
+        /// Ten, so a fifth off each side is two tiles of real flank rather than a
+        /// rounding. Below it the column is part of the neck at one end of the band or
+        /// the other, where every crossing goes anyway and there is no long way round to
+        /// reward.
+        /// </summary>
+        public const int MinFlankSpan = 10;
+
+
+        /// <summary>
+        /// The band's two flanks: the tiles a route would pass through to go the long way
+        /// round rather than straight across.
+        ///
+        /// Taken per column, not over the map as a whole, because the band is a lens: its
+        /// top edge near the start is well south of its top edge at the waist. A single
+        /// horizontal cut would call half the waist "fringe" and miss the flanks entirely
+        /// at both ends.
+        /// </summary>
+        static List<int> Fringe(TileGrid grid, ThreatBand band)
+        {
+            var lowest = new Dictionary<int, int>();
+            var highest = new Dictionary<int, int>();
+
+            foreach (int tile in band.Tiles)
+            {
+                grid.ToCoords(tile, out int x, out int y);
+
+                if (!lowest.TryGetValue(x, out int low) || y < low) lowest[x] = y;
+                if (!highest.TryGetValue(x, out int high) || y > high) highest[x] = y;
+            }
+
+            var fringe = new List<int>();
+
+            foreach (int tile in band.Tiles)
+            {
+                grid.ToCoords(tile, out int x, out int y);
+
+                int low = lowest[x];
+                int span = highest[x] - low;
+
+                // Pinched columns have no flanks, and skipping them is the whole
+                // correctness of this.
+                //
+                // The band closes to a point at the start and at the goal. Two tiles
+                // across, every tile in the column is within a fifth of an end, so the
+                // naive test called the entire neck "fringe" — and the neck is where
+                // every route already goes. Measured, that handed the top strip of the
+                // map six times its share of the threat off a 1.8 multiplier, which is
+                // what a bonus landing on the ends rather than the sides looks like.
+                if (span < MinFlankSpan) continue;
+
+                float across = (y - low) / (float)span;
+                if (across <= FringeShare || across >= 1f - FringeShare) fringe.Add(tile);
+            }
+
+            return fringe;
+        }
+
         static List<List<int>> SampleRoutes(TileGrid grid, ThreatBand band,
                                             IReadOnlyList<Corridor> corridors,
                                             DeterministicRandom rng, int startIndex,
@@ -839,6 +925,8 @@ namespace Arna.Gen
             grid.ToCoords(startIndex, out int sx, out int sy);
             grid.ToCoords(goalIndex, out int gx, out int gy);
 
+            var fringe = Fringe(grid, band);
+
             var pathfinder = new GridPathfinder(grid);
             var leg = new List<int>();
 
@@ -846,6 +934,24 @@ namespace Arna.Gen
             while (routes.Count < count && band.Tiles.Count > 0 && guard++ < count * 4)
             {
                 int waypoints = 1 + rng.Range(0, 2);
+
+                // Every fourth sample is sent out to an edge, and the rest are drawn as
+                // before.
+                //
+                // A uniform draw from the band is not a uniform draw over the map. The
+                // band is lens-shaped — wide across the middle, pinched at both ends —
+                // so a waypoint picked out of it lands in the middle nearly every time,
+                // and a route through a middle waypoint is a middle route. All sixty-four
+                // samples came out of the same waist of the lens.
+                //
+                // That is why the edges are bare. This loop is the placer's own conscience
+                // — it moves a group onto whichever sampled route met too little — and it
+                // can only repair the routes it is shown. It was never shown one that
+                // hugged an edge, so it never noticed that hugging an edge met nothing.
+                // Measured over chapter 1: six groups in the top eighth of the map and two
+                // in the bottom, against fifteen to twenty-five across the middle.
+                var pool = fringe.Count > 0 && routes.Count % 4 == 3 ? fringe : band.Tiles;
+
                 var tiles = new List<int>();
                 int fromX = sx, fromY = sy;
                 bool broken = false;
@@ -855,7 +961,7 @@ namespace Arna.Gen
                     int toX, toY;
                     if (w < waypoints)
                     {
-                        int pick = band.Tiles[rng.Range(0, band.Tiles.Count)];
+                        int pick = pool[rng.Range(0, pool.Count)];
                         grid.ToCoords(pick, out toX, out toY);
                     }
                     else
