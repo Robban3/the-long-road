@@ -108,13 +108,32 @@ namespace Arna.App
         public Color CrowMarker = new Color(0.10f, 0.10f, 0.12f, 0.85f);
 
         /// <summary>
-        /// Draws the signs that say what each built thing is (see <see cref="MapSymbols"/>).
+        /// Draws a sign on a plate over each built thing.
         ///
-        /// On, because without them a house, a farm, a ruin and a watchtower are four
-        /// brown smudges. Off to look at the country the generator made without the map
-        /// furniture on top of it, which is what this scene was originally for.
+        /// **Off**, because the buildings themselves are now drawn big enough to name —
+        /// see <see cref="LandmarkFloor"/>. A symbol was the answer while a house and a
+        /// ruin were both a brown smudge; once you can see the broken wall, a plate with
+        /// a drawing of a broken wall on it is a label over the thing it labels.
+        ///
+        /// Kept as a switch, because which of the two reads better at map height is a
+        /// question only somebody looking at it can settle.
         /// </summary>
-        public bool ShowSymbols = true;
+        public bool ShowSymbols;
+
+        /// <summary>
+        /// Metres below which a landmark is drawn larger than life on the plan.
+        ///
+        /// Twelve. The sizes it lifts are a camp at 2.6, a totem at 3, a skeleton or a
+        /// wrecked cart at 5, a farmhouse at 5.5, a house at 6 and a farm at 9; the ones
+        /// it leaves alone are the watchtower at 11, the castle tower at 15 and the keep
+        /// at 22. So the small things become legible and the big ones keep the sizes they
+        /// were tuned at.
+        ///
+        /// Guessed from those numbers rather than measured on a render. If the bones are
+        /// still too small, this is the field to raise; if the map turns into a toy
+        /// village, lower it.
+        /// </summary>
+        public float LandmarkFloor = 12f;
 
         /// <summary>
         /// Flies the real crow flocks over the plan instead of drawing a bird on a plate.
@@ -1232,7 +1251,18 @@ namespace Arna.App
                 maxProps: MaxProps, densityScale: DensityScale,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
                 campSites: CampSignal.Tiles(map), travelled: Travelled(map),
-                found: _landmarks, goalTile: map.GoalIndex);
+                found: _landmarks,
+                // The castle only at the end of a chapter, and the caller decides that
+                // because the decorator only knows there is a goal. Standing one on every
+                // level made ten keeps in a chapter and turned the thing the roadmap
+                // climbs towards into scenery: if the road ends at a castle every time,
+                // arriving at one means nothing.
+                //
+                // The other nine goals are bare again, as they were. What ought to stand
+                // on them — a village, a waystation — is a separate question and not one
+                // to answer by leaving the wrong building there.
+                goalTile: Level >= Campaign.LevelsPerChapter ? map.GoalIndex : -1,
+                minimumLandmark: LandmarkFloor);
 
             // Worth printing: a prop that is placed but too small and a prop that was
             // never placed look identical on a map read from seventy metres up.

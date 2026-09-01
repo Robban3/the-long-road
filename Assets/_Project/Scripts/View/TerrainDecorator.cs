@@ -739,6 +739,33 @@ namespace Arna.View
         /// near the field rather than on it: a signal is meant to suggest danger, not
         /// mark its exact extent.
         /// </param>
+        /// <summary>
+        /// Metres below which a landmark is drawn bigger than it is, or nought for life
+        /// size.
+        ///
+        /// **A floor, not a multiplier**, and that distinction is the design. The plan
+        /// map is 256 m across read from four hundred back, where a five-metre skeleton
+        /// is a smudge and a six-metre house is another smudge — which is exactly why
+        /// this project drew symbols over them in the first place. Multiplying everything
+        /// would take the castle to sixty-six metres and a quarter of the map with it.
+        /// Raising only what is *under* the floor lifts the bones, the house, the farm and
+        /// the totem into legibility and leaves the tower at fifteen and the castle at
+        /// twenty-two exactly as they are.
+        ///
+        /// It is the same argument as VisualLibrary.EagleSpan, which draws a two-metre
+        /// bird at ten: over a map at this scale a landmark is a marker that happens to
+        /// be shaped like the thing it marks.
+        ///
+        /// Only the plan sets it. In the run you are standing among these buildings and a
+        /// house has to be a house.
+        ///
+        /// Static because Decorate is the one entry point and sets it on the way in, and
+        /// because the alternative is threading a float through eight signatures of a
+        /// file this size. Written down rather than hidden: it is state, and state that
+        /// is not obvious is the kind that surprises somebody later.
+        /// </summary>
+        static float _landmarkFloor;
+
         public static int Decorate(Transform parent, TileGrid grid, int seed, BiomeDecor decor,
                                    IReadOnlyCollection<int> keepClear = null,
                                    float heightScale = 0f, int maxProps = 600,
@@ -750,8 +777,14 @@ namespace Arna.View
                                    int driveMargin = DriveMarginTiles,
                                    IReadOnlyCollection<int> travelled = null,
                                    List<Landmark> found = null,
-                                   int goalTile = -1)
+                                   int goalTile = -1,
+                                   float minimumLandmark = 0f)
         {
+            // Before the early return below, so a call that decorates nothing still
+            // leaves the floor at what this caller asked for rather than at what the
+            // last one did.
+            _landmarkFloor = minimumLandmark;
+
             if (decor == null || decor.IsEmpty) return 0;
 
             var rng = new DeterministicRandom(seed ^ 0x5EED10);
@@ -2503,6 +2536,8 @@ namespace Arna.View
         {
             if (building == null) return false;
 
+            height = Mathf.Max(height, _landmarkFloor);
+
             var at = Vec2.FromTile(grid, tile);
 
             float surfaceY = grid.SurfaceElevation(at.X, at.Y) * heightScale;
@@ -2551,8 +2586,13 @@ namespace Arna.View
                 ? Quaternion.Euler(-90f, yaw, 0f)
                 : Quaternion.Euler(0f, yaw, 0f);
 
-            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, choice.Size, groundY);
-            else ModelScaling.Fit(instance, choice.Size, groundY);
+            // Never smaller than the floor. Across or up depending on which way this
+            // kind is measured, and either reading of "at least this many metres" is the
+            // one that decides whether it can be made out from map height.
+            float size = Mathf.Max(choice.Size, _landmarkFloor);
+
+            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
+            else ModelScaling.Fit(instance, size, groundY);
 
             Block(instance, choice.Canopy);
 

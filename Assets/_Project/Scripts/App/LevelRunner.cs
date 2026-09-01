@@ -241,7 +241,17 @@ namespace Arna.App
                 ruinSites: TrapSigns.Sites(map),
                 driveLine: _run.Caravan.Sweep(TerrainDecorator.DriveHalfWidth),
                 campSites: CampSignal.Tiles(map), driveMargin: 0,
-                travelled: LevelPreview.Travelled(map), goalTile: map.GoalIndex);
+                travelled: LevelPreview.Travelled(map),
+                // The castle only at the end of a chapter, and the caller decides that
+                // because the decorator only knows there is a goal. Standing one on every
+                // level made ten keeps in a chapter and turned the thing the roadmap
+                // climbs towards into scenery: if the road ends at a castle every time,
+                // arriving at one means nothing.
+                //
+                // The other nine goals are bare again, as they were. What ought to stand
+                // on them — a village, a waystation — is a separate question and not one
+                // to answer by leaving the wrong building there.
+                goalTile: Level >= Campaign.LevelsPerChapter ? map.GoalIndex : -1);
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale)
             {
