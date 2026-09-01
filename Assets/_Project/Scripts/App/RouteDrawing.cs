@@ -73,6 +73,13 @@ namespace Arna.App
             _hud.Level = _preview.Level;
             _hud.Play = PlayDrawn;
             _hud.Undo = () => { _planner?.RemoveLast(); Solve(); };
+
+            // A bought flight has to actually put the bird up, and the eagle is built
+            // inside the preview's own rebuild. Rebuild regenerates the map too, which is
+            // more work than strictly needed — but the seed has not changed, so it comes
+            // back the same map, the drawn route still fits it, and this happens once or
+            // twice in a level rather than per frame.
+            _hud.Scout = () => _preview.Rebuild();
         }
 
         /// <summary>Hands the drawn tiles to the run and loads the play scene.</summary>

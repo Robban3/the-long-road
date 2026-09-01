@@ -915,6 +915,16 @@ namespace Arna.App
 
             if (!ShowEagle) return;
 
+            // Nothing flies until it is paid for — in the game. In the editor the bird
+            // goes up as she always did, because this scene is also the harness for
+            // looking at what the generator produced, and a harness that needs gold spent
+            // in a menu before it will show you anything is a harness nobody uses.
+            //
+            // The same shape as RouteDrawing.Awake, which takes the chapter and level
+            // from the Session only when Application.isPlaying and lets the Inspector win
+            // otherwise.
+            if (Application.isPlaying && Arna.UI.Session.ScoutFlights <= 0) return;
+
             if (Models == null || !Models.Eagle.HasModel)
             {
                 Debug.LogWarning("[Arna] No eagle model — run Arna > Setup Project. "
@@ -933,7 +943,13 @@ namespace Arna.App
                                  + "check the summary says 12 of 12 — if it names Eagle_B1, "
                                  + "the warning above it says why.");
 
-            _flight = ScoutingAbility.Fly(map);
+            // The flight index, so a second purchase is a second *route* over the ground
+            // and not the same sweep again. Fly seeds off map.Seed ^ (constant + flight),
+            // which is what makes buying another look worth the gold: the first covered
+            // what it covered.
+            int sortie = Application.isPlaying ? Arna.UI.Session.ScoutFlights - 1 : 0;
+
+            _flight = ScoutingAbility.Fly(map, flight: sortie < 0 ? 0 : sortie);
             if (_flight.Path.Count < 2) return;
 
             _milestones = new float[_flight.Path.Count];

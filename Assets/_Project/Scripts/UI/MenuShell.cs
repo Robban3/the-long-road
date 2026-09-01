@@ -40,7 +40,14 @@ namespace Arna.UI
             _screen = Widgets.Node("Screen", _canvas.transform);
             _screen.Fill();
 
-            if (StartOnRoadmap) ShowRoadmap();
+            // The shop, when the result screen asked for it on the way out. Read once and
+            // cleared, so pressing Back lands on the front page like any other visit.
+            if (Session.OpenShop)
+            {
+                Session.OpenShop = false;
+                ShowShop();
+            }
+            else if (StartOnRoadmap) ShowRoadmap();
             else ShowMain();
         }
 

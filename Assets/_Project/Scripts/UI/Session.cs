@@ -82,8 +82,39 @@ namespace Arna.UI
                 if (squad.Slots[i] != null) Escort[i] = squad.Slots[i].Kind;
         }
 
+        /// <summary>
+        /// Open the shop instead of the front page when the menu scene next loads.
+        ///
+        /// Read once and cleared. The shop is a screen in the menu scene and the result
+        /// screen is in the run, so the only way from one to the other is a scene load —
+        /// and a scene load lands wherever the menu decides to start. This is the note it
+        /// leaves for itself.
+        /// </summary>
+        public static bool OpenShop { get; set; }
+
+        /// <summary>
+        /// Scout flights bought for the level being played, this attempt.
+        ///
+        /// Not saved and not part of the campaign: it is spent on one crossing, and
+        /// leaving a level throws it away. Cleared in <see cref="Choose"/>, which is the
+        /// one call every route into a level goes through.
+        /// </summary>
+        public static int ScoutFlights { get; private set; }
+
+        /// <summary>Books one flight. The gold has already been taken by the caller.</summary>
+        public static void BuyScoutFlight() => ScoutFlights++;
+
         public static void Choose(int chapter, int level)
         {
+            // Always, because Choose *is* entering a level. What was bought for the last
+            // crossing does not carry to the next, and re-entering the same one is a
+            // fresh attempt for the same reason: that bird flew that ground and is down.
+            //
+            // Unconditional rather than only-when-it-changed, which was written first and
+            // is harder to be sure of: the purchases happen in the planning scene, after
+            // this, so there is no window where clearing could throw one away.
+            ScoutFlights = 0;
+
             Chapter = chapter < 1 ? 1 : chapter;
             Level = level < 1 ? 1 : level;
         }

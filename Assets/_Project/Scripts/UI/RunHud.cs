@@ -379,6 +379,17 @@ namespace Arna.UI
                 });
             }
 
+            // Second, right under the primary, because that is where the eye goes next
+            // and because this is the moment the gold above it means something. The shop
+            // was reachable before only by leaving the flow — result screen, map, front
+            // page, shop — so the natural run of presses never passed it and the player
+            // was never once asked to spend what they had earned.
+            Row(panel, ref y, "UPPGRADERA", ButtonRole.Secondary, () =>
+            {
+                Session.OpenShop = true;
+                GoHome();
+            });
+
             Row(panel, ref y, won ? "SPELA OM" : "FÖRSÖK IGEN", ButtonRole.Secondary, () =>
             {
                 if (Restart == null) SceneManager.LoadScene(Session.PlanScene);

@@ -27,6 +27,9 @@ namespace Arna.UI
         /// <summary>Takes the last waypoint back.</summary>
         public Action Undo;
 
+        /// <summary>Run when a scout flight has been paid for, so the map can send the bird up.</summary>
+        public Action Scout;
+
         /// <summary>The level named in the banner. Set before or after the canvas is built.</summary>
         public int Chapter = 1;
         public int Level = 1;
@@ -34,6 +37,32 @@ namespace Arna.UI
         RectTransform _screen;
         Text _title, _points, _time, _terrain, _cover, _fords, _warning;
         Button _play;
+        Button _scout;
+        UnityEngine.UI.Text _goldText;
+
+        /// <summary>
+        /// What the first scout flight of a level costs, and what each one after it
+        /// multiplies by.
+        ///
+        /// Half again per flight, so a second look is a decision rather than a habit.
+        /// The first flight covers the ground it covers; a second is worth buying only
+        /// when what it did not cover is worth knowing, and the price is what makes that
+        /// a question at all.
+        ///
+        /// Both numbers are reasoned rather than played, and they are the first thing to
+        /// move once anybody has actually crossed a few levels with them.
+        /// </summary>
+        public const int ScoutPrice = 60;
+        public const float ScoutPriceGrowth = 1.5f;
+
+        /// <summary>What the next flight over this level costs, at what has been bought so far.</summary>
+        public static int NextScoutPrice()
+        {
+            float price = ScoutPrice;
+            for (int bought = 0; bought < Session.ScoutFlights; bought++) price *= ScoutPriceGrowth;
+
+            return Mathf.RoundToInt(price);
+        }
 
         void Start()
         {
@@ -62,8 +91,9 @@ namespace Arna.UI
             _title = Widgets.Label("Text", plate.transform, "", Widgets.HeadingSize - 6, Theme.Parchment);
             _title.rectTransform.Fill(40f, 0f, 40f, 0f);
 
-            var gold = Widgets.Counter("Gold", _screen, Theme.CoinIcon, Theme.Coin,
-                                       Session.Campaign.Gold.ToString(), null, 230f);
+            _goldText = Widgets.Counter("Gold", _screen, Theme.CoinIcon, Theme.Coin,
+                                        Session.Campaign.Gold.ToString(), null, 230f);
+            var gold = _goldText;
             gold.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(1f, 1f), new Vector2(-Widgets.Margin, -Widgets.Margin),
                        new Vector2(230f, 76f));
@@ -118,6 +148,50 @@ namespace Arna.UI
                                   () => Play?.Invoke());
             _play.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(120f, Widgets.Margin),
                                             new Vector2(560f, Widgets.ButtonHeight));
+
+            _scout = Widgets.Plate("Scout", _screen, "", ButtonRole.Secondary, BuyScout);
+            _scout.image.rectTransform.Place(new Vector2(0.5f, 0f),
+                new Vector2(0f, Widgets.Margin + Widgets.ButtonHeight + 16f),
+                new Vector2(420f, Widgets.ButtonHeight));
+
+            ShowScoutPrice();
+        }
+
+        /// <summary>
+        /// Sends the eagle up, once it has been paid for.
+        ///
+        /// Campaign.Spend refuses when the gold is not there and says so by returning
+        /// false, so there is nothing to check first: ask, and act on the answer.
+        /// </summary>
+        void BuyScout()
+        {
+            if (!Session.Campaign.Spend(NextScoutPrice())) return;
+
+            Session.BuyScoutFlight();
+            Session.Save();
+
+            if (_goldText != null) _goldText.text = Session.Campaign.Gold.ToString();
+
+            ShowScoutPrice();
+            Scout?.Invoke();
+        }
+
+        /// <summary>Puts the next flight's price on the button, and greys it out of reach.</summary>
+        void ShowScoutPrice()
+        {
+            if (_scout == null) return;
+
+            int price = NextScoutPrice();
+            bool afford = Session.Campaign.Gold >= price;
+
+            var label = _scout.GetComponentInChildren<UnityEngine.UI.Text>();
+            if (label != null)
+                label.text = Session.ScoutFlights == 0
+                    ? $"SPANA  ·  {price} G"
+                    : $"SPANA IGEN  ·  {price} G";
+
+            _scout.interactable = afford;
+            _scout.image.color = Theme.Fill(afford ? ButtonRole.Secondary : ButtonRole.Disabled);
         }
 
         public void SetLevel(int chapter, int level)
