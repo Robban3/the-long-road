@@ -25,8 +25,40 @@ namespace Arna.Sim
         /// <summary>Sight of the caravan's own driver, with no scout along.</summary>
         public const float CaravanSight = 12f;
 
-        /// <summary>Multiplier on par time for the third star (docs/GDD.md §8.4).</summary>
-        public const float ParTimeFactor = 1.35f;
+        /// <summary>
+        /// Multiplier on par time for the third star (docs/GDD.md §8.4).
+        ///
+        /// <b>1.15, down from 1.35, because at 1.35 the safe road was free.</b> Par is
+        /// the fastest crossing the map allows plus this much slack, and the cautious
+        /// detour costs 5 to 20 percent of extra time — so it fitted inside a 35 percent
+        /// allowance with room to spare, and the third star's two questions collapsed
+        /// into one. Time had no wrong answer, so only blood was ever being asked about.
+        ///
+        /// Swept over the ten shipped levels, counting three-star finishes on each
+        /// corridor. The maps are bit-for-bit identical across the sweep: this is read in
+        /// the constructor and never touches generation, so it is a clean A/B in a way
+        /// the placement changes were not.
+        ///
+        ///     par     fast            safe            odd
+        ///     1.35    5 of 10 (3*)    9 of 10 (3*)    0 of 10
+        ///     1.25    5               7               0
+        ///     1.20    5               7               0
+        ///     1.15    5               4               0
+        ///     1.10    5               4               0
+        ///
+        /// The break is between 1.20 and 1.15, and 1.10 buys nothing beyond it. What it
+        /// costs is the margin a player needs for their own drawing: nobody lays
+        /// waypoints as well as A* solves, so the fast road has to make par with room to
+        /// spare or the third star belongs to the pathfinder rather than to the player.
+        /// At 1.15 the fast road runs 0.74 to 0.88 of par — 12 to 26 percent of slack. At
+        /// 1.10 that falls to 8 percent on the tightest level for no further effect.
+        ///
+        /// <b>The fast road never loses a star to time, at any value in that sweep</b>,
+        /// and that is the design rather than an accident of tuning: its cost is blood.
+        /// It kills the caravan outright on three of ten levels and takes a wagon on a
+        /// fourth. Time is what the cautious road pays with, and now it does.
+        /// </summary>
+        public const float ParTimeFactor = 1.15f;
 
         readonly List<Watcher> _watchers = new List<Watcher>();
         float _accumulator;
