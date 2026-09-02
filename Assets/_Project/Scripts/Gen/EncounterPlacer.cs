@@ -74,6 +74,16 @@ namespace Arna.Gen
         public const float ThroatSlack = 0.08f;
 
         /// <summary>
+        /// The widest throat, in tiles, still worth laying a line of traps across.
+        ///
+        /// Five. At <see cref="TrapSpacingTiles"/> of two that is three traps, which is
+        /// what a level's whole throat allowance runs to — so five is both the widest gap
+        /// the budget can close and the widest one worth trying on. Anything broader gets
+        /// a single trap on its best tile and the allowance moves on.
+        /// </summary>
+        public const int Closeable = 5;
+
+        /// <summary>
         /// Slices the crossing is cut into when looking for its narrow points.
         ///
         /// Forty-eight over a route of sixty to a hundred tiles is a slice every tile or
@@ -536,10 +546,37 @@ namespace Arna.Gen
             {
                 if (spent >= allowance * ThroatShare) break;
 
+                // Lay across a gap that can be closed; mine the road in a gap that cannot.
+                //
+                // The inner loop used to walk every tile of the throat, and laying across
+                // is right — "one trap in a five-tile gap is a trap you walk round". But
+                // it is only right when the gap is small enough to actually close. A
+                // twelve-tile throat takes the whole allowance and still leaves eight
+                // ways through, and the tiles are visited best-first, so the one tile the
+                // corridors cross is mined and then three or four more are spent beside
+                // it, on ground nothing drives over.
+                //
+                // Measured over chapter 1: the throats laid 3 to 8 traps a level and one
+                // to four of them came within firing distance of any offered route. A
+                // run down one corridor sprang one or two of a dozen.
+                //
+                // So a wide throat gets one trap — the first tile, which Score has
+                // already put on the most-travelled ground — and the rest of the
+                // allowance goes to the next throat. Four mined roads beat one gap
+                // half-closed.
+                int laid = 0;
+                int allowed = throat.Ways <= Closeable ? int.MaxValue : 1;
+
                 foreach (int tile in throat.Tiles)
                 {
+                    if (laid >= allowed) break;
                     if (spent >= allowance * ThroatShare) break;
-                    spent += Lay(grid, rng, layout, occupied, tile, allowance - spent);
+
+                    int cost = Lay(grid, rng, layout, occupied, tile, allowance - spent,
+                                   PlacementOrigin.Guard);
+
+                    spent += cost;
+                    if (cost > 0) laid++;
                 }
             }
 
@@ -593,8 +630,13 @@ namespace Arna.Gen
         /// seconds pinned — and the log trap is the one that punishes a bunched column,
         /// five metres of it at 120 (docs/GDD.md §7.2).
         /// </summary>
+        // The origin is passed rather than assumed. It was hard-coded to Scattered for
+        // both callers, so every trap in the game reported itself as strewn however it
+        // was placed — and "how many of these were laid at a throat" is exactly the
+        // question anybody debugging trap placement asks first.
         static int Lay(TileGrid grid, DeterministicRandom rng, EncounterLayout layout,
-                       HashSet<int> occupied, int tile, int left)
+                       HashSet<int> occupied, int tile, int left,
+                       PlacementOrigin origin = PlacementOrigin.Scattered)
         {
             if (occupied.Contains(tile)) return 0;
             if (!SpacedEnough(grid, tile, occupied, TrapSpacingTiles)) return 0;
@@ -608,7 +650,7 @@ namespace Arna.Gen
             {
                 Tile = tile,
                 Kind = kind,
-                Origin = PlacementOrigin.Scattered
+                Origin = origin
             });
 
             occupied.Add(tile);
@@ -619,6 +661,10 @@ namespace Arna.Gen
         struct Throat
         {
             public int Ways;
+
+            /// <summary>The most road any one tile of this throat carries. See Roads.</summary>
+            public float Roads;
+
             public List<int> Tiles;
         }
 
@@ -644,38 +690,68 @@ namespace Arna.Gen
         ///
         /// Counted with a tile of slack, because a route runs corner to corner and a
         /// trap beside the line still catches the column's flank.
+        ///
+        /// <b>But beside is not on, and counting them the same is what put three quarters
+        /// of every level's traps out of reach.</b> The slack was added to fix exactly the
+        /// failure it then caused: a tile that is merely diagonally adjacent to a route
+        /// tile is up to 5.7 m from the line the lead wagon actually traces, and the
+        /// trigger is three. Scored identically to a tile *on* the road, such a tile won
+        /// whenever it was a shade more central or a shade boggier — and the tiebreak
+        /// looks at nothing else. Measured over chapter 1 against all three corridors at
+        /// once, 10 to 43 percent of traps came within firing distance of any of them,
+        /// and a run down one route sprang one or two of a dozen.
+        ///
+        /// So the slack stays and stops being free: a tile on a corridor counts for that
+        /// corridor in full, a tile beside one counts <see cref="Aside"/>. On the road
+        /// still beats beside it however good the ground is, which is what the rank in
+        /// <see cref="Score"/> was always meant to say.
         /// </summary>
-        static int[] Crossed(TileGrid grid, IReadOnlyList<Corridor> corridors)
+        static float[] Crossed(TileGrid grid, IReadOnlyList<Corridor> corridors)
         {
-            var crossed = new int[grid.TileCount];
+            var crossed = new float[grid.TileCount];
             if (corridors == null) return crossed;
 
-            var counted = new HashSet<int>();
+            var on = new HashSet<int>();
+            var beside = new HashSet<int>();
 
             foreach (var corridor in corridors)
             {
-                counted.Clear();
+                on.Clear();
+                beside.Clear();
 
                 foreach (int tile in corridor.Tiles)
                 {
+                    on.Add(tile);
+
                     grid.ToCoords(tile, out int x, out int y);
 
                     for (int dy = -1; dy <= 1; dy++)
                         for (int dx = -1; dx <= 1; dx++)
                         {
+                            if (dx == 0 && dy == 0) continue;
                             if (!grid.IsPassable(x + dx, y + dy)) continue;
-                            counted.Add(grid.ToIndex(x + dx, y + dy));
+                            beside.Add(grid.ToIndex(x + dx, y + dy));
                         }
                 }
 
-                // Once per corridor however many of its tiles touch this one.
-                foreach (int tile in counted) crossed[tile]++;
+                // Once per corridor however many of its tiles touch this one, and at the
+                // higher of the two weights where it is both on this corridor and beside
+                // another part of it.
+                foreach (int tile in on) crossed[tile] += 1f;
+                foreach (int tile in beside) if (!on.Contains(tile)) crossed[tile] += Aside;
             }
 
             return crossed;
         }
 
-        static List<Throat> Throats(TileGrid grid, ThreatBand band, int[] crossed)
+        /// <summary>What a tile beside a corridor is worth against one on it.</summary>
+        // A quarter, so four near-misses do not add up to one hit. The number only has to
+        // be small enough that Score's per-corridor rank can never be won by adjacency,
+        // and large enough that a tile beside all three corridors still beats one beside
+        // none.
+        public const float Aside = 0.25f;
+
+        static List<Throat> Throats(TileGrid grid, ThreatBand band, float[] crossed)
         {
             var slices = new List<int>[ThroatSlices];
             float slack = band.Fastest * ThroatSlack;
@@ -683,7 +759,27 @@ namespace Arna.Gen
             foreach (int tile in band.Tiles)
             {
                 float detour = band.FromStart[tile] + band.FromGoal[tile] - band.Fastest;
-                if (detour > slack) continue;
+
+                // Near the ideal crossing, **or** on a road somebody is actually offered.
+                //
+                // This is where the traps were being lost, and the comment on Crossed
+                // half-names it without following it through: a throat is narrow ground
+                // on the *ideal* crossing, and the three corridors only roughly follow
+                // that. ThroatSlack keeps tiles within eight percent of the fastest
+                // crossing — and the safe corridor on 1-1 takes 50 seconds against the
+                // fast one's 39, the odd one 77. Two of the three roads a player may draw
+                // lie wholly outside the filter, so their tiles were dropped here, before
+                // Score ever saw them, and no amount of ranking inside a throat could put
+                // a trap back on them.
+                //
+                // Measured over chapter 1: one to three traps per level landed on a
+                // corridor tile, and a run sprang one or two of a dozen. The rest were
+                // laid on ground no offered route passes within firing distance of.
+                //
+                // A tile a player will drive over is a throat tile by definition,
+                // whatever it costs to route through — that is the whole of what these
+                // are for.
+                if (detour > slack && crossed[tile] < 1f) continue;
 
                 int slice = (int)(band.FromStart[tile] / band.Fastest * ThroatSlices);
                 if (slice < 0) slice = 0;
@@ -707,10 +803,29 @@ namespace Arna.Gen
                 tiles.Sort((a, b) => Score(grid, band, crossed, a)
                                     .CompareTo(Score(grid, band, crossed, b)));
 
-                throats.Add(new Throat { Ways = tiles.Count, Tiles = tiles });
+                float roads = 0f;
+                foreach (int tile in tiles) if (crossed[tile] > roads) roads = crossed[tile];
+
+                throats.Add(new Throat { Ways = tiles.Count, Roads = roads, Tiles = tiles });
             }
 
-            throats.Sort((a, b) => a.Ways.CompareTo(b.Ways));
+            // Road first, narrowness second.
+            //
+            // Narrowest-first alone is what the allowance was being spent on, and it
+            // answers the wrong question. The narrowest point of the country is only
+            // worth mining if somebody drives through it, and the narrowest points are
+            // frequently a gap in a ridge that no offered corridor goes near — so the
+            // budget ran out three throats in, having closed three gaps nobody walks.
+            //
+            // Ordering by road carried spends it on the throats the offered routes
+            // actually cross, and narrowness still decides between two that carry the
+            // same: given two roads, mine the one with fewer ways round it.
+            throats.Sort((a, b) =>
+            {
+                int byRoad = b.Roads.CompareTo(a.Roads);
+                return byRoad != 0 ? byRoad : a.Ways.CompareTo(b.Ways);
+            });
+
             return throats;
         }
 
@@ -722,7 +837,7 @@ namespace Arna.Gen
         /// is one nobody routes around; a trap on perfect ambush ground that no offered
         /// route touches is scenery, which is what the whole scatter used to be.
         /// </summary>
-        static float Score(TileGrid grid, ThreatBand band, int[] crossed, int tile)
+        static float Score(TileGrid grid, ThreatBand band, float[] crossed, int tile)
         {
             float density = TerrainTable.TrapDensity(grid[tile]);
 

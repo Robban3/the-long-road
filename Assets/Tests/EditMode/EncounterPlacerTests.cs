@@ -383,6 +383,71 @@ namespace Arna.Tests
             }
         }
 
+        /// <summary>
+        /// Most of a level's traps are laid where a route actually runs.
+        ///
+        /// A trap fires when the lead wagon comes within TrapField.TriggerRadius of it,
+        /// and nothing else fires it — so a trap further off than that from every road
+        /// the player is offered is a trap that cost budget and can never go off. Trap
+        /// points come out of the same purse as enemies, so those are not free: they are
+        /// groups that were not placed.
+        ///
+        /// **This went unmeasured and was badly wrong.** The throat loop walked every
+        /// tile of a throat, laying across it — which is right for a gap it can close and
+        /// wrong for one it cannot. On a twelve-tile throat it mined the one tile the
+        /// corridors cross and then spent three or four more beside it, on ground nothing
+        /// drives over. Across chapter 1, 10 to 43 percent of traps came within firing
+        /// distance of *any* of the three corridors, and a run down one of them sprang
+        /// one or two of a dozen. Every doc in the placer describes the intended
+        /// behaviour correctly; only the arithmetic disagreed.
+        ///
+        /// Measured against all three corridors at once, because the placer is asked to
+        /// mine ground the routes share and a player draws only one of them. The bar is
+        /// half; the fix put chapter 1 between 50 and 75 percent.
+        /// </summary>
+        [Test]
+        public void MostTrapsAreLaidWhereARouteActuallyRuns()
+        {
+            int laid = 0, reachable = 0;
+
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = Level(1, level);
+
+                foreach (var trap in map.Encounters.Traps)
+                {
+                    laid++;
+
+                    var where = Vec2.FromTile(map.Grid, trap.Tile);
+                    float best = float.MaxValue;
+
+                    foreach (var corridor in map.Corridors)
+                    {
+                        if (corridor?.Tiles == null || corridor.Tiles.Count == 0) continue;
+
+                        // The line the lead wagon's axle traces, not the tile list: a
+                        // route runs corner to corner and the trigger is a distance.
+                        var caravan = new Caravan(map.Grid, corridor.Tiles);
+
+                        for (float along = 0f; along <= caravan.TotalDistance + 60f; along += 0.5f)
+                        {
+                            float distance = Vec2.Distance(caravan.PositionAt(along), where);
+                            if (distance < best) best = distance;
+                        }
+                    }
+
+                    if (best <= TrapField.TriggerRadius) reachable++;
+                }
+            }
+
+            Assert.Greater(laid, 0, "chapter 1 laid no traps at all");
+
+            Assert.Greater(reachable / (float)laid, 0.45f,
+                $"only {reachable} of {laid} traps in chapter 1 are within "
+                + $"{TrapField.TriggerRadius} m of any offered route, so the rest spent "
+                + "budget that could have been an enemy group and can never fire");
+        }
+
         [Test]
         public void PlacementIsDeterministic()
         {
