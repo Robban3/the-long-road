@@ -233,6 +233,57 @@ namespace Arna.Tests
         }
 
         /// <summary>
+        /// The detour is not simply a worse road.
+        ///
+        /// A third route that is slower and no safer is a route nobody has a reason to
+        /// draw, and IsMeaningfulChoice says so in its own second condition. The detour
+        /// was exactly that: both its legs were pathfound on pure travel time to an
+        /// anchor picked on distance alone, so it went somewhere *else* rather than
+        /// somewhere safer and inherited whatever danger lay there. Measured over chapter
+        /// 1 it ran 74 percent more exposed than the cautious road while being 1.2 to 2.0
+        /// times par.
+        ///
+        /// It now carries the cautious road's own safety cost and turns at the safest
+        /// anchor among the far ones, which brings it to within about a tenth. It does
+        /// not beat the cautious road and cannot: that road is the unconstrained minimum
+        /// of this very quantity, and nothing forced through a fixed far tile beats an
+        /// unconstrained minimiser. The bar is therefore "not much worse" rather than
+        /// "better", and 1.25 is chosen against a measured 1.09 with room for seeds this
+        /// suite does not walk.
+        ///
+        /// Chapters 1 to 3 rather than one, because a single chapter's ten seeds is what
+        /// let this ship: the detour's exposure was never measured by anything.
+        /// </summary>
+        [Test]
+        public void TheDetourIsNotSimplyAWorseRoad()
+        {
+            float safe = 0f, odd = 0f;
+            int levels = 0;
+
+            for (int chapter = 1; chapter <= 3; chapter++)
+                for (int level = 1; level <= 10; level++)
+                {
+                    var map = TerrainGenerator.Generate(Recipe(),
+                                                        DeterministicRandom.SeedFor(chapter, level));
+
+                    var cautious = map.CorridorOf(CorridorKind.Safe);
+                    var detour = map.CorridorOf(CorridorKind.Odd);
+                    if (cautious == null || detour == null) continue;
+
+                    safe += cautious.AmbushExposure;
+                    odd += detour.AmbushExposure;
+                    levels++;
+                }
+
+            Assert.Greater(levels, 0, "no level produced both a cautious road and a detour");
+
+            float ratio = odd / safe;
+            Assert.Less(ratio, 1.25f,
+                $"the detour runs {ratio:P0} of the cautious road's ambush exposure while also "
+                + "being slower, so it is not a third option — it is a worse one");
+        }
+
+        /// <summary>
         /// The quality gate from docs/content-pipeline.md §3 step 4.
         ///
         /// <b>The bar is 55 percent and it used to be 75, and that is a measurement
