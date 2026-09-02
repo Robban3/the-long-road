@@ -117,7 +117,18 @@ namespace Arna.Sim
         /// adding enemies. Past the ceiling, difficulty has to come from tougher
         /// enemy types and tighter encounter spacing instead.
         /// </summary>
-        public int EnemyBudget = 100;
+        // 120, up from 100, and the twenty is the price of the roads parting.
+        //
+        // The placer owes five groups on every route a player might draw. It used to meet
+        // that while the fast and safe corridors ran over the same tiles on half the
+        // chapter — the same enemies answered for both. Now that CorridorFinder charges
+        // the cautious search for the fast route's ground, the budget is spread over
+        // three genuinely separate lines, and at 100 the promise broke on 2-10.
+        //
+        // Measured across chapters 1 to 3: 100 keeps it on 29 of 30 levels, 120 on all
+        // thirty, and so do 140, 160 and 190. Twenty is what it costs; the rest would be
+        // a difficulty decision wearing a bug fix's clothes.
+        public int EnemyBudget = 120;
 
         public int SquadBudget = 12;
         public float TrapDensity = 1f;

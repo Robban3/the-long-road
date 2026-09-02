@@ -20,6 +20,16 @@ namespace Arna.Sim
         /// fast corridor saturates and the long way round becomes the richer one.
         /// See LevelRecipe.EnemyBudget.
         /// </summary>
+        // Left where it was, and the attempt to raise it is worth recording. Charging the
+        // cautious corridor for the fast one's tiles spreads the same budget over three
+        // separate roads instead of two-and-a-bit, so a fifth was added to both ends to
+        // pay for it — and it broke two things at once: level 6 came out at 147 against
+        // the saturation ceiling of 145 (see ChapterProgressionTests), and chapter 1 fell
+        // to 19 survivable routes of 30 where it owes 20, with 1-10 down to one way
+        // through where it owes two.
+        //
+        // The curve was already enough. What needed the twenty was LevelRecipe's plain
+        // default, which is flat and is what a test or a standalone recipe gets.
         public int EnemyBudgetStart = 100;
         public int EnemyBudgetEnd = 140;
 

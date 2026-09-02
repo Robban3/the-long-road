@@ -253,8 +253,16 @@ namespace Arna.Tests
             // Level 5 rather than 7: by the end of the chapter a single fixed escort is
             // not expected to hold every route, which is the difficulty curve working
             // rather than the escort failing.
-            var alone = Run(1, 5, null);
-            var guarded = Run(1, 5, Escort(18));
+            //
+            // And the cautious corridor rather than the fast one, for the same reason one
+            // step further in. The fast road on 1-5 is now lethal by design — the safe
+            // road parts from it properly since CorridorFinder started charging the
+            // cautious search for the fast route's tiles, and the enemy budget is no
+            // longer spread over one shared line. Both caravans died on it, escort or
+            // not, so this read zero against zero and asserted nothing. What the escort
+            // is worth has to be measured where there is something left to save.
+            var alone = Run(1, 5, null, CorridorKind.Safe);
+            var guarded = Run(1, 5, Escort(18), CorridorKind.Safe);
 
             alone.RunToCompletion();
             guarded.RunToCompletion();
@@ -387,7 +395,13 @@ namespace Arna.Tests
         public void StrongerEnemiesMakeTheSameLevelHarder()
         {
             var map = Map(1, 6);
-            var route = map.CorridorOf(CorridorKind.Fast).Tiles;
+
+            // The cautious road, not the fast one, and for the reason the comment below
+            // already gives about the budget: both sides of the comparison have to have
+            // something left to lose. The fast road became the dangerous one in earnest
+            // once the two stopped sharing tiles, so on it a doubled enemy strength and a
+            // single one both end at zero.
+            var route = map.CorridorOf(CorridorKind.Safe).Tiles;
 
             // The budget 1-6 actually hands out, rather than the default twelve.
             //

@@ -98,30 +98,20 @@ namespace Arna.Sim
             // 2. Cautious: ambush-prone terrain costs extra, so the search prefers
             //    open ground and roads it can see along.
             //
-            //    **It does not yet avoid the fast route, and it should.** Measured over
-            //    chapter 1, the fast and cautious corridors come out at 97, 100 and 100
-            //    percent of the same tiles on three levels of ten: the map offers a
-            //    straight line, a second straight line drawn on top of it, and a detour,
-            //    where the game promises three ways through. Charging the cautious search
-            //    for the fast route's tiles (and half as much for the tiles beside them,
-            //    or it simply runs alongside) fixes it outright — every pair on every
-            //    level then comes in under a quarter, most under a tenth. The helper and
-            //    both constants below are that change, wanting one call.
+            //    **It avoids the fast route, and that is not free.** Without the
+            //    surcharge the cautious route is the fast one whenever the fast one is
+            //    already safe, which is not rare: measured across chapter 1 the two came
+            //    out at 97 to 100 percent of the same tiles on three levels of ten, and
+            //    at 64 to 86 on three more. On those the map offered a straight line, a
+            //    second straight line drawn on top of it, and a detour — one real choice
+            //    where the game promises three.
             //
-            //    What holds it back is the balance behind it. Three real routes mean the
-            //    encounter placer spreads the same enemy budget across three times the
-            //    ground, and on the seed for 1-5 that leaves one survivable way through
-            //    where the chapter shape owes two. The generator can now measure that and
-            //    re-roll (TerrainGenerator.SurvivableDanger), and on that seed it cannot
-            //    find a map it likes. Turning this on wants a balance pass with it, not
-            //    a line on its own.
-            //
-            //    Without the second surcharge the cautious route is the fast one
-            //    whenever the fast one is already safe, which is not rare: measured
-            //    across chapter 1, three levels of ten had them at 97 to 100 percent
-            //    of the same tiles. On those levels the map offered a straight line, a
-            //    second straight line drawn on top of it, and a detour — one real
-            //    choice where the game promises three.
+            //    It was written, tuned and left uncalled, because turning it on means the
+            //    encounter placer spreads the same budget over three times the ground and
+            //    on 1-5 that left one survivable way through where the chapter owes two.
+            //    That is a balance pass, not a line — so it was made as part of one, with
+            //    SurvivableDanger measuring the consequence and the generator re-rolling
+            //    on it.
             //
             //    Adjacent tiles carry half the charge. Without that the cautious route
             //    steps one tile aside and runs alongside the fast one, which satisfies
@@ -133,6 +123,9 @@ namespace Arna.Sim
                 safetyCost[i] = ambush > NeutralAmbush ? (ambush - NeutralAmbush) * SafetyWeight : 0f;
             }
 
+            // The call the comment above has been describing. Made now, because what held
+            // it back was a balance pass and this is inside one.
+            Surcharge(grid, result[0].Tiles, safetyCost, TakenSurcharge, NeighbourSurcharge);
 
             if (pathfinder.TryFindPath(startX, startY, goalX, goalY, buffer, out _, safetyCost))
             {
@@ -261,12 +254,33 @@ namespace Arna.Sim
         {
             if (corridors == null || corridors.Count < 3) return false;
 
-            bool anyDistinctPair = false;
-            for (int a = 0; a < corridors.Count && !anyDistinctPair; a++)
-                for (int b = a + 1; b < corridors.Count; b++)
-                    if (Overlap(corridors[a], corridors[b]) <= maxOverlap) { anyDistinctPair = true; break; }
+            // The fast road and the safe road, specifically — not "some pair".
+            //
+            // **Any-pair was passed by the odd corridor on its own.** The odd one is
+            // forced away from the other two and overlaps them by 1 to 34 percent, so the
+            // test was satisfied before the fast and safe roads were ever compared — and
+            // measured over chapter 1 they came out *identical* on levels 4, 5 and 10 and
+            // 77 to 86 percent the same on 3 and 6. The level shipped as a meaningful
+            // choice while the choice the game is about did not exist on half of it.
+            //
+            // The spreads below have the same hole and it is the same corridor filling
+            // it: slowest-minus-fastest and rashest-minus-safest are both satisfied by
+            // the odd route being slow and exposed, whatever the other two are doing. So
+            // they are measured between fast and safe as well.
+            var fast = Of(corridors, CorridorKind.Fast);
+            var safe = Of(corridors, CorridorKind.Safe);
 
-            if (!anyDistinctPair) return false;
+            if (fast == null || safe == null) return false;
+            if (Overlap(fast, safe) > maxOverlap) return false;
+
+            if (fast.TravelCost <= 0f || safe.AmbushExposure <= 0f) return false;
+
+            // The safe way must cost time and the fast way must cost blood. Either one
+            // alone is a road that is simply better, and a choice with a right answer is
+            // not one.
+            if ((safe.TravelCost - fast.TravelCost) / fast.TravelCost < minTimeSpread) return false;
+            if ((fast.AmbushExposure - safe.AmbushExposure) / safe.AmbushExposure < minDangerSpread)
+                return false;
 
             float fastest = float.MaxValue, slowest = 0f;
             float safest = float.MaxValue, rashest = 0f;
@@ -284,6 +298,12 @@ namespace Arna.Sim
             float dangerSpread = (rashest - safest) / safest;
 
             return timeSpread >= minTimeSpread && dangerSpread >= minDangerSpread;
+        }
+
+        static Corridor Of(IReadOnlyList<Corridor> corridors, CorridorKind kind)
+        {
+            foreach (var corridor in corridors) if (corridor.Kind == kind) return corridor;
+            return null;
         }
 
         /// <summary>Jaccard overlap of two routes' tiles, 0 (disjoint) to 1 (identical).</summary>

@@ -17,7 +17,23 @@ namespace Arna.Sim
         // Indexed by (int)TerrainType.
         static readonly float[] _speed = { 1.25f, 1.00f, 0.70f, 0.45f, 0.50f, 0.60f, 0f, 0f };
         static readonly float[] _sight = { 1.00f, 1.30f, 0.55f, 0.75f, 1.10f, 0.90f, 0f, 0f };
-        static readonly float[] _ambush = { 1.2f, 0.8f, 1.5f, 1.0f, 1.3f, 0.9f, 0f, 0f };
+        // Ambush: road, plains, forest, marsh, ford, pass.
+        //
+        // Widened from { 1.2, 0.8, 1.5, 1.0, 1.3, 0.9 }, where the safest ground and the
+        // most dangerous were under a factor of two apart. A route is a mix of terrain,
+        // so its *mean* exposure is pulled toward the middle — and two routes across the
+        // same country then differ by a couple of percent whatever ground they take. That
+        // is what made "the safe way round" undeliverable: CorridorFinder can push a
+        // route off the fast line, and did, but different ground was not safer ground, so
+        // the safe corridor came out more exposed than the fast one on 11 of 17 failing
+        // seeds.
+        //
+        // The spread is the mechanic. An ambush needs cover to wait in, so a bare plain
+        // should be close to safe and deep forest close to certain; a road is exposed for
+        // a different reason — it is where a caravan is expected to be — and a ford is
+        // worse still because the column is pinned while it crosses. Plains to forest is
+        // now 4.9x where it was 1.9x.
+        static readonly float[] _ambush = { 1.1f, 0.45f, 2.2f, 1.0f, 1.4f, 0.7f, 0f, 0f };
         static readonly float[] _trap = { 0.6f, 0.5f, 1.0f, 2.5f, 0.8f, 1.4f, 0f, 0f };
         static readonly bool[] _passable = { true, true, true, true, true, true, false, false };
 

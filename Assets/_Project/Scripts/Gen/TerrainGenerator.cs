@@ -187,15 +187,44 @@ namespace Arna.Gen
             return spread > bestSpread;
         }
 
+        /// <summary>
+        /// How much of a choice a rejected candidate still offers, for ranking one
+        /// against another. Higher is better.
+        ///
+        /// <b>Between the fast road and the safe road, and nothing else.</b> This used to
+        /// be slowest-minus-fastest over all three corridors, which the odd route decides
+        /// on its own: it is forced away from the other two and is therefore always the
+        /// slowest, so the tiebreak was measuring how slow the detour came out while
+        /// saying it measured how much the roads differ. A candidate whose fast and safe
+        /// routes were the *same road* outranked one where they genuinely parted, as long
+        /// as its odd route was slower.
+        ///
+        /// That is why letting the generator try harder did not help. Measured over
+        /// chapter 1, raising the attempt ceiling from 12 to 24 to 48 to 96 moved the
+        /// fast-safe overlap around at random — level 10 went 100, 23, 100, 100 percent —
+        /// because more attempts only meant a different arbitrary candidate won a ranking
+        /// that was indifferent to the thing being ranked.
+        ///
+        /// Two terms, added rather than ranked, because either one alone is satisfiable
+        /// by a road that is simply worse: a parallel line that costs nothing is not a
+        /// safer road, and a slower line along the same ground is not a different one.
+        /// </summary>
         static float SpreadOf(IReadOnlyList<Corridor> corridors)
         {
-            float fastest = float.MaxValue, slowest = 0f;
-            foreach (var c in corridors)
+            Corridor fast = null, safe = null;
+
+            foreach (var corridor in corridors)
             {
-                if (c.TravelCost < fastest) fastest = c.TravelCost;
-                if (c.TravelCost > slowest) slowest = c.TravelCost;
+                if (corridor.Kind == CorridorKind.Fast) fast = corridor;
+                else if (corridor.Kind == CorridorKind.Safe) safe = corridor;
             }
-            return fastest > 0f ? (slowest - fastest) / fastest : 0f;
+
+            if (fast == null || safe == null || fast.TravelCost <= 0f) return 0f;
+
+            float apart = 1f - CorridorFinder.Overlap(fast, safe);
+            float slower = (safe.TravelCost - fast.TravelCost) / fast.TravelCost;
+
+            return apart + (slower > 0f ? slower : 0f);
         }
 
         /// <summary>
