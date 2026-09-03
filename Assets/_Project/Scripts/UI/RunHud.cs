@@ -34,6 +34,8 @@ namespace Arna.UI
 
         Canvas _canvas;
         RectTransform _screen;
+        RectTransform _compass;
+        Camera _camera;
         Text _wagons, _kills, _silver, _progress;
         Image _bar;
         GameObject _sheet;
@@ -47,7 +49,67 @@ namespace Arna.UI
             _screen.Fill();
 
             TopBar();
+            Compass();
             Footer();
+        }
+
+        /// <summary>
+        /// The rose, under the pause chip, and <b>this one turns.</b>
+        ///
+        /// On the planning map a compass is an ornament: that camera is Euler(90,0,0) and
+        /// never moves, so north is up and stays up. Here it is an instrument. The camera
+        /// swings round to sit behind the caravan as the road bends
+        /// (<c>LevelRunner.AimCamera</c>) and the player can drag it anywhere they like on
+        /// top of that (<c>CameraOrbit</c>), so which way the country is facing is a thing
+        /// you genuinely lose track of — and the map you planned on had north up.
+        ///
+        /// Under the top bar rather than in it, matching where the plan screen puts its
+        /// own, so the two screens keep the rose in the same place.
+        /// </summary>
+        void Compass()
+        {
+            const float size = 84f;
+
+            var rose = Widgets.Panel("Compass", _screen, Theme.CompassIcon, Theme.Muted);
+            var rect = rose.rectTransform;
+
+            // Pivoted at its middle rather than by Widgets.Place, which pins pivot to the
+            // anchor — and a rose pivoted at its top-right corner does not spin, it swings
+            // off the screen. So the anchor stays top-right and the offset is to the
+            // centre: half a rose in from the margin, and clear of the 84-tall top band
+            // that starts one margin down.
+            rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(size, size);
+            rect.anchoredPosition = new Vector2(-Widgets.Margin - size * 0.5f,
+                                                -Widgets.Margin - 84f - 20f - size * 0.5f);
+
+            rose.raycastTarget = false;
+            _compass = rect;
+        }
+
+        /// <summary>
+        /// Turns the rose so its north arrow points where north actually is on screen.
+        ///
+        /// Read off the camera rather than off CameraOrbit, because the yaw has two
+        /// sources — the heading the runner aims from and whatever the player has dragged
+        /// — and the camera is where they have already been added together.
+        ///
+        /// The z-rotation is the camera's yaw, not its negative. A yaw of 90 degrees has
+        /// the camera looking east, which puts east at the top of the screen and north to
+        /// the left; a UI element rotated +90 about z turns anticlockwise, which is exactly
+        /// where the arrow needs to go. Worth one glance in play mode all the same: a
+        /// compass pointing the wrong way is worse than none, and a sign is a cheap thing
+        /// to get backwards.
+        /// </summary>
+        void AimCompass()
+        {
+            if (_compass == null) return;
+
+            if (_camera == null) _camera = Camera.main;
+            if (_camera == null) return;
+
+            _compass.localRotation = Quaternion.Euler(0f, 0f, _camera.transform.eulerAngles.y);
         }
 
         void OnDestroy()
@@ -58,6 +120,10 @@ namespace Arna.UI
 
         void Update()
         {
+            // Before the guard: the camera swings whether or not there is a run to read,
+            // and a rose frozen at north on a turned camera is a lie rather than a gap.
+            AimCompass();
+
             if (Run == null) return;
 
             Refresh();
