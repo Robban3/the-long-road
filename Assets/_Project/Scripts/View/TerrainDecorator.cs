@@ -434,6 +434,25 @@ namespace Arna.View
         public const float FordDeck = 5f;
         public const float FordSpan = 12f;
 
+        /// <summary>
+        /// The most a bridge may stand above the bank, in metres.
+        ///
+        /// Three. A wagon is 3.2 m to the top of its tilt, so this puts the crossing at
+        /// about shoulder height on the load it carries — clear of the water and no more.
+        ///
+        /// It exists because the packs' stone bridges are tall things. Fitted only to a
+        /// width and a span, a canal bridge came out four or five metres from bank to
+        /// roadway: a monument straddling a four-metre brook, with the caravan driving
+        /// along the top of it and nothing at either end to have got up there by. The
+        /// screenshots of that are what this number is answering.
+        ///
+        /// Guessed from the wagon rather than measured on a render, like every other size
+        /// here that could not be checked without opening the editor. If the deck still
+        /// stands proud of the country, lower it; if the bridges read as squashed, raise
+        /// it — the footprint will not move either way, only the height.
+        /// </summary>
+        public const float FordRise = 3f;
+
         /// <summary>How tall a cliff face stands.</summary>
         // Five metres, down from twelve. A cliff tile is impassable ground on a flat map
         // rather than the lip of a drop, so whatever stands on it stands in the open and
@@ -1191,7 +1210,7 @@ namespace Arna.View
             // twelve-metre bridge over a five-tile ford is a jetty from each side.
             float span = Mathf.Max(FordSpan, (FordWidth(grid, tile, across) + 1) * TileGrid.TileSize);
 
-            ModelScaling.FitToCrossing(instance, FordDeck, span, groundY);
+            ModelScaling.FitToCrossing(instance, FordDeck, span, groundY, FordRise);
 
             // Measured rather than described. Nothing here knows where the roadway is
             // inside a bridge model, so the bridge is asked at runtime — see BridgeDeck.
