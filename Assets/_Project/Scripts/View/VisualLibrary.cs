@@ -194,6 +194,23 @@ namespace Arna.View
         public Material EnemyFaction;
 
         /// <summary>
+        /// The faction material the *escort* is repainted with.
+        ///
+        /// <b>Both sides have to be set, and only one of them was.</b> The bandits were
+        /// repainted red and the player's troops were left in whatever the pack's prefabs
+        /// happened to ship as — which is a colour nobody here chose and which can perfectly
+        /// well be the same red. Two sides in the same livery is the exact failure the
+        /// repaint exists to prevent, and leaving one of them to chance is how it happened.
+        ///
+        /// The pack carries six of these — black, blue, brown, green, red and yellow — so
+        /// there is no reason for either side to take what it is given.
+        ///
+        /// Left null, the escort keeps its shipped materials, which is what a project
+        /// without the pack wants: nothing to repaint and nothing to go wrong.
+        /// </summary>
+        public Material PlayerFaction;
+
+        /// <summary>
         /// What a faction material is called, so one can be recognised in a slot.
         ///
         /// `Unviersal` is the pack's own spelling. Correcting it here would mean matching

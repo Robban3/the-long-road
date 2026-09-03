@@ -145,7 +145,7 @@ namespace Arna.Editor
         /// </summary>
         static VisualLibrary LoadModels()
         {
-            return new VisualLibrary
+            var library = new VisualLibrary
             {
                 // One model per troop kind, chosen for what survives at 47 m up: body
                 // shape, helmet outline, and what is held. See VisualLibrary.Spearmen.
@@ -209,6 +209,17 @@ namespace Arna.Editor
                 // which is how the pack spells it.
                 EnemyFaction = AssetDatabase.LoadAssetAtPath<Material>(
                     "Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColorsRed.mat"),
+
+                // And blue for the escort, which was the half nobody set.
+                //
+                // The bandits were being repainted red while the player's troops kept
+                // whatever the pack's prefabs shipped as — a colour chosen by the artist
+                // and not by this game, and perfectly capable of being that same red. Two
+                // armies in one livery, with the rank difference doing all the work on its
+                // own. The pack carries six of these, so neither side has to take what it
+                // is given.
+                PlayerFaction = AssetDatabase.LoadAssetAtPath<Material>(
+                    "Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColorsBlue.mat"),
 
                 // The old three are **not loaded**, and the empty fields are the point.
                 //
@@ -334,6 +345,41 @@ namespace Arna.Editor
                 // looking for it there.
                 Arrow = One($"{SyntyNatureDir}/Props/SM_Prop_Arrow_01.prefab")
             };
+
+            ReportFactions(library);
+            return library;
+        }
+
+        /// <summary>
+        /// Says out loud when a side's colours did not load.
+        ///
+        /// <b>A silent null here is how two armies ended up in one livery.</b>
+        /// LoadAssetAtPath returns null for the smallest slip in a path and says nothing,
+        /// and this particular path carries `Unviersal` — the pack's own misspelling,
+        /// which anybody tidying it would "fix" into something that matches no file. What
+        /// follows is not an error but an absence: Repaint finds nothing to swap, the
+        /// figures keep the materials they shipped with, and the sides look however the
+        /// artist left them.
+        ///
+        /// That is exactly what happened, and it went unnoticed because only the enemy
+        /// was ever repainted — so the escort's colour was never anybody's decision and
+        /// nothing was watching it. Named per side, because "a faction material is
+        /// missing" and "the escort has no colours" are a different search.
+        /// </summary>
+        static void ReportFactions(VisualLibrary library)
+        {
+            if (!AssetDatabase.IsValidFolder(AnimatorBuilder.ArmyPack)) return;
+
+            if (library.EnemyFaction == null)
+                Debug.LogWarning("[Arna] No faction material for the enemy — the bandits fall "
+                                 + $"back to a colour tint over whatever {AnimatorBuilder.ArmyPack} ships. "
+                                 + "See VisualLibrary.EnemyFaction for the path it wanted.");
+
+            if (library.PlayerFaction == null)
+                Debug.LogWarning("[Arna] No faction material for the escort — your troops keep "
+                                 + "the colours the pack's prefabs came in, which may be the "
+                                 + "same ones the bandits are painted. See "
+                                 + "VisualLibrary.PlayerFaction for the path it wanted.");
         }
 
         /// <summary>Pairs a model with the controller generated for it, matched by filename.</summary>

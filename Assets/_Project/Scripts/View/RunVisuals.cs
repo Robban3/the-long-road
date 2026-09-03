@@ -213,11 +213,21 @@ namespace Arna.View
 
                 int models = TroopTable.Models(group.Kind);
                 var figures = new List<Transform>(models);
+                var kit = Library.For(group.Kind);
 
                 for (int i = 0; i < models; i++)
-                    figures.Add(SpawnActor(Library.For(group.Kind), PrimitiveType.Capsule,
+                {
+                    var figure = SpawnActor(kit, PrimitiveType.Capsule,
                         $"Troop_{group.Slot}_{group.Kind}_{i}", TroopColor,
-                        VisualLibrary.HeightOf(group.Kind)));
+                        VisualLibrary.HeightOf(group.Kind));
+
+                    // Once, at spawn, as the enemies are. Both sides are dressed
+                    // deliberately now — see OwnColours for why leaving one of them in
+                    // the pack's own livery is what put two armies in the same colour.
+                    if (kit.HasModel) OwnColours(figure);
+
+                    figures.Add(figure);
+                }
 
                 _troops[group] = figures;
                 _reload[group] = 0f;
@@ -1142,6 +1152,27 @@ namespace Arna.View
                 block.SetColor(BaseColor, VisualLibrary.EnemyTint);
                 renderer.SetPropertyBlock(block);
             }
+        }
+
+        /// <summary>
+        /// Puts the escort in its own colours.
+        ///
+        /// <b>Nothing used to.</b> The bandits were repainted and the player's troops were
+        /// left in whatever the pack's prefabs shipped as — so the escort's colour was
+        /// never chosen by anybody, and if the pack happened to ship the same red the
+        /// bandits were being painted, the two sides came out identical. Which is what
+        /// happened.
+        ///
+        /// No tint fallback here, unlike the enemy's. A missing enemy material means the
+        /// two sides look alike, which is worth a rough approximation to avoid; a missing
+        /// player material means the escort keeps the livery it came in, which is exactly
+        /// right for a project that does not have the pack.
+        /// </summary>
+        void OwnColours(Transform figure)
+        {
+            if (Library.PlayerFaction == null) return;
+
+            Repaint(figure, Library.PlayerFaction);
         }
 
         /// <summary>
