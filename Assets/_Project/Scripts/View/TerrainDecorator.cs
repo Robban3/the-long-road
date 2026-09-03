@@ -1848,6 +1848,24 @@ namespace Arna.View
 
             float size = choice.Size * rng.Range(low, high);
 
+            // A signal is a landmark, so it is sized like one.
+            //
+            // <b>The camp is the only thing that comes through here with signal set, and
+            // it was the only landmark missing both of these.</b> Houses, ruins, towers
+            // and the keep are placed by Place, which applies the run's landmark scale and
+            // the plan's floor; the camp is scattered instead — it is pitched with a
+            // jitter and seated on a slope like a tree — and so it kept its bare 2.6 m
+            // while the house beside it was drawn at 9.6. A tent shorter than the wagon
+            // parked next to it reads as a toy, and on the plan map it stayed under the
+            // floor that exists to make exactly this kind of small landmark legible: the
+            // floor's own note lists "a camp at 2.6" among the sizes it lifts, and it has
+            // never reached one.
+            //
+            // Guarded on `signal` rather than applied to the scatter, because the scatter
+            // is also every tree, rock and bush on the map. Those are scenery and are
+            // sized against the world; a landmark is sized against being *read*.
+            if (signal) size = Mathf.Max(size * _landmarkScale, _landmarkFloor);
+
             // Anything fitted by height gets a width it never asked for, and a model
             // authored low and broad gets a great deal of it: this is how five kinds of
             // grass became fifteen hundred five-metre discs. A tree may be wider than it

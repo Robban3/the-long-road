@@ -204,11 +204,17 @@ namespace Arna.Editor
                 // four-legged clip source turns up the model can go back.
                 Draught = Actor("Assets/Quaternius/Animals/Horse.fbx"),
 
-                // Red for the bandits. The pack's own faction material rather than a
+                // Black for the bandits. The pack's own faction material rather than a
                 // tint over it — see VisualLibrary.EnemyFaction — and note `Unviersal`,
                 // which is how the pack spells it.
+                //
+                // Black against the escort's blue rather than red against blue: red reads
+                // as a *side* and black reads as outlaws, which is what these are. It also
+                // holds up better where it has to, since the two are told apart at 47 m
+                // over grass and against forest shadow — a dark silhouette stays dark
+                // there, while two saturated hues both go grey.
                 EnemyFaction = AssetDatabase.LoadAssetAtPath<Material>(
-                    "Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColorsRed.mat"),
+                    "Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColorsBlack.mat"),
 
                 // And blue for the escort, which was the half nobody set.
                 //
