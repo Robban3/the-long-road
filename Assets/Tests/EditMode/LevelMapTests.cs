@@ -156,6 +156,55 @@ namespace Arna.Tests
                 $"a level that was fought through was called a stall at tile {run.StalledOn}");
         }
 
+        /// <summary>
+        /// Bringing the caravan home over the bodies of the escort is not a three-star run.
+        ///
+        /// <b>It was, and nothing measured it.</b> The star rule read the wagons and the
+        /// clock and never the men, and the wagons are exactly what an escort keeps
+        /// unscratched: enemies close on the troops and reach a cart only when no troop is
+        /// left within reach, and trap damage lands on the troop on point before a wagon.
+        /// So a crossing that lost every soldier arrived with full wagons inside par and
+        /// scored the same as one that lost nobody. Measured over the ten levels, three
+        /// arrived runs came home with the escort at zero percent.
+        ///
+        /// Built on empty ground rather than a real level, so the only thing that changes
+        /// between the two readings is the escort: same run, same wagons, same clock, the
+        /// stars read once before the squad is cut down and once after.
+        /// </summary>
+        [Test]
+        public void ArrivingOverTheBodiesOfTheEscortIsNotWorthThreeStars()
+        {
+            var grid = new TileGrid(40, 12, TerrainType.Plains);
+            var route = new List<int>();
+            for (int x = 0; x < 30; x++) route.Add(grid.ToIndex(x, 6));
+
+            // Par from the route's own cost, so the clock is satisfied and cannot be what
+            // moves the answer.
+            var map = new LevelMap(grid, 1, 0, 6, 29, 6, route.Count, new List<Corridor>(), true, 1);
+
+            var squad = new Squad(18);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.LeftRear, TroopKind.Priest);
+
+            var run = new LevelRun(map, route, squad);
+            Assert.AreEqual(RunOutcome.Arrived, run.RunToCompletion(),
+                "the empty crossing did not even finish");
+
+            Assert.AreEqual(3, run.Stars,
+                "an untouched crossing with a whole escort is not three stars");
+            Assert.AreEqual(1f, run.EscortStanding, 0.001f, "nothing should have been lost");
+
+            // Now cut the escort down past the bar and ask again. Nothing else moved.
+            foreach (var group in squad.Slots)
+                if (group != null) group.TakeDamage(99999f);
+
+            Assert.AreEqual(0f, run.EscortStanding, 0.001f, "the escort was not actually wiped");
+            Assert.AreEqual(2, run.Stars,
+                "the caravan came home over the bodies of its whole escort and still scored three");
+        }
+
         [Test]
         public void ARouteThatJumpsIsRefused()
         {

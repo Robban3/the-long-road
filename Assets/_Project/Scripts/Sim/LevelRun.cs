@@ -413,9 +413,62 @@ namespace Arna.Sim
 
                 if (surviving == 0) return 0;
                 if (surviving < Caravan.Wagons.Count) return 1;
-                return allHealthy && TravelSeconds <= ParSeconds ? 3 : 2;
+
+                return allHealthy
+                       && TravelSeconds <= ParSeconds
+                       && EscortStanding >= EscortForAStar ? 3 : 2;
             }
         }
+
+        /// <summary>
+        /// The share of the escort still on its feet, counted in men rather than in posts.
+        ///
+        /// Men, because a post is not a unit of loss: archers field three models and a
+        /// mage one, so counting posts makes losing the mage worth as much as losing a
+        /// whole rank of bows. One returns for a caravan that travelled alone, which is a
+        /// crossing that cost no lives by the only reading that makes sense.
+        /// </summary>
+        public float EscortStanding
+        {
+            get
+            {
+                if (Squad == null) return 1f;
+
+                int mustered = 0, standing = 0;
+
+                foreach (var group in Squad.Slots)
+                {
+                    if (group == null) continue;
+
+                    mustered += TroopTable.Models(group.Kind);
+                    standing += group.ModelsAlive;
+                }
+
+                return mustered == 0 ? 1f : standing / (float)mustered;
+            }
+        }
+
+        /// <summary>
+        /// How much of the escort has to come home for the third star.
+        ///
+        /// <b>Because losing it used to cost nothing at all.</b> The star rule read the
+        /// wagons and the clock and never the men — so a crossing that arrived with the
+        /// whole escort dead scored the same three stars as one that arrived without a
+        /// scratch. And the wagons genuinely were unscratched: enemies close on the
+        /// escort and only reach a wagon when no troop is left within reach
+        /// (CombatSystem.MoveAndStrike), and trap damage lands on the troop on point
+        /// before it lands on a cart. The escort is a shield that absorbs everything, so
+        /// "I lost nearly every troop and still got three stars" was the system working
+        /// exactly as written.
+        ///
+        /// Troops are bought per level out of that level's budget, so the loss did not
+        /// even cost gold: a wiped escort came back in full next level. Nothing anywhere
+        /// asked the player to keep their men alive.
+        ///
+        /// The number is measured rather than chosen — see the sweep in the commit that
+        /// added it.
+        /// </summary>
+        public const float EscortForAStar = 0.5f;
 
         /// <summary>Gold earned, loot scaled by the treasure wagon's condition.</summary>
         public int GoldEarned(int baseReward = 40, int perWagon = 15, int treasureValue = 60)
