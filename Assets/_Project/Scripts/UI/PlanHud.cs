@@ -97,6 +97,31 @@ namespace Arna.UI
             gold.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(1f, 1f), new Vector2(-Widgets.Margin, -Widgets.Margin),
                        new Vector2(230f, 76f));
+
+            Compass();
+        }
+
+        /// <summary>
+        /// The rose, top right, under the purse.
+        ///
+        /// A corner was asked for and both are already spoken for — the chevron back to
+        /// the roadmap holds the left, the gold the right — so it sits below the gold
+        /// rather than beside it. Under something you read beats under something you
+        /// press: nothing here is tappable, and a rose crowding the back button would be
+        /// a thumb landing on the wrong one.
+        ///
+        /// Muted rather than parchment-bright. It is furniture on top of a map the player
+        /// is reading, and the one thing on this screen that must never compete with the
+        /// drawn line.
+        /// </summary>
+        void Compass()
+        {
+            var rose = Widgets.Panel("Compass", _screen, Theme.CompassIcon, Theme.Muted);
+            rose.rectTransform.Place(new Vector2(1f, 1f),
+                new Vector2(-Widgets.Margin - 26f, -Widgets.Margin - 96f),
+                new Vector2(84f, 84f));
+
+            rose.raycastTarget = false;
         }
 
         /// <summary>The road's own numbers, down the right-hand side.</summary>

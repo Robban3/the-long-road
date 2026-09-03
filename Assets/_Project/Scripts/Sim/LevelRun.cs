@@ -233,6 +233,69 @@ namespace Arna.Sim
 
             if (Caravan.Destroyed) Outcome = RunOutcome.CaravanLost;
             else if (Caravan.HasArrived) Outcome = RunOutcome.Arrived;
+            else WatchForAStall();
+        }
+
+        /// <summary>
+        /// How long the column may fail to move, outside a fight, before the run is called
+        /// off. Seconds.
+        ///
+        /// Five. Long enough that nothing legitimate trips it — the slowest ground in the
+        /// game is marsh at 0.45, which still covers three and a half metres a second —
+        /// and short enough that a stuck run ends while the player is still watching.
+        /// </summary>
+        public const float StallSeconds = 5f;
+
+        /// <summary>
+        /// The tile the caravan was standing on when it stopped being able to move, or -1.
+        ///
+        /// Kept so the app can say *why*. "The run ended" and "the run ended because the
+        /// caravan was standing in water at tile 2371" are an evening apart.
+        /// </summary>
+        public int StalledOn { get; private set; } = -1;
+
+        float _stalled;
+        float _wasAt = float.NegativeInfinity;
+
+        /// <summary>
+        /// Ends a run the caravan cannot finish.
+        ///
+        /// <b>Zero speed is an absorbing state and nothing used to notice.</b>
+        /// <c>Caravan.CurrentSpeed</c> multiplies by <c>TerrainTable.Speed</c> of the tile
+        /// under the column, and water's is zero — so a caravan that reached a water tile
+        /// added zero to its distance, which left it on the same tile, which is still
+        /// water. The run then neither arrived nor was destroyed, so it never ended: the
+        /// progress bar stopped and the game sat there. The only timeout in the class is
+        /// the one <see cref="RunToCompletion"/> passes, and that is used by tests and the
+        /// headless balancing, never by the game.
+        ///
+        /// The route no longer reaches water — see <see cref="RouteCheck"/> and
+        /// Arna.Gen.LevelMaps — and this exists anyway, because "the caravan cannot move"
+        /// should be an outcome rather than a hang whatever causes it next time.
+        ///
+        /// <b>Halted is the exception and it has to be.</b>
+        /// <c>CombatSystem.EngagedSpeedFactor</c> is zero on purpose: a fight stops the
+        /// column dead, for minutes if the fight lasts. Excluding it leaves this detector
+        /// aimed at exactly one thing — ground the caravan cannot cross.
+        /// </summary>
+        void WatchForAStall()
+        {
+            if (Combat != null && Combat.Halted) { _stalled = 0f; return; }
+
+            float now = Caravan.DistanceTravelled;
+
+            if (now > _wasAt + 0.001f)
+            {
+                _wasAt = now;
+                _stalled = 0f;
+                return;
+            }
+
+            _stalled += StepSeconds;
+            if (_stalled < StallSeconds) return;
+
+            StalledOn = Caravan.CurrentTile;
+            Outcome = RunOutcome.CaravanLost;
         }
 
         /// <summary>Runs to completion. Used by tests and by headless balancing.</summary>

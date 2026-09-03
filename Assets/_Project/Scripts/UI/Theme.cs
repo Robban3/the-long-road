@@ -50,7 +50,7 @@ namespace Arna.UI
 
         static Font _font;
         static Sprite _frame, _frameSoft, _round, _slab, _star, _lock, _flat, _banner;
-        static Sprite _coin, _gem, _heart, _skull, _chevron, _gear;
+        static Sprite _coin, _gem, _heart, _skull, _chevron, _gear, _compass;
         static Sprite _ground, _conifer, _broadleaf, _shrub, _boulder, _vignette;
 
         /// <summary>
@@ -128,6 +128,10 @@ namespace Arna.UI
         public static Sprite SkullIcon => _skull != null ? _skull : _skull = Pixels.Skull("ArnaSkull");
         public static Sprite Chevron => _chevron != null ? _chevron : _chevron = Pixels.Chevron("ArnaChevron");
         public static Sprite Gear => _gear != null ? _gear : _gear = Pixels.Gear("ArnaGear");
+
+        /// <summary>The rose on the planning map. North is up and stays up — see Pixels.Compass.</summary>
+        public static Sprite CompassIcon
+            => _compass != null ? _compass : _compass = Pixels.Compass("ArnaCompass");
 
         /// <summary>The fill a button of this role is painted with.</summary>
         public static Color Fill(ButtonRole role)

@@ -247,6 +247,71 @@ namespace Arna.UI
             return Make(texture, default);
         }
 
+        /// <summary>
+        /// A compass rose: a thin ring, four points, and the north one filled solid.
+        ///
+        /// <b>It cannot turn, and that is honest rather than lazy.</b> The planning
+        /// camera is <c>Quaternion.Euler(90, 0, 0)</c> and orthographic and never moves,
+        /// so north is up on that map and always will be. A needle would be a needle
+        /// pointing at a fixed thing.
+        ///
+        /// What it is for is the reading: start is on the west edge and the goal on the
+        /// east on every level, so the rose says the journey runs left to right and the
+        /// country is oriented the way a map is. That is worth a corner.
+        ///
+        /// North solid and the other three hollow, because a rose with four identical
+        /// points is a cross and tells you nothing about which way is which.
+        /// </summary>
+        public static Sprite Compass(string name)
+        {
+            const int size = 64;
+            const float half = size * 0.5f;
+
+            var texture = Canvas(size, size, name);
+
+            Draw(texture, Ring(half, half, size * 0.46f, size * 0.40f), Color.white);
+
+            // Four points from the centre, north first. Each is a narrow triangle whose
+            // base is the width of the hub, so they meet in the middle rather than
+            // crossing — a rose, not a star.
+            for (int point = 0; point < 4; point++)
+            {
+                float angle = Mathf.PI * 0.5f - point * Mathf.PI * 0.5f;
+                float side = angle + Mathf.PI * 0.5f;
+
+                float tipX = half + Mathf.Cos(angle) * size * 0.37f;
+                float tipY = half + Mathf.Sin(angle) * size * 0.37f;
+
+                float baseX = Mathf.Cos(side) * size * 0.085f;
+                float baseY = Mathf.Sin(side) * size * 0.085f;
+
+                Draw(texture, Polygon(new[]
+                {
+                    new Vector2(tipX, tipY),
+                    new Vector2(half + baseX, half + baseY),
+                    new Vector2(half - baseX, half - baseY)
+                }), Color.white);
+
+                // Only north is solid. The rest are hollowed back out to an outline by
+                // cutting their inner half away, which leaves a thin V.
+                if (point == 0) continue;
+
+                float cutX = half + Mathf.Cos(angle) * size * 0.15f;
+                float cutY = half + Mathf.Sin(angle) * size * 0.15f;
+
+                Draw(texture, Polygon(new[]
+                {
+                    new Vector2(cutX, cutY),
+                    new Vector2(half + baseX * 0.55f, half + baseY * 0.55f),
+                    new Vector2(half - baseX * 0.55f, half - baseY * 0.55f)
+                }), new Color(0f, 0f, 0f, 0f));
+            }
+
+            Draw(texture, Disc(half, half, size * 0.055f), Color.white);
+
+            return Make(texture, default);
+        }
+
         public static Sprite Padlock(string name)
         {
             const int size = 48;

@@ -150,6 +150,9 @@ namespace Arna.App
 
         LevelRun _run;
         TileGrid _levelGrid;
+
+        /// <summary>Whether a stalled run has already been reported. Once is enough.</summary>
+        bool _reportedStall;
         RunVisuals _visuals;
         Transform _markerRoot;
         List<WildAnimal> _wildlife;
@@ -188,9 +191,10 @@ namespace Arna.App
                 Level = Session.Level;
             }
 
-            var chapter = new ChapterRecipe();
-            var recipe = chapter.ForLevel(Level);
-            var map = TerrainGenerator.Generate(recipe, DeterministicRandom.SeedFor(Chapter, Level));
+            // Both from LevelMaps, so the map here is the map the planning screen drew on.
+            // See LevelMaps for what having two of these cost.
+            var recipe = LevelMaps.Recipe(Level);
+            var map = LevelMaps.For(Chapter, Level);
 
             // The route the player drew, when there is one.
             //
@@ -202,6 +206,30 @@ namespace Arna.App
             var corridor = map.CorridorOf(Route) ?? map.Corridors[0];
 
             var route = ChosenRoute.Waits(Chapter, Level) ? ChosenRoute.Tiles : corridor.Tiles;
+
+            // Belt and braces, and it earns its place: the drawn route is a list of bare
+            // tile indices carrying no map identity, so it is only meaningful if this map
+            // is the map it was solved on. LevelMaps is what makes that true; this is what
+            // notices when it stops being true.
+            //
+            // Loud rather than quiet. A route into water used to be a run that never
+            // ended — the caravan stopped on a tile whose speed is zero and the tile under
+            // it never changed again. A wrong-looking road the player did not draw is a
+            // far better failure than that.
+            if (!RouteCheck.Walkable(map.Grid, route, out int broken))
+            {
+                string where = broken >= 0 && broken < map.Grid.TileCount
+                    ? $"tile {broken} ({map.Grid[broken]})"
+                    : $"tile {broken}";
+
+                Debug.LogError($"[Arna] The route for {Chapter}-{Level} does not fit this map at "
+                               + $"{where}, so it was not solved against it. Falling back to the "
+                               + $"{corridor.Kind} corridor. Both screens build the map through "
+                               + "Arna.Gen.LevelMaps, so this means something has gone round it.");
+
+                route = corridor.Tiles;
+                ChosenRoute.Clear();
+            }
 
             // What gold has bought between levels. Empty outside play mode, so opening
             // this scene to look at a level shows the level as balanced.
@@ -431,7 +459,21 @@ namespace Arna.App
             if (_run == null) return;
 
             if (_run.Outcome == RunOutcome.InProgress)
+            {
                 _run.Advance(Time.deltaTime * TimeScale);
+
+                // Said the moment it happens, once. A stalled run is a fault in the road
+                // the caravan was given, and the tile it stopped on is the whole of the
+                // evidence — see LevelRun.WatchForAStall.
+                if (_run.StalledOn >= 0 && !_reportedStall)
+                {
+                    _reportedStall = true;
+                    Debug.LogError($"[Arna] The caravan stopped dead on tile {_run.StalledOn} "
+                                   + $"({_levelGrid[_run.StalledOn]}) and could not go on, so the "
+                                   + "run was called off. Ground the column cannot cross should "
+                                   + "never be on its route: see RouteCheck and Arna.Gen.LevelMaps.");
+                }
+            }
 
             ReadCameraInput();
             StepWildlife(Time.deltaTime * TimeScale);
@@ -471,6 +513,8 @@ namespace Arna.App
         /// </summary>
         void Cleanup()
         {
+            _reportedStall = false;
+
             if (_markerRoot != null)
             {
                 if (Application.isPlaying) Destroy(_markerRoot.gameObject);

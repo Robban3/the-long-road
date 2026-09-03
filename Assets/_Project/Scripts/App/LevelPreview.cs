@@ -1301,7 +1301,15 @@ namespace Arna.App
         {
             _seed = DeterministicRandom.SeedFor(Chapter, Level);
 
-            var map = TerrainGenerator.Generate(new LevelRecipe(), _seed);
+            // Through LevelMaps, so this is the map the run will build too.
+            //
+            // It used to be `TerrainGenerator.Generate(new LevelRecipe(), _seed)` — the
+            // flat default recipe, where the run uses the chapter's. Same seed, different
+            // recipe, and the generator keeps the first of twelve attempts that satisfies
+            // the recipe: two recipes accepting different attempts is two unrelated
+            // landscapes. The player drew a route around a lake that only existed on this
+            // screen, and the run walked it into water on a map it had never seen.
+            var map = LevelMaps.For(Chapter, Level);
 
             _start = new Vector2Int(map.StartX, map.StartY);
             _goal = new Vector2Int(map.GoalX, map.GoalY);
