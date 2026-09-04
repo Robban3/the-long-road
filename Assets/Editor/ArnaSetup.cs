@@ -690,9 +690,16 @@ namespace Arna.Editor
                 // A crossing on the ford tiles. Every corridor tends to use the same
                 // ford — it is why the traps go there — and it has never had anything on
                 // it but water you could somehow walk through.
-                Fords = Mixed(
-                    Load($"{SyntyKnightsDir}/Environments", new[] { "SM_Env_Canal_Bridge_01" }),
-                    Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Bridge_Curved_01" })),
+                //
+                // One model, deliberately. The Knights pack's canal bridge was in here
+                // too, and a canal bridge is a deep stone vault built for a narrow
+                // straight cut: seen from the bank it is an arch with its mouth open at
+                // ground level, which reads as a tunnel however well it is placed. The
+                // Nature pack's curved bridge is a plank roadway on posts and cannot be
+                // read as anything but a bridge. Variety is worth less here than being
+                // recognisable, because there is one of these per crossing and the player
+                // is driving straight at it.
+                Fords = Synty("Props", "SM_Prop_Bridge_Curved_01"),
 
                 // Rock for the tiles the map calls cliff, which have been impassable and
                 // featureless since the generator was written.
