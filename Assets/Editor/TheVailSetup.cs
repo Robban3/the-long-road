@@ -1074,6 +1074,25 @@ namespace TheVail.Editor
         /// with the roadmap behind it. It used to start in whichever level scene happened
         /// to be listed first, which is how you get a game with no way back to anything.
         /// </summary>
+        /// <summary>
+        /// Whether the build list is already the three scenes, in order, all enabled.
+        ///
+        /// Order matters and is not cosmetic: Unity opens the first enabled scene, so the
+        /// first entry decides what the player sees when the app starts.
+        /// </summary>
+        static bool ScenesRegistered()
+        {
+            var want = new[] { MenuScenePath, ScenePath, PlayScenePath };
+            var have = EditorBuildSettings.scenes;
+
+            if (have == null || have.Length != want.Length) return false;
+
+            for (int i = 0; i < want.Length; i++)
+                if (!have[i].enabled || have[i].path != want[i]) return false;
+
+            return true;
+        }
+
         static void RegisterScenes()
         {
             EditorBuildSettings.scenes = new[]
@@ -1108,10 +1127,33 @@ namespace TheVail.Editor
                 EditorApplication.delayCall += () =>
                 {
                     if (EditorApplication.isPlayingOrWillChangePlaymode) return;
-                    if (File.Exists(MenuScenePath)) return;
 
-                    Debug.Log("[The Vail] No menu scene in the project — making one now.");
-                    BuildMenuScene();
+                    if (!File.Exists(MenuScenePath))
+                    {
+                        Debug.Log("[The Vail] No menu scene in the project — making one now.");
+                        BuildMenuScene();   // registers the scenes on its way out
+                        return;
+                    }
+
+                    // And the build list, which is a separate way to have no menu.
+                    //
+                    // <b>The scene existing is not the same as the build shipping it.</b>
+                    // RegisterScenes only ever ran from BuildMenuScene, which only ever
+                    // ran when the scene was missing — so a project whose menu scene was
+                    // made once and whose build list was then edited, reordered or
+                    // restored from an older commit keeps a wrong list for good. The one
+                    // in this repository is exactly that: two scenes, with PlayLevel
+                    // first, which builds an app that opens straight into a level and
+                    // never shows a menu at all. On a phone that is the whole game
+                    // missing its front door.
+                    //
+                    // Checked rather than written every load, so the asset is not dirtied
+                    // on every reload for nothing.
+                    if (ScenesRegistered()) return;
+
+                    Debug.Log("[The Vail] Build scene list was wrong — the app would not have "
+                            + "opened on the menu. Set to MainMenu, LevelPreview, PlayLevel.");
+                    RegisterScenes();
                 };
             }
         }
