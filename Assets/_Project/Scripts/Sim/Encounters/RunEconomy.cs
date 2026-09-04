@@ -1,4 +1,4 @@
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>
     /// The silver a player earns and spends during one level (docs/GDD.md §6).

@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVail.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVail.Tests
 {
     public class DetectionSystemTests
     {

@@ -43,7 +43,7 @@ REFDIR=$(ls -d /usr/lib/dotnet/packs/Microsoft.NETCore.App.Ref/*/ref/net* 2>/dev
 if [ -z "$REFDIR" ]; then echo "no reference assemblies under /usr/lib/dotnet/packs"; exit 2; fi
 
 # Sim and Gen, real, from the build typecheck.sh uses.
-SIM=Tools/csharp/bin/Debug/net8.0/ArnaTests.dll
+SIM=Tools/csharp/bin/Debug/net8.0/TheVailTests.dll
 [ -f "$SIM" ] || dotnet build Tools/csharp/Typecheck.csproj -v quiet --nologo >/dev/null
 
 REFS=$(for f in "$REFDIR"/*.dll; do printf ' -r:%s' "$f"; done)
@@ -57,7 +57,7 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 # Every namespace anybody imports, so that no using directive can fail. Declaring a
-# type inside System or Arna.Sim alongside the real ones is legal and harmless.
+# type inside System or TheVail.Sim alongside the real ones is legal and harmless.
 grep -h '^ *using [A-Za-z]' $SOURCES | sed 's/^ *using *//; s/;.*//' \
   | grep -v '=' | grep -v '^static ' | sort -u > "$WORK/ns"
 
@@ -100,7 +100,7 @@ fi
 # that does not exist looks exactly like a Unity name it has never heard of, and an
 # ambiguity that only arises when the real UnityEngine.Object is present cannot arise at
 # all. Three builds have been broken by that blindness in one week, and each one took
-# the whole Arna menu off the menu bar with it, because a broken assembly takes every
+# the whole TheVail menu off the menu bar with it, because a broken assembly takes every
 # assembly that references it.
 #
 # So the traps that have actually bitten are greppable rules. This is not a substitute

@@ -2,7 +2,7 @@
 
 Version 0.2 — fas 0. Alla siffror är startvärden för balansering, inte slutgiltiga.
 
-**The Long Road** är spelet. **Legacy of Arna** är världen det utspelar sig i och kan rymma fler titlar. Det här dokumentet beskriver spelet; världsmaterial som överlever enskilda titlar — biomer, folkslag, geografi, historia — hör hemma i ett separat världsdokument när det växer sig stort nog.
+**The Long Road** är spelet. **The Vail** är världen det utspelar sig i och kan rymma fler titlar. Det här dokumentet beskriver spelet; världsmaterial som överlever enskilda titlar — biomer, folkslag, geografi, historia — hör hemma i ett separat världsdokument när det växer sig stort nog.
 
 ---
 
@@ -417,7 +417,7 @@ en position per grupp är det som gör tolv grupper billiga i 20 Hz på en telef
 skadefördelningen begriplig. Inget av det kräver att gruppen *syns* som en figur — och
 att den gjorde det var ett fel med namn: en vargflock är fem vargar och skärmen visade
 en. Antalet figurer följer nu gruppens kvarvarande modeller, och `Formation` i
-`Arna.Sim` bestämmer var de står, så vy, karta och test får samma svar.
+`TheVail.Sim` bestämmer var de står, så vy, karta och test får samma svar.
 
 **Silver nollställs mellan banor.** Om det sparades skulle en spelare kunna gå in i en bana redan maxad, och då försvinner hela uppgraderingskurvan som gör varje bana till en egen berättelse. Nollställningen är det som håller bana `47-3` lika spännande som `1-3`.
 

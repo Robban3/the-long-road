@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Arna.Editor
+namespace TheVail.Editor
 {
     /// <summary>
     /// Sets the import settings on anything dropped into the backdrops folder, and
@@ -11,7 +11,7 @@ namespace Arna.Editor
     /// resolution Unity has quietly halved to 2048 — so a painting dropped in and
     /// expected to appear turns up soft, or as the wrong kind of asset, and the reason
     /// is in an inspector nobody thought to open. The loader copes with either kind
-    /// (see Arna.UI.Backdrops), and this makes it moot: a file in that folder is
+    /// (see TheVail.UI.Backdrops), and this makes it moot: a file in that folder is
     /// imported as a full-size UI sprite, without anybody having to know that is a
     /// thing that needs doing.
     ///
@@ -44,13 +44,13 @@ namespace Arna.Editor
         /// Takes the doubled extension off a painting that has just arrived.
         ///
         /// Windows Explorer hides known extensions by default. Save a file you have
-        /// called "ArnaShop.png" into a folder where ".png" is hidden and what lands on
-        /// disk is ArnaShop.png.png. Unity strips one extension, so the resource is named
-        /// "ArnaShop.png" and Resources.Load("ArnaShop") returns nothing — a screen that
+        /// called "TheVailShop.png" into a folder where ".png" is hidden and what lands on
+        /// disk is TheVailShop.png.png. Unity strips one extension, so the resource is named
+        /// "TheVailShop.png" and Resources.Load("TheVailShop") returns nothing — a screen that
         /// looks exactly the same as one with no painting at all, with nothing in the
         /// console to tell the two apart. That cost this project an afternoon across four
         /// paintings, three of which were named that way and one of which
-        /// ("ArnaBackdrop..png") was named a near miss that happened to still be found.
+        /// ("TheVailBackdrop..png") was named a near miss that happened to still be found.
         ///
         /// So the folder fixes its own filenames. Renaming and not merely coping is the
         /// point: a loose match in the editor leaves the build still broken, while a file
@@ -73,7 +73,7 @@ namespace Arna.Editor
             if (lowered != ".png" && lowered != ".jpg" && lowered != ".jpeg") return;
 
             string file = System.IO.Path.GetFileName(path);
-            string bare = Arna.UI.Backdrops.Bare(path);
+            string bare = TheVail.UI.Backdrops.Bare(path);
             string wanted = bare + extension;
 
             if (wanted == file) return;   // Already named the way it reads.
@@ -82,7 +82,7 @@ namespace Arna.Editor
 
             if (System.IO.File.Exists(target))
             {
-                Debug.LogWarning($"[Arna] '{file}' has a doubled extension and should be "
+                Debug.LogWarning($"[The Vail] '{file}' has a doubled extension and should be "
                                  + $"'{wanted}', but that file already exists. Delete "
                                  + "whichever of the two is the wrong picture.");
                 return;
@@ -92,11 +92,11 @@ namespace Arna.Editor
 
             if (!string.IsNullOrEmpty(failure))
             {
-                Debug.LogWarning($"[Arna] Could not rename '{file}' to '{wanted}': {failure}");
+                Debug.LogWarning($"[The Vail] Could not rename '{file}' to '{wanted}': {failure}");
                 return;
             }
 
-            Debug.Log($"[Arna] Renamed '{file}' to '{wanted}'. Windows hides known file "
+            Debug.Log($"[The Vail] Renamed '{file}' to '{wanted}'. Windows hides known file "
                       + "extensions, so a picture saved as \"" + bare + "\" lands on disk "
                       + $"as {file} and the game never finds it.");
         }

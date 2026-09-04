@@ -3,7 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace Arna.UI
+namespace TheVail.UI
 {
     /// <summary>
     /// The few pieces every screen in this game is built from: a canvas, a framed panel,
@@ -197,7 +197,7 @@ namespace Arna.UI
         /// site, and the reason is not tidiness. HorizontalWrapMode lives in UnityEngine
         /// and *not* in UnityEngine.UI, which is where anybody writing UI code reaches for
         /// it — a mistake that has now broken this project's build twice, and each time
-        /// took the whole Arna menu off the menu bar with it, because a broken UI assembly
+        /// took the whole TheVail menu off the menu bar with it, because a broken UI assembly
         /// takes the editor assembly that references it. It is written here once and
         /// nowhere else, so there is one place left to get it wrong.
         /// </summary>

@@ -5,12 +5,12 @@ no field to wire.
 
 | File | Where it appears |
 |---|---|
-| `ArnaBackdrop.png` | Behind the front page: the title, PLAY, and the rest |
-| `ArnaRoadmap.png`  | **The level roadmap itself** — see below |
-| `ArnaRoadmap2.png` | The same for chapter 2, and so on. Falls back to the first |
-| `ArnaShop.png`     | Behind the shop |
-| `ArnaVictory.png`  | Behind the result screen when the caravan arrived |
-| `ArnaDefeat.png`   | Behind it when the caravan was lost |
+| `TheVailBackdrop.png` | Behind the front page: the title, PLAY, and the rest |
+| `TheVailRoadmap.png`  | **The level roadmap itself** — see below |
+| `TheVailRoadmap2.png` | The same for chapter 2, and so on. Falls back to the first |
+| `TheVailShop.png`     | Behind the shop |
+| `TheVailVictory.png`  | Behind the result screen when the caravan arrived |
+| `TheVailDefeat.png`   | Behind it when the caravan was lost |
 
 Every one is optional. Without them the screens fall back to what they draw for
 themselves — a gradient sky on the front page, a scattered wood on the roadmap, a plain
@@ -22,11 +22,11 @@ full-size UI sprite. See Assets/Editor/BackdropImporter.cs.
 ## Windows hides the extension, and that broke this three times
 
 Explorer hides known file extensions by default. Save a picture you have named
-`ArnaShop.png` into a folder where `.png` is hidden and what lands on disk is
-`ArnaShop.png.png`. Unity strips only the *last* extension, so the resource is called
-`ArnaShop.png`, and the lookup for `ArnaShop` finds nothing — a screen identical to one
+`TheVailShop.png` into a folder where `.png` is hidden and what lands on disk is
+`TheVailShop.png.png`. Unity strips only the *last* extension, so the resource is called
+`TheVailShop.png`, and the lookup for `TheVailShop` finds nothing — a screen identical to one
 with no painting at all. Three of the first four paintings arrived that way; the fourth
-arrived as `ArnaBackdrop..png` and worked, which is why it looked like the code was
+arrived as `TheVailBackdrop..png` and worked, which is why it looked like the code was
 picking favourites.
 
 The folder now straightens this out itself: a file dropped here with a doubled or empty
@@ -37,14 +37,14 @@ is not showing, the filename is the first thing to look at, extensions turned on
 ## Why this folder
 
 `Resources` is normally avoided, and here it is the point. Everything else the scenes
-use is a *serialized field*, wired by `Arna → Refresh Scene Assets`, and forgetting to
+use is a *serialized field*, wired by `TheVail → Refresh Scene Assets`, and forgetting to
 run that has produced four separate false bug reports in this project: the code changed,
 the saved scene did not, and nothing said so. A file loaded by name at run time has no
 such trap. Put the file here and it is in the game.
 
 ## The roadmap is not a backdrop
 
-`ArnaRoadmap.png` is different from the others: it *is* the screen, not something
+`TheVailRoadmap.png` is different from the others: it *is* the screen, not something
 behind it. The board takes the painting's own proportions, the whole picture is shown
 rather than cropped, and the ten level medallions are pinned to points on the road in
 the painting — first at the bottom, tenth at the top, so you can see where the journey

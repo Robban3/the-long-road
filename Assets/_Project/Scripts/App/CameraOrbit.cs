@@ -1,6 +1,6 @@
 using System;
 
-namespace Arna.App
+namespace TheVail.App
 {
     /// <summary>
     /// Where the camera sits relative to the caravan: how far, how high, which side.

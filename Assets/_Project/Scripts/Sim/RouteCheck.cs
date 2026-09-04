@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>
     /// Whether a list of tiles is a road a caravan can actually be put on.
@@ -12,7 +12,7 @@ namespace Arna.Sim
     /// them runs against the planning screen's grid. Between there and the run the tiles
     /// are just numbers.
     ///
-    /// <see cref="Arna.Gen.LevelMaps"/> is what makes those two grids the same grid, and
+    /// <see cref="TheVail.Gen.LevelMaps"/> is what makes those two grids the same grid, and
     /// this is the check that says so out loud if they are ever not. Cheap — one pass over
     /// a few hundred tiles, once per run — against a fault whose symptom was a caravan
     /// standing in a lake in a run that could not end.

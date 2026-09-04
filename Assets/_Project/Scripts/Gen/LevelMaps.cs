@@ -1,6 +1,6 @@
-using Arna.Sim;
+using TheVail.Sim;
 
-namespace Arna.Gen
+namespace TheVail.Gen
 {
     /// <summary>
     /// The one place a level's map comes from.

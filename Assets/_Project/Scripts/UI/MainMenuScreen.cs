@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Arna.UI
+namespace TheVail.UI
 {
     /// <summary>
     /// The front page: the title, the five ways in, and the three chips along the bottom.
@@ -41,7 +41,7 @@ namespace Arna.UI
             rule.type = Image.Type.Simple;
             rule.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -196f), new Vector2(480f, 3f));
 
-            var under = Widgets.Label("Under", block, "LEGENDEN OM ARNA", 38, Theme.Muted);
+            var under = Widgets.Label("Under", block, "EN BERÄTTELSE FRÅN THE VAIL", 38, Theme.Muted);
             under.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -212f), new Vector2(Widgets.SafeWidth, 56f));
         }
 

@@ -1,7 +1,7 @@
 <!--
   Builds and runs the engine-independent C# without opening Unity.
 
-  Arna.Sim is compiled without engine references on purpose and Arna.Gen only depends
+  TheVail.Sim is compiled without engine references on purpose and TheVail.Gen only depends
   on it, so both build with a plain compiler. The EditMode tests build too, against the
   NUnit stand-in beside this file — it asserts nothing and exists so a test that will
   not compile is caught here rather than by somebody opening the editor.
@@ -26,7 +26,7 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NoWarn>1591;1587;1574;0169;0219;0414;8321</NoWarn>
     <OutputType>Exe</OutputType>
-    <AssemblyName>ArnaTests</AssemblyName>
+    <AssemblyName>TheVailTests</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

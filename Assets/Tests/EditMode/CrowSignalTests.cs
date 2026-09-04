@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using Arna.Gen;
-using Arna.Sim;
+using TheVail.Gen;
+using TheVail.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVail.Tests
 {
     /// <summary>
     /// The soft signal, and whether it is a signal at all (docs/GDD.md §3.5).

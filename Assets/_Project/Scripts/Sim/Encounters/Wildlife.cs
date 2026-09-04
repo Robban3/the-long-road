@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     public enum WildlifeKind : byte
     {

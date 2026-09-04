@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVail.Sim;
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVail.View
 {
     /// <summary>
     /// Builds the terrain overview mesh: one flat quad per tile, coloured by terrain
@@ -28,7 +28,7 @@ namespace Arna.View
         /// <summary>
         /// How far the ground is carried on past the map's edge, in metres.
         ///
-        /// The caravan forms up on <see cref="Arna.Sim.Caravan.RunUp"/> metres of road
+        /// The caravan forms up on <see cref="TheVail.Sim.Caravan.RunUp"/> metres of road
         /// behind the start line and the start is always within three tiles of the
         /// map's western edge, so that road is off the map by construction and needs
         /// ground under it. Eight metres more than the run-up, so the apron does not end
@@ -39,7 +39,7 @@ namespace Arna.View
         /// skyline off it (<c>TerrainDecorator.PlaceHorizon</c>). They disagreed once,
         /// and the range ended up standing on the apron.
         /// </summary>
-        public const float SkirtWidth = Arna.Sim.Caravan.RunUp + 8f;
+        public const float SkirtWidth = TheVail.Sim.Caravan.RunUp + 8f;
 
         /// <summary>A set of tiles to paint over the terrain, such as one corridor.</summary>
         public struct RouteOverlay
@@ -69,7 +69,7 @@ namespace Arna.View
         /// which is a sheet and ends where its ground ends.
         ///
         /// The world does not. Two things want this. The obvious one is that the caravan
-        /// forms up on road *behind* the start line — see <see cref="Arna.Sim.Caravan.RunUp"/>
+        /// forms up on road *behind* the start line — see <see cref="TheVail.Sim.Caravan.RunUp"/>
         /// — and the start is chosen from the leftmost three columns, so that road is off
         /// the map by construction and had nothing under it. The other is that the ground
         /// simply stopped at the boundary with three hundred metres of nothing between it
@@ -201,7 +201,7 @@ namespace Arna.View
 
             var mesh = new Mesh
             {
-                name = "ArnaTerrain",
+                name = "TheVailTerrain",
                 indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
             };
 

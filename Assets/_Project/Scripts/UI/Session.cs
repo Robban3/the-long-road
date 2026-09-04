@@ -1,7 +1,7 @@
-using Arna.Sim;
+using TheVail.Sim;
 using UnityEngine;
 
-namespace Arna.UI
+namespace TheVail.UI
 {
     /// <summary>
     /// What the menus and the level share: the campaign, and which level the player is
@@ -18,7 +18,22 @@ namespace Arna.UI
         public const string PlanScene = "LevelPreview";
         public const string PlayScene = "PlayLevel";
 
-        const string SaveKey = "arna.campaign.v1";
+        const string SaveKey = "thevail.campaign.v1";
+
+        /// <summary>
+        /// Where the campaign was kept when the world was called Arna.
+        ///
+        /// A PlayerPrefs key is a contract with a device, not a name in the source, and
+        /// renaming one is silent: the game reads an empty string, decides this is a new
+        /// player and starts at chapter one, with every star and every purchase still
+        /// sitting on disk under a key nobody asks for any more. No error, no warning,
+        /// nothing on screen but a fresh save.
+        ///
+        /// So the old key is read once, written across, and removed. Kept as a constant
+        /// rather than inlined because it is the reason <see cref="Carried"/> exists, and
+        /// a bare string there would look like a typo worth tidying away.
+        /// </summary>
+        const string OldSaveKey = "arna.campaign.v1";
 
         static Campaign _campaign;
 
@@ -38,9 +53,34 @@ namespace Arna.UI
         {
             get
             {
-                if (_campaign == null) _campaign = Campaign.Load(PlayerPrefs.GetString(SaveKey, ""));
+                if (_campaign == null) _campaign = Campaign.Load(Carried());
                 return _campaign;
             }
+        }
+
+        /// <summary>
+        /// The saved campaign, from wherever it is, moving it if it is in the old place.
+        ///
+        /// The new key wins whenever it holds anything, so a player who has saved once
+        /// since the rename never touches the old one again. Only a device that has the
+        /// old and not the new is migrated, and it is migrated on the read rather than on
+        /// some startup hook, because the read is the one thing that is guaranteed to
+        /// happen before the save can matter.
+        /// </summary>
+        static string Carried()
+        {
+            string current = PlayerPrefs.GetString(SaveKey, "");
+            if (!string.IsNullOrEmpty(current)) return current;
+
+            string old = PlayerPrefs.GetString(OldSaveKey, "");
+            if (string.IsNullOrEmpty(old)) return "";
+
+            PlayerPrefs.SetString(SaveKey, old);
+            PlayerPrefs.DeleteKey(OldSaveKey);
+            PlayerPrefs.Save();
+
+            Debug.Log("[The Vail] Campaign carried over from the old save key.");
+            return old;
         }
 
         /// <summary>
@@ -168,6 +208,10 @@ namespace Arna.UI
         {
             _campaign = new Campaign();
             PlayerPrefs.DeleteKey(SaveKey);
+
+            // The old one too. A wipe that leaves it behind would be undone by the next
+            // read, which migrates it straight back in.
+            PlayerPrefs.DeleteKey(OldSaveKey);
             PlayerPrefs.Save();
             Forget();
         }

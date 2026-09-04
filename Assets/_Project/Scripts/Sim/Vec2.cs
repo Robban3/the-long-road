@@ -1,11 +1,11 @@
 using System;
 
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>
     /// A world position in metres.
     ///
-    /// Defined here rather than using UnityEngine.Vector2 because Arna.Sim is
+    /// Defined here rather than using UnityEngine.Vector2 because TheVail.Sim is
     /// compiled without engine references — that is what keeps the simulation
     /// deterministic and runnable in a plain unit test.
     /// </summary>

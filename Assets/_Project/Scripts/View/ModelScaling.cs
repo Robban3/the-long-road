@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVail.View
 {
     /// <summary>
     /// Fits imported models to the world.

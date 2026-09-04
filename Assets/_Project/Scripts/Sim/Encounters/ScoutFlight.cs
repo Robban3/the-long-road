@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>
     /// Where the eagle went and what it found (docs/GDD.md §3.6).

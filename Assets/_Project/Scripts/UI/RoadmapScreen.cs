@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVail.Sim;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Arna.UI
+namespace TheVail.UI
 {
     /// <summary>
     /// The level roadmap: ten levels on a winding path, with the stars each one has been
@@ -193,9 +193,9 @@ namespace Arna.UI
             var painting = Painting();
 
             Debug.Log(painting != null
-                ? $"[Arna] Roadmap painting {painting.rect.width:0}×{painting.rect.height:0} px "
+                ? $"[The Vail] Roadmap painting {painting.rect.width:0}×{painting.rect.height:0} px "
                   + $"for chapter {_shown}."
-                : $"[Arna] No roadmap painting for chapter {_shown} — drawing the scattered "
+                : $"[The Vail] No roadmap painting for chapter {_shown} — drawing the scattered "
                   + "wood instead.");
 
             if (painting != null)
@@ -372,7 +372,7 @@ namespace Arna.UI
         /// <summary>
         /// The painting for this chapter, or the shared one.
         ///
-        /// Chapter two may have its own — ArnaRoadmap2.png — and falls back to the first
+        /// Chapter two may have its own — TheVailRoadmap2.png — and falls back to the first
         /// when it has not been painted yet. The waypoints belong to a painting, so a
         /// chapter with its own picture will want its own table with it.
         /// </summary>

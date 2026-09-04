@@ -1,9 +1,9 @@
-using Arna.Sim;
+using TheVail.Sim;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Arna.View
+namespace TheVail.View
 {
     /// <summary>
     /// Builds the water as one continuous surface instead of a plane per tile.

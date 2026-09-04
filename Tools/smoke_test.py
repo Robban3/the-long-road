@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Smoke tests for the generator, run against the Python port in `arna_level.py`.
+"""Smoke tests for the generator, run against the Python port in `vail_level.py`.
 
 The Unity EditMode tests are the real suite, but they need an editor and this
 environment has none. These cover the same ground from the port, which reproduces
-the engine's arithmetic exactly (see the module docstring in `arna_level.py`), so a
+the engine's arithmetic exactly (see the module docstring in `vail_level.py`), so a
 failure here is a failure there.
 
 Three kinds of check, and the middle one is the point:
@@ -24,7 +24,7 @@ import argparse
 import math
 import sys
 
-import arna_level as A
+import vail_level as A
 import render_screens
 
 CHAPTER = A.ChapterRecipe()

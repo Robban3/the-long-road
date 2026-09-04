@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     public enum RunOutcome : byte
     {
@@ -270,7 +270,7 @@ namespace Arna.Sim
         /// headless balancing, never by the game.
         ///
         /// The route no longer reaches water — see <see cref="RouteCheck"/> and
-        /// Arna.Gen.LevelMaps — and this exists anyway, because "the caravan cannot move"
+        /// TheVail.Gen.LevelMaps — and this exists anyway, because "the caravan cannot move"
         /// should be an outcome rather than a hang whatever causes it next time.
         ///
         /// <b>Halted is the exception and it has to be.</b>

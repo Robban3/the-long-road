@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Arna.UI
+namespace TheVail.UI
 {
     /// <summary>
     /// The screen behind a menu entry that is designed but not built.

@@ -1,11 +1,11 @@
-using Arna.Sim;
-using Arna.UI;
-using Arna.View;
+using TheVail.Sim;
+using TheVail.UI;
+using TheVail.View;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
-namespace Arna.App
+namespace TheVail.App
 {
     /// <summary>
     /// Lets the player draw the road, which is the decision this game is about and the

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>
     /// What the player has done so far: which levels are open, how well each one went,
@@ -20,7 +20,7 @@ namespace Arna.Sim
     /// reaching the end, going back to a scrappy win is a real way forward and not
     /// merely a tidy-up.
     ///
-    /// Deliberately engine-free, like the rest of Arna.Sim: it serialises itself to a
+    /// Deliberately engine-free, like the rest of TheVail.Sim: it serialises itself to a
     /// short string and lets the layer above decide where that string lives (PlayerPrefs
     /// today, a cloud save later). That also means the save format can be tested.
     /// </summary>
@@ -266,7 +266,7 @@ namespace Arna.Sim
         /// The save string:
         /// <c>3|gold|gems|chapter.level.stars,…|boon.level,…|troop.track.level,…</c>
         ///
-        /// A line of text rather than JSON because Arna.Sim may not touch the engine and
+        /// A line of text rather than JSON because TheVail.Sim may not touch the engine and
         /// therefore has no JsonUtility, and because a save this small is easier to read
         /// in a bug report as text than as anything else. The leading number is the format
         /// version: version 1 had no boons and version 2 no troop levels. Both still

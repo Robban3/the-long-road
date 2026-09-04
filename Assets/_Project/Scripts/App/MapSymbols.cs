@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using Arna.Sim;
-using Arna.UI;
-using Arna.View;
+using TheVail.Sim;
+using TheVail.UI;
+using TheVail.View;
 using UnityEngine;
 
-namespace Arna.App
+namespace TheVail.App
 {
     /// <summary>
     /// The signs on the planning map that say what a thing is.
@@ -22,8 +22,8 @@ namespace Arna.App
     /// small.
     ///
     /// One mesh, one material, one draw call — an atlas painted by <see cref="Pixels"/>
-    /// and quads cut out of it. It lives in Arna.App because that is the one assembly
-    /// that can see both the painting (Arna.UI) and the map (Arna.View).
+    /// and quads cut out of it. It lives in TheVail.App because that is the one assembly
+    /// that can see both the painting (TheVail.UI) and the map (TheVail.View).
     /// </summary>
     public static class MapSymbols
     {
@@ -79,7 +79,7 @@ namespace Arna.App
             // found gone. Dropped together or the symbols come back blank.
             _material = null;
 
-            _sheet = Pixels.Pack("ArnaMapSymbols",
+            _sheet = Pixels.Pack("TheVailMapSymbols",
                 Pixels.House("SymbolHouse"),
                 Pixels.Farm("SymbolFarm"),
                 Pixels.Tower("SymbolTower"),
@@ -99,7 +99,7 @@ namespace Arna.App
         ///
         /// Found by shader name at run time rather than wired into the scene as a
         /// serialized field, deliberately. A field would have to be filled in by
-        /// `Arna → Refresh Scene Assets`, and forgetting to run that has produced
+        /// `TheVail → Refresh Scene Assets`, and forgetting to run that has produced
         /// several false bug reports in this project: the code changes, the saved scene
         /// does not, and nothing says so.
         /// </summary>
@@ -107,16 +107,16 @@ namespace Arna.App
         {
             if (_material != null) return _material;
 
-            var shader = Shader.Find("Arna/MapSymbol");
+            var shader = Shader.Find("TheVail/MapSymbol");
 
             if (shader == null)
             {
-                Debug.LogWarning("[Arna] No Arna/MapSymbol shader — the planning map will "
+                Debug.LogWarning("[The Vail] No TheVail/MapSymbol shader — the planning map will "
                                  + "have no symbols on it.");
                 return null;
             }
 
-            _material = new Material(shader) { name = "ArnaMapSymbols", hideFlags = HideFlags.DontSave };
+            _material = new Material(shader) { name = "TheVailMapSymbols", hideFlags = HideFlags.DontSave };
             _material.SetTexture("_BaseMap", Sheet()[0].texture);
 
             return _material;
@@ -230,7 +230,7 @@ namespace Arna.App
 
             if (vertices.Count == 0) return null;
 
-            var mesh = new Mesh { name = "ArnaMapSymbols" };
+            var mesh = new Mesh { name = "TheVailMapSymbols" };
             mesh.SetVertices(vertices);
             mesh.SetUVs(0, uvs);
             mesh.SetColors(colors);

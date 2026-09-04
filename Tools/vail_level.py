@@ -1,6 +1,6 @@
-"""A port of Arna.Sim and Arna.Gen to Python, so a level can be generated without Unity.
+"""A port of TheVail.Sim and TheVail.Gen to Python, so a level can be generated without Unity.
 
-The engine is a Windows GUI binary and the capture methods in Arna.Editor.ArnaSetup
+The engine is a Windows GUI binary and the capture methods in TheVail.Editor.TheVailSetup
 need it. That makes every picture of the game — the planning map above all — something
 only one machine can produce. The generator itself needs none of Unity: it is plain
 arithmetic over a seed, and this file is that arithmetic, transcribed class for class
@@ -23,7 +23,7 @@ Two things needed care, and both are load-bearing rather than pedantry:
   * Scenery models are counted, not loaded. The decorator's random stream advances by
     one draw per model choice, so the count of each prop set has to match the pack
     exactly or every prop after the first lands somewhere else. The counts here come
-    from LoadForestDecor in ArnaSetup.cs.
+    from LoadForestDecor in TheVailSetup.cs.
 """
 
 from __future__ import annotations
@@ -2252,7 +2252,7 @@ def fly_the_eagle(level: LevelMap, seconds: float = EAGLE_SECONDS,
 # Model sets are counted rather than loaded — see the module docstring.
 
 # How far a scattered prop may vary from its table size. Mirrors
-# Arna.View.TerrainDecorator: a quarter either way for rocks, grass and buildings, and
+# TheVail.View.TerrainDecorator: a quarter either way for rocks, grass and buildings, and
 # far more for trees. A quarter gave a stand of spruces between 6.8 and 10.6 m — a hedge,
 # evenly clipped — while in the reference picture the smallest conifer is about a third
 # the height of the largest. 0.55 to 1.7 against a pine's 8.5 m is 4.7 m to 14.5 m.
@@ -2274,7 +2274,7 @@ ROCK_HEIGHT = 2.2
 BOULDER_WIDTH = 5.5
 
 # The skyline. 22 peaks on a 300 m ring around a 256 m map, 130 m tall — see
-# Arna.View.TerrainDecorator for why each number is what it is.
+# TheVail.View.TerrainDecorator for why each number is what it is.
 HORIZON_RADIUS = 320.0
 HORIZON_COUNT = 22
 HORIZON_HEIGHT = 105.0
@@ -2295,7 +2295,7 @@ MAX_GROUND_COVER = 4000
 MAX_SHORE_STONES = 1600
 RUIN_CLUSTER_TILES = 6
 
-# Model counts from LoadForestDecor in Assets/Editor/ArnaSetup.cs.
+# Model counts from LoadForestDecor in Assets/Editor/TheVailSetup.cs.
 SET_SIZES = {
     "pines": 8, "trees": 10, "birch": 5, "dead": 10, "bushes": 8,
     "rocks": 10, "boulders": 7, "cover": 21, "marsh": 9, "mountains": 3,
@@ -2435,7 +2435,7 @@ class Prop:
 
 # --- Wildlife (docs/GDD.md §3.5) ---------------------------------------------------
 #
-# Mirrors Arna.Sim.Wildlife. Deer, foxes and boar graze over the level and scatter when
+# Mirrors TheVail.Sim.Wildlife. Deer, foxes and boar graze over the level and scatter when
 # the caravan closes or a fight starts. They cannot be killed and are worth nothing: the
 # moment an animal can be felled it becomes a resource, and a player who stops the
 # caravan to hunt deer is playing a different game.
@@ -2445,7 +2445,7 @@ WILDLIFE_NAMES = ["Fox", "DeerFemale", "DeerMale", "Boar"]
 
 WILDLIFE_COUNT = 34
 
-# Chansen att en skogsruta accepteras alls. Se Arna.Sim.Wildlife.ForestShare: att räkna
+# Chansen att en skogsruta accepteras alls. Se TheVail.Sim.Wildlife.ForestShare: att räkna
 # djur mätte fel sak — hälften av de synliga stod under ett lövverk som döljer dem helt
 # för en kamera 35° ovanför, och ett djur ingen ser är inte glest utan frånvarande.
 WILDLIFE_FOREST_SHARE = 0.35
@@ -2749,7 +2749,7 @@ def _place_horizon(props, grid: TileGrid, rng: DeterministicRandom) -> None:
 
 
 def _pick(terrain: int, rng: DeterministicRandom):
-    """Mirrors Arna.View.TerrainDecorator.Pick — a weighted draw, shares in a column.
+    """Mirrors TheVail.View.TerrainDecorator.Pick — a weighted draw, shares in a column.
 
     The proportions come from the reference pictures. Forest is a spruce forest with
     other things in it, and a fifth of it is the shrub layer whose absence made the old

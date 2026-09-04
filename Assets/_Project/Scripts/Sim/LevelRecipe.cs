@@ -1,4 +1,4 @@
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>One terrain type's share of a level's natural terrain.</summary>
     public struct TerrainShare
@@ -16,7 +16,7 @@ namespace Arna.Sim
     /// <summary>
     /// The plain-data form of a chapter recipe (docs/content-pipeline.md §2).
     ///
-    /// Arna.Data holds the designer-facing ScriptableObject; it converts to this at
+    /// TheVail.Data holds the designer-facing ScriptableObject; it converts to this at
     /// load time so the generator never touches the asset database. A level is this
     /// object plus a seed — nothing about it is stored on disk.
     /// </summary>

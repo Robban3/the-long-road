@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Arna.App;
-using Arna.Sim;
-using Arna.View;
+using TheVail.App;
+using TheVail.Sim;
+using TheVail.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace Arna.Editor
+namespace TheVail.Editor
 {
     /// <summary>
     /// One-shot project setup, runnable from the menu or headless via -executeMethod.
@@ -21,14 +21,14 @@ namespace Arna.Editor
     /// exists because someone configured it by hand once is a project nobody else
     /// can reproduce.
     /// </summary>
-    public static class ArnaSetup
+    public static class TheVailSetup
     {
         const string SettingsDir = "Assets/_Project/Settings";
         const string ScenesDir = "Assets/_Project/Scenes";
         const string MaterialsDir = "Assets/_Project/Materials";
 
-        const string RendererPath = SettingsDir + "/ArnaUniversalRenderer.asset";
-        const string PipelinePath = SettingsDir + "/ArnaUniversalRenderPipeline.asset";
+        const string RendererPath = SettingsDir + "/TheVailUniversalRenderer.asset";
+        const string PipelinePath = SettingsDir + "/TheVailUniversalRenderPipeline.asset";
         const string MaterialPath = MaterialsDir + "/TerrainOverview.mat";
 
         /// <summary>The play view's ground. Lit, unlike the planning map's flat colour.</summary>
@@ -40,7 +40,7 @@ namespace Arna.Editor
         const string PlayScenePath = ScenesDir + "/PlayLevel.unity";
         const string MenuScenePath = ScenesDir + "/MainMenu.unity";
 
-        [MenuItem("Arna/Set Up Project")]
+        [MenuItem("The Vail/Set Up Project")]
         public static void SetupProject()
         {
             if (!Stopped("Set Up Project")) return;
@@ -57,14 +57,14 @@ namespace Arna.Editor
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log($"[Arna] Setup complete. Pipeline: {pipeline.name}, scene: {ScenePath}");
+            Debug.Log($"[The Vail] Setup complete. Pipeline: {pipeline.name}, scene: {ScenePath}");
         }
 
         /// <summary>
         /// Builds the scene you press Play in. Separate from the preview scene, which
         /// is for judging generator output rather than watching a level unfold.
         /// </summary>
-        [MenuItem("Arna/Set Up Play Scene")]
+        [MenuItem("The Vail/Set Up Play Scene")]
         public static void SetUpPlayScene()
         {
             if (!Stopped("Set Up Play Scene")) return;
@@ -130,7 +130,7 @@ namespace Arna.Editor
             RegisterScenes();
 
             AssetDatabase.SaveAssets();
-            Debug.Log($"[Arna] Play scene ready at {PlayScenePath}. Open it and press Play.");
+            Debug.Log($"[The Vail] Play scene ready at {PlayScenePath}. Open it and press Play.");
         }
 
 
@@ -270,7 +270,7 @@ namespace Arna.Editor
                 // The URP prefab for the materials, but the controller this project
                 // builds rather than the pack's: everything here is driven through
                 // Speed, Attack and Dead, and the pack's controllers use other names.
-                // Run Arna > Build Animator Controllers before Set Up Play Scene.
+                // Run The Vail > Build Animator Controllers before Set Up Play Scene.
                 Fox = Actor("Assets/ForestAnimals/URP/Fox/Prefab/Fox_URP.prefab",
                             animator: "Assets/_Project/Animation/Fox.controller", yaw: ForestAnimalYaw),
                 DeerFemale = Actor("Assets/ForestAnimals/URP/DeerFemale/Prefab/DeerFemale_URP.prefab",
@@ -377,12 +377,12 @@ namespace Arna.Editor
             if (!AssetDatabase.IsValidFolder(AnimatorBuilder.ArmyPack)) return;
 
             if (library.EnemyFaction == null)
-                Debug.LogWarning("[Arna] No faction material for the enemy — the bandits fall "
+                Debug.LogWarning("[The Vail] No faction material for the enemy — the bandits fall "
                                  + $"back to a colour tint over whatever {AnimatorBuilder.ArmyPack} ships. "
                                  + "See VisualLibrary.EnemyFaction for the path it wanted.");
 
             if (library.PlayerFaction == null)
-                Debug.LogWarning("[Arna] No faction material for the escort — your troops keep "
+                Debug.LogWarning("[The Vail] No faction material for the escort — your troops keep "
                                  + "the colours the pack's prefabs came in, which may be the "
                                  + "same ones the bandits are painted. See "
                                  + "VisualLibrary.PlayerFaction for the path it wanted.");
@@ -456,7 +456,7 @@ namespace Arna.Editor
                 ?? $"Assets/_Project/Animation/{Path.GetFileNameWithoutExtension(path)}.controller";
             var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(controllerPath);
             if (controller == null)
-                Debug.LogWarning($"[Arna] No animator for {Path.GetFileName(path)} — run Arna > Build Animator Controllers.");
+                Debug.LogWarning($"[The Vail] No animator for {Path.GetFileName(path)} — run The Vail > Build Animator Controllers.");
 
             return new ActorModel
             {
@@ -513,7 +513,7 @@ namespace Arna.Editor
         static GameObject One(string path)
         {
             var asset = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (asset == null) Debug.LogWarning($"[Arna] Model not found, falling back to a primitive: {path}");
+            if (asset == null) Debug.LogWarning($"[The Vail] Model not found, falling back to a primitive: {path}");
             return asset;
         }
 
@@ -1015,7 +1015,7 @@ namespace Arna.Editor
                             ?? AssetDatabase.LoadAssetAtPath<GameObject>($"{folder}/{name}.fbx");
 
                 if (asset != null) found.Add(asset);
-                else Debug.LogWarning($"[Arna] Scenery model not found: {folder}/{name} (.prefab or .fbx)");
+                else Debug.LogWarning($"[The Vail] Scenery model not found: {folder}/{name} (.prefab or .fbx)");
             }
             return found.ToArray();
         }
@@ -1043,7 +1043,7 @@ namespace Arna.Editor
                 }
 
                 existing = UniversalRenderPipelineAsset.Create(rendererData);
-                existing.name = "ArnaUniversalRenderPipeline";
+                existing.name = "TheVailUniversalRenderPipeline";
                 AssetDatabase.CreateAsset(existing, PipelinePath);
                 AssetDatabase.SaveAssets();
             }
@@ -1090,13 +1090,13 @@ namespace Arna.Editor
         /// The scene is generated rather than committed — like the other two — and there
         /// is a menu item for it. That was not enough twice over: the menu items live in
         /// the editor assembly, so a compile error anywhere in the code they reference
-        /// takes the whole <c>Arna</c> menu off the menu bar, and a fresh clone then has
+        /// takes the whole <c>TheVail</c> menu off the menu bar, and a fresh clone then has
         /// no menu scene, no way to make one, and nothing on screen saying why.
         ///
         /// So it makes itself, once, when it is missing. Cheap — one File.Exists on load
         /// — and safe, because BuildMenuScene works in a scene beside yours and closes it
         /// again. If this ever stops happening, the reason is on the console: the editor
-        /// assembly did not compile, and nothing under Arna is running at all.
+        /// assembly did not compile, and nothing under TheVail is running at all.
         /// </summary>
         [InitializeOnLoad]
         static class MenuBootstrap
@@ -1110,7 +1110,7 @@ namespace Arna.Editor
                     if (EditorApplication.isPlayingOrWillChangePlaymode) return;
                     if (File.Exists(MenuScenePath)) return;
 
-                    Debug.Log("[Arna] No menu scene in the project — making one now.");
+                    Debug.Log("[The Vail] No menu scene in the project — making one now.");
                     BuildMenuScene();
                 };
             }
@@ -1120,11 +1120,11 @@ namespace Arna.Editor
         /// Builds the menu scene: a camera, and the shell that draws every screen in it.
         ///
         /// There is nothing else in it on purpose. The front page and the level roadmap
-        /// are built in code at run time (see Arna.UI.MenuShell), for the same reason the
+        /// are built in code at run time (see TheVail.UI.MenuShell), for the same reason the
         /// levels are: a scene file full of hand-placed rectangles is the one part of this
         /// project nobody could review or regenerate.
         /// </summary>
-        [MenuItem("Arna/Set Up Menu Scene")]
+        [MenuItem("The Vail/Set Up Menu Scene")]
         public static void SetUpMenuScene()
         {
             if (!Stopped("Set Up Menu Scene")) return;
@@ -1132,7 +1132,7 @@ namespace Arna.Editor
             BuildMenuScene();
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[Arna] Menu ready at {MenuScenePath}. Open it and press Play.");
+            Debug.Log($"[The Vail] Menu ready at {MenuScenePath}. Open it and press Play.");
         }
 
         /// <summary>
@@ -1160,7 +1160,7 @@ namespace Arna.Editor
             camera.backgroundColor = new Color(0.07f, 0.06f, 0.05f);
             camera.orthographic = true;
 
-            var shell = new GameObject("Menu", typeof(Arna.UI.MenuShell));
+            var shell = new GameObject("Menu", typeof(TheVail.UI.MenuShell));
 
             SceneManager.MoveGameObjectToScene(cameraGo, scene);
             SceneManager.MoveGameObjectToScene(shell, scene);
@@ -1172,11 +1172,11 @@ namespace Arna.Editor
             RegisterScenes();
 
             if (saved)
-                Debug.Log($"[Arna] Menu scene written to {MenuScenePath}. It is in the "
+                Debug.Log($"[The Vail] Menu scene written to {MenuScenePath}. It is in the "
                           + "Project window under Assets/_Project/Scenes — double-click it "
                           + "and press Play.");
             else
-                Debug.LogError($"[Arna] Could not write the menu scene to {MenuScenePath}.");
+                Debug.LogError($"[The Vail] Could not write the menu scene to {MenuScenePath}.");
         }
 
         /// <summary>
@@ -1243,9 +1243,9 @@ namespace Arna.Editor
             var material = AssetDatabase.LoadAssetAtPath<Material>(RouteMaterialPath);
             if (material != null) return material;
 
-            var shader = Shader.Find("Arna/RouteOverlay");
+            var shader = Shader.Find("TheVail/RouteOverlay");
             if (shader == null)
-                throw new InvalidOperationException("Shader 'Arna/RouteOverlay' not found.");
+                throw new InvalidOperationException("Shader 'TheVail/RouteOverlay' not found.");
 
             material = new Material(shader) { name = "RouteOverlay" };
             AssetDatabase.CreateAsset(material, RouteMaterialPath);
@@ -1258,9 +1258,9 @@ namespace Arna.Editor
 
             if (material == null)
             {
-                var shader = Shader.Find("Arna/TerrainGround");
+                var shader = Shader.Find("TheVail/TerrainGround");
                 if (shader == null)
-                    throw new InvalidOperationException("Shader 'Arna/TerrainGround' not found.");
+                    throw new InvalidOperationException("Shader 'TheVail/TerrainGround' not found.");
 
                 material = new Material(shader) { name = "TerrainGround" };
                 AssetDatabase.CreateAsset(material, GroundMaterialPath);
@@ -1279,7 +1279,7 @@ namespace Arna.Editor
             var detail = AssetDatabase.LoadAssetAtPath<Texture2D>(
                 "Assets/_Project/Textures/Terrain/forest_floor_Diffuse.jpg");
             if (detail != null) material.SetTexture("_DetailMap", detail);
-            else Debug.LogWarning("[Arna] Ground detail texture missing; the ground will be flat colour.");
+            else Debug.LogWarning("[The Vail] Ground detail texture missing; the ground will be flat colour.");
 
             material.SetFloat("_DetailTiling", 6f);
             material.SetFloat("_DetailStrength", 0.55f);
@@ -1302,9 +1302,9 @@ namespace Arna.Editor
             var material = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
             if (material != null) return material;
 
-            var shader = Shader.Find("Arna/TerrainVertexColor");
+            var shader = Shader.Find("TheVail/TerrainVertexColor");
             if (shader == null)
-                throw new InvalidOperationException("Shader 'Arna/TerrainVertexColor' not found.");
+                throw new InvalidOperationException("Shader 'TheVail/TerrainVertexColor' not found.");
 
             material = new Material(shader) { name = "TerrainOverview" };
             AssetDatabase.CreateAsset(material, MaterialPath);
@@ -1397,16 +1397,16 @@ namespace Arna.Editor
 
         /// <summary>
         /// Renders the preview scene to a PNG. Used to check generator output without
-        /// opening the editor: -executeMethod Arna.Editor.ArnaSetup.CaptureLevelPreview
-        /// -arnaOutput &lt;path&gt; [-arnaChapter N] [-arnaLevel N]
+        /// opening the editor: -executeMethod TheVail.Editor.TheVailSetup.CaptureLevelPreview
+        /// -vailOutput &lt;path&gt; [-vailChapter N] [-vailLevel N]
         /// </summary>
         public static void CaptureLevelPreview()
         {
-            string output = ArgValue("-arnaOutput") ?? "Logs/level-preview.png";
-            int chapter = int.TryParse(ArgValue("-arnaChapter"), out var c) ? c : 1;
-            int level = int.TryParse(ArgValue("-arnaLevel"), out var l) ? l : 1;
-            int width = int.TryParse(ArgValue("-arnaWidth"), out var w) ? w : 1280;
-            int height = int.TryParse(ArgValue("-arnaHeight"), out var h) ? h : 720;
+            string output = ArgValue("-vailOutput") ?? "Logs/level-preview.png";
+            int chapter = int.TryParse(ArgValue("-vailChapter"), out var c) ? c : 1;
+            int level = int.TryParse(ArgValue("-vailLevel"), out var l) ? l : 1;
+            int width = int.TryParse(ArgValue("-vailWidth"), out var w) ? w : 1280;
+            int height = int.TryParse(ArgValue("-vailHeight"), out var h) ? h : 720;
 
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
@@ -1439,7 +1439,7 @@ namespace Arna.Editor
                 File.WriteAllBytes(output, texture.EncodeToPNG());
                 UnityEngine.Object.DestroyImmediate(texture);
 
-                Debug.Log($"[Arna] Captured {chapter}-{level} (seed {preview.Seed}, " +
+                Debug.Log($"[The Vail] Captured {chapter}-{level} (seed {preview.Seed}, " +
                           $"attempts {preview.Attempts}, valid {preview.ChoiceValidated}, " +
                           $"fastest {preview.FastestRouteCost:F1}, overlap {preview.MaxOverlap:P0}) -> {output}");
             }
@@ -1455,20 +1455,20 @@ namespace Arna.Editor
         /// <summary>
         /// Builds a level in the play scene and renders it, without entering play mode.
         ///
-        /// -executeMethod Arna.Editor.ArnaSetup.CapturePlayScene -arnaOutput &lt;path&gt;
-        /// [-arnaChapter N] [-arnaLevel N] [-arnaSteps N]
+        /// -executeMethod TheVail.Editor.TheVailSetup.CapturePlayScene -vailOutput &lt;path&gt;
+        /// [-vailChapter N] [-vailLevel N] [-vailSteps N]
         ///
         /// The steps argument advances the simulation before the shot, so the caravan
         /// can be caught mid-journey rather than sitting at the start line.
         /// </summary>
         public static void CapturePlayScene()
         {
-            string output = ArgValue("-arnaOutput") ?? "Logs/play.png";
-            int chapter = int.TryParse(ArgValue("-arnaChapter"), out var c) ? c : 1;
-            int level = int.TryParse(ArgValue("-arnaLevel"), out var l) ? l : 1;
-            int steps = int.TryParse(ArgValue("-arnaSteps"), out var s) ? s : 0;
-            int width = int.TryParse(ArgValue("-arnaWidth"), out var w) ? w : 1400;
-            int height = int.TryParse(ArgValue("-arnaHeight"), out var h) ? h : 1000;
+            string output = ArgValue("-vailOutput") ?? "Logs/play.png";
+            int chapter = int.TryParse(ArgValue("-vailChapter"), out var c) ? c : 1;
+            int level = int.TryParse(ArgValue("-vailLevel"), out var l) ? l : 1;
+            int steps = int.TryParse(ArgValue("-vailSteps"), out var s) ? s : 0;
+            int width = int.TryParse(ArgValue("-vailWidth"), out var w) ? w : 1400;
+            int height = int.TryParse(ArgValue("-vailHeight"), out var h) ? h : 1000;
 
             // Without this the editor compiles shader variants in the background and
             // renders whatever is ready, which for a freshly edited shader is a variant
@@ -1490,8 +1490,8 @@ namespace Arna.Editor
 
             // Lets a capture move in close enough to check whether the actors are
             // actually posed rather than standing in bind pose.
-            if (float.TryParse(ArgValue("-arnaCamDistance"), out float distance)) runner.FollowDistance = distance;
-            if (float.TryParse(ArgValue("-arnaCamHeight"), out float camHeight)) runner.FollowHeight = camHeight;
+            if (float.TryParse(ArgValue("-vailCamDistance"), out float distance)) runner.FollowDistance = distance;
+            if (float.TryParse(ArgValue("-vailCamHeight"), out float camHeight)) runner.FollowHeight = camHeight;
             runner.Restart();
             runner.StepTimes(steps);
 
@@ -1500,17 +1500,17 @@ namespace Arna.Editor
             runner.AimCamera();
             ReportShadowState(runner.GetComponent<MeshRenderer>().sharedMaterial);
 
-            // -arnaLitGround swaps the ground onto Unity's own Lit shader. It settles
+            // -vailLitGround swaps the ground onto Unity's own Lit shader. It settles
             // the one question a picture with no shadows in it cannot answer on its
             // own: whether the fault is in our shader or in the scene around it.
-            if (ArgValue("-arnaLitGround") != null)
+            if (ArgValue("-vailLitGround") != null)
             {
                 var stock = Shader.Find("Universal Render Pipeline/Lit");
                 var probe = new Material(stock) { name = "ShadowProbe" };
                 probe.SetFloat("_Smoothness", 0f);
                 probe.SetColor("_BaseColor", new Color(0.45f, 0.50f, 0.35f));
                 runner.GetComponent<MeshRenderer>().sharedMaterial = probe;
-                Debug.Log("[Arna] Ground swapped to stock URP Lit for this capture.");
+                Debug.Log("[The Vail] Ground swapped to stock URP Lit for this capture.");
             }
 
             // Always written, never only when asked. Setting a property on a shared
@@ -1518,12 +1518,12 @@ namespace Arna.Editor
             // capture left every later capture drawing its debug output, and the mode
             // silently carried across runs.
             {
-                if (!float.TryParse(ArgValue("-arnaDebugShadow"), out float debugShadow)) debugShadow = 0f;
+                if (!float.TryParse(ArgValue("-vailDebugShadow"), out float debugShadow)) debugShadow = 0f;
 
                 var ground = runner.GetComponent<MeshRenderer>().sharedMaterial;
                 if (ground.HasProperty("_DebugShadow")) ground.SetFloat("_DebugShadow", debugShadow);
                 if (debugShadow > 0f)
-                    Debug.Log($"[Arna] Ground material {ground.name} drawing debug mode {debugShadow}.");
+                    Debug.Log($"[The Vail] Ground material {ground.name} drawing debug mode {debugShadow}.");
             }
 
             var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 2 };
@@ -1544,7 +1544,7 @@ namespace Arna.Editor
                 UnityEngine.Object.DestroyImmediate(texture);
 
                 var run = runner.Run;
-                Debug.Log($"[Arna] Captured {chapter}-{level} after {steps} steps: " +
+                Debug.Log($"[The Vail] Captured {chapter}-{level} after {steps} steps: " +
                           $"{run.ElapsedSeconds:F1}s, {run.Caravan.Progress:P0} along, " +
                           $"{run.Detection.RevealedCount} revealed, {run.Economy.Silver} silver -> {output}");
             }
@@ -1559,7 +1559,7 @@ namespace Arna.Editor
 
         /// <summary>
         /// Renders the cast standing together:
-        /// -executeMethod Arna.Editor.ArnaSetup.CaptureCharacters -arnaOutput &lt;path&gt;
+        /// -executeMethod TheVail.Editor.TheVailSetup.CaptureCharacters -vailOutput &lt;path&gt;
         ///
         /// The play capture answers whether a level reads. It cannot answer whether a
         /// knight is holding his sword or wearing it through his forearm, because at
@@ -1570,13 +1570,13 @@ namespace Arna.Editor
         /// </summary>
         public static void CaptureCharacters()
         {
-            string output = ArgValue("-arnaOutput") ?? "Logs/characters.png";
+            string output = ArgValue("-vailOutput") ?? "Logs/characters.png";
 
             // Wide and short by default. Seven figures side by side span twelve metres
             // and stand under two, so a conventional frame spends most of itself on
             // empty sky and shrinks the thing being looked at to fit.
-            int width = int.TryParse(ArgValue("-arnaWidth"), out var w) ? w : 1800;
-            int height = int.TryParse(ArgValue("-arnaHeight"), out var h) ? h : 700;
+            int width = int.TryParse(ArgValue("-vailWidth"), out var w) ? w : 1800;
+            int height = int.TryParse(ArgValue("-vailHeight"), out var h) ? h : 700;
 
             // Same reason as the play capture: a shot taken while variants are still
             // compiling shows a shader that is not the one under test.
@@ -1635,10 +1635,10 @@ namespace Arna.Editor
             ground.AddComponent<MeshFilter>().sharedMesh = mesh;
             ground.AddComponent<MeshRenderer>().sharedMaterial = EnsureGroundMaterial();
 
-            // -arnaNoGround takes the floor away. A model standing too low and a model
+            // -vailNoGround takes the floor away. A model standing too low and a model
             // missing its legs look identical from above the ground and nothing else
             // tells them apart; with the floor gone the question answers itself.
-            ground.SetActive(ArgValue("-arnaNoGround") == null);
+            ground.SetActive(ArgValue("-vailNoGround") == null);
 
             var models = LoadModels();
             var visuals = new RunVisuals(new GameObject("Cast").transform) { Library = models };
@@ -1646,11 +1646,11 @@ namespace Arna.Editor
             const float spacing = 2.8f;
             const float rowDepth = 3.6f;
 
-            // -arnaOnly narrows the line-up to whoever matches, so one model can be
-            // looked at close instead of at one seventh of the frame. -arnaBindPose
+            // -vailOnly narrows the line-up to whoever matches, so one model can be
+            // looked at close instead of at one seventh of the frame. -vailBindPose
             // leaves the animators alone, which is how a pose that comes from the clip
             // is told apart from one that comes from the model.
-            string only = ArgValue("-arnaOnly");
+            string only = ArgValue("-vailOnly");
             var troops = Pick(Troops(models), only);
             var enemies = Pick(Enemies(models), only);
 
@@ -1662,10 +1662,10 @@ namespace Arna.Editor
                     entry.Name.IndexOf(filter, System.StringComparison.OrdinalIgnoreCase) >= 0);
             }
 
-            // -arnaBindPose spawns the models with no animator at all, so what shows
+            // -vailBindPose spawns the models with no animator at all, so what shows
             // is the shape the file ships with. It is the difference between a model
             // that is wrong in the box and a model our own setup is bending.
-            bool still = ArgValue("-arnaBindPose") != null;
+            bool still = ArgValue("-vailBindPose") != null;
 
             // Troops in front, enemies behind and staggered into the gaps. Squared up
             // in two straight rows, the wolf — the shortest thing in the game — stood
@@ -1717,7 +1717,7 @@ namespace Arna.Editor
             float halfHorizontal = Mathf.Atan(Mathf.Tan(halfVertical) * ((float)width / height));
 
             // Both dimensions, not just the wide one. Narrowed to a single model by
-            // -arnaOnly, a distance chosen from the width alone stands two metres away
+            // -vailOnly, a distance chosen from the width alone stands two metres away
             // from a person and cuts them off at the chest.
             const float halfFrameHeight = 1.5f;
             float distance = Mathf.Max(halfSpan / Mathf.Tan(halfHorizontal),
@@ -1750,7 +1750,7 @@ namespace Arna.Editor
                 File.WriteAllBytes(output, texture.EncodeToPNG());
                 UnityEngine.Object.DestroyImmediate(texture);
 
-                Debug.Log($"[Arna] Captured {troops.Length + enemies.Length} characters " +
+                Debug.Log($"[The Vail] Captured {troops.Length + enemies.Length} characters " +
                           $"from {distance:F1} m -> {output}");
             }
             finally
@@ -1770,7 +1770,7 @@ namespace Arna.Editor
         /// placement bug by looking at the game. Measuring settles it.
         /// </summary>
         /// <summary>
-        /// Measures every model in a folder: -arnaModelDir &lt;path under Assets&gt;.
+        /// Measures every model in a folder: -vailModelDir &lt;path under Assets&gt;.
         ///
         /// A new pack has to be measured before it can be used. Nothing in an FBX says
         /// which way is up or how big the thing is meant to be, and the two failures
@@ -1778,9 +1778,9 @@ namespace Arna.Editor
         /// so it comes out the wrong size as well as the wrong way round, and the
         /// second symptom hides the first.
         /// </summary>
-        [MenuItem("Arna/Report Folder Dimensions")]
+        [MenuItem("The Vail/Report Folder Dimensions")]
         public static void ReportFolderDimensions()
-            => ReportDimensionsOf(ArgValue("-arnaModelDir") ?? SyntyNatureDir);
+            => ReportDimensionsOf(ArgValue("-vailModelDir") ?? SyntyNatureDir);
 
         /// <summary>
         /// Measures whatever folder is selected in the Project window.
@@ -1793,7 +1793,7 @@ namespace Arna.Editor
         ///
         /// Select the pack's folder in the Project window, run this, read the Console.
         /// </summary>
-        [MenuItem("Arna/Report Selected Folder Dimensions")]
+        [MenuItem("The Vail/Report Selected Folder Dimensions")]
         public static void ReportSelectedFolderDimensions()
         {
             var folders = new List<string>();
@@ -1807,7 +1807,7 @@ namespace Arna.Editor
 
             if (folders.Count == 0)
             {
-                Debug.LogWarning("[Arna] Select one or more folders in the Project window first.");
+                Debug.LogWarning("[The Vail] Select one or more folders in the Project window first.");
                 return;
             }
 
@@ -1818,7 +1818,7 @@ namespace Arna.Editor
         {
             if (!AssetDatabase.IsValidFolder(folder))
             {
-                Debug.LogWarning($"[Arna] {folder} is not a folder in this project");
+                Debug.LogWarning($"[The Vail] {folder} is not a folder in this project");
                 return;
             }
 
@@ -1826,7 +1826,7 @@ namespace Arna.Editor
             // beside it, so a search for t:Model alone reports an empty folder for the
             // pack that now supplies the entire landscape.
             var guids = AssetDatabase.FindAssets("t:Model t:Prefab", new[] { folder });
-            Debug.Log($"[Arna] {folder}: {guids.Length} models and prefabs");
+            Debug.Log($"[The Vail] {folder}: {guids.Length} models and prefabs");
 
             foreach (var guid in guids)
             {
@@ -1870,7 +1870,7 @@ namespace Arna.Editor
                     : bounds.size.x > bounds.size.z ? "X (YawOffset 90 or -90)"
                                                     : "Z (YawOffset 0)";
 
-                Debug.Log($"[Arna]   {Path.GetFileNameWithoutExtension(path)}: " +
+                Debug.Log($"[The Vail]   {Path.GetFileNameWithoutExtension(path)}: " +
                           $"{bounds.size.x:F2} x {bounds.size.y:F2} x {bounds.size.z:F2} " +
                           $"tallest={tallest} longest horizontal={along} " +
                           $"baseY={bounds.min.y:F2}");
@@ -1889,7 +1889,7 @@ namespace Arna.Editor
         /// out. A roof narrower than its room, or a shaft that is really a whole tower,
         /// shows up here as two numbers rather than as a screenshot.
         /// </summary>
-        [MenuItem("Arna/Report Building Kit")]
+        [MenuItem("The Vail/Report Building Kit")]
         public static void ReportBuildingKit()
         {
             if (!Stopped("Report Building Kit")) return;
@@ -1899,7 +1899,7 @@ namespace Arna.Editor
 
             if (kit == null || kit.IsEmpty)
             {
-                Debug.LogWarning("[Arna] No building kit is wired.");
+                Debug.LogWarning("[The Vail] No building kit is wired.");
                 return;
             }
 
@@ -1926,7 +1926,7 @@ namespace Arna.Editor
         {
             if (set == null || !set.Any)
             {
-                Debug.Log($"[Arna] {what}: none wired.");
+                Debug.Log($"[The Vail] {what}: none wired.");
                 return;
             }
 
@@ -1945,14 +1945,14 @@ namespace Arna.Editor
                 UnityEngine.Object.DestroyImmediate(instance);
             }
 
-            Debug.Log($"[Arna] {what}: {string.Join(", ", lines)}");
+            Debug.Log($"[The Vail] {what}: {string.Join(", ", lines)}");
         }
 
         static void Assembled(string what, GameObject built)
         {
             if (built == null)
             {
-                Debug.LogWarning($"[Arna] the kit could not build a {what}.");
+                Debug.LogWarning($"[The Vail] the kit could not build a {what}.");
                 return;
             }
 
@@ -1965,12 +1965,12 @@ namespace Arna.Editor
                 pieces.Add($"{child.name.Replace("(Clone)", "")} at {piece.min.y:0.0}–{piece.max.y:0.0} m");
             }
 
-            Debug.Log($"[Arna] A {what} came out {bounds.size.x:0.0}×{bounds.size.z:0.0} "
+            Debug.Log($"[The Vail] A {what} came out {bounds.size.x:0.0}×{bounds.size.z:0.0} "
                       + $"× {bounds.size.y:0.0} m from {pieces.Count} pieces: "
                       + string.Join(", ", pieces));
         }
 
-        [MenuItem("Arna/Report Model Dimensions")]
+        [MenuItem("The Vail/Report Model Dimensions")]
         public static void ReportModelDimensions()
         {
             string[] names =
@@ -1999,14 +1999,14 @@ namespace Arna.Editor
             foreach (var path in names)
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (prefab == null) { Debug.LogWarning($"[Arna] missing {path}"); continue; }
+                if (prefab == null) { Debug.LogWarning($"[The Vail] missing {path}"); continue; }
 
                 var instance = UnityEngine.Object.Instantiate(prefab);
                 instance.transform.position = Vector3.zero;
                 instance.transform.rotation = Quaternion.identity;
 
                 var bounds = ModelScaling.Measure(instance);
-                Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path),-22} " +
+                Debug.Log($"[The Vail] {Path.GetFileNameWithoutExtension(path),-22} " +
                           $"size {bounds.size.x,7:F2} x {bounds.size.y,7:F2} x {bounds.size.z,7:F2}   " +
                           $"min.y {bounds.min.y,7:F2}   centre.y {bounds.center.y,7:F2}");
 
@@ -2065,7 +2065,7 @@ namespace Arna.Editor
         /// forty metres up and pitched over — neither is visible. Printing both sets
         /// of numbers turns "the knight looks wrong" into a figure in metres.
         /// </summary>
-        [MenuItem("Arna/Report Actor Fit")]
+        [MenuItem("The Vail/Report Actor Fit")]
         public static void ReportActorFit()
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -2094,12 +2094,12 @@ namespace Arna.Editor
             foreach (var (name, actor) in cast)
             {
                 var box = ModelScaling.Measure(actor.gameObject);
-                Debug.Log($"[Arna] {name,-20} {box.size.x,5:F2} wide x {box.size.y,5:F2} tall   " +
+                Debug.Log($"[The Vail] {name,-20} {box.size.x,5:F2} wide x {box.size.y,5:F2} tall   " +
                           $"stands at {box.min.y,6:F2}   " +
                           $"{actor.GetComponentsInChildren<Renderer>().Length} meshes");
 
                 foreach (var renderer in actor.GetComponentsInChildren<Renderer>())
-                    Debug.Log($"[Arna]     {name}/{renderer.name,-24} " +
+                    Debug.Log($"[The Vail]     {name}/{renderer.name,-24} " +
                               $"y {renderer.bounds.min.y,6:F2} .. {renderer.bounds.max.y,5:F2}   " +
                               $"width {renderer.bounds.size.x,5:F2}");
             }
@@ -2120,7 +2120,7 @@ namespace Arna.Editor
         /// before, which meant the one report that could have explained why a new pack's
         /// animals stood still could not be pointed at them.
         /// </summary>
-        [MenuItem("Arna/Report Animation Clips")]
+        [MenuItem("The Vail/Report Animation Clips")]
         public static void ReportAnimationClips()
         {
             var selected = new List<string>();
@@ -2159,7 +2159,7 @@ namespace Arna.Editor
                 var importer = AssetImporter.GetAtPath(path) as ModelImporter;
                 string rig = importer == null ? "?" : importer.animationType.ToString();
 
-                Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)}  rig={rig}  " +
+                Debug.Log($"[The Vail] {Path.GetFileNameWithoutExtension(path)}  rig={rig}  " +
                           $"clips={clips.Count}: {string.Join(", ", clips)}");
             }
         }
@@ -2171,7 +2171,7 @@ namespace Arna.Editor
         /// Generic rigs carry no avatar to ask. Guessing at the naming convention cost
         /// a round trip; reading it costs one run.
         /// </summary>
-        [MenuItem("Arna/Report Rig Bones")]
+        [MenuItem("The Vail/Report Rig Bones")]
         public static void ReportRigBones()
         {
             string[] models =
@@ -2189,8 +2189,8 @@ namespace Arna.Editor
                 var names = new System.Collections.Generic.List<string>();
                 foreach (var bone in instance.GetComponentsInChildren<Transform>()) names.Add(bone.name);
 
-                Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)}: {names.Count} transforms");
-                Debug.Log($"[Arna]   {string.Join(" | ", names)}");
+                Debug.Log($"[The Vail] {Path.GetFileNameWithoutExtension(path)}: {names.Count} transforms");
+                Debug.Log($"[The Vail]   {string.Join(" | ", names)}");
 
                 UnityEngine.Object.DestroyImmediate(instance);
             }
@@ -2219,7 +2219,7 @@ namespace Arna.Editor
         /// missing file. Scripted rather than clicked so it survives a reimport, which
         /// resets a material edited by hand.
         /// </summary>
-        [MenuItem("Arna/Colour Untextured Materials")]
+        [MenuItem("The Vail/Colour Untextured Materials")]
         public static void ColourUntexturedMaterials()
         {
             // Chosen to separate the two on sight, the same way the troops are
@@ -2236,11 +2236,11 @@ namespace Arna.Editor
             foreach (var (path, colour) in colours)
             {
                 var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-                if (material == null) { Debug.LogWarning($"[Arna] Material not found: {path}"); continue; }
+                if (material == null) { Debug.LogWarning($"[The Vail] Material not found: {path}"); continue; }
 
                 if (material.HasProperty("_BaseMap") && material.GetTexture("_BaseMap") != null)
                 {
-                    Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)} has its texture back; left alone.");
+                    Debug.Log($"[The Vail] {Path.GetFileNameWithoutExtension(path)} has its texture back; left alone.");
                     continue;
                 }
 
@@ -2251,28 +2251,28 @@ namespace Arna.Editor
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log($"[Arna] Coloured {painted} materials that have no texture to draw.");
+            Debug.Log($"[The Vail] Coloured {painted} materials that have no texture to draw.");
         }
 
         /// <summary>
         /// Prints which texture every material in a folder ended up with:
-        /// -arnaModelDir &lt;path under Assets&gt;.
+        /// -vailModelDir &lt;path under Assets&gt;.
         ///
         /// Two different failures look alike from a distance — a material with no
         /// texture renders white, and one holding its own normal map renders violet —
         /// and both are invisible in a material list. The pairing has to be read.
         /// </summary>
-        [MenuItem("Arna/Report Material Textures")]
+        [MenuItem("The Vail/Report Material Textures")]
         public static void ReportMaterialTextures()
         {
             // The pack root rather than its prefab folder: Synty keeps materials in a
             // folder of their own beside the prefabs, so the narrower path finds none.
-            string folder = ArgValue("-arnaModelDir") ?? SyntyNaturePack;
+            string folder = ArgValue("-vailModelDir") ?? SyntyNaturePack;
 
             var guids = AssetDatabase.FindAssets("t:Material", new[] { folder });
             int missing = 0;
 
-            Debug.Log($"[Arna] {folder}: {guids.Length} materials");
+            Debug.Log($"[The Vail] {folder}: {guids.Length} materials");
 
             foreach (var guid in guids)
             {
@@ -2283,14 +2283,14 @@ namespace Arna.Editor
                 var baseMap = material.HasProperty("_BaseMap") ? material.GetTexture("_BaseMap") : null;
                 if (baseMap == null) missing++;
 
-                Debug.Log($"[Arna]   {Path.GetFileNameWithoutExtension(path)} -> " +
+                Debug.Log($"[The Vail]   {Path.GetFileNameWithoutExtension(path)} -> " +
                           $"{(baseMap == null ? "NONE" : baseMap.name)}");
             }
 
-            Debug.Log($"[Arna] {missing} of {guids.Length} materials have no base map.");
+            Debug.Log($"[The Vail] {missing} of {guids.Length} materials have no base map.");
         }
 
-        [MenuItem("Arna/Report Materials")]
+        [MenuItem("The Vail/Report Materials")]
         public static void ReportMaterials()
         {
             string[] models =
@@ -2304,7 +2304,7 @@ namespace Arna.Editor
             foreach (var path in models)
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (prefab == null) { Debug.Log($"[Arna] missing {path}"); continue; }
+                if (prefab == null) { Debug.Log($"[The Vail] missing {path}"); continue; }
 
                 foreach (var renderer in prefab.GetComponentsInChildren<Renderer>())
                 {
@@ -2316,7 +2316,7 @@ namespace Arna.Editor
 
                     foreach (var material in renderer.sharedMaterials)
                     {
-                        if (material == null) { Debug.Log("[Arna]   (null material)"); continue; }
+                        if (material == null) { Debug.Log("[The Vail]   (null material)"); continue; }
 
                         string smooth = material.HasProperty("_Smoothness")
                             ? material.GetFloat("_Smoothness").ToString("0.00")
@@ -2328,7 +2328,7 @@ namespace Arna.Editor
                         string tex = material.HasProperty("_BaseMap") && material.GetTexture("_BaseMap") != null
                             ? material.GetTexture("_BaseMap").name : "none";
 
-                        Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(path)} :: {material.name} " +
+                        Debug.Log($"[The Vail] {Path.GetFileNameWithoutExtension(path)} :: {material.name} " +
                                   $"shader={material.shader.name} smooth={smooth} metal={metal} " +
                                   $"tex={tex} mesh={verts}");
                     }
@@ -2338,7 +2338,7 @@ namespace Arna.Editor
 
         /// <summary>
         /// Re-wires the open scene's model and scenery libraries from code, without
-        /// rebuilding the scene: `Arna > Refresh Scene Assets`.
+        /// rebuilding the scene: `The Vail > Refresh Scene Assets`.
         ///
         /// This exists because of a trap that has now produced three false bug reports
         /// in a row — a wagon that would not grow, lilypads that would not shrink, a
@@ -2370,7 +2370,7 @@ namespace Arna.Editor
         {
             if (!EditorApplication.isPlayingOrWillChangePlaymode) return true;
 
-            Debug.LogWarning($"[Arna] Stop play mode first — {what} changed nothing.\n"
+            Debug.LogWarning($"[The Vail] Stop play mode first — {what} changed nothing.\n"
                              + "It writes to the saved scenes and assets, and neither can "
                              + "be written while the game is running: anything it did "
                              + "would be discarded the moment you pressed stop. Press "
@@ -2378,7 +2378,7 @@ namespace Arna.Editor
             return false;
         }
 
-        [MenuItem("Arna/Refresh Scene Assets")]
+        [MenuItem("The Vail/Refresh Scene Assets")]
         public static void RefreshSceneAssets()
         {
             // **Not while the game is running**, and this cost a week.
@@ -2408,7 +2408,7 @@ namespace Arna.Editor
             // after a pull. It holds no serialized assets — every screen in it is built
             // in code — so there is nothing to refresh once it exists.
             if (System.IO.File.Exists(MenuScenePath))
-                Debug.Log($"[Arna] Menu scene already at {MenuScenePath}.");
+                Debug.Log($"[The Vail] Menu scene already at {MenuScenePath}.");
             else
                 BuildMenuScene();
 
@@ -2436,7 +2436,7 @@ namespace Arna.Editor
             // anything is wired, so what the components pick up is the mended model.
             if (Untextured(LoadModels().Eagle))
             {
-                Debug.Log("[Arna] The eagle's materials carry no textures — wiring them now.");
+                Debug.Log("[The Vail] The eagle's materials carry no textures — wiring them now.");
                 WireLooseTextures();
             }
 
@@ -2466,7 +2466,7 @@ namespace Arna.Editor
                 EditorUtility.SetDirty(runner);
                 touched++;
 
-                Debug.Log($"[Arna] {runner.name}: wagons at {VisualLibrary.WagonHeight:0.0} m — "
+                Debug.Log($"[The Vail] {runner.name}: wagons at {VisualLibrary.WagonHeight:0.0} m — "
                           + $"{Describe(runner.Models.WagonSupply)}, "
                           + $"{Describe(runner.Models.WagonWar)}, "
                           + $"{Describe(runner.Models.WagonTreasure)}, drawn by "
@@ -2495,7 +2495,7 @@ namespace Arna.Editor
                 EditorUtility.SetDirty(preview);
                 touched++;
 
-                Debug.Log($"[Arna] {preview.name}: marsh plants {Names(preview.Decor.MarshPlants)}. "
+                Debug.Log($"[The Vail] {preview.name}: marsh plants {Names(preview.Decor.MarshPlants)}. "
                           + $"Lilypads: {Names(preview.Decor.Lilypads)}. "
                           + $"Skyline: {Names(preview.Decor.Horizon)}. "
                           + $"{Rig("eagle", preview.Models.Eagle)}");
@@ -2503,7 +2503,7 @@ namespace Arna.Editor
 
             if (touched == 0)
             {
-                Debug.LogWarning("[Arna] No LevelRunner or LevelPreview in the open scene. "
+                Debug.LogWarning("[The Vail] No LevelRunner or LevelPreview in the open scene. "
                                  + "Open PlayLevel or LevelPreview first.");
                 return;
             }
@@ -2517,7 +2517,7 @@ namespace Arna.Editor
             // what is open, and what is open is not always what Play runs — a menu item
             // that says "saved the scene" while a different scene holds the old models is
             // a report that agrees with itself and with nothing else.
-            Debug.Log($"[Arna] Refreshed {touched} component(s) in {scene.name} "
+            Debug.Log($"[The Vail] Refreshed {touched} component(s) in {scene.name} "
                       + $"({scene.path}) and saved it. If Play still shows the old models, "
                       + "Play is running a different scene than this one.");
         }
@@ -2649,7 +2649,7 @@ namespace Arna.Editor
 
         /// <summary>
         /// Builds a material out of the loose textures lying beside a model, and gives it
-        /// to the model: `Arna > Wire Loose Textures`, `-arnaModelDir &lt;path&gt;`.
+        /// to the model: `The Vail > Wire Loose Textures`, `-vailModelDir &lt;path&gt;`.
         ///
         /// <see cref="RestyleModelMaterials"/> cannot do this and it is worth being clear
         /// why. That one <b>extracts</b> textures that are embedded inside an FBX. The
@@ -2663,14 +2663,14 @@ namespace Arna.Editor
         /// and hair are cut out of flat geometry, and without clipping a bird is drawn
         /// with rectangular wings.
         /// </summary>
-        [MenuItem("Arna/Wire Loose Textures")]
+        [MenuItem("The Vail/Wire Loose Textures")]
         public static void WireLooseTextures()
         {
-            string folder = ArgValue("-arnaModelDir") ?? "Assets/ThirdParty/Eagle";
+            string folder = ArgValue("-vailModelDir") ?? "Assets/ThirdParty/Eagle";
 
             if (!AssetDatabase.IsValidFolder(folder))
             {
-                Debug.LogWarning($"[Arna] {folder} is not a folder in this project.");
+                Debug.LogWarning($"[The Vail] {folder} is not a folder in this project.");
                 return;
             }
 
@@ -2681,7 +2681,7 @@ namespace Arna.Editor
 
             if (textures.Count == 0)
             {
-                Debug.LogWarning($"[Arna] No textures in {folder}. Nothing to wire.");
+                Debug.LogWarning($"[The Vail] No textures in {folder}. Nothing to wire.");
                 return;
             }
 
@@ -2695,7 +2695,7 @@ namespace Arna.Editor
 
             if (albedo == null)
             {
-                Debug.LogWarning($"[Arna] No albedo texture found in {folder}. "
+                Debug.LogWarning($"[The Vail] No albedo texture found in {folder}. "
                                  + $"Saw: {string.Join(", ", textures.ConvertAll(t => t.name))}");
                 return;
             }
@@ -2749,7 +2749,7 @@ namespace Arna.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[Arna] {material.name}: albedo={albedo.name} "
+            Debug.Log($"[The Vail] {material.name}: albedo={albedo.name} "
                       + $"normal={normal?.name ?? "—"} opacity={opacity?.name ?? "—"} "
                       + $"→ {wired} material slot(s) remapped. Alpha clip {(opacity != null ? "on" : "off")}.");
         }
@@ -2778,7 +2778,7 @@ namespace Arna.Editor
         /// leaves us a real palette to tune per biome later, which is the harder
         /// reason to do it this way rather than overriding at runtime.
         /// </summary>
-        [MenuItem("Arna/Restyle Model Materials")]
+        [MenuItem("The Vail/Restyle Model Materials")]
         public static void RestyleModelMaterials()
         {
             const float outdoorSmoothness = 0.04f;
@@ -2841,7 +2841,7 @@ namespace Arna.Editor
                 repaired++;
             }
 
-            if (repaired > 0) Debug.Log($"[Arna] Cleared broken material remaps on {repaired} models.");
+            if (repaired > 0) Debug.Log($"[The Vail] Cleared broken material remaps on {repaired} models.");
 
             int remapped = 0;
 
@@ -2878,7 +2878,7 @@ namespace Arna.Editor
 
                         string error = AssetDatabase.ExtractAsset(embedded, target);
                         if (string.IsNullOrEmpty(error)) extracted++;
-                        else Debug.LogWarning($"[Arna] {model}/{embedded.name}: {error}");
+                        else Debug.LogWarning($"[The Vail] {model}/{embedded.name}: {error}");
                     }
                 }
             }
@@ -2915,7 +2915,7 @@ namespace Arna.Editor
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log($"[Arna] Restyled materials: {textured} models had textures extracted, " +
+            Debug.Log($"[The Vail] Restyled materials: {textured} models had textures extracted, " +
                       $"{extracted} materials extracted, {remapped} re-linked, " +
                       $"{linked} given a base map, {adjusted} set to smoothness {outdoorSmoothness}.");
         }
@@ -2935,7 +2935,7 @@ namespace Arna.Editor
                 foreach (var name in new[] { "_ShadowStrength", "_AmbientBoost", "_DebugShadow" })
                     values += ground.HasProperty(name) ? $"{name}={ground.GetFloat(name):0.00} " : $"{name}=absent ";
 
-                Debug.Log($"[Arna] ground material: {ground.name} shader={ground.shader.name} {values}");
+                Debug.Log($"[The Vail] ground material: {ground.name} shader={ground.shader.name} {values}");
             }
 
             var pipeline = GraphicsSettings.defaultRenderPipeline as UniversalRenderPipelineAsset;
@@ -2948,7 +2948,7 @@ namespace Arna.Editor
                 if (renderer.shadowCastingMode != ShadowCastingMode.Off) casters++;
             }
 
-            Debug.Log($"[Arna] shadow chain: pipeline={(pipeline == null ? "none" : pipeline.name)} " +
+            Debug.Log($"[The Vail] shadow chain: pipeline={(pipeline == null ? "none" : pipeline.name)} " +
                       $"mainLightShadows={pipeline?.supportsMainLightShadows} " +
                       $"distance={pipeline?.shadowDistance} cascades={pipeline?.shadowCascadeCount} " +
                       $"soft={pipeline?.supportsSoftShadows} | " +

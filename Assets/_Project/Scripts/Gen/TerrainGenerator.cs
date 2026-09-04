@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVail.Sim;
 
-namespace Arna.Gen
+namespace TheVail.Gen
 {
     /// <summary>
     /// Turns a recipe plus a seed into playable terrain

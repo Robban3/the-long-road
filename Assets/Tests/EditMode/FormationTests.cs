@@ -1,8 +1,8 @@
-using Arna.Gen;
-using Arna.Sim;
+using TheVail.Gen;
+using TheVail.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVail.Tests
 {
     /// <summary>
     /// The figures inside a group, and who each of them is looking at.

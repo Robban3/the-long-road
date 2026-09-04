@@ -8,7 +8,7 @@ Version 0.3 — fas 0. Unity **6000.3.22f1** (Unity 6.3 LTS), URP, C#.
 
 Engine-versionen är **pinnad till 6000.3.22f1** i `ProjectSettings/ProjectVersion.txt`. Unity 6.3 LTS har support till december 2027, vilket täcker hela produktionen och en bit därefter.
 
-Patchuppgraderingar inom 6000.3 är ofarliga. **Byte av major-version under fas 1–4 kräver uttryckligt beslut och en omkörning av determinismtesterna** — en engine-uppgradering mitt i innehållsproduktion kan förskjuta flyttalsberäkningar i generatorn, och då blir 1000 banor plötsligt 1000 *andra* banor. Det är också skälet till att `Arna.Gen` hålls fri från engine-beroenden: ju mindre av generatorn som rör Unity, desto mindre kan en uppgradering rubba.
+Patchuppgraderingar inom 6000.3 är ofarliga. **Byte av major-version under fas 1–4 kräver uttryckligt beslut och en omkörning av determinismtesterna** — en engine-uppgradering mitt i innehållsproduktion kan förskjuta flyttalsberäkningar i generatorn, och då blir 1000 banor plötsligt 1000 *andra* banor. Det är också skälet till att `TheVail.Gen` hålls fri från engine-beroenden: ju mindre av generatorn som rör Unity, desto mindre kan en uppgradering rubba.
 
 **Krav på utvecklingsmaskinen**
 
@@ -181,16 +181,16 @@ En upptäckt fiende fadar in över 0.3 s och triggar slow motion om det är grup
 ## 9. Assemblystruktur
 
 ```
-Arna.Sim          ren C#, inga UnityEngine-beroenden — testbar utanför Unity
-Arna.Data         ScriptableObject-definitioner
-Arna.Gen          bangenerator (beror på Sim + Data)
-Arna.View         MonoBehaviours, rendering, VFX
-Arna.UI           HUD, menyer, lägret
-Arna.App          bootstrap, scenhantering, sparning
-Arna.Tests        edit mode-tester (beror på Sim + Gen)
+TheVail.Sim          ren C#, inga UnityEngine-beroenden — testbar utanför Unity
+TheVail.Data         ScriptableObject-definitioner
+TheVail.Gen          bangenerator (beror på Sim + Data)
+TheVail.View         MonoBehaviours, rendering, VFX
+TheVail.UI           HUD, menyer, lägret
+TheVail.App          bootstrap, scenhantering, sparning
+TheVail.Tests        edit mode-tester (beror på Sim + Gen)
 ```
 
-Assembly-definitions används för att **tvinga fram** separationen — `Arna.Sim` refererar inte `UnityEngine`, och kompilatorn ser till att det förblir så. Utan den spärren kommer ett `Time.deltaTime` att smyga sig in i simuleringen inom en månad.
+Assembly-definitions används för att **tvinga fram** separationen — `TheVail.Sim` refererar inte `UnityEngine`, och kompilatorn ser till att det förblir så. Utan den spärren kommer ett `Time.deltaTime` att smyga sig in i simuleringen inom en månad.
 
 `Jobs`/`Burst` används endast på två ställen om profilering visar behov: enhetsstyrning och detektionsuppdatering. Inte som generell arkitektur — kodbasen ska vara enkel att arbeta i.
 

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>A troop that can see. Position and sight radius before terrain is applied.</summary>
     public struct Watcher

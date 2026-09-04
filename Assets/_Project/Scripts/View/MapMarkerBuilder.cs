@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVail.Sim;
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVail.View
 {
     /// <summary>
     /// Flat coloured discs laid on the planning map: where a group stands, where the

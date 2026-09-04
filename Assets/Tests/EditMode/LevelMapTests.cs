@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using Arna.Gen;
-using Arna.Sim;
+using TheVail.Gen;
+using TheVail.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVail.Tests
 {
     /// <summary>
     /// The planning map and the run's map are one map, and a route is checked against the

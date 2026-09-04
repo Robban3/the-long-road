@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>
     /// Deterministic xorshift128 PRNG.
     ///
     /// Every random value in generation and simulation comes from an instance of
-    /// this class. UnityEngine.Random is banned in Arna.Sim and Arna.Gen: it is
+    /// this class. UnityEngine.Random is banned in TheVail.Sim and TheVail.Gen: it is
     /// global mutable state, anyone can perturb it from anywhere, and its sequence
     /// is not guaranteed stable across Unity versions. Since a level is stored as
     /// nothing but a recipe plus a seed, a shifted sequence does not just change a

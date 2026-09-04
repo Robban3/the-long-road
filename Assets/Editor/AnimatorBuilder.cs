@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 
-namespace Arna.Editor
+namespace TheVail.Editor
 {
     /// <summary>
     /// Generates one animator controller per model.
@@ -131,7 +131,7 @@ namespace Arna.Editor
         // Its own name rather than the knight's. Which file the clips come out of is a
         // question with more than one answer — the first source that maps wins — and a
         // controller named after whichever one happened to win is a controller nothing
-        // else can refer to. ArnaSetup needs this path at compile time.
+        // else can refer to. TheVailSetup needs this path at compile time.
         const string ArmyName = "Army";
 
         /// <summary>
@@ -199,7 +199,7 @@ namespace Arna.Editor
 
         /// <summary>
         /// Makes the army pack's characters into Humanoid rigs and finds them something
-        /// to play: `Arna > Rig For Retargeting`.
+        /// to play: `The Vail > Rig For Retargeting`.
         ///
         /// The army pack has 52 characters and no animation whatsoever. Every other pack
         /// here ships a model and its clips in one file, and this project has always read
@@ -233,20 +233,20 @@ namespace Arna.Editor
         /// humanoid at all the run changes nothing and says so. The old models moving
         /// beats the new models frozen.
         /// </summary>
-        /// <summary>Whether the editor is out of play mode. See ArnaSetup.Stopped.</summary>
+        /// <summary>Whether the editor is out of play mode. See TheVailSetup.Stopped.</summary>
         // A re-import during play is undone the moment play stops, so this would report
         // twenty rigs converted and leave twenty rigs exactly as they were.
         static bool Stopped(string what)
         {
             if (!EditorApplication.isPlayingOrWillChangePlaymode) return true;
 
-            Debug.LogWarning($"[Arna] Stop play mode first — {what} changed nothing. "
+            Debug.LogWarning($"[The Vail] Stop play mode first — {what} changed nothing. "
                              + "It re-imports assets, and a re-import during play is "
                              + "discarded when play stops.");
             return false;
         }
 
-        [MenuItem("Arna/Rig For Retargeting")]
+        [MenuItem("The Vail/Rig For Retargeting")]
         public static void RigForRetargeting()
         {
             if (!Stopped("Rig For Retargeting")) return;
@@ -255,7 +255,7 @@ namespace Arna.Editor
 
             if (prefabs.Length == 0)
             {
-                Debug.LogWarning($"[Arna] No prefabs under {ArmyCharacters}. Either the pack is "
+                Debug.LogWarning($"[The Vail] No prefabs under {ArmyCharacters}. Either the pack is "
                                  + "not in this project or that folder is named something else.");
                 return;
             }
@@ -316,7 +316,7 @@ namespace Arna.Editor
 
             foreach (string path in beasts) Generic(path);
 
-            Debug.Log($"[Arna] {prefabs.Length} character prefab(s): {skinned} with a skeleton, "
+            Debug.Log($"[The Vail] {prefabs.Length} character prefab(s): {skinned} with a skeleton, "
                       + $"{boneless} without"
                       + (parts.Count > 0
                          ? $", and {parts.Count} rigged part(s) with too few bones to be a "
@@ -328,7 +328,7 @@ namespace Arna.Editor
 
             if (rigs.Count == 0)
             {
-                Debug.LogWarning("[Arna] Not one of them is skinned to a skeleton, so they are "
+                Debug.LogWarning("[The Vail] Not one of them is skinned to a skeleton, so they are "
                                  + "static meshes. There is nothing to animate and nothing to "
                                  + "retarget onto — no importer setting fixes a model that has "
                                  + "no bones. The choice is between statues in the new "
@@ -381,7 +381,7 @@ namespace Arna.Editor
                 var have = new List<string>();
                 foreach (var clip in lent) have.Add(Label(clip));
 
-                Debug.LogWarning($"[Arna] {BorrowedClips} holds {lent.Count} clip(s) — "
+                Debug.LogWarning($"[The Vail] {BorrowedClips} holds {lent.Count} clip(s) — "
                                  + $"{string.Join(", ", have)} — and not one of them is an "
                                  + "idle, so there is no controller to build: a rig with no "
                                  + "standing-still state has nowhere to be when it is not "
@@ -409,7 +409,7 @@ namespace Arna.Editor
 
                 // What is missing, rather than which requirement the mapper tripped over
                 // first. The two are not the same and only one of them can be acted on.
-                Debug.LogWarning("[Arna] Nothing here can be read as a human skeleton, so there "
+                Debug.LogWarning("[The Vail] Nothing here can be read as a human skeleton, so there "
                                  + $"are no clips to lend: {string.Join("; ", why)}. A humanoid "
                                  + "avatar needs fifteen bones and Configure can only map ones "
                                  + "that exist, so this is not a setting and cannot be corrected "
@@ -446,7 +446,7 @@ namespace Arna.Editor
             // Two controllers out of one pool — the army's and the archers'. Same clips
             // and same skeleton; only the Attack state is chosen differently, so a bowman
             // draws where a swordsman swings. The army's is built under its own name
-            // rather than the source file's, because ArnaSetup asks for that path at
+            // rather than the source file's, because TheVailSetup asks for that path at
             // compile time and cannot know which file won.
             //
             // Both pools, borrowed first. Match tries an exact name across the whole pool
@@ -473,7 +473,7 @@ namespace Arna.Editor
 
             string chose = string.Join(" and ", from);
 
-            Debug.Log($"[Arna] {rigs.Count} army rig(s), {changed} now Humanoid. They play "
+            Debug.Log($"[The Vail] {rigs.Count} army rig(s), {changed} now Humanoid. They play "
                       + $"{chose} clips through {ArmyController}."
                       + (refused.Count > 0
                          ? $" {string.Join(", ", Names(refused))} could not be read as human, "
@@ -481,7 +481,7 @@ namespace Arna.Editor
                          : string.Empty));
 
             if (broken.Count > 0)
-                Debug.LogWarning("[Arna] Unity could not map these onto a human skeleton: "
+                Debug.LogWarning("[The Vail] Unity could not map these onto a human skeleton: "
                                  + $"{string.Join(", ", broken)}. They are back on Generic and "
                                  + "will stand still — a rig with an invalid avatar plays nothing "
                                  + "at all. To bring one in, select the file, Rig > Configure, "
@@ -679,12 +679,12 @@ namespace Arna.Editor
             return false;
         }
 
-        [MenuItem("Arna/Build Army Animator")]
+        [MenuItem("The Vail/Build Army Animator")]
         public static void BuildArmyAnimator()
         {
             if (!AssetDatabase.IsValidFolder(ArmyPack))
             {
-                Debug.LogWarning($"[Arna] {ArmyPack} is not in this project.");
+                Debug.LogWarning($"[The Vail] {ArmyPack} is not in this project.");
                 return;
             }
 
@@ -695,21 +695,21 @@ namespace Arna.Editor
 
             if (controller == null)
             {
-                Debug.Log("[Arna] Nothing to build, which is the answer: the pack has no "
+                Debug.Log("[The Vail] Nothing to build, which is the answer: the pack has no "
                           + "animation of its own, so its characters borrow a Quaternius "
-                          + $"character's through {ArmyController}. Run Arna > Rig For "
+                          + $"character's through {ArmyController}. Run The Vail > Rig For "
                           + "Retargeting once, then Refresh Scene Assets.");
                 return;
             }
 
-            Debug.LogWarning("[Arna] The army pack turned out to have clips of its own after "
+            Debug.LogWarning("[The Vail] The army pack turned out to have clips of its own after "
                              + $"all, and they have just overwritten {ArmyController}. That is "
                              + "the right outcome — borrowing was only ever the answer to it "
                              + "having none — but Rig For Retargeting will overwrite them back "
                              + "if it is run again, so stop running it.");
         }
 
-        [MenuItem("Arna/Build Animator Controllers")]
+        [MenuItem("The Vail/Build Animator Controllers")]
         public static void BuildAll()
         {
             if (!AssetDatabase.IsValidFolder(OutputDir))
@@ -734,11 +734,11 @@ namespace Arna.Editor
             // its denominator does not need anyone to go looking.
             if (missed.Count == 0)
             {
-                Debug.Log($"[Arna] Built {built} of {Models.Length} animator controllers in {OutputDir}.");
+                Debug.Log($"[The Vail] Built {built} of {Models.Length} animator controllers in {OutputDir}.");
                 return;
             }
 
-            Debug.LogWarning($"[Arna] Built {built} of {Models.Length} animator controllers in "
+            Debug.LogWarning($"[The Vail] Built {built} of {Models.Length} animator controllers in "
                              + $"{OutputDir}. No controller for: {string.Join(", ", missed)}. "
                              + "The warning above each one says why — a missing file reads as "
                              + "\"No clips\", a file whose clips this project cannot name reads "
@@ -787,7 +787,7 @@ namespace Arna.Editor
             {
                 if (!AssetDatabase.IsValidFolder(folder))
                 {
-                    Debug.LogWarning($"[Arna] {folder} is not a folder in this project.");
+                    Debug.LogWarning($"[The Vail] {folder} is not a folder in this project.");
                     continue;
                 }
 
@@ -797,7 +797,7 @@ namespace Arna.Editor
 
             if (clips.Count == 0)
             {
-                Debug.LogWarning("[Arna] No animation clips anywhere under "
+                Debug.LogWarning("[The Vail] No animation clips anywhere under "
                                  + $"{string.Join(", ", folders)}. The pack ships none, so its "
                                  + "characters will hold their bind pose. The way out is "
                                  + "Humanoid retargeting — set both this pack's rigs and a pack "
@@ -828,7 +828,7 @@ namespace Arna.Editor
             var names = new List<string>();
             foreach (var clip in clips) names.Add(Label(clip));
 
-            Debug.Log($"[Arna] {clips.Count} clip(s) under {folder0}: {string.Join(", ", names)}");
+            Debug.Log($"[The Vail] {clips.Count} clip(s) under {folder0}: {string.Join(", ", names)}");
 
             return Assemble(name, $"{folder0} (folder)", clips, prefer);
         }
@@ -894,7 +894,7 @@ namespace Arna.Editor
             var clips = LoadClips(modelPath);
             if (clips.Count == 0)
             {
-                Debug.LogWarning($"[Arna] No clips in {modelPath}");
+                Debug.LogWarning($"[The Vail] No clips in {modelPath}");
                 return null;
             }
 
@@ -953,11 +953,11 @@ namespace Arna.Editor
             //
             // If this warns, the clips brought in do not contain an archer — nothing in
             // BowNames matched anything in the pool — and no amount of work in this file
-            // will produce one. What is needed then is the clip: `Arna > List Clips`
+            // will produce one. What is needed then is the clip: `The Vail > List Clips`
             // says what is there, and a Mixamo "Standing Draw Arrow" dropped into
             // BorrowedClips is enough.
             if (prefer != null && wanted == null)
-                Debug.LogWarning($"[Arna] {name}: no bow clip among {clips.Count} in {source}, "
+                Debug.LogWarning($"[The Vail] {name}: no bow clip among {clips.Count} in {source}, "
                                  + $"so the archers fall back to '{Label(attack)}' and swing "
                                  + "instead of drawing. This is a missing clip, not a bug.");
 
@@ -965,7 +965,7 @@ namespace Arna.Editor
 
             if (idle == null)
             {
-                Debug.LogWarning($"[Arna] No idle clip in {source}. Nothing here is named "
+                Debug.LogWarning($"[The Vail] No idle clip in {source}. Nothing here is named "
                                  + "anything this project recognises as standing still — see "
                                  + "IdleNames, which is a list to add to rather than a rule.");
                 return null;
@@ -976,7 +976,7 @@ namespace Arna.Editor
             // Said out loud, because a controller built from the wrong clips and one
             // built from the right ones are the same file from the outside, and the
             // difference only shows up as an animal standing still in a running game.
-            Debug.Log($"[Arna] {name}: idle={Name(idle)} walk={Name(walk)} "
+            Debug.Log($"[The Vail] {name}: idle={Name(idle)} walk={Name(walk)} "
                       + $"attack={Name(attack)} death={Name(death)}  ({clips.Count} clips)");
 
             Loop(idle, walk, attack);
@@ -1098,7 +1098,7 @@ namespace Arna.Editor
                 AnimationUtility.SetAnimationClipSettings(clip, settings);
 
                 EditorUtility.SetDirty(clip);
-                Debug.Log($"[Arna] loop switched on for {clip.name}, which was set to play once.");
+                Debug.Log($"[The Vail] loop switched on for {clip.name}, which was set to play once.");
             }
         }
 
@@ -1165,7 +1165,7 @@ namespace Arna.Editor
             importer.clipAnimations = settings;
             importer.SaveAndReimport();
 
-            Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(modelPath)}: loop switched on "
+            Debug.Log($"[The Vail] {Path.GetFileNameWithoutExtension(modelPath)}: loop switched on "
                       + $"for {string.Join(", ", looped)} — they were set to play once.");
             return true;
         }
@@ -1222,7 +1222,7 @@ namespace Arna.Editor
                 measured.Add($"{Bare(clip.name)} {Cadence(clip):0.00}/s"
                              + (clip.isLooping ? "" : " (plays once!)"));
 
-            Debug.Log($"[Arna] {Path.GetFileNameWithoutExtension(modelPath)} flight clips: "
+            Debug.Log($"[The Vail] {Path.GetFileNameWithoutExtension(modelPath)} flight clips: "
                       + $"{string.Join(", ", measured)}. Travelling on {Name(walk)}, "
                       + $"idling on {Name(idle)}, both at {FlightSpeed:0.00}x.");
         }
@@ -1357,7 +1357,7 @@ namespace Arna.Editor
              : Bare(clip.name);
 
         /// <summary>
-        /// Says what every controller is actually holding: `Arna > Report Animation`.
+        /// Says what every controller is actually holding: `The Vail > Report Animation`.
         ///
         /// The build already logs its choices, and a log line is only useful to somebody
         /// who was watching the console at the moment it appeared. Three rounds went on
@@ -1368,7 +1368,7 @@ namespace Arna.Editor
         /// files the game will actually play — including a controller built by an older
         /// version of this code, which is exactly the case worth catching.
         /// </summary>
-        [MenuItem("Arna/Report Animation")]
+        [MenuItem("The Vail/Report Animation")]
         public static void ReportAnimation()
         {
             if (AssetDatabase.IsValidFolder(BorrowedClips))
@@ -1391,12 +1391,12 @@ namespace Arna.Editor
                 }
 
                 Debug.Log(guids.Length == 0
-                    ? $"[Arna] {BorrowedClips} is there and empty."
-                    : $"[Arna] {guids.Length} borrowed file(s): {string.Join(", ", found)}");
+                    ? $"[The Vail] {BorrowedClips} is there and empty."
+                    : $"[The Vail] {guids.Length} borrowed file(s): {string.Join(", ", found)}");
             }
             else
             {
-                Debug.Log($"[Arna] No {BorrowedClips} folder, so nothing has been brought in.");
+                Debug.Log($"[The Vail] No {BorrowedClips} folder, so nothing has been brought in.");
             }
 
             foreach (var guid in AssetDatabase.FindAssets("t:AnimatorController", new[] { OutputDir }))
@@ -1417,7 +1417,7 @@ namespace Arna.Editor
                         : $"{state}={motion.name}");
                 }
 
-                Debug.Log($"[Arna] {Path.GetFileName(path)}: {string.Join("  ", report)}"
+                Debug.Log($"[The Vail] {Path.GetFileName(path)}: {string.Join("  ", report)}"
                           + (MotionOf(controller, "Attack") == null
                              ? "   ← no attack state, so nothing swings whatever the game asks for"
                              : string.Empty));

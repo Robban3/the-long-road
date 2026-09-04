@@ -1,4 +1,4 @@
-namespace Arna.Sim
+namespace TheVail.Sim
 {
     /// <summary>
     /// Terrain types as defined in docs/GDD.md §3.2. The numeric values are
