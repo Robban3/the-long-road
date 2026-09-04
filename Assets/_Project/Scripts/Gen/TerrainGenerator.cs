@@ -389,7 +389,45 @@ namespace Arna.Gen
                 PlaceFords(grid, path, Math.Max(1, recipe.FordsPerRiver));
             }
 
+            SinkTheChannel(grid);
             LevelTheCrossings(grid);
+        }
+
+        /// <summary>
+        /// How far below its banks a river's bed lies, as a share of the height field.
+        ///
+        /// A tenth, which the run's fourteen metres of relief make about 1.4 m — a stream
+        /// you would wade rather than a gorge.
+        /// </summary>
+        public const float ChannelDepth = 0.1f;
+
+        /// <summary>
+        /// Digs the riverbed.
+        ///
+        /// <b>There was never one.</b> LevelTheCrossings has said since it was written
+        /// that "a river is carved by lowering its tiles", and nothing lowered them: a
+        /// water tile kept whatever height the noise field gave the meadow beside it, and
+        /// WaterMeshBuilder then laid the surface a third of a metre *above* that. So the
+        /// river ran along the top of the ground instead of through it — a blue film on a
+        /// green field, which is what a plate looks like and is exactly what it was
+        /// reported as.
+        ///
+        /// The channel is cut here, before the crossings are levelled, because a ford is
+        /// defined against its banks and must be raised back afterwards. Nothing else in
+        /// the pipeline reads elevation before this point.
+        ///
+        /// <b>The banks slope on their own.</b> Nothing feathers the edge here and
+        /// nothing needs to: the rendered surface is interpolated between corners, and a
+        /// corner is the average of the four tiles meeting at it
+        /// (TileGrid.CornerElevation), so a bankside corner is already half meadow and
+        /// half riverbed. Cutting the tile cuts a slope into the bank for free. Feathering
+        /// as well would double it and turn every stream into a valley.
+        /// </summary>
+        static void SinkTheChannel(TileGrid grid)
+        {
+            for (int i = 0; i < grid.TileCount; i++)
+                if (grid[i] == TerrainType.Water)
+                    grid.SetElevation(i, grid.Elevation(i) - ChannelDepth);
         }
 
         /// <summary>

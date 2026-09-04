@@ -1184,6 +1184,9 @@ namespace Arna.View
         /// </summary>
         static void Repaint(Transform figure, Material faction)
         {
+            int swapped = 0;
+            var passed = _reportedRepaint ? null : new System.Collections.Generic.HashSet<string>();
+
             foreach (var renderer in figure.GetComponentsInChildren<Renderer>(true))
             {
                 var slots = renderer.sharedMaterials;
@@ -1192,15 +1195,48 @@ namespace Arna.View
                 for (int i = 0; i < slots.Length; i++)
                 {
                     if (slots[i] == null) continue;
-                    if (!slots[i].name.StartsWith(VisualLibrary.FactionPrefix)) continue;
+
+                    if (!slots[i].name.StartsWith(VisualLibrary.FactionPrefix))
+                    {
+                        passed?.Add(slots[i].name);
+                        continue;
+                    }
 
                     slots[i] = faction;
                     changed = true;
+                    swapped++;
                 }
 
                 if (changed) renderer.sharedMaterials = slots;
             }
+
+            // Said once, and it is the only way to tell the two failures apart.
+            //
+            // A missing faction material warns already (see ArnaSetup.ReportFactions).
+            // The other way this does nothing is silent: the material loads, and no slot
+            // on the model is *named* the way the prefix expects, so every slot is passed
+            // over and both sides walk on in the livery the pack shipped. That is
+            // indistinguishable on screen from the swap never having been written, which
+            // is how it survived being reported as fixed. The pack is not in this
+            // repository, so the names cannot be checked here — the run is asked instead.
+            if (_reportedRepaint) return;
+            _reportedRepaint = true;
+
+            if (swapped > 0)
+            {
+                Debug.Log($"[Arna] Faction repaint: {swapped} slot(s) swapped for {faction.name}.");
+                return;
+            }
+
+            Debug.LogWarning($"[Arna] Faction repaint changed nothing. No material on the model "
+                           + $"starts with \"{VisualLibrary.FactionPrefix}\", so both sides keep the "
+                           + $"colours the pack shipped. The slots actually on it are: "
+                           + $"{string.Join(", ", passed)}. Set VisualLibrary.FactionPrefix to "
+                           + $"whatever those share.");
         }
+
+        /// <summary>Whether the repaint has already said how it went. Once is enough.</summary>
+        static bool _reportedRepaint;
 
         static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
