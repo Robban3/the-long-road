@@ -1,4 +1,4 @@
-namespace TheVail.Gen
+namespace TheVeil.Gen
 {
     /// <summary>
     /// Deterministic 2D value noise with fBm layering.

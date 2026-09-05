@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using TheVail.Gen;
-using TheVail.Sim;
+using TheVeil.Gen;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace TheVail.Tests
+namespace TheVeil.Tests
 {
     /// <summary>
     /// The placer's promises, checked the way the player will break them: by drawing

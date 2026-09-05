@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using TheVail.Gen;
-using TheVail.Sim;
+using TheVeil.Gen;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace TheVail.Tests
+namespace TheVeil.Tests
 {
     /// <summary>
     /// The soft signal, and whether it is a signal at all (docs/GDD.md §3.5).

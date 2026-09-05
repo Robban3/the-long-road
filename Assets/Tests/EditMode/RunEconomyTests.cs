@@ -1,7 +1,7 @@
-using TheVail.Sim;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace TheVail.Tests
+namespace TheVeil.Tests
 {
     public class RunEconomyTests
     {

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using TheVail.Sim;
+using TheVeil.Sim;
 
-namespace TheVail.Gen
+namespace TheVeil.Gen
 {
     /// <summary>
     /// Distributes enemies, traps and silver across the ground a route can be drawn

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace TheVail.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// The screen behind a menu entry that is designed but not built.

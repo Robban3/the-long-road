@@ -1,10 +1,10 @@
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// The balance table from docs/GDD.md §3.2, in code because the pathfinder and
     /// the generator both need it before any Unity object exists.
     ///
-    /// These are the shipping defaults. TheVail.Data mirrors them as TerrainTypeDef
+    /// These are the shipping defaults. TheVeil.Data mirrors them as TerrainTypeDef
     /// assets so designers can tune without recompiling; at load time the assets
     /// overwrite these values through <see cref="Override"/>. Keeping a working
     /// default here means Sim and Gen stay runnable in a plain unit test with no

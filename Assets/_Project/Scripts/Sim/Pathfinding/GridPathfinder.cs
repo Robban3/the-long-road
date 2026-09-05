@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// Terrain-weighted A* over a <see cref="TileGrid"/>.

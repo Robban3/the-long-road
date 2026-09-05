@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Fits imported models to the world.

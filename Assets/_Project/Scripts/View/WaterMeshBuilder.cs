@@ -1,9 +1,9 @@
-using TheVail.Sim;
+using TheVeil.Sim;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Builds the water as one continuous surface instead of a plane per tile.

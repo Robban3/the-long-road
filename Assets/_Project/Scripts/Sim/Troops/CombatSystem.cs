@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>An enemy group destroyed this step, and whether it cost the player anything.</summary>
     public struct EnemyDefeat

@@ -1,12 +1,12 @@
 using System.Collections.Generic;
-using TheVail.Gen;
-using TheVail.Sim;
-using TheVail.UI;
-using TheVail.View;
+using TheVeil.Gen;
+using TheVeil.Sim;
+using TheVeil.UI;
+using TheVeil.View;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace TheVail.App
+namespace TheVeil.App
 {
     [System.Serializable]
     public struct SlotAssignment
@@ -56,7 +56,7 @@ namespace TheVail.App
         /// What every landmark's own size is multiplied by in the run.
         ///
         /// 1.6, and it is measured rather than nudged. A house is built at six metres
-        /// and a wagon is 3.2 (<see cref="TheVail.View.VisualLibrary.WagonHeight"/>), so a
+        /// and a wagon is 3.2 (<see cref="TheVeil.View.VisualLibrary.WagonHeight"/>), so a
         /// cottage stands 1.9 times a cart. A real cottage is five to seven metres to the
         /// ridge and a real cart about two, which is nearer three to one — so the honest
         /// proportion was never the one on the screen, and the wagons are what the eye
@@ -134,7 +134,7 @@ namespace TheVail.App
         ///
         /// The seventh entry is the scouting post and takes a scout or nothing; the first
         /// six are the line, and only as many of them as the level has opened are used.
-        /// What the player actually brings comes from the troop screen — see TheVail.UI —
+        /// What the player actually brings comes from the troop screen — see TheVeil.UI —
         /// and overrides this.
         /// </summary>
         public SlotAssignment[] Formation =
@@ -222,10 +222,10 @@ namespace TheVail.App
                     ? $"tile {broken} ({map.Grid[broken]})"
                     : $"tile {broken}";
 
-                Debug.LogError($"[The Vail] The route for {Chapter}-{Level} does not fit this map at "
+                Debug.LogError($"[The Veil] The route for {Chapter}-{Level} does not fit this map at "
                                + $"{where}, so it was not solved against it. Falling back to the "
                                + $"{corridor.Kind} corridor. Both screens build the map through "
-                               + "TheVail.Gen.LevelMaps, so this means something has gone round it.");
+                               + "TheVeil.Gen.LevelMaps, so this means something has gone round it.");
 
                 route = corridor.Tiles;
                 ChosenRoute.Clear();
@@ -468,10 +468,10 @@ namespace TheVail.App
                 if (_run.StalledOn >= 0 && !_reportedStall)
                 {
                     _reportedStall = true;
-                    Debug.LogError($"[The Vail] The caravan stopped dead on tile {_run.StalledOn} "
+                    Debug.LogError($"[The Veil] The caravan stopped dead on tile {_run.StalledOn} "
                                    + $"({_levelGrid[_run.StalledOn]}) and could not go on, so the "
                                    + "run was called off. Ground the column cannot cross should "
-                                   + "never be on its route: see RouteCheck and TheVail.Gen.LevelMaps.");
+                                   + "never be on its route: see RouteCheck and TheVeil.Gen.LevelMaps.");
                 }
             }
 

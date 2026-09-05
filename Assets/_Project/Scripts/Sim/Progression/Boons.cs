@@ -1,4 +1,4 @@
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>What gold buys between levels, and keeps.</summary>
     public enum Boon : byte

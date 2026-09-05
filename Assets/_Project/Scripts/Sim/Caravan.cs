@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     public enum WagonKind : byte
     {

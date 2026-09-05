@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// A generated level: terrain, the caravan's entry and exit points, and the
     /// corridors that prove the route choice is real.
-    /// Produced by TheVail.Gen, consumed by both the simulation and the view.
+    /// Produced by TheVeil.Gen, consumed by both the simulation and the view.
     /// </summary>
     public sealed class LevelMap
     {

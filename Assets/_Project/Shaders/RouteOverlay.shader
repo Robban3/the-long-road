@@ -8,7 +8,7 @@
 // Depth testing is the wrong idea for it. The route is annotation — the player draws
 // it before the caravan exists — so it belongs on top of the picture rather than in
 // it, and drawing it last with the depth test off says exactly that.
-Shader "TheVail/RouteOverlay"
+Shader "TheVeil/RouteOverlay"
 {
     SubShader
     {

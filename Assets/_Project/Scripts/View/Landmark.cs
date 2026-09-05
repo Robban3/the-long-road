@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>The kinds of built thing the decorator stands on a map.</summary>
     public enum LandmarkKind : byte

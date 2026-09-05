@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using TheVail.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Draws whatever the simulation is doing.
@@ -143,7 +143,7 @@ namespace TheVail.View
                 : props.GetComponentsInChildren<BridgeDeck>(true);
 
             if (_bridges.Length > 0)
-                Debug.Log($"[The Vail] {_bridges.Length} bridge(s) found; the column rides over them.");
+                Debug.Log($"[The Veil] {_bridges.Length} bridge(s) found; the column rides over them.");
         }
 
         /// <summary>
@@ -152,7 +152,7 @@ namespace TheVail.View
         /// Called once, after the decorator has finished. Every prop the decorator judged
         /// solid carries a <see cref="Solid"/> with the radius it actually blocks, and
         /// they go into the run's obstacle field as discs — see
-        /// <see cref="TheVail.Sim.ObstacleField"/> for why the radius is the trunk and not
+        /// <see cref="TheVeil.Sim.ObstacleField"/> for why the radius is the trunk and not
         /// the crown.
         ///
         /// This is the join the game never had. The scenery has always been over here and
@@ -169,7 +169,7 @@ namespace TheVail.View
             foreach (var solid in solids)
                 run.Obstacles.Add(solid.Centre.x, solid.Centre.y, solid.Radius);
 
-            Debug.Log($"[The Vail] {run.Obstacles.Count} solid prop(s); the escort goes round them.");
+            Debug.Log($"[The Veil] {run.Obstacles.Count} solid prop(s); the escort goes round them.");
         }
 
         static readonly Color SupplyColor = new Color(0.85f, 0.72f, 0.42f);
@@ -195,14 +195,14 @@ namespace TheVail.View
             // mesh there are no wheel parts to turn, and the wagons go on sliding with
             // nothing in the console to say why.
             if (_wagons.Count > 0)
-                Debug.Log($"[The Vail] {_wagons.Count} wagons, {_draught.Count} horses in harness "
+                Debug.Log($"[The Veil] {_wagons.Count} wagons, {_draught.Count} horses in harness "
                           + $"({_draught.Count / _wagons.Count} each), "
                           + $"{_wheels[0].Count} wheels on the first.");
 
             CheckSpacing();
 
             if (_wagons.Count > 0 && _wheels[0].Count == 0)
-                Debug.LogWarning("[The Vail] No wheels found under the wagon models, so they will "
+                Debug.LogWarning("[The Veil] No wheels found under the wagon models, so they will "
                                  + $"slide rather than roll. Parts: {WagonWheels.Parts(_wagons[0])}");
 
             if (run.Squad == null) return;
@@ -274,7 +274,7 @@ namespace TheVail.View
                 enemies.Add($"{kind} = " + (model.HasModel ? model.Prefab.name : "capsule"));
             }
 
-            Debug.Log($"[The Vail] The cast on screen — {string.Join("; ", cast)}. "
+            Debug.Log($"[The Veil] The cast on screen — {string.Join("; ", cast)}. "
                       + $"Enemies: {string.Join("; ", enemies)}.");
         }
 
@@ -409,7 +409,7 @@ namespace TheVail.View
             // Printed per wagon, because this is the one measurement in the caravan that
             // comes from a model rather than from a table, and three models disagree
             // about it.
-            Debug.Log($"[The Vail] {kind} wagon: {cart.name} reaches {front:0.0} m forward and "
+            Debug.Log($"[The Veil] {kind} wagon: {cart.name} reaches {front:0.0} m forward and "
                       + $"{_rear[_rear.Count - 1]:0.0} m back from its centre; hitch {hitch:0.00} m, "
                       + $"so the team's tails stand at {front + hitch:0.0} m.");
 
@@ -476,13 +476,13 @@ namespace TheVail.View
 
             if (worst > Caravan.WagonSpacing)
             {
-                Debug.LogWarning($"[The Vail] The wagons are too close together: {detail}. The "
+                Debug.LogWarning($"[The Veil] The wagons are too close together: {detail}. The "
                                  + "following team is drawn inside the cart in front of it, "
                                  + "which looks like a missing horse. Raise Caravan.WagonSpacing.");
                 return;
             }
 
-            Debug.Log($"[The Vail] Wagon spacing: {detail}.");
+            Debug.Log($"[The Veil] Wagon spacing: {detail}.");
         }
 
         public void Sync(LevelRun run)
@@ -1066,8 +1066,8 @@ namespace TheVail.View
             if (Library.Boar.Prefab == null) missing.Add("boar");
 
             if (missing.Count > 0)
-                Debug.LogWarning($"[The Vail] No model for: {string.Join(", ", missing)}. Those are "
-                                 + "drawn as coloured capsules. Run The Vail > Refresh Scene Assets.");
+                Debug.LogWarning($"[The Veil] No model for: {string.Join(", ", missing)}. Those are "
+                                 + "drawn as coloured capsules. Run The Veil > Refresh Scene Assets.");
 
             foreach (var animal in animals)
             {
@@ -1093,7 +1093,7 @@ namespace TheVail.View
 
             // The heights too, because the reason they could not be seen was arithmetic
             // rather than absence: a fox stood 0.45 m in grass fitted to 0.70.
-            Debug.Log($"[The Vail] {animals.Count} wild animals: {fox} fox at "
+            Debug.Log($"[The Veil] {animals.Count} wild animals: {fox} fox at "
                       + $"{VisualLibrary.HeightOf(WildlifeKind.Fox):0.00} m, {doe} does, "
                       + $"{stag} stags at {VisualLibrary.HeightOf(WildlifeKind.DeerMale):0.00} m, "
                       + $"{boar} boar. The grass is {TerrainDecorator.CoverHeight:0.00} m.");
@@ -1212,7 +1212,7 @@ namespace TheVail.View
 
             // Said once, and it is the only way to tell the two failures apart.
             //
-            // A missing faction material warns already (see TheVailSetup.ReportFactions).
+            // A missing faction material warns already (see TheVeilSetup.ReportFactions).
             // The other way this does nothing is silent: the material loads, and no slot
             // on the model is *named* the way the prefix expects, so every slot is passed
             // over and both sides walk on in the livery the pack shipped. That is
@@ -1224,11 +1224,11 @@ namespace TheVail.View
 
             if (swapped > 0)
             {
-                Debug.Log($"[The Vail] Faction repaint: {swapped} slot(s) swapped for {faction.name}.");
+                Debug.Log($"[The Veil] Faction repaint: {swapped} slot(s) swapped for {faction.name}.");
                 return;
             }
 
-            Debug.LogWarning($"[The Vail] Faction repaint changed nothing. No material on the model "
+            Debug.LogWarning($"[The Veil] Faction repaint changed nothing. No material on the model "
                            + $"starts with \"{VisualLibrary.FactionPrefix}\", so both sides keep the "
                            + $"colours the pack shipped. The slots actually on it are: "
                            + $"{string.Join(", ", passed)}. Set VisualLibrary.FactionPrefix to "
@@ -1255,7 +1255,7 @@ namespace TheVail.View
 
             if (Library.CrowFlockPrefab == null)
             {
-                Debug.LogWarning("[The Vail] No crow flock prefab — the scene predates it, or the "
+                Debug.LogWarning("[The Veil] No crow flock prefab — the scene predates it, or the "
                                  + "path into Unluck Software is wrong. Run Set Up Play Scene.");
                 return;
             }
@@ -1270,7 +1270,7 @@ namespace TheVail.View
                     new Vector3(position.X, GroundAt(position) + CrowAltitude, position.Y);
             }
 
-            Debug.Log($"[The Vail] {flocks.Count} crow flocks placed.");
+            Debug.Log($"[The Veil] {flocks.Count} crow flocks placed.");
         }
 
         /// <summary>
@@ -1354,7 +1354,7 @@ namespace TheVail.View
             // all warned on every run of a level. The model now carries whether its clips
             // are its own, because nothing about the prefab can be asked that question.
             if (model.Borrowed && animator.avatar == null && _warned.Add(model.Prefab.name))
-                Debug.LogWarning($"[The Vail] {model.Prefab.name} has no avatar. That is fine for a "
+                Debug.LogWarning($"[The Veil] {model.Prefab.name} has no avatar. That is fine for a "
                                  + "Generic rig playing clips out of its own file, and fatal "
                                  + "for one playing clips retargeted from another — if it holds "
                                  + "its bind pose, this is why.");
@@ -1390,7 +1390,7 @@ namespace TheVail.View
 
             if (AlreadyArmed(marker))
             {
-                Debug.Log($"[The Vail] {marker.name} carries a weapon in its own rig; {model.Weapon.name} skipped.");
+                Debug.Log($"[The Veil] {marker.name} carries a weapon in its own rig; {model.Weapon.name} skipped.");
                 return;
             }
 
@@ -1399,11 +1399,11 @@ namespace TheVail.View
             {
                 // Silent failure here looks identical to a model that simply has no
                 // weapon, which is exactly the confusion this reports away.
-                Debug.LogWarning($"[The Vail] No hand bone on {marker.name}; {model.Weapon.name} not fitted.");
+                Debug.LogWarning($"[The Veil] No hand bone on {marker.name}; {model.Weapon.name} not fitted.");
                 return;
             }
 
-            Debug.Log($"[The Vail] {marker.name}: {model.Weapon.name} fitted to bone '{hand.name}'.");
+            Debug.Log($"[The Veil] {marker.name}: {model.Weapon.name} fitted to bone '{hand.name}'.");
 
             var weapon = Object.Instantiate(model.Weapon, hand);
             weapon.name = "Weapon";

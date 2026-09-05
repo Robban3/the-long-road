@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// The ground that shows a caravan came to grief here: bones, a wrecked cart, a

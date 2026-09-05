@@ -4,4 +4,4 @@
 set -e
 cd "$(dirname "$0")"
 dotnet build Typecheck.csproj -v quiet --nologo
-exec ./bin/Debug/net8.0/TheVailTests "$@"
+exec ./bin/Debug/net8.0/TheVeilTests "$@"

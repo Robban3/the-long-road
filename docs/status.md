@@ -35,16 +35,16 @@ Unity process is alive.
 
     Unity.exe -batchmode -quit -projectPath <project> -logFile <log> -executeMethod <method>
 
-Useful methods, all on `TheVail.Editor.TheVailSetup`:
+Useful methods, all on `TheVeil.Editor.TheVeilSetup`:
 
 | Method | What it does |
 |---|---|
 | `SetupProject` | Rebuilds the render pipeline, materials and the planning scene |
 | `SetUpPlayScene` | Rebuilds the scene you press Play in |
 | `CaptureLevelPreview` | Renders the planning map to a PNG |
-| `CapturePlayScene` | Renders the play view; `-vailSteps` advances the simulation first |
+| `CapturePlayScene` | Renders the play view; `-veilSteps` advances the simulation first |
 | `RestyleModelMaterials` | Extracts textures and materials from the packs and takes the gloss off |
-| `ReportFolderDimensions` | Measures every model in `-vailModelDir`: size and which axis is up |
+| `ReportFolderDimensions` | Measures every model in `-veilModelDir`: size and which axis is up |
 | `ReportMaterialTextures` | Prints which texture each material ended up with |
 | `ReportRigBones` | Dumps a character's bone hierarchy |
 | `CaptureCharacters` | Stands the whole cast in two rows and photographs it |
@@ -64,7 +64,7 @@ Tests:
 — and that leaves **View, App and Editor unchecked**. Those are three quarters of the code
 that draws anything, and for this whole project the only compiler that had ever seen them
 was the one inside Unity, on another machine, after a push. A method defined twice in
-`TheVailSetup` cost a Safe Mode dialog and two round trips to find, and nothing here could
+`TheVeilSetup` cost a Safe Mode dialog and two round trips to find, and nothing here could
 have caught it.
 
 `unitycheck.sh` compiles those files here instead. Its first version handed them to Roslyn
@@ -103,7 +103,7 @@ pushing, and that half is where this class of mistake lives.
     ./Tools/csharp/typecheck.sh            # everything
     ./Tools/csharp/typecheck.sh Formation  # one fixture
 
-`TheVail.Sim` is compiled without engine references on purpose and `TheVail.Gen` only depends
+`TheVeil.Sim` is compiled without engine references on purpose and `TheVeil.Gen` only depends
 on it, so both build with a plain compiler. The EditMode tests build against the NUnit
 stand-in beside that script — and `Runner.cs` reflects over the fixtures and **executes**
 them.
@@ -152,7 +152,7 @@ could build it, so nothing caught it. `View`, `App` and `Editor` still need Unit
 
 ### Without Unity at all
 
-`Tools/vail_level.py` is `TheVail.Sim` and `TheVail.Gen` transcribed to Python, and
+`Tools/veil_level.py` is `TheVeil.Sim` and `TheVeil.Gen` transcribed to Python, and
 `Tools/render_screens.py` draws both views from it with its own rasteriser, z-buffer
 and shadow map. That is what a machine with no engine on it — a cloud session, a
 laptop without the project installed — can still look at:
@@ -725,7 +725,7 @@ Two attempts were wasted before that was found, and both failed in ways that loo
 the answer: the peaks were raised from 130 m to 185 (no change), then the renderer's
 stone colour was darkened away from the sky (no change). Only the second failure was
 suspicious enough to go looking, and the fog was in `render_screens.py` mirroring
-`TheVailSetup`, which is the whole reason the port exists.
+`TheVeilSetup`, which is the whole reason the port exists.
 
 The fog ends at 520 m now. A peak at 300 m keeps about half its own colour — a pale blue
 silhouette, which is what a mountain twenty minutes' walk away actually looks like. The
@@ -818,13 +818,13 @@ arrives in Unity is a mesh whose material slots point at nothing — and a slot 
 nothing renders pure white, which is the failure that method's own comment warns about,
 reached from the opposite direction.
 
-`The Vail > Wire Loose Textures` builds a URP material from the loose files beside a model
+`The Veil > Wire Loose Textures` builds a URP material from the loose files beside a model
 and remaps it onto the importer, so it survives a reimport in a way a material dragged
 onto a prefab does not. Albedo, normal and opacity are matched by filename. Alpha
 clipping goes on when an opacity map is found: feathers, leaves and hair are cut out of
 flat geometry, and without clipping a bird has rectangular wings.
 
-It defaults to `Assets/ThirdParty/Eagle` and takes `-vailModelDir` for anything else,
+It defaults to `Assets/ThirdParty/Eagle` and takes `-veilModelDir` for anything else,
 which the next cgtrader asset will need.
 
 **The wings not beating is a separate fault with a separate cause** — four of them, in
@@ -1177,7 +1177,7 @@ standing in — and no way to tell them apart from outside. `RunVisuals.ReportCa
 prefab every post is actually drawing, once per level, at runtime. A name is not an
 opinion: `MC_ManAtArms_01` and `Knight` are different words.
 
-`The Vail > Refresh Scene Assets` does the same wiring in place, and prints what it wired:
+`The Veil > Refresh Scene Assets` does the same wiring in place, and prints what it wired:
 the wagon height in use, the cart and horse models by name, the marsh plants and lilypads
 by name, and the eagle's textures and controller. "It did not change" becomes a thing
 that can be checked rather than believed. It also mends the one fault it can — an eagle
@@ -1413,7 +1413,7 @@ file. **Humanoid is Unity's way round that.** The importer maps a skeleton onto 
 human one; a clip is then stored as *what a human did* rather than as what these particular
 bones did, and it plays on any other rig mapped the same way.
 
-`The Vail > Rig For Retargeting` does both halves, and both are needed:
+`The Veil > Rig For Retargeting` does both halves, and both are needed:
 
 - the **clips** are re-imported as humanoid, which is the knight's file, and the controller
   is rebuilt from them — the old one holds the generic versions, which retarget onto nothing
@@ -1498,7 +1498,7 @@ never names.
 nothing is itself the answer**, to a question that was otherwise going to cost a round trip
 and a guess. Three outcomes, and the console says which:
 
-- **clips found and matched** → the troops move, and `The Vail > Build Army Animator` has just
+- **clips found and matched** → the troops move, and `The Veil > Build Army Animator` has just
   built the controller they share
 - **clips found and unmatched** → the names need adding to `IdleNames` and its neighbours,
   which are lists to extend rather than rules
@@ -1706,7 +1706,7 @@ the models actually loaded, prints the tightest, and warns with the figure neede
 the constant is short of it:
 
 ```
-[The Vail] Wagon spacing: the tightest pair is wagon 1 to 2, which needs 13.4 m;
+[The Veil] Wagon spacing: the tightest pair is wagon 1 to 2, which needs 13.4 m;
        the caravan uses 15.0.
 ```
 
@@ -1779,7 +1779,7 @@ cost nothing to keep.
 
 ### The play camera
 
-`TheVail.App.CameraOrbit` holds pitch, yaw and range — what the player's two gestures
+`TheVeil.App.CameraOrbit` holds pitch, yaw and range — what the player's two gestures
 actually change — and `LevelRunner` polls the devices for them: pinch or scroll to zoom,
 one finger or right-drag to swing round, R to reset. It has no UnityEngine dependency,
 so the arithmetic is run and checked here rather than in an editor.
@@ -1795,7 +1795,7 @@ Four clamps, and each is a design decision rather than a safety rail:
 
 ### Wildlife
 
-`TheVail.Sim.Wildlife` puts 14 animals on a level and scatters them (GDD §3.5). Measured
+`TheVeil.Sim.Wildlife` puts 14 animals on a level and scatters them (GDD §3.5). Measured
 under mono, not estimated:
 
 | | |
@@ -2003,7 +2003,7 @@ and route drawing makes that signal considerably more important, because it is r
 before the line is drawn rather than during the run. Nothing in any of the four packs is
 a crow.
 
-Placement is done: `TheVail.Sim.CrowSignal.Place(map)` returns the flocks, deterministic
+Placement is done: `TheVeil.Sim.CrowSignal.Place(map)` returns the flocks, deterministic
 from the level seed and mirrored from the port that measured the numbers. What is left
 is the prefab. It wants a `PropSet Crows` on `BiomeDecor` and a caller in `RunVisuals`
 that turns three of them on a ten-metre ring at 22 m; the planning screen draws the same
@@ -2047,7 +2047,7 @@ cost hours last time, and a new pack pair is exactly when they pay:
 - `ReportRigBones` on one soldier, to find whether the right-hand bone the weapon
   fitting hangs off exists and what it is called here.
 
-**What the swap touches**, nearly all of it in `Assets/Editor/TheVailSetup.cs`:
+**What the swap touches**, nearly all of it in `Assets/Editor/TheVeilSetup.cs`:
 
 - The directory constants `QuaterniusDir`, `NatureDir`, `VillageDir`. All three are
   replaced, by one for the army pack and one each for the two POLYGON packs.
@@ -2104,7 +2104,7 @@ scaling by `size / 2` — which both scripts did — halves every board while wh
 from radii stay correct. A full-sized wheel against a half-sized body is what the old
 models were, and it is not a proportion anyone chose.
 
-**Order of operations.** Import and measure, wire `TheVailSetup`, run
+**Order of operations.** Import and measure, wire `TheVeilSetup`, run
 `CaptureLevelPreview` and `CapturePlayScene`, and only then delete the Quaternius
 folders — in one commit, so no revision of the project exists with neither set of art.
 `MedievalVillage` leaves with them only if the hay cart passed the check above. Add the

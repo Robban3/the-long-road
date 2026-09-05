@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace TheVail.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// The look of the menus: colours, and the sprites they are drawn with.
@@ -9,7 +9,7 @@ namespace TheVail.UI
     /// deliberate trade and worth stating, because the obvious way to build this screen
     /// is to draw nine-slices in an image editor and wire them up in a prefab.
     ///
-    /// This project builds its scenes from <c>TheVailSetup</c> — the terrain, the props,
+    /// This project builds its scenes from <c>TheVeilSetup</c> — the terrain, the props,
     /// the caravan and the markers are all made by code that can be read, reviewed and
     /// re-run. A menu made of imported PNGs and a hand-wired prefab is the one part
     /// nobody could review, nobody could regenerate, and which would quietly rot every
@@ -70,27 +70,27 @@ namespace TheVail.UI
         }
 
         /// <summary>The standard bordered panel: dark leather inside a double gold edge.</summary>
-        public static Sprite Frame => _frame != null ? _frame : _frame = Pixels.Frame(PanelFill, PanelEdge, "TheVailFrame");
+        public static Sprite Frame => _frame != null ? _frame : _frame = Pixels.Frame(PanelFill, PanelEdge, "TheVeilFrame");
 
         /// <summary>The same frame with a thinner, quieter edge, for the many small chips.</summary>
         public static Sprite SoftFrame => _frameSoft != null ? _frameSoft
-            : _frameSoft = Pixels.Frame(PanelFill, new Color(PanelEdge.r, PanelEdge.g, PanelEdge.b, 0.55f), "TheVailFrameSoft", thin: true);
+            : _frameSoft = Pixels.Frame(PanelFill, new Color(PanelEdge.r, PanelEdge.g, PanelEdge.b, 0.55f), "TheVeilFrameSoft", thin: true);
 
         /// <summary>Untextured white, for tints and dividers.</summary>
-        public static Sprite Flat => _flat != null ? _flat : _flat = Pixels.Solid(Color.white, "TheVailFlat");
+        public static Sprite Flat => _flat != null ? _flat : _flat = Pixels.Solid(Color.white, "TheVeilFlat");
 
         /// <summary>The medallion a level number sits in on the roadmap.</summary>
-        public static Sprite Round => _round != null ? _round : _round = Pixels.Medallion("TheVailRound");
+        public static Sprite Round => _round != null ? _round : _round = Pixels.Medallion("TheVeilRound");
 
         /// <summary>One stone of the winding path between levels. Packed with the wood.</summary>
         public static Sprite Slab { get { Forest(); return _slab; } }
 
-        public static Sprite Star => _star != null ? _star : _star = Pixels.Star("TheVailStar");
-        public static Sprite Padlock => _lock != null ? _lock : _lock = Pixels.Padlock("TheVailLock");
-        public static Sprite Banner => _banner != null ? _banner : _banner = Pixels.Banner("TheVailBanner");
+        public static Sprite Star => _star != null ? _star : _star = Pixels.Star("TheVeilStar");
+        public static Sprite Padlock => _lock != null ? _lock : _lock = Pixels.Padlock("TheVeilLock");
+        public static Sprite Banner => _banner != null ? _banner : _banner = Pixels.Banner("TheVeilBanner");
 
         /// <summary>The forest floor the level roadmap is laid on. Tiling.</summary>
-        public static Sprite Ground => _ground != null ? _ground : _ground = Pixels.Ground("TheVailGround");
+        public static Sprite Ground => _ground != null ? _ground : _ground = Pixels.Ground("TheVeilGround");
 
         /// <summary>
         /// The wood and the road through it, all cut from one texture.
@@ -103,7 +103,7 @@ namespace TheVail.UI
         {
             if (_conifer != null) return;
 
-            var packed = Pixels.Pack("TheVailForest",
+            var packed = Pixels.Pack("TheVeilForest",
                 Pixels.Conifer("Conifer"), Pixels.Broadleaf("Broadleaf"),
                 Pixels.Shrub("Shrub"), Pixels.Boulder("Boulder"), Pixels.Slab("Slab"));
 
@@ -120,18 +120,18 @@ namespace TheVail.UI
         public static Sprite Boulder { get { Forest(); return _boulder; } }
 
         /// <summary>The dark that closes in at the edges of the wood.</summary>
-        public static Sprite Vignette => _vignette != null ? _vignette : _vignette = Pixels.Vignette("TheVailVignette");
+        public static Sprite Vignette => _vignette != null ? _vignette : _vignette = Pixels.Vignette("TheVeilVignette");
 
-        public static Sprite CoinIcon => _coin != null ? _coin : _coin = Pixels.Coin("TheVailCoin");
-        public static Sprite GemIcon => _gem != null ? _gem : _gem = Pixels.Gem("TheVailGem");
-        public static Sprite HeartIcon => _heart != null ? _heart : _heart = Pixels.Heart("TheVailHeart");
-        public static Sprite SkullIcon => _skull != null ? _skull : _skull = Pixels.Skull("TheVailSkull");
-        public static Sprite Chevron => _chevron != null ? _chevron : _chevron = Pixels.Chevron("TheVailChevron");
-        public static Sprite Gear => _gear != null ? _gear : _gear = Pixels.Gear("TheVailGear");
+        public static Sprite CoinIcon => _coin != null ? _coin : _coin = Pixels.Coin("TheVeilCoin");
+        public static Sprite GemIcon => _gem != null ? _gem : _gem = Pixels.Gem("TheVeilGem");
+        public static Sprite HeartIcon => _heart != null ? _heart : _heart = Pixels.Heart("TheVeilHeart");
+        public static Sprite SkullIcon => _skull != null ? _skull : _skull = Pixels.Skull("TheVeilSkull");
+        public static Sprite Chevron => _chevron != null ? _chevron : _chevron = Pixels.Chevron("TheVeilChevron");
+        public static Sprite Gear => _gear != null ? _gear : _gear = Pixels.Gear("TheVeilGear");
 
         /// <summary>The rose on the planning map. North is up and stays up — see Pixels.Compass.</summary>
         public static Sprite CompassIcon
-            => _compass != null ? _compass : _compass = Pixels.Compass("TheVailCompass");
+            => _compass != null ? _compass : _compass = Pixels.Compass("TheVeilCompass");
 
         /// <summary>The fill a button of this role is painted with.</summary>
         public static Color Fill(ButtonRole role)

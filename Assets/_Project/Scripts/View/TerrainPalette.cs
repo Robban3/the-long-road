@@ -1,7 +1,7 @@
-using TheVail.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Colours for the planning overview. The player must be able to tell terrain

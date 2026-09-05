@@ -1,7 +1,7 @@
 // Lit vertex colour for the ground in the play view.
 //
 // The planning map and the play view draw the same mesh, but they are not the same
-// picture. A map wants flat colour with no shading, which is what TheVail/TerrainVertexColor
+// picture. A map wants flat colour with no shading, which is what TheVeil/TerrainVertexColor
 // gives it. Ground wants light: without a lit surface nothing can cast a shadow onto
 // it, and a tree with no shadow under it reads as pasted onto the picture rather than
 // standing in it.
@@ -9,7 +9,7 @@
 // Colour still comes from the vertex, so terrain type stays readable and no texture
 // is fetched. Lighting comes from the scene, so slopes shade themselves and the mesh
 // no longer needs relief baked into its colours.
-Shader "TheVail/TerrainGround"
+Shader "TheVeil/TerrainGround"
 {
     Properties
     {
@@ -32,7 +32,7 @@ Shader "TheVail/TerrainGround"
         _MacroTiling    ("Macro tiling (metres per repeat)", Float) = 41
         _MacroStrength  ("Macro strength", Range(0, 1)) = 0.35
 
-        // Diagnostic, driven by -vailDebugShadow on a headless capture.
+        // Diagnostic, driven by -veilDebugShadow on a headless capture.
         //   1  raw shadow attenuation, or solid red if this shader was compiled without
         //      URP's main-light shadow keyword and so could never sample a shadow
         //   2  the same after _ShadowStrength is applied

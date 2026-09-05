@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>
     /// The grey the planning map lies under until the eagle lifts it (docs/GDD.md §3.6).

@@ -1,8 +1,8 @@
-using TheVail.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace TheVail.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// Where the player puts the escort together, before the road is drawn.

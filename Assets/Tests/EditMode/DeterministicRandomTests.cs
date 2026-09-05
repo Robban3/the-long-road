@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using TheVail.Sim;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace TheVail.Tests
+namespace TheVeil.Tests
 {
     /// <summary>
     /// Determinism is load-bearing: a level is a recipe plus a seed, so if this

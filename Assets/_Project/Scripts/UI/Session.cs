@@ -1,7 +1,7 @@
-using TheVail.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace TheVail.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// What the menus and the level share: the campaign, and which level the player is
@@ -18,10 +18,10 @@ namespace TheVail.UI
         public const string PlanScene = "LevelPreview";
         public const string PlayScene = "PlayLevel";
 
-        const string SaveKey = "thevail.campaign.v1";
+        const string SaveKey = "theveil.campaign.v1";
 
         /// <summary>
-        /// Where the campaign was kept when the world was called Arna.
+        /// Every key the campaign has ever been kept under, newest first.
         ///
         /// A PlayerPrefs key is a contract with a device, not a name in the source, and
         /// renaming one is silent: the game reads an empty string, decides this is a new
@@ -29,11 +29,17 @@ namespace TheVail.UI
         /// sitting on disk under a key nobody asks for any more. No error, no warning,
         /// nothing on screen but a fresh save.
         ///
-        /// So the old key is read once, written across, and removed. Kept as a constant
-        /// rather than inlined because it is the reason <see cref="Carried"/> exists, and
-        /// a bare string there would look like a typo worth tidying away.
+        /// <b>A list rather than one previous name, because the world has been renamed
+        /// twice.</b> It was Arna, then briefly The Vail — a misspelling that shipped —
+        /// and now The Veil. A device that ran the game in between has already moved to
+        /// the middle key and no longer has the first; one that did not is still on the
+        /// first. Both have to work, and a single fallback would only ever serve one of
+        /// them.
+        ///
+        /// Anything added here is prepended, never appended: the order is the order they
+        /// are tried, and a newer save must always win over an older one left beside it.
         /// </summary>
-        const string OldSaveKey = "arna.campaign.v1";
+        static readonly string[] OldSaveKeys = { "thevail.campaign.v1", "arna.campaign.v1" };
 
         static Campaign _campaign;
 
@@ -72,15 +78,36 @@ namespace TheVail.UI
             string current = PlayerPrefs.GetString(SaveKey, "");
             if (!string.IsNullOrEmpty(current)) return current;
 
-            string old = PlayerPrefs.GetString(OldSaveKey, "");
-            if (string.IsNullOrEmpty(old)) return "";
+            foreach (string key in OldSaveKeys)
+            {
+                string old = PlayerPrefs.GetString(key, "");
+                if (string.IsNullOrEmpty(old)) continue;
 
-            PlayerPrefs.SetString(SaveKey, old);
-            PlayerPrefs.DeleteKey(OldSaveKey);
-            PlayerPrefs.Save();
+                PlayerPrefs.SetString(SaveKey, old);
 
-            Debug.Log("[The Vail] Campaign carried over from the old save key.");
-            return old;
+                // Every old key, not just the one that answered. A device that has two of
+                // them would otherwise keep the oldest lying around for good, and the day
+                // somebody wipes the save it would be migrated straight back in.
+                DeleteKeys(OldSaveKeys);
+                PlayerPrefs.Save();
+
+                Debug.Log($"[The Veil] Campaign carried over from \"{key}\".");
+                return old;
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Deletes a set of keys. Deleting one that is not there is not an error.
+        ///
+        /// Not called Forget: that name is taken by the one that clears the last run's
+        /// result, and two methods called Forget doing unrelated things is how somebody
+        /// deletes a save meaning to clear a scoreboard.
+        /// </summary>
+        static void DeleteKeys(string[] keys)
+        {
+            foreach (string key in keys) PlayerPrefs.DeleteKey(key);
         }
 
         /// <summary>
@@ -209,9 +236,9 @@ namespace TheVail.UI
             _campaign = new Campaign();
             PlayerPrefs.DeleteKey(SaveKey);
 
-            // The old one too. A wipe that leaves it behind would be undone by the next
-            // read, which migrates it straight back in.
-            PlayerPrefs.DeleteKey(OldSaveKey);
+            // And every old one. A wipe that leaves any of them behind would be undone by
+            // the very next read, which migrates whichever survived straight back in.
+            DeleteKeys(OldSaveKeys);
             PlayerPrefs.Save();
             Forget();
         }

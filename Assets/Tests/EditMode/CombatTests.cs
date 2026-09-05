@@ -1,8 +1,8 @@
-using TheVail.Gen;
-using TheVail.Sim;
+using TheVeil.Gen;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace TheVail.Tests
+namespace TheVeil.Tests
 {
     public class CombatTests
     {

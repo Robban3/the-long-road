@@ -1,10 +1,10 @@
 using System;
-using TheVail.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-namespace TheVail.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// What is on screen while a level is being played: the top bar, the pause menu, and

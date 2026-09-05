@@ -3,7 +3,7 @@
 // The planning view is a map, not a lit 3D scene: the player reads terrain by
 // colour, and shading would only muddy the boundaries between forest and marsh.
 // Unlit also costs nothing, which matters when this mesh covers the whole screen.
-Shader "TheVail/TerrainVertexColor"
+Shader "TheVeil/TerrainVertexColor"
 {
     SubShader
     {

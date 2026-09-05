@@ -1,8 +1,8 @@
-using TheVail.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>
     /// The bright circle on the ground that says how far a troop group can hit.
@@ -160,7 +160,7 @@ namespace TheVail.View
         /// Its own shader rather than URP's Unlit, for a reason that would otherwise cost
         /// an afternoon: <b>URP's Unlit shader ignores vertex colours.</b> Writing colours
         /// into the mesh does nothing at all there, and six rings that should differ would
-        /// all come out white. TheVail/RangeRing returns the vertex colour and nothing else,
+        /// all come out white. TheVeil/RangeRing returns the vertex colour and nothing else,
         /// so every group's ring can have its own tint while they stay one material.
         ///
         /// Unlit because a mark on the ground is not a thing the sun shines on: lit, a
@@ -168,7 +168,7 @@ namespace TheVail.View
         /// </summary>
         public static Material Material()
         {
-            var shader = Shader.Find("TheVail/RangeRing");
+            var shader = Shader.Find("TheVeil/RangeRing");
 
             if (shader != null) return new Material(shader) { name = "RangeRing" };
 
@@ -187,7 +187,7 @@ namespace TheVail.View
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.renderQueue = (int)RenderQueue.Transparent;
 
-            Debug.LogWarning("[The Vail] Shader 'TheVail/RangeRing' not found — the reach rings "
+            Debug.LogWarning("[The Veil] Shader 'TheVeil/RangeRing' not found — the reach rings "
                              + "will all be the same colour.");
             return material;
         }

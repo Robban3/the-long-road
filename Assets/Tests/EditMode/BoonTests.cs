@@ -1,8 +1,8 @@
-using TheVail.Gen;
-using TheVail.Sim;
+using TheVeil.Gen;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace TheVail.Tests
+namespace TheVeil.Tests
 {
     /// <summary>
     /// The shop: what gold buys, what it costs, and that the purchase reaches the run.

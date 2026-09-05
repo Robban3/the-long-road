@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using TheVail.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>
     /// A set of interchangeable models, and how the pack they came from was exported.
@@ -994,7 +994,7 @@ namespace TheVail.View
             for (int i = 0; i < ranked.Count && i < 12; i++)
                 top.Add($"{ranked[i].Key} x{ranked[i].Value}");
 
-            Debug.Log($"[The Vail] On the ground: {string.Join(", ", top)}"
+            Debug.Log($"[The Veil] On the ground: {string.Join(", ", top)}"
                       + (ranked.Count > 12 ? $", and {ranked.Count - 12} other kind(s)." : "."));
         }
 
@@ -1261,7 +1261,7 @@ namespace TheVail.View
 
             var got = ModelScaling.Measure(instance);
 
-            Debug.Log($"[The Vail] Bridge {prefab.name} on tile {tile}: bearing {across:F0}°, "
+            Debug.Log($"[The Veil] Bridge {prefab.name} on tile {tile}: bearing {across:F0}°, "
                     + $"span asked {span:F1} m and got {Mathf.Max(got.size.x, got.size.z):F1} m, "
                     + $"deck {Mathf.Min(got.size.x, got.size.z):F1} m wide, "
                     + $"roadway {before:F1} m above the bank before settling and {after:F1} m after.");
@@ -2427,7 +2427,7 @@ namespace TheVail.View
         ///
         /// By name, and that is worth defending because matching a third party's asset
         /// names usually is not. These are not a third party's choices: the set is
-        /// written out prop by prop in this project's own <c>TheVailSetup</c>, where two
+        /// written out prop by prop in this project's own <c>TheVeilSetup</c>, where two
         /// carts stand beside a skeleton, two skulls, a grave and a second skeleton from
         /// the generic pack. What is being read here is a list this repository keeps.
         ///

@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace TheVail.Editor
+namespace TheVeil.Editor
 {
     /// <summary>
     /// Sets the import settings on anything dropped into the backdrops folder, and
@@ -11,7 +11,7 @@ namespace TheVail.Editor
     /// resolution Unity has quietly halved to 2048 — so a painting dropped in and
     /// expected to appear turns up soft, or as the wrong kind of asset, and the reason
     /// is in an inspector nobody thought to open. The loader copes with either kind
-    /// (see TheVail.UI.Backdrops), and this makes it moot: a file in that folder is
+    /// (see TheVeil.UI.Backdrops), and this makes it moot: a file in that folder is
     /// imported as a full-size UI sprite, without anybody having to know that is a
     /// thing that needs doing.
     ///
@@ -44,13 +44,13 @@ namespace TheVail.Editor
         /// Takes the doubled extension off a painting that has just arrived.
         ///
         /// Windows Explorer hides known extensions by default. Save a file you have
-        /// called "TheVailShop.png" into a folder where ".png" is hidden and what lands on
-        /// disk is TheVailShop.png.png. Unity strips one extension, so the resource is named
-        /// "TheVailShop.png" and Resources.Load("TheVailShop") returns nothing — a screen that
+        /// called "TheVeilShop.png" into a folder where ".png" is hidden and what lands on
+        /// disk is TheVeilShop.png.png. Unity strips one extension, so the resource is named
+        /// "TheVeilShop.png" and Resources.Load("TheVeilShop") returns nothing — a screen that
         /// looks exactly the same as one with no painting at all, with nothing in the
         /// console to tell the two apart. That cost this project an afternoon across four
         /// paintings, three of which were named that way and one of which
-        /// ("TheVailBackdrop..png") was named a near miss that happened to still be found.
+        /// ("TheVeilBackdrop..png") was named a near miss that happened to still be found.
         ///
         /// So the folder fixes its own filenames. Renaming and not merely coping is the
         /// point: a loose match in the editor leaves the build still broken, while a file
@@ -73,7 +73,7 @@ namespace TheVail.Editor
             if (lowered != ".png" && lowered != ".jpg" && lowered != ".jpeg") return;
 
             string file = System.IO.Path.GetFileName(path);
-            string bare = TheVail.UI.Backdrops.Bare(path);
+            string bare = TheVeil.UI.Backdrops.Bare(path);
             string wanted = bare + extension;
 
             if (wanted == file) return;   // Already named the way it reads.
@@ -82,7 +82,7 @@ namespace TheVail.Editor
 
             if (System.IO.File.Exists(target))
             {
-                Debug.LogWarning($"[The Vail] '{file}' has a doubled extension and should be "
+                Debug.LogWarning($"[The Veil] '{file}' has a doubled extension and should be "
                                  + $"'{wanted}', but that file already exists. Delete "
                                  + "whichever of the two is the wrong picture.");
                 return;
@@ -92,11 +92,11 @@ namespace TheVail.Editor
 
             if (!string.IsNullOrEmpty(failure))
             {
-                Debug.LogWarning($"[The Vail] Could not rename '{file}' to '{wanted}': {failure}");
+                Debug.LogWarning($"[The Veil] Could not rename '{file}' to '{wanted}': {failure}");
                 return;
             }
 
-            Debug.Log($"[The Vail] Renamed '{file}' to '{wanted}'. Windows hides known file "
+            Debug.Log($"[The Veil] Renamed '{file}' to '{wanted}'. Windows hides known file "
                       + "extensions, so a picture saved as \"" + bare + "\" lands on disk "
                       + $"as {file} and the game never finds it.");
         }

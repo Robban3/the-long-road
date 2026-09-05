@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// Why something was placed where it was. Diagnostics, but the distinction is the
@@ -77,7 +77,7 @@ namespace TheVail.Sim
 
         /// <summary>
         /// False when the repair loop could not bring the worst sampled route up to
-        /// the placer's target (see `EncounterPlacer.RepairTarget` in TheVail.Gen, which
+        /// the placer's target (see `EncounterPlacer.RepairTarget` in TheVeil.Gen, which
         /// this assembly cannot name: Gen depends on Sim and not the reverse).
         ///
         /// The generator reads this and rolls the level again, which is the point of

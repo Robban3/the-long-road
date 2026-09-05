@@ -1,4 +1,4 @@
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// Where the individual figures of a group stand relative to the group's own point.

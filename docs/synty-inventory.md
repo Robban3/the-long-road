@@ -3,7 +3,7 @@
 Every prefab in `Assets/Synty`, filed by what it is and what this game does with it.
 Taken from the project's own listing rather than from the store page: what a pack
 advertises and what its folder contains are not always the same thing, and a name that
-does not exist is a bare hillside and no error (see `TheVailSetup.Load`).
+does not exist is a bare hillside and no error (see `TheVeilSetup.Load`).
 
 Two packs are installed. **Both are needed**, and the second one nearly went in the bin
 for having a name that sounds wrong.

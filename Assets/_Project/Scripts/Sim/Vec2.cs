@@ -1,11 +1,11 @@
 using System;
 
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// A world position in metres.
     ///
-    /// Defined here rather than using UnityEngine.Vector2 because TheVail.Sim is
+    /// Defined here rather than using UnityEngine.Vector2 because TheVeil.Sim is
     /// compiled without engine references — that is what keeps the simulation
     /// deterministic and runnable in a plain unit test.
     /// </summary>

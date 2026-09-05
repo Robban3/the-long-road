@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TheVail.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// One chapter's difficulty curve. Produces a <see cref="LevelRecipe"/> for each

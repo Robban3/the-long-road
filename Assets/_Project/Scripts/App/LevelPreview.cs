@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using TheVail.Gen;
-using TheVail.Sim;
-using TheVail.View;
+using TheVeil.Gen;
+using TheVeil.Sim;
+using TheVeil.View;
 using UnityEngine;
 
-namespace TheVail.App
+namespace TheVeil.App
 {
     /// <summary>
     /// Generates a level from its seed and draws the terrain overview with the three
@@ -139,7 +139,7 @@ namespace TheVail.App
         /// Flies the real crow flocks over the plan instead of drawing a bird on a plate.
         ///
         /// The prefab and the placement already existed for the play view — see
-        /// <see cref="TheVail.View.RunVisuals.BuildCrowFlocks"/> — and the plan was the one
+        /// <see cref="TheVeil.View.RunVisuals.BuildCrowFlocks"/> — and the plan was the one
         /// screen still using an icon for them. Birds that circle read as birds; an icon
         /// reads as a note somebody left about birds.
         /// </summary>
@@ -480,7 +480,7 @@ namespace TheVail.App
 
                 // The one moment worth a line: from here the fog should be off every
                 // tile the flight covers, and "should" is a thing that can be checked.
-                Debug.Log($"[The Vail] The eagle has flown the whole flight. Coverage "
+                Debug.Log($"[The Veil] The eagle has flown the whole flight. Coverage "
                           + $"{_flight.Coverage} tiles of {_grid.TileCount}; the fog is off "
                           + $"{_revealed.Count} so far and lifts off the rest this frame.");
             }
@@ -615,7 +615,7 @@ namespace TheVail.App
 
             if (Models == null || Models.CrowFlockPrefab == null)
             {
-                Debug.LogWarning("[The Vail] No crow flock prefab — run The Vail > Set Up Project. "
+                Debug.LogWarning("[The Veil] No crow flock prefab — run The Veil > Set Up Project. "
                                  + "The plan will fall back to nothing at all unless "
                                  + "ShowCrowSymbols is ticked.");
                 return;
@@ -646,7 +646,7 @@ namespace TheVail.App
                 placed++;
             }
 
-            Debug.Log($"[The Vail] Plan {Chapter}-{Level}: {placed} crow flock(s) circling at "
+            Debug.Log($"[The Veil] Plan {Chapter}-{Level}: {placed} crow flock(s) circling at "
                       + $"{CrowScale:0.#}x life size"
                       + (Application.isPlaying
                          ? "."
@@ -775,7 +775,7 @@ namespace TheVail.App
             {
                 _seized.Add(behaviour);
 
-                Debug.LogWarning($"[The Vail] {behaviour.GetType().Name}.{message} threw outside "
+                Debug.LogWarning($"[The Veil] {behaviour.GetType().Name}.{message} threw outside "
                                  + "play mode, so the crow flock it drives is being left "
                                  + $"alone from here: {(error.InnerException ?? error).Message}. "
                                  + "The birds will hold still on the plan map; everything else "
@@ -858,7 +858,7 @@ namespace TheVail.App
             _symbolMesh = MapSymbols.Build(map.Grid, signs, HeightScale, facing);
             _symbols = MapSymbols.Show(_symbolMesh, transform);
 
-            Debug.Log($"[The Vail] Plan {Chapter}-{Level}: {signs.Count} map symbols "
+            Debug.Log($"[The Veil] Plan {Chapter}-{Level}: {signs.Count} map symbols "
                       + $"({_landmarks?.Count ?? 0} landmarks reported).");
         }
 
@@ -1207,11 +1207,11 @@ namespace TheVail.App
             // The same shape as RouteDrawing.Awake, which takes the chapter and level
             // from the Session only when Application.isPlaying and lets the Inspector win
             // otherwise.
-            if (Application.isPlaying && TheVail.UI.Session.ScoutFlights <= 0) return;
+            if (Application.isPlaying && TheVeil.UI.Session.ScoutFlights <= 0) return;
 
             if (Models == null || !Models.Eagle.HasModel)
             {
-                Debug.LogWarning("[The Vail] No eagle model — run The Vail > Set Up Project. "
+                Debug.LogWarning("[The Veil] No eagle model — run The Veil > Set Up Project. "
                                  + "The scene predates the bird, or the path into "
                                  + "Assets/ThirdParty/Eagle is wrong.");
                 return;
@@ -1222,8 +1222,8 @@ namespace TheVail.App
             // result is a model holding its bind pose while it moves across the map.
             // Which looks like the flight being wrong rather than the wings being absent.
             if (Models.Eagle.Animator == null)
-                Debug.LogWarning("[The Vail] The eagle has no animator controller, so her wings "
-                                 + "will not beat. Run The Vail > Build Animator Controllers and "
+                Debug.LogWarning("[The Veil] The eagle has no animator controller, so her wings "
+                                 + "will not beat. Run The Veil > Build Animator Controllers and "
                                  + "check the summary says 12 of 12 — if it names Eagle_B1, "
                                  + "the warning above it says why.");
 
@@ -1231,7 +1231,7 @@ namespace TheVail.App
             // and not the same sweep again. Fly seeds off map.Seed ^ (constant + flight),
             // which is what makes buying another look worth the gold: the first covered
             // what it covered.
-            int sortie = Application.isPlaying ? TheVail.UI.Session.ScoutFlights - 1 : 0;
+            int sortie = Application.isPlaying ? TheVeil.UI.Session.ScoutFlights - 1 : 0;
 
             _flight = ScoutingAbility.Fly(map, flight: sortie < 0 ? 0 : sortie);
             if (_flight.Path.Count < 2) return;
@@ -1290,7 +1290,7 @@ namespace TheVail.App
             _eagle.position = new Vector3(start.X, GroundAt(start.X, start.Y) + EagleAltitude,
                                           start.Y);
 
-            Debug.Log($"[The Vail] Eagle: {_flight.Seconds:0} s aloft, {_flight.Coverage} tiles, "
+            Debug.Log($"[The Veil] Eagle: {_flight.Seconds:0} s aloft, {_flight.Coverage} tiles, "
                       + $"{_flight.RevealedEnemies.Count} of {map.Encounters.Enemies.Count} groups found.");
         }
 
@@ -1410,7 +1410,7 @@ namespace TheVail.App
             _props = null;
 
             if (strays > 0)
-                Debug.LogWarning($"[The Vail] {strays} abandoned prop root(s) cleared out of the "
+                Debug.LogWarning($"[The Veil] {strays} abandoned prop root(s) cleared out of the "
                                  + "preview. They were built by an earlier run, orphaned by a "
                                  + "scene load and saved back into the scene — see "
                                  + "LevelPreview.Clear.");
@@ -1445,7 +1445,7 @@ namespace TheVail.App
 
             // Worth printing: a prop that is placed but too small and a prop that was
             // never placed look identical on a map read from seventy metres up.
-            Debug.Log($"[The Vail] Plan {Chapter}-{Level}: {placed} props on {map.Grid.TileCount} tiles.");
+            Debug.Log($"[The Veil] Plan {Chapter}-{Level}: {placed} props on {map.Grid.TileCount} tiles.");
         }
 
         /// <summary>

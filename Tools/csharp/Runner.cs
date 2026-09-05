@@ -1,6 +1,6 @@
 // Runs the EditMode tests without Unity.
 //
-// TheVail.Sim is compiled without engine references on purpose and TheVail.Gen only depends
+// TheVeil.Sim is compiled without engine references on purpose and TheVeil.Gen only depends
 // on it, so the two assemblies that hold the generator, the fog of war, the route
 // solver and the fighting all run under a plain .NET host. That is most of the game's
 // logic, and until now none of it was checked between one person opening the editor

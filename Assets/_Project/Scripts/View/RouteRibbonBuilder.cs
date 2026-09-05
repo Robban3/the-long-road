@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using TheVail.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace TheVail.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Draws a route as a ribbon laid over the ground.
@@ -75,7 +75,7 @@ namespace TheVail.View
                 triangles[t + 5] = v + 3;
             }
 
-            var mesh = new Mesh { name = "TheVailRoute" };
+            var mesh = new Mesh { name = "TheVeilRoute" };
             mesh.SetVertices(vertices);
             mesh.SetColors(colors);
             mesh.SetTriangles(triangles, 0);

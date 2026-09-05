@@ -1,6 +1,6 @@
-using TheVail.Sim;
+using TheVeil.Sim;
 
-namespace TheVail.Gen
+namespace TheVeil.Gen
 {
     /// <summary>
     /// The one place a level's map comes from.
