@@ -333,151 +333,583 @@ MonoBehaviour:
   Chapter: 1
   Level: 1
   Route: 0
+  DebugReadout: 0
   TimeScale: 1
   HeightScale: 14
   MaxProps: 2200
+  LandmarkScale: 1.6
+  ShowReach: 1
   FollowCaravan: 1
   FollowDistance: 46
   FollowHeight: 32
+  PlayerControlsCamera: 1
+  OrbitSensitivity: 0.25
   Models:
-    Melee:
-      Prefab: {fileID: 919132149155446097, guid: b6ec847463f30b545b954b0f6c9576ab, type: 3}
-      Animator: {fileID: 9100000, guid: ab471d2687b062540a4a353311d7206f, type: 2}
-      Weapon: {fileID: 919132149155446097, guid: db19e47d84084604ab09c555f7604d8f, type: 3}
-      WeaponLength: 0.95
+    Spearmen:
+      Prefab: {fileID: 3360701452463158304, guid: 8d286a70b76ecfb4ca7f278b2d694cb5, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: 4f749ed5ce93fd541bb9e8ea58a4b0dd, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
       WeaponRotation: {x: -90, y: 0, z: 0}
-    Ranged:
-      Prefab: {fileID: 919132149155446097, guid: 21092fabb004c2a48abab0ab81f3d927, type: 3}
-      Animator: {fileID: 9100000, guid: 928ec31e28ce4d2419b22e66c8698d51, type: 2}
-      Weapon: {fileID: 919132149155446097, guid: dc16f1ac5477c2c4abff03cdca1b3d01, type: 3}
-      WeaponLength: 1.05
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Swordsmen:
+      Prefab: {fileID: 8429376485494569012, guid: e5f26712d1f3ebf438f971012725ee53, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: efcd15b4824851541984705bf602427f, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
       WeaponRotation: {x: -90, y: 0, z: 0}
-    Support:
-      Prefab: {fileID: 919132149155446097, guid: 305e0cce5403cdc4e9500c5db210d2b9, type: 3}
-      Animator: {fileID: 9100000, guid: e2f7841a179d9f44584ee2da84902a09, type: 2}
-      Weapon: {fileID: 919132149155446097, guid: 3634f9b91927a694aad63faed6fdb188, type: 3}
-      WeaponLength: 0.6
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Archers:
+      Prefab: {fileID: 4014650833283455035, guid: e80b3053de84cc6459b470b78cc5d667, type: 3}
+      Animator: {fileID: 9100000, guid: f930065988c6a5c48bf65ea72362d5ba, type: 2}
+      Rig: {fileID: 9000000, guid: cce7f0c27894fce48992e82048455de5, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
       WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Mage:
+      Prefab: {fileID: 7546277374518055989, guid: 836c2feefb7c11849b704693fa025b1f, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: 151b2a73af318194bb661e18e4fbef82, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Scout:
+      Prefab: {fileID: 6325552144162858009, guid: 8b59687c4a4ae4a4f832754690891c59, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: 78816bee2d4854b409c35eb2a6cf95a2, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Shieldbearer:
+      Prefab: {fileID: 386821000672232894, guid: e7b581e15f81da34a8bb6f350bcbefdf, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: 2bcc68f664379cc4690042e0caecaa18, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Priest:
+      Prefab: {fileID: 6339129956906671250, guid: 436b5767f8c66e04f9c096fe613cc43f, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: adf805d47f4494d4faa89e56b7d22358, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Engineer:
+      Prefab: {fileID: 5818346465592059994, guid: 12f7855bbd7ec5a4c983b0a8efdb2bc0, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: cce7f0c27894fce48992e82048455de5, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
     Mounted:
+      Prefab: {fileID: 7755355797084287779, guid: 451d46d305d4c9b4aabd08766a262413, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: 46f282aa2a0009e4788c44e03f7629cf, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Draught:
       Prefab: {fileID: 919132149155446097, guid: b0d9796b0a6c6a3449bafd9a1d636e0c, type: 3}
       Animator: {fileID: 9100000, guid: 4cfbc931cd2babd45afae776f479bccc, type: 2}
+      Rig: {fileID: 0}
+      Borrowed: 0
       Weapon: {fileID: 0}
       WeaponLength: 0
       WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Melee:
+      Prefab: {fileID: 0}
+      Animator: {fileID: 0}
+      Rig: {fileID: 0}
+      Borrowed: 0
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: 0, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Ranged:
+      Prefab: {fileID: 0}
+      Animator: {fileID: 0}
+      Rig: {fileID: 0}
+      Borrowed: 0
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: 0, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Support:
+      Prefab: {fileID: 0}
+      Animator: {fileID: 0}
+      Rig: {fileID: 0}
+      Borrowed: 0
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: 0, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    EnemyFaction: {fileID: 2100000, guid: 25616ef47c31d624b9b7eda150fff2b4, type: 2}
+    PlayerFaction: {fileID: 2100000, guid: 500f8ce50c59305409cf52848df204a1, type: 2}
     Wolf:
-      Prefab: {fileID: 919132149155446097, guid: 2099a944abf41484a92ed77644fc1003, type: 3}
+      Prefab: {fileID: 8867960657160430145, guid: 2c201f6401314d44d8ae94ca75376bab, type: 3}
       Animator: {fileID: 9100000, guid: 39dbb4ba22c47434fbdbf9d2b492bf01, type: 2}
+      Rig: {fileID: 0}
+      Borrowed: 0
       Weapon: {fileID: 0}
       WeaponLength: 0
       WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 90
+      Hide: []
+      Unsized: []
     Bandit:
-      Prefab: {fileID: 919132149155446097, guid: 2eb128fa903071d48806b9ba9f13ff10, type: 3}
-      Animator: {fileID: 9100000, guid: e6c5deb2e32dfcf4cabbb1ec81494401, type: 2}
-      Weapon: {fileID: 919132149155446097, guid: 804c8f7ea2a7e1e42920927b714751c9, type: 3}
-      WeaponLength: 0.8
+      Prefab: {fileID: 4520902821907144834, guid: 955c6841f282e674788260315777248d, type: 3}
+      Animator: {fileID: 9100000, guid: 1d876e1acfbf9274bb94d71f18e9c3d8, type: 2}
+      Rig: {fileID: 9000000, guid: 46f282aa2a0009e4788c44e03f7629cf, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
       WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
     BanditArcher:
-      Prefab: {fileID: 919132149155446097, guid: 5ec3917742108544ebe7f72961cf5fb6, type: 3}
-      Animator: {fileID: 9100000, guid: 19aa90106252735419bae3a361c2c1b4, type: 2}
-      Weapon: {fileID: 919132149155446097, guid: 58f14548ff7274b47a38f8ab7e68663e, type: 3}
-      WeaponLength: 0.45
+      Prefab: {fileID: 6983194989097455297, guid: e7dd5267be459f342923cda6ee638d17, type: 3}
+      Animator: {fileID: 9100000, guid: f930065988c6a5c48bf65ea72362d5ba, type: 2}
+      Rig: {fileID: 9000000, guid: 78816bee2d4854b409c35eb2a6cf95a2, type: 3}
+      Borrowed: 1
+      Weapon: {fileID: 0}
+      WeaponLength: 0
       WeaponRotation: {x: -90, y: 0, z: 0}
-    Wagon: {fileID: 919132149155446097, guid: 065ea3e32a18bae47a315deb9bc1836c, type: 3}
-    WagonTreasure: {fileID: 919132149155446097, guid: f96fd920803ebbb42a06b00bd3e90612, type: 3}
-    WagonBody: {fileID: 919132149155446097, guid: 5305a407750c24c41ab49362d046775a, type: 3}
-    WagonCargo: {fileID: 919132149155446097, guid: f08bc80b7baf76c4fa8489b17f5ff74e, type: 3}
-    SilverCache: {fileID: 919132149155446097, guid: 4acd4fa9650fdd545a727e0945b23fc9, type: 3}
-    TrapMarker: {fileID: 919132149155446097, guid: 08c9c28340807ec42bd12fcd75bdcf2b, type: 3}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Fox:
+      Prefab: {fileID: 273327914621632545, guid: 02e6d91bfae986e46848bd2990e4d1c7, type: 3}
+      Animator: {fileID: 9100000, guid: a20e414c895a8454a99b0e1a67d67140, type: 2}
+      Rig: {fileID: 0}
+      Borrowed: 0
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 90
+      Hide: []
+      Unsized: []
+    DeerFemale:
+      Prefab: {fileID: 4147998468248091538, guid: 5be68fdd459cfed45a71b84d16818e0d, type: 3}
+      Animator: {fileID: 9100000, guid: b6d0afd7fd28e2643b5dc43fff72a27d, type: 2}
+      Rig: {fileID: 0}
+      Borrowed: 0
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 90
+      Hide: []
+      Unsized: []
+    DeerMale:
+      Prefab: {fileID: 1409152853970237955, guid: 9f4cd32bbf153e149bcd931ad7fada3c, type: 3}
+      Animator: {fileID: 9100000, guid: 1268db54a2cbad54da7dfef7c3c1e56c, type: 2}
+      Rig: {fileID: 0}
+      Borrowed: 0
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 90
+      Hide: []
+      Unsized: []
+    Boar:
+      Prefab: {fileID: 303320141874821203, guid: f07a78d46771e0447bd15e347c145e51, type: 3}
+      Animator: {fileID: 9100000, guid: c1684bbe4eb18f3448023f1174144a85, type: 2}
+      Rig: {fileID: 0}
+      Borrowed: 0
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 90
+      Hide: []
+      Unsized: []
+    CrowFlockPrefab: {fileID: 100000, guid: 2e23f62ecf9b36944b60e3e5631c5c1a, type: 3}
+    Eagle:
+      Prefab: {fileID: 919132149155446097, guid: cc4cdf9f6d6fd7646adcf184f549531a, type: 3}
+      Animator: {fileID: 9100000, guid: 83eb427f47d029c46839fc3fe4f9b7a2, type: 2}
+      Rig: {fileID: 0}
+      Borrowed: 0
+      Weapon: {fileID: 0}
+      WeaponLength: 0
+      WeaponRotation: {x: -90, y: 0, z: 0}
+      YawOffset: 0
+      Hide: []
+      Unsized: []
+    Wagon: {fileID: 0}
+    HitchSupply: 0.75
+    HitchWar: 0.75
+    HitchTreasure: 0.1
+    WagonSupply: {fileID: 8361943911083983612, guid: cec66eb81c47bdb4e802ca3a3b975b79, type: 3}
+    WagonTreasure: {fileID: 414743687656825420, guid: b7aa9706f5b8fa5408efbc5bf7281941, type: 3}
+    WagonWar: {fileID: 8306245764856174586, guid: 5f3f32ec1121daa4392278b084d89b45, type: 3}
+    WagonBody: {fileID: 1414887969237499401, guid: 6e3cfe8cda1ce5449b002fd1348507fc, type: 3}
+    WagonCargo: {fileID: 5781694286754335005, guid: d0576d52436bc0c4eb18c7a25ddfcdf3, type: 3}
+    SilverCache: {fileID: 1087713860155376, guid: 9449f30b8830bf34395a4e029ca9e65d, type: 3}
+    TrapMarker: {fileID: 1804667845376260, guid: 4005b9a03d8625b4990b7a567bf6faa1, type: 3}
+    Arrow: {fileID: 1698834163741228, guid: eba12193aa2e30d4fa0e476b28f8e198, type: 3}
   Decor:
-    Trees:
-      Models:
-      - {fileID: 919132149155446097, guid: 16fc91dd1e678284eb8e6d93ddc9212b, type: 3}
-      - {fileID: 919132149155446097, guid: 751eb6e1f16e55644afa8b78a7726469, type: 3}
-      - {fileID: 919132149155446097, guid: fc0e3b9371b7ea7479717f8072731c62, type: 3}
-      - {fileID: 919132149155446097, guid: 943bf181a7fd81c4eb07353dc3b6dd33, type: 3}
-      - {fileID: 919132149155446097, guid: 2fbfa81d953e43b4d8cd3e037c996dfa, type: 3}
-      ZUp: 0
     Pines:
       Models:
-      - {fileID: 919132149155446097, guid: 6ce09bdb4c8a997468258f20855fab35, type: 3}
-      - {fileID: 919132149155446097, guid: 85adb614a1a33d54cb67ac004763fdb8, type: 3}
-      - {fileID: 919132149155446097, guid: ca0e36f56ab10d546a8c05e322282c88, type: 3}
-      - {fileID: 919132149155446097, guid: 732a1bfec76d5224ebf47db779c0cf0c, type: 3}
-      - {fileID: 919132149155446097, guid: 8fb7b94e64b52c14d9bce4b1f8c9edeb, type: 3}
+      - {fileID: 1566788591921752, guid: 5d7318dc4214e88458f42323d9cc4706, type: 3}
+      - {fileID: 1233735431766336, guid: 581bafddb39268e429cb24408e026c4d, type: 3}
+      - {fileID: 1591408165005554, guid: d18846c2d467b2c47b310be6e80b0434, type: 3}
+      - {fileID: 1610073067313290, guid: 6475aabacc1a9cb41aaca282d6ea7fc2, type: 3}
+      - {fileID: 1193767893405740, guid: 28906d92a6b505e46a49aa2312f0ba58, type: 3}
+      - {fileID: 1524118313781844, guid: 054b67e619cbc1046bed54b07283d49d, type: 3}
+      - {fileID: 1182756067964316, guid: fc9f550802bde56499ac8b64cac565f0, type: 3}
+      - {fileID: 1247767785291130, guid: 0734397d1a4fd924f98424ecb4ca43b9, type: 3}
+      ZUp: 0
+    Trees:
+      Models:
+      - {fileID: 186820, guid: febadf3b0ed1d014bb1b9dcd8b633299, type: 3}
+      - {fileID: 107988, guid: ad49c548c939c434e8c7700f06099bdd, type: 3}
+      - {fileID: 160654, guid: a5d47e9cdfeba484f8f8f62f424a717f, type: 3}
+      - {fileID: 136664, guid: 77c54194384c09a45b991556c9fe41a5, type: 3}
+      - {fileID: 141078, guid: 51c1c04146bac56469780953edd2418c, type: 3}
+      - {fileID: 1646885935188752, guid: dafad5d52cd284f4b8229a896f9a966f, type: 3}
+      - {fileID: 1444406132134774, guid: cee0719eaa611da43905af2904d1904c, type: 3}
+      - {fileID: 1983199012346778, guid: e94c8232017a8bd4ba1c0f5115f3481d, type: 3}
+      - {fileID: 1406637359910196, guid: 1c16030f889f46e42b6c73b6d0f6113e, type: 3}
+      - {fileID: 1837295981095050, guid: 732e4c9ea17173840885f16c6497c479, type: 3}
+      - {fileID: 1321852448560106, guid: cea6706829d07db49b39851ba221405b, type: 3}
+      - {fileID: 1500899924992442, guid: a19f2e49529f1ef4d903f3b663ce7893, type: 3}
+      - {fileID: 1467454332595294, guid: fe8147825b813cf46b4ef685a3ea56a8, type: 3}
+      - {fileID: 1308358589415666, guid: 43bbe6106d9602b418076e5e6955f800, type: 3}
+      - {fileID: 1121632204772480, guid: bad3ddcb570876641a79193c07d20684, type: 3}
+      ZUp: 0
+    Birch:
+      Models:
+      - {fileID: 1130392368877672, guid: 1ea71f643417d124d91e53eae7c666a6, type: 3}
+      - {fileID: 1756402572416146, guid: 1000cad1907db004b8d52ddf62c1ae94, type: 3}
+      - {fileID: 1777461590549580, guid: 47ac04e5b24338c44ba15b946641236c, type: 3}
+      - {fileID: 1809296932901464, guid: bce0c9523691df448b83c8c972060b2c, type: 3}
+      - {fileID: 1916657975341368, guid: e64e0b484ac273644af92dc0e00601a3, type: 3}
       ZUp: 0
     DeadTrees:
       Models:
-      - {fileID: 919132149155446097, guid: 689e4e7f5277f0945b9e1aa930e5a3fb, type: 3}
-      - {fileID: 919132149155446097, guid: 58cb06187f6851c4584d3eeceebb9bc6, type: 3}
-      - {fileID: 919132149155446097, guid: 187fa2aecab1be144a5a4282dea5524b, type: 3}
-      - {fileID: 919132149155446097, guid: 6d1ca03b803324141807fa14df0c546f, type: 3}
-      - {fileID: 919132149155446097, guid: ded3abeb6039e7a4dba32b7db7e22b2a, type: 3}
+      - {fileID: 1814190282122440, guid: 33247b6aefb946246bc9f0c7346b4364, type: 3}
+      - {fileID: 1844642596526496, guid: f597615a8abb43c40be4c01539ceb80b, type: 3}
+      - {fileID: 1814772297973644, guid: 7b324b148b509104cb0f42a02b6b4b78, type: 3}
+      - {fileID: 1560461424881576, guid: 11d0d688b29309541acbbbf9497b8b78, type: 3}
+      - {fileID: 1467718062152118, guid: 7df36f4afc1dd884e81156cd2cb6545d, type: 3}
+      - {fileID: 1644641572348816, guid: d6660cac033867643a649f4255fa8e4d, type: 3}
+      - {fileID: 1532667504379520, guid: dbbffa6287a94b24c80e0839e6696216, type: 3}
+      - {fileID: 1915442609382986, guid: e8efa5f3f39eede46b964d93acc7a7de, type: 3}
+      - {fileID: 1966522617160436, guid: 9bc7d92e5ed8a9e46add7f7fd0045c16, type: 3}
+      - {fileID: 1479394337342350, guid: 608213fc5c7ac4d4f98850704ec8906c, type: 3}
+      ZUp: 0
+    Bushes:
+      Models:
+      - {fileID: 1153903725125606, guid: 7f253e36a99c6454e9f631317cb450b9, type: 3}
+      - {fileID: 1466427836474396, guid: 5bd70a33951586a43a423d1366da97c0, type: 3}
+      - {fileID: 1358660975821336, guid: a809e9c4d33e83f4fa8408a33b72eaf9, type: 3}
+      - {fileID: 1937847600842644, guid: 47d0da1ba5336ef4bb50355db2307fe0, type: 3}
+      - {fileID: 1262191819135750, guid: ef8827edf81d4f34aace1bd2d0c358ff, type: 3}
+      - {fileID: 1658363313306210, guid: c0fe8f954046e4b4d845f9f33c99548e, type: 3}
+      - {fileID: 1571884418503298, guid: 5443f442824346441b5af0d84ae05120, type: 3}
+      - {fileID: 1188032362689352, guid: 4ac1d639b5994b345bdc22dd8e415a06, type: 3}
+      ZUp: 0
+    MarshPlants:
+      Models:
+      - {fileID: 1285638724306004, guid: e4e174b9656fc7e4282a2041b71ca5a3, type: 3}
+      - {fileID: 1180880902778204, guid: 37b4d0f08c9f4f642ae9708a310cac0c, type: 3}
+      - {fileID: 1285638724306004, guid: e4e174b9656fc7e4282a2041b71ca5a3, type: 3}
+      - {fileID: 1180880902778204, guid: 37b4d0f08c9f4f642ae9708a310cac0c, type: 3}
+      - {fileID: 1346982405202136, guid: 09a3b44b8937d6245b39d930062109c6, type: 3}
+      - {fileID: 1937847600842644, guid: 47d0da1ba5336ef4bb50355db2307fe0, type: 3}
+      - {fileID: 3832099602317651978, guid: 06659b9d68f771c419771bc2048da6d0, type: 3}
+      - {fileID: 1827796124327897635, guid: b2ca950135cdcd949b2b51bf6b17abad, type: 3}
+      - {fileID: 1872991023864826, guid: 416c880aa7bc1404eb5ae451af21f192, type: 3}
+      - {fileID: 1711048241894112, guid: 1741dbfc2602f4049a50662878927717, type: 3}
+      - {fileID: 1876449246637018, guid: a383debb8fe64614fa95efaf685404ec, type: 3}
+      ZUp: 0
+    Lilypads:
+      Models:
+      - {fileID: 1241587940590234, guid: 810c250009b1a6e42a03ee063cd10080, type: 3}
+      - {fileID: 1241587940590234, guid: 810c250009b1a6e42a03ee063cd10080, type: 3}
+      - {fileID: 1884413432939730, guid: 0cf4a00378953af4789117036429a8c6, type: 3}
+      - {fileID: 1269913624612722, guid: b24b06fb773ca9c4e9504e3f02ecc51e, type: 3}
+      - {fileID: 1548272104594318, guid: 9e88ad7dd5a09ec43bfda87e159fe5c2, type: 3}
       ZUp: 0
     Rocks:
       Models:
-      - {fileID: 919132149155446097, guid: 65f69a8c1b9803446a753a86f2776076, type: 3}
-      - {fileID: 919132149155446097, guid: 03baa6f9669bed04b925998e9a42e9dd, type: 3}
-      - {fileID: 919132149155446097, guid: ac8e203b3c526ec4b8e6b83cd9b84c87, type: 3}
-      - {fileID: 919132149155446097, guid: a7ed200629884104c9ae0030fa4bc16c, type: 3}
-      - {fileID: 919132149155446097, guid: f7ceaf911f1d49f4ba68eb70977c7b06, type: 3}
-      - {fileID: 919132149155446097, guid: 84b19a4826cb7194087299d2d371200d, type: 3}
-      - {fileID: 919132149155446097, guid: 2a406a8c4849deb4bb340d5c383dd931, type: 3}
+      - {fileID: 1279149807870478, guid: 51917b8e41ef6a1469249c9dfee70390, type: 3}
+      - {fileID: 1588324658806122, guid: 9d05e0cabe0f8c641b0a87ecc3a9017e, type: 3}
+      - {fileID: 1616784548102220, guid: 9d911d3db44ad56488c3c28cb9e9e5ab, type: 3}
+      - {fileID: 1111534484382968, guid: 58460dec29312364795e00549bdfc146, type: 3}
+      - {fileID: 1677856023650210, guid: 0d6c136baa84fec40bbcbb09a069feda, type: 3}
+      - {fileID: 1548467455464118, guid: a66fcd4b0c95c3c4f8a2e3ec71b821fd, type: 3}
+      - {fileID: 1219693987300432, guid: 2802a8bdb7ea3354a8b0be8bfb9e7ac9, type: 3}
+      - {fileID: 1205270495780786, guid: bfe46d6e2f03af346a70ed16cbda3eee, type: 3}
+      - {fileID: 1535380315112082, guid: 3fce99634b729594d89ee5e872b73dff, type: 3}
+      - {fileID: 1682779332229148, guid: 9d8bbbb9bf9f20a4ea09ffc827b92239, type: 3}
       ZUp: 0
-    Mountains:
+    Boulders:
       Models:
-      - {fileID: 919132149155446097, guid: ac1f6bd103e0bd443b2f41dd465a494a, type: 3}
-      - {fileID: 919132149155446097, guid: 3cabdcfc813276f4597851ec1b1e7d03, type: 3}
-      ZUp: 1
+      - {fileID: 1732272334065596, guid: cdcb19fde9e8cba40b7bff849baf2c1b, type: 3}
+      - {fileID: 1334708611183978, guid: d0e76f6d08ce67d48994804f237e67eb, type: 3}
+      - {fileID: 1008924361293906, guid: 3f5c1fbf9d80c004582c417d17255b6d, type: 3}
+      - {fileID: 1632737848578284, guid: 55305678b9bd1fb498528a0255154adb, type: 3}
+      - {fileID: 1207724868542064, guid: 69bd8802c7c911948ac3cf16cfad287f, type: 3}
+      - {fileID: 1192901760715742, guid: e4efea68f7a2f5f4e8be9deb8c0ba72c, type: 3}
+      - {fileID: 1490896396271616, guid: e6e2944b1db977a4b817db1e80c2e48f, type: 3}
+      ZUp: 0
+    Horizon:
+      Models:
+      - {fileID: 1092749142366282, guid: 22084b44ff77aa04b8d3f46ea47f9a17, type: 3}
+      - {fileID: 1571398016081076, guid: 32b94dc5e26751347ab1fe51b7d6f176, type: 3}
+      - {fileID: 1919982666568850, guid: 3d0fa691f27670646befb5b4d48af2c8, type: 3}
+      ZUp: 0
     GroundCover:
       Models:
-      - {fileID: 919132149155446097, guid: bef44726b881fb041b6dab7a81347422, type: 3}
-      - {fileID: 919132149155446097, guid: 3c3218ac4b3f2ea4f8d1039c7cd44475, type: 3}
-      - {fileID: 919132149155446097, guid: 5d579882d2c238c4ebfcc19ce6c225d8, type: 3}
-      - {fileID: 919132149155446097, guid: a1494d84e4fc5a146b22180e71183177, type: 3}
-      - {fileID: 919132149155446097, guid: bef44726b881fb041b6dab7a81347422, type: 3}
-      - {fileID: 919132149155446097, guid: 3c3218ac4b3f2ea4f8d1039c7cd44475, type: 3}
-      - {fileID: 919132149155446097, guid: 5d579882d2c238c4ebfcc19ce6c225d8, type: 3}
-      - {fileID: 919132149155446097, guid: a1494d84e4fc5a146b22180e71183177, type: 3}
-      - {fileID: 919132149155446097, guid: a6861e23809f0b947bcd30fd19e61385, type: 3}
-      - {fileID: 919132149155446097, guid: 5187200523ec06643b5f1198c18d25f8, type: 3}
-      - {fileID: 919132149155446097, guid: fb4b4c13bc4af9548aa4a8c29a27588d, type: 3}
-      - {fileID: 919132149155446097, guid: fb4b4c13bc4af9548aa4a8c29a27588d, type: 3}
-      - {fileID: 919132149155446097, guid: fb4b4c13bc4af9548aa4a8c29a27588d, type: 3}
-      - {fileID: 919132149155446097, guid: 153048234ab0c4a4e89b4de68f16a8eb, type: 3}
-      - {fileID: 919132149155446097, guid: 153048234ab0c4a4e89b4de68f16a8eb, type: 3}
-      - {fileID: 919132149155446097, guid: 7e0f7c53a5de1204c853a6e96086ea5a, type: 3}
-      - {fileID: 919132149155446097, guid: d845da996b1d222419b28018967614c8, type: 3}
-      - {fileID: 919132149155446097, guid: c00f84e2c246ad34681e389dbd173412, type: 3}
+      - {fileID: 1517068201192904, guid: 6f62c6f9e92a8ed44878e929e7e8db3f, type: 3}
+      - {fileID: 1923026048575658, guid: f6a0cd899fb3b8c449a40e5fb69e258d, type: 3}
+      - {fileID: 1037344459507410, guid: 9c8446fabd2f61c4a823aebd526a359d, type: 3}
+      - {fileID: 1364733423325056, guid: 97e77ce5d8e6fcf45968ff6855ddddf2, type: 3}
+      - {fileID: 1393679957294896, guid: c0afa580c5ee8484183dafdc704e8768, type: 3}
+      - {fileID: 1517068201192904, guid: 6f62c6f9e92a8ed44878e929e7e8db3f, type: 3}
+      - {fileID: 1923026048575658, guid: f6a0cd899fb3b8c449a40e5fb69e258d, type: 3}
+      - {fileID: 1037344459507410, guid: 9c8446fabd2f61c4a823aebd526a359d, type: 3}
+      - {fileID: 1364733423325056, guid: 97e77ce5d8e6fcf45968ff6855ddddf2, type: 3}
+      - {fileID: 1393679957294896, guid: c0afa580c5ee8484183dafdc704e8768, type: 3}
+      - {fileID: 1346982405202136, guid: 09a3b44b8937d6245b39d930062109c6, type: 3}
+      - {fileID: 1896228811670048, guid: a77401c30ad8d4a4cbf36d16e8126678, type: 3}
+      - {fileID: 1994116034729256, guid: 9b0b9e5bc77867f45ad0f3080aa409e3, type: 3}
+      - {fileID: 1718344637300176, guid: a8be9f01144e2af499b282b2e273a5eb, type: 3}
+      - {fileID: 1762627254017038, guid: 579429fe71610c6458c591e53ae6cb43, type: 3}
+      - {fileID: 1477781090313130, guid: d7bb738e4e0288b42b577570c010f6df, type: 3}
+      - {fileID: 1012375330806954, guid: b4a6dcef6d2570e46a2d9c2c52f1c8de, type: 3}
+      - {fileID: 1296379715616498, guid: 23aa7813617e5be4983e5df6b139f5ea, type: 3}
+      - {fileID: 1361614101361290, guid: d3b497db883149045a9c1218adca475a, type: 3}
+      - {fileID: 1475996404134592, guid: c4be778793f575b42b8d942b78462284, type: 3}
+      - {fileID: 1285638724306004, guid: e4e174b9656fc7e4282a2041b71ca5a3, type: 3}
+      ZUp: 0
+    GroundPatches:
+      Models: []
       ZUp: 0
     Houses:
       Models:
-      - {fileID: 919132149155446097, guid: 5e5d9e59722e33940b49628ab234eafb, type: 3}
-      - {fileID: 919132149155446097, guid: 38b8806d6740e5a46859de1171008f1d, type: 3}
-      - {fileID: 919132149155446097, guid: 5ffcbe81f721b31478a64365137b7fc4, type: 3}
-      - {fileID: 919132149155446097, guid: 4e76d7f892024144c8c6c875095628a2, type: 3}
-      - {fileID: 919132149155446097, guid: f3e588c7faff957498ac1f07c4f6ce0a, type: 3}
-      ZUp: 1
+      - {fileID: 148764, guid: fd4bfd190fdf71945b39f635e2671b97, type: 3}
+      - {fileID: 2353317757980482398, guid: 763a6e5ba7a00d84b88c731a56e89571, type: 3}
+      - {fileID: 117958, guid: c34c166783f3c744686ef9143de6e3fe, type: 3}
+      ZUp: 0
     Farms:
-      Models:
-      - {fileID: 919132149155446097, guid: 6bd083e8f2fc425489c9f3a330cae05c, type: 3}
-      - {fileID: 919132149155446097, guid: 5677f034ffe7a3e4c92ad367889a0034, type: 3}
-      - {fileID: 919132149155446097, guid: f56b475f70f6f01418f6e3d715d75429, type: 3}
-      ZUp: 1
+      Models: []
+      ZUp: 0
     Watchtowers:
-      Models:
-      - {fileID: 919132149155446097, guid: 719d12ae394971c43a6204ebe3ee4f5c, type: 3}
-      - {fileID: 919132149155446097, guid: d847497de96b0a7498fa80ede960757b, type: 3}
-      ZUp: 1
+      Models: []
+      ZUp: 0
     Timber:
       Models:
-      - {fileID: 919132149155446097, guid: 8ce9a2d1a1731aa4d8019aa8a0a469d7, type: 3}
-      - {fileID: 919132149155446097, guid: 4f85e7a85cb0a0248a5a38749847ff18, type: 3}
-      - {fileID: 919132149155446097, guid: 815fa4a582a77454faab7b53c758f07e, type: 3}
-      - {fileID: 919132149155446097, guid: 7ff1a2646d255c94091023c4700537e3, type: 3}
-      ZUp: 1
+      - {fileID: 1209787234085090, guid: e4d35fc487ff62e45b34ae45f80c88fc, type: 3}
+      - {fileID: 1609270425926636, guid: 9020d2933ec6c0544965ea4b12952c42, type: 3}
+      - {fileID: 1552408322253738, guid: c104bd949dbb87644ab3fe86ab934293, type: 3}
+      - {fileID: 1357747242490952, guid: d8ab54d35fe81704b8af3b42616763a2, type: 3}
+      - {fileID: 1939049381513534, guid: fa52ff58096048c4db727a636561983f, type: 3}
+      - {fileID: 1449376034317114, guid: 679138ede056eb542b9629948780ee84, type: 3}
+      - {fileID: 1436310706135902, guid: d490d5805a8f22c449470acc5c2bbf6f, type: 3}
+      ZUp: 0
+    Kit:
+      Foundations:
+        Models:
+        - {fileID: 180184, guid: 1d4405cf69adec64a97df561b9f3661a, type: 3}
+        - {fileID: 157484, guid: 2065fe8f26032bf4e9694fa0f198c147, type: 3}
+        - {fileID: 184438, guid: 4cecd3ee2e6a59e42b606f8b165f43b2, type: 3}
+        - {fileID: 100108, guid: 8c4ffe1cdf6340143be5ddb96c2c0c5b, type: 3}
+        - {fileID: 100002, guid: 718ea5c67c197f54f8b02a9e57c8d21e, type: 3}
+        - {fileID: 177110, guid: 27e4689e1c1d6f84da2be4e3b00213dd, type: 3}
+        - {fileID: 152466, guid: 46446b93c123716498506636ebe9ef68, type: 3}
+        ZUp: 0
+      Rooms:
+        Models:
+        - {fileID: 171434, guid: b8a7b28b67598a4408bdfe6ccf005ea4, type: 3}
+        - {fileID: 193714, guid: 53a1fad510b98f74c96763872cbd652f, type: 3}
+        - {fileID: 105206, guid: a0b4df2d799cca846a033244653040d1, type: 3}
+        - {fileID: 111328, guid: 6552478e29ecebe4b9fa6b4e41f43a81, type: 3}
+        - {fileID: 163086, guid: aeef915f0e0e8704fb1059fb67fb44d2, type: 3}
+        - {fileID: 189980, guid: 7b4a57ebbd1f0564d95d520ab4703141, type: 3}
+        - {fileID: 152740, guid: 75998fa152c866249b63168bfc7703f5, type: 3}
+        ZUp: 0
+      UpperRooms:
+        Models:
+        - {fileID: 161898, guid: af056f47e8a2c444ea2536d3bc4303ab, type: 3}
+        - {fileID: 126070, guid: 52b992277e821a8468fdeda3da875bf8, type: 3}
+        - {fileID: 118896, guid: 9a48db7e16e60d64796239df3fc0b963, type: 3}
+        - {fileID: 182140, guid: f101780f32b5af64bb3c14fbf09b1771, type: 3}
+        - {fileID: 154720, guid: 7d7fac1794be19f468eda587e63e6774, type: 3}
+        - {fileID: 151746, guid: 7b0042f066fa9f64faf14546517ef9c0, type: 3}
+        - {fileID: 108086, guid: 632f78bd9555d2844968aa64cfd177af, type: 3}
+        ZUp: 0
+      Roofs:
+        Models:
+        - {fileID: 187986, guid: 58fcef91f30c8c14b8ebb0165c76c637, type: 3}
+        - {fileID: 133646, guid: 138f01e248f319c4388a7199ae4e3eae, type: 3}
+        - {fileID: 128856, guid: 51aef4a8ca8fd3e44b697a916eb2325a, type: 3}
+        - {fileID: 124692, guid: d4d4c233788d2dd48b21ac853bb73351, type: 3}
+        - {fileID: 146506, guid: c44fc839a1c58f94b8cd238bd252c981, type: 3}
+        - {fileID: 176296, guid: 346402d3a99cf4645b573a2679f4ee97, type: 3}
+        - {fileID: 188552, guid: 3c171231ad46a50489587984eef66679, type: 3}
+        ZUp: 0
+      Chimneys:
+        Models:
+        - {fileID: 105090, guid: 3789d65be84741545afcfb9b91749198, type: 3}
+        - {fileID: 172590, guid: 9798020b643705e438eaa01ca7ae48d3, type: 3}
+        - {fileID: 178018, guid: 52d2ac88e4266ae4287982747ca76a1c, type: 3}
+        - {fileID: 129550, guid: 8a198cb1ec9006347b4721ff22ac681e, type: 3}
+        - {fileID: 129510, guid: 41d3dc1fd42040a4ca89e58af09e14fc, type: 3}
+        ZUp: 0
+      TowerBases:
+        Models:
+        - {fileID: 178616, guid: b6f3dfbb5c58a34489071b09c45b8f94, type: 3}
+        - {fileID: 186884, guid: 0c66159e6cbb60a42831373af849b686, type: 3}
+        ZUp: 0
+      TowerShafts:
+        Models:
+        - {fileID: 147310, guid: b1ad8ef6890687249a641abef8e26baf, type: 3}
+        - {fileID: 148618, guid: 092595d39c7f3fe40bc19e13323f824d, type: 3}
+        - {fileID: 100546, guid: 5a16fbe844697354eaafd84247d55985, type: 3}
+        - {fileID: 158236, guid: 6cc63cba898ace244bba643423dfda2e, type: 3}
+        ZUp: 0
+      TowerTops:
+        Models:
+        - {fileID: 141476, guid: 20980883898f4704f86e6d74b75682ef, type: 3}
+        ZUp: 0
+      Walls:
+        Models:
+        - {fileID: 148952, guid: a5bb8fdb18a5fce4a934aac86e8ec191, type: 3}
+        - {fileID: 134056, guid: aa9bca2df395111479f08def2925a97f, type: 3}
+        - {fileID: 147672, guid: 77ad9661321c6e84280c8fbe32492c06, type: 3}
+        ZUp: 0
+      CurtainWalls:
+        Models:
+        - {fileID: 147672, guid: 77ad9661321c6e84280c8fbe32492c06, type: 3}
+        ZUp: 0
+      Gates:
+        Models:
+        - {fileID: 134056, guid: aa9bca2df395111479f08def2925a97f, type: 3}
+        ZUp: 0
+      Rubble:
+        Models:
+        - {fileID: 113602, guid: 2b1cd4ec8dfee7041b5bc5767613d249, type: 3}
+        - {fileID: 159564, guid: 14f268b815b67ef44b43dfd0d81145d5, type: 3}
+        - {fileID: 120268, guid: 0eba33735703d6b49a1773d1396db4b8, type: 3}
+        - {fileID: 1205270495780786, guid: bfe46d6e2f03af346a70ed16cbda3eee, type: 3}
+        - {fileID: 1535380315112082, guid: 3fce99634b729594d89ee5e872b73dff, type: 3}
+        - {fileID: 1682779332229148, guid: 9d8bbbb9bf9f20a4ea09ffc827b92239, type: 3}
+        ZUp: 0
+    Wreckage:
+      Models:
+      - {fileID: 151704, guid: a46d562cc4980004b95e73322fc948be, type: 3}
+      - {fileID: 123248, guid: f028244a47462e3449e09903dedd7955, type: 3}
+      - {fileID: 1804667845376260, guid: 4005b9a03d8625b4990b7a567bf6faa1, type: 3}
+      ZUp: 0
     Ruins:
       Models:
-      - {fileID: 919132149155446097, guid: 6f105885d6120f4419c6d21f2e5ec6e9, type: 3}
+      - {fileID: 111980, guid: fd3d2a7dec61bb842a89089e1d1e6764, type: 3}
+      - {fileID: 147522, guid: 132d1de61c7a2714f9cff49ced16356d, type: 3}
+      - {fileID: 1330193041299404, guid: 8ec29696c3f5cc04faf6c4c6a5ffb0ea, type: 3}
+      - {fileID: 1804667845376260, guid: 4005b9a03d8625b4990b7a567bf6faa1, type: 3}
+      - {fileID: 1804667845376260, guid: 4005b9a03d8625b4990b7a567bf6faa1, type: 3}
+      - {fileID: 1087713860155376, guid: 9449f30b8830bf34395a4e029ca9e65d, type: 3}
+      - {fileID: 1805651483164276, guid: 6ba76c4202b1fd847b2edc6c16958251, type: 3}
+      - {fileID: 1558265980526532, guid: 1fbdd99ef1d1e2b4dac24a8d8ef04741, type: 3}
+      - {fileID: 3019351386366890193, guid: 5f1e3ed9628a12543adb9c996e045e24, type: 3}
+      - {fileID: 8018217793725974746, guid: 26725b11a701a2f4686d789adf709d94, type: 3}
+      ZUp: 0
+    Markers:
+      Models:
+      - {fileID: 147606, guid: 8f2cbf2ae2d496b44ba72882a3c6d4c9, type: 3}
+      - {fileID: 140704, guid: d9d95bd4aa86d86448ff3c157b7bb366, type: 3}
+      - {fileID: 189698, guid: c0b5622ce34bb094cb5eb8145c93566d, type: 3}
+      - {fileID: 118828, guid: a6cb2939c27644a4fb2c7ccfaeb7f585, type: 3}
+      - {fileID: 193738, guid: 0d6e5cb5406ecf648812fe2278838cf4, type: 3}
+      ZUp: 0
+    Water:
+      Models: []
+      ZUp: 0
+    Fords:
+      Models:
+      - {fileID: 1290192323667180, guid: 387d93711c1d03a48b083591256c560c, type: 3}
+      ZUp: 0
+    Cliffs:
+      Models:
+      - {fileID: 4905485108370227772, guid: ae1b00ab0436c534c8afc42e19ab6e96, type: 3}
+      - {fileID: 6415082291862398264, guid: cc6ce2b1c2cc42a4680c685604f3d642, type: 3}
+      - {fileID: 8143087844690495153, guid: ed0d53bff53cd7a4182b1cd7eb6b7802, type: 3}
+      - {fileID: 8794171678619182943, guid: e39229f251ffbf3478cb0891e878d698, type: 3}
+      ZUp: 0
+    Camps:
+      Models:
+      - {fileID: 162728, guid: 33adbca995ce9484f9258d275aabac10, type: 3}
+      - {fileID: 193672, guid: d8e888ed02072774198f7f7ce47d5f50, type: 3}
+      - {fileID: 128636, guid: 68a8f186e1f1db64dbfe8ddd247816ec, type: 3}
+      - {fileID: 117958, guid: c34c166783f3c744686ef9143de6e3fe, type: 3}
+      ZUp: 0
+    Willows:
+      Models:
+      - {fileID: 1041271695553482, guid: 4d88971c9d891dc45a8dbd49a3ba6913, type: 3}
+      - {fileID: 1614002195495084, guid: d9e944108d6a10d4dab3ec7137c8b739, type: 3}
+      - {fileID: 1387755814615386, guid: 898874364bf16b6478fe589c550d3e59, type: 3}
+      ZUp: 0
+    Shore:
+      Models:
+      - {fileID: 113602, guid: 2b1cd4ec8dfee7041b5bc5767613d249, type: 3}
+      - {fileID: 159564, guid: 14f268b815b67ef44b43dfd0d81145d5, type: 3}
+      - {fileID: 120268, guid: 0eba33735703d6b49a1773d1396db4b8, type: 3}
+      - {fileID: 1205270495780786, guid: bfe46d6e2f03af346a70ed16cbda3eee, type: 3}
+      - {fileID: 1535380315112082, guid: 3fce99634b729594d89ee5e872b73dff, type: 3}
+      - {fileID: 1682779332229148, guid: 9d8bbbb9bf9f20a4ea09ffc827b92239, type: 3}
+      - {fileID: 1955666037651256, guid: d5c8b482981a2af429dd7551de6af107, type: 3}
+      - {fileID: 1787692390347166, guid: 09348a46d0ad31749b5d1e21784cfd42, type: 3}
+      - {fileID: 1491004259460544, guid: d15996e92cb4c6b47bbc09309fe0ab5a, type: 3}
+      - {fileID: 1924222778223216, guid: cf3e22d9e73487c4b980dafbd099b698, type: 3}
+      ZUp: 0
+    Backdrop:
+      Models: []
       ZUp: 0
   Formation:
   - Occupied: 1
