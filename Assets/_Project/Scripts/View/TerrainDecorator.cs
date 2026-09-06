@@ -1238,25 +1238,24 @@ namespace TheVeil.View
             var deck = instance.AddComponent<BridgeDeck>();
             deck.Measure();
 
-            // And now the same question is asked here, at build time, for the one thing
-            // FitToCrossing cannot do: stand the bridge on its roadway instead of on its
-            // feet. The ray goes down the middle of the span, where the road runs and the
-            // parapets are not, so what it finds is the deck itself.
-            var middle = ModelScaling.Measure(instance).center;
+            // And now the one thing FitToCrossing cannot do: stand the bridge on its
+            // roadway instead of on its feet. BridgeDeck measured the roadway on the way
+            // in — down the middle of the span, where the road runs and the railings are
+            // not — so the number is already there to be read.
             float before = float.NaN, after = float.NaN;
 
-            if (deck.Height(middle.x, middle.z, groundY, out float road))
+            if (!float.IsNaN(deck.Deck))
             {
-                before = road - groundY;
-                instance.transform.position += new Vector3(0f, groundY + DeckClearance - road, 0f);
+                before = deck.Deck - groundY;
+                instance.transform.position +=
+                    new Vector3(0f, groundY + DeckClearance - deck.Deck, 0f);
 
-                // The colliders travel with the transform, but the footprint the cheap
-                // rejection in BridgeDeck.Height reads was cached from where they used to
-                // be. Measure again or the bridge answers for the wrong ground.
+                // The colliders travel with the transform, but the footprint and the deck
+                // height were both measured where they used to be. Measure again or the
+                // bridge answers for the wrong ground at the wrong height.
                 deck.Measure();
 
-                if (deck.Height(middle.x, middle.z, groundY, out float settled))
-                    after = settled - groundY;
+                after = deck.Deck - groundY;
             }
 
             var got = ModelScaling.Measure(instance);

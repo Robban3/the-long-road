@@ -827,6 +827,50 @@ namespace TheVeil.View
                                           group.Position.Y), to);
         }
 
+        /// <summary>How many times a group may appear and vanish before it is worth saying.</summary>
+        const int BlinkLimit = 3;
+
+        readonly Dictionary<TrackedEnemy, int> _seen = new Dictionary<TrackedEnemy, int>();
+        readonly HashSet<TrackedEnemy> _blinkers = new HashSet<TrackedEnemy>();
+
+        /// <summary>
+        /// Says so when a group is being switched on and off rather than revealed.
+        ///
+        /// <b>An instrument, not a fix.</b> A group whose distance sits on the detection
+        /// threshold flips Revealed every few frames, and SyncEnemies switches its figures
+        /// with it — which on screen is indistinguishable from any other kind of flicker
+        /// and has a completely different cause. Reported as flickering troops; the other
+        /// candidate was the bridge handing out two different heights for the same place,
+        /// and that one is fixed. If this is the one that survives, this line says so by
+        /// name instead of leaving it to another round of guessing.
+        ///
+        /// Once per group, never per frame, and it does not change what is drawn.
+        /// Revealed belongs to DetectionSystem in Sim, it is tested, and putting a
+        /// threshold into it on a hunch is the mistake this exists to avoid.
+        /// </summary>
+        void WatchForBlinking(TrackedEnemy enemy)
+        {
+            bool was = _seen.TryGetValue(enemy, out int flips);
+            bool shown = _shown.Contains(enemy);
+
+            if (was && shown == enemy.Revealed) return;
+
+            if (enemy.Revealed) _shown.Add(enemy); else _shown.Remove(enemy);
+            if (!was) { _seen[enemy] = 0; return; }
+
+            _seen[enemy] = ++flips;
+
+            if (flips < BlinkLimit || !_blinkers.Add(enemy)) return;
+
+            Debug.LogWarning($"[The Veil] {enemy.Kind} at ({enemy.Position.X:F0}, "
+                           + $"{enemy.Position.Y:F0}) has appeared and vanished {flips} "
+                           + "times. Its distance is sitting on the detection threshold, "
+                           + "so it is being switched rather than revealed — that is the "
+                           + "flicker, and it is not the bridge.");
+        }
+
+        readonly HashSet<TrackedEnemy> _shown = new HashSet<TrackedEnemy>();
+
         /// <summary>
         /// Enemies appear only once revealed. This is the fog of war made visible, and
         /// the moment a group fades in ahead of the column is the design working.
@@ -843,6 +887,8 @@ namespace TheVeil.View
                 // A group that has been beaten used to be switched off wholesale, so a
                 // fight ended with the ground it was fought on completely empty. What a
                 // player is owed after winning is the evidence of it.
+                WatchForBlinking(enemy);
+
                 if (!enemy.Revealed)
                 {
                     if (_enemies.TryGetValue(enemy, out var hidden))
