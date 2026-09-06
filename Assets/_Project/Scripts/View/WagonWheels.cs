@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Turns a wagon's wheels by the distance the wagon has covered.

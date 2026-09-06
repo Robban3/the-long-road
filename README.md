@@ -1,18 +1,18 @@
 # The Long Road
 
-Det första spelet i **Legacy of Arna** — världen som titlarna utspelar sig i.
+Det första spelet i **Legacy of the Veil** — världen som titlarna utspelar sig i.
 
 | Nivå | Namn | Roll |
 |---|---|---|
-| Utvecklare | **3J Studiodesign** | Företaget som bygger spelet. Publisher i App Store och Google Play. |
-| Värld | **Legacy of Arna** | Universumet. Kan rymma fler titlar än den här. |
+| Utvecklare | **3Jstudios** | Företaget som bygger spelet. Publisher i App Store och Google Play. |
+| Värld | **Legacy of the Veil** | Universumet. Kan rymma fler titlar än den här. |
 | Spel | **The Long Road** | Den här titeln. Första spelet i världen. |
 
-Skrivs ut som *The Long Road — A Legacy of Arna Game*, utgivet av 3J Studiodesign.
+Skrivs ut som *The Long Road — A Legacy of the Veil Game*, utgivet av 3Jstudios.
 
-**Bundle ID:** `com.legacyofarna.thelongroad`
+**Bundle ID:** `com.threejstudios.thelongroad`
 
-Världen som grupperingsled, titeln som app. Nästa spel i Legacy of Arna blir `com.legacyofarna.<nästa titel>` — samma prefix, eget ID, konsekvent hela vägen.
+Världen som grupperingsled, titeln som app. Nästa spel i Legacy of the Veil blir `com.threejstudios.<nästa titel>` — samma prefix, eget ID, konsekvent hela vägen.
 
 Studionamnet ingår inte, och behöver inte göra det: utgivare anges separat som metadata i App Store och Google Play. Att skriva `com.3jstudiodesign...` hade dessutom inte gått att bygga — Androids `applicationId` kräver att varje segment inleds med en bokstav, och Gradle avvisar segment som börjar på siffra.
 

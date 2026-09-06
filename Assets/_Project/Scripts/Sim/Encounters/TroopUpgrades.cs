@@ -1,6 +1,6 @@
 using System;
 
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     public enum UpgradeTrack : byte
     {

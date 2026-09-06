@@ -1,8 +1,8 @@
-using Arna.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Arna.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// Where the gold goes: the caravan's own gear on one tab, the troops on the other.

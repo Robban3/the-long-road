@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVeil.Tests
 {
     /// <summary>
     /// Determinism is load-bearing: a level is a recipe plus a seed, so if this

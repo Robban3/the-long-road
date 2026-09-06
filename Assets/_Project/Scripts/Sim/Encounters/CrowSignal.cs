@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     /// <summary>Birds circling a piece of ground, and whether anything is under them.</summary>
     public struct CrowFlock

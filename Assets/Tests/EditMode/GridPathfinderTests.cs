@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVeil.Tests
 {
     public class GridPathfinderTests
     {

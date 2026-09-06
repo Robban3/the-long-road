@@ -1,7 +1,7 @@
-using Arna.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// A model and the controller that animates it.
@@ -63,7 +63,7 @@ namespace Arna.View
         /// crab-wise, which reads as the animation being broken or the thing being
         /// dragged.
         ///
-        /// Read it off `Arna > Report Selected Folder Dimensions`: on a quadruped the
+        /// Read it off `The Veil > Report Selected Folder Dimensions`: on a quadruped the
         /// long horizontal axis is the body, nose to tail. Long in Z is 0, long in X is
         /// 90 or -90.
         /// </summary>
@@ -480,7 +480,7 @@ namespace Arna.View
         /// is what the player is meant to be watching.
         ///
         /// It has room to grow into: the wagons trail eight metres apart
-        /// (<see cref="Arna.Sim.Caravan.WagonSpacing"/>), and a covered wagon fitted to
+        /// (<see cref="TheVeil.Sim.Caravan.WagonSpacing"/>), and a covered wagon fitted to
         /// 3.2 m is about six and a half long.
         /// </summary>
         public const float WagonHeight = 3.2f;

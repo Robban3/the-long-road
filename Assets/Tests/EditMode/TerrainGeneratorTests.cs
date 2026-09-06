@@ -1,13 +1,113 @@
 using System.Collections.Generic;
-using Arna.Gen;
-using Arna.Sim;
+using TheVeil.Gen;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVeil.Tests
 {
     public class TerrainGeneratorTests
     {
         static LevelRecipe Recipe() => new LevelRecipe();
+
+        /// <summary>
+        /// The river runs *through* the ground, not along the top of it.
+        ///
+        /// It did not, for as long as the generator has existed: a water tile kept the
+        /// height of the meadow beside it and the surface was laid above that, so every
+        /// river was a blue film on flat grass. The bed is measured against the dry land
+        /// around each river rather than against the map's average, because a river that
+        /// happens to run downhill would pass an average-based check while still lying on
+        /// its own banks.
+        /// </summary>
+        [Test]
+        public void EveryRiverLiesBelowTheBanksBesideIt()
+        {
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = LevelMaps.For(1, level);
+                var grid = map.Grid;
+
+                int wet = 0, sunk = 0;
+
+                for (int i = 0; i < grid.TileCount; i++)
+                {
+                    if (grid[i] != TerrainType.Water) continue;
+
+                    grid.ToCoords(i, out int x, out int y);
+
+                    float banks = 0f;
+                    int dry = 0;
+
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                            int side = grid.ToIndex(x + dx, y + dy);
+                            if (grid[side] == TerrainType.Water) continue;
+
+                            banks += grid.Elevation(side);
+                            dry++;
+                        }
+                    }
+
+                    if (dry == 0) continue;   // mid-river, no bank to compare against
+
+                    wet++;
+                    if (grid.Elevation(i) < banks / dry) sunk++;
+                }
+
+                Assert.Greater(wet, 0, $"level {level} has no river to check");
+                Assert.AreEqual(wet, sunk,
+                    $"level {level}: {wet - sunk} of {wet} bankside river tiles sit at or "
+                  + "above the dry ground beside them");
+            }
+        }
+
+        /// <summary>
+        /// And the crossings stay up. Sinking the channel must not take the fords with
+        /// it — a ford is the bar of gravel level with the banks, which is the whole
+        /// reason anything can get across there.
+        /// </summary>
+        [Test]
+        public void TheFordsStayLevelWithTheBanksAfterTheChannelIsCut()
+        {
+            for (int level = 1; level <= 10; level++)
+            {
+                var grid = LevelMaps.For(1, level).Grid;
+
+                for (int i = 0; i < grid.TileCount; i++)
+                {
+                    if (grid[i] != TerrainType.Ford) continue;
+
+                    grid.ToCoords(i, out int x, out int y);
+
+                    float banks = 0f;
+                    int dry = 0;
+
+                    for (int dy = -2; dy <= 2; dy++)
+                    {
+                        for (int dx = -2; dx <= 2; dx++)
+                        {
+                            if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                            int side = grid.ToIndex(x + dx, y + dy);
+                            if (grid[side] == TerrainType.Water || grid[side] == TerrainType.Ford)
+                                continue;
+
+                            banks += grid.Elevation(side);
+                            dry++;
+                        }
+                    }
+
+                    if (dry == 0) continue;
+
+                    Assert.AreEqual(banks / dry, grid.Elevation(i), 0.0001f,
+                        $"level {level}: the ford at ({x},{y}) is not level with its banks");
+                }
+            }
+        }
 
         [Test]
         public void SameSeedProducesIdenticalMap()

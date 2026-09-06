@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-namespace Arna.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// The menu scene: one canvas, one screen at a time.
@@ -69,14 +69,14 @@ namespace Arna.UI
 
             var sky = Widgets.Panel("Backdrop", parent,
                 Pixels.Gradient(new Color32(0x1B, 0x1F, 0x2A, 0xFF),
-                                new Color32(0x0B, 0x09, 0x08, 0xFF), "ArnaSky"));
+                                new Color32(0x0B, 0x09, 0x08, 0xFF), "TheVeilSky"));
             sky.type = Image.Type.Sliced;
             sky.raycastTarget = false;
             sky.rectTransform.Fill();
 
             var glow = Widgets.Panel("Glow", parent,
                 Pixels.Gradient(new Color(0.55f, 0.36f, 0.16f, 0.28f),
-                                new Color(0.55f, 0.36f, 0.16f, 0f), "ArnaGlow"));
+                                new Color(0.55f, 0.36f, 0.16f, 0f), "TheVeilGlow"));
             glow.type = Image.Type.Sliced;
             glow.raycastTarget = false;
             glow.rectTransform.anchorMin = new Vector2(0f, 0.28f);

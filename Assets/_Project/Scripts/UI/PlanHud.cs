@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-namespace Arna.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// The planning screen's furniture: which level this is, what the drawn road costs,

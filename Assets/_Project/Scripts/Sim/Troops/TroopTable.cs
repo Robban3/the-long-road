@@ -1,4 +1,4 @@
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// The nine troop types (docs/GDD.md §4.3). Values are persisted in save data, so

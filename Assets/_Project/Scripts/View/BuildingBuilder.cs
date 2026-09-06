@@ -1,7 +1,7 @@
-using Arna.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// The pieces a building is made of.

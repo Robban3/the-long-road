@@ -1,7 +1,7 @@
-using Arna.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Colours for the planning overview. The player must be able to tell terrain

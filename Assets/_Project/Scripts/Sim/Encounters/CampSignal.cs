@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     /// <summary>A camp on a piece of ground, and whether anyone is still using it.</summary>
     public struct Camp

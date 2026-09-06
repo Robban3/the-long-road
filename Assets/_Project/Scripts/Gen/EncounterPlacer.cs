@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVeil.Sim;
 
-namespace Arna.Gen
+namespace TheVeil.Gen
 {
     /// <summary>
     /// Distributes enemies, traps and silver across the ground a route can be drawn

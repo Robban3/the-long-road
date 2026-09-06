@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Arna.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// A set of interchangeable models, and how the pack they came from was exported.
@@ -435,23 +435,27 @@ namespace Arna.View
         public const float FordSpan = 12f;
 
         /// <summary>
-        /// The most a bridge may stand above the bank, in metres.
+        /// How far the roadway sits above the bank it meets, in metres.
         ///
-        /// Three. A wagon is 3.2 m to the top of its tilt, so this puts the crossing at
-        /// about shoulder height on the load it carries — clear of the water and no more.
+        /// A quarter of a metre — enough that the deck does not fight the ground for the
+        /// same pixels, and not enough to be a step.
         ///
-        /// It exists because the packs' stone bridges are tall things. Fitted only to a
-        /// width and a span, a canal bridge came out four or five metres from bank to
-        /// roadway: a monument straddling a four-metre brook, with the caravan driving
-        /// along the top of it and nothing at either end to have got up there by. The
-        /// screenshots of that are what this number is answering.
+        /// <b>This replaces a height cap, and the difference is the whole bug.</b> A
+        /// bridge used to be stood on its underside, which for an arched one puts the
+        /// footings on the bank and the roadway a storey up: the caravan drove along the
+        /// top and the vault below it, mouth open at ground level, read as a tunnel. The
+        /// answer then was to cap the height at three metres, and because the cap scales
+        /// the model uniformly it bought that by shrinking the bridge to a stub that
+        /// crossed nothing — seven metres of span where twelve was asked for, and a deck
+        /// narrower than a wagon.
         ///
-        /// Guessed from the wagon rather than measured on a render, like every other size
-        /// here that could not be checked without opening the editor. If the deck still
-        /// stands proud of the country, lower it; if the bridges read as squashed, raise
-        /// it — the footprint will not move either way, only the height.
+        /// A bridge is not shorter than its river. It is *sunk*: the footings belong in
+        /// the channel and the roadway belongs level with the road it joins. So the deck
+        /// is measured after fitting and the whole thing dropped until it sits here — see
+        /// <see cref="Bridge"/>. An arch's ends then dip a little under the bank, which is
+        /// what an arch does where it meets a road, and no cap is needed at all.
         /// </summary>
-        public const float FordRise = 3f;
+        public const float DeckClearance = 0.25f;
 
         /// <summary>How tall a cliff face stands.</summary>
         // Five metres, down from twelve. A cliff tile is impassable ground on a flat map
@@ -461,8 +465,25 @@ namespace Arna.View
         // Five is a rock a man could not climb, which is all the tile is claiming.
         public const float CliffHeight = 5f;
 
-        /// <summary>A tent, at a bit over the height of the man who sleeps in it.</summary>
-        public const float CampHeight = 2.6f;
+        /// <summary>
+        /// A raiders' tent, sized to be seen rather than to be slept in.
+        ///
+        /// Four metres, up from 2.6. The honest number was the old one — a tent is a bit
+        /// over the height of the man inside it — and it was reported as tiny twice.
+        /// Here is the arithmetic behind why: the run multiplies a landmark by
+        /// LevelRunner.LandmarkScale (1.6), so 2.6 came out at 4.2 m beside a wagon of
+        /// 3.2 (VisualLibrary.WagonHeight). One and three tenths of a wagon is not a
+        /// camp, it is a bivouac, and the camp is supposed to be a *place* on the map —
+        /// the thing the bandits come out of.
+        ///
+        /// Four gives 6.4 m in the run, two wagons, which is a tent somebody holds court
+        /// in. On the plan map the multiplier is one and the floor takes over, so nothing
+        /// changes there.
+        ///
+        /// Honest proportion lost to legibility deliberately, and it is the same trade
+        /// the houses already made at 6 m x 1.6 = 9.6.
+        /// </summary>
+        public const float CampHeight = 4f;
 
         /// <summary>
         /// A willow, which is shorter than the spruce it stands among.
@@ -973,7 +994,7 @@ namespace Arna.View
             for (int i = 0; i < ranked.Count && i < 12; i++)
                 top.Add($"{ranked[i].Key} x{ranked[i].Value}");
 
-            Debug.Log($"[Arna] On the ground: {string.Join(", ", top)}"
+            Debug.Log($"[The Veil] On the ground: {string.Join(", ", top)}"
                       + (ranked.Count > 12 ? $", and {ranked.Count - 12} other kind(s)." : "."));
         }
 
@@ -1210,13 +1231,42 @@ namespace Arna.View
             // twelve-metre bridge over a five-tile ford is a jetty from each side.
             float span = Mathf.Max(FordSpan, (FordWidth(grid, tile, across) + 1) * TileGrid.TileSize);
 
-            ModelScaling.FitToCrossing(instance, FordDeck, span, groundY, FordRise);
+            ModelScaling.FitToCrossing(instance, FordDeck, span, groundY);
 
             // Measured rather than described. Nothing here knows where the roadway is
             // inside a bridge model, so the bridge is asked at runtime — see BridgeDeck.
-            instance.AddComponent<BridgeDeck>().Measure();
+            var deck = instance.AddComponent<BridgeDeck>();
+            deck.Measure();
 
-            Claim(grid, ModelScaling.Measure(instance), occupied);
+            // And now the same question is asked here, at build time, for the one thing
+            // FitToCrossing cannot do: stand the bridge on its roadway instead of on its
+            // feet. The ray goes down the middle of the span, where the road runs and the
+            // parapets are not, so what it finds is the deck itself.
+            var middle = ModelScaling.Measure(instance).center;
+            float before = float.NaN, after = float.NaN;
+
+            if (deck.Height(middle.x, middle.z, groundY, out float road))
+            {
+                before = road - groundY;
+                instance.transform.position += new Vector3(0f, groundY + DeckClearance - road, 0f);
+
+                // The colliders travel with the transform, but the footprint the cheap
+                // rejection in BridgeDeck.Height reads was cached from where they used to
+                // be. Measure again or the bridge answers for the wrong ground.
+                deck.Measure();
+
+                if (deck.Height(middle.x, middle.z, groundY, out float settled))
+                    after = settled - groundY;
+            }
+
+            var got = ModelScaling.Measure(instance);
+
+            Debug.Log($"[The Veil] Bridge {prefab.name} on tile {tile}: bearing {across:F0}°, "
+                    + $"span asked {span:F1} m and got {Mathf.Max(got.size.x, got.size.z):F1} m, "
+                    + $"deck {Mathf.Min(got.size.x, got.size.z):F1} m wide, "
+                    + $"roadway {before:F1} m above the bank before settling and {after:F1} m after.");
+
+            Claim(grid, got, occupied);
             return true;
         }
 
@@ -2377,7 +2427,7 @@ namespace Arna.View
         ///
         /// By name, and that is worth defending because matching a third party's asset
         /// names usually is not. These are not a third party's choices: the set is
-        /// written out prop by prop in this project's own <c>ArnaSetup</c>, where two
+        /// written out prop by prop in this project's own <c>TheVeilSetup</c>, where two
         /// carts stand beside a skeleton, two skulls, a grave and a second skeleton from
         /// the generic pack. What is being read here is a list this repository keeps.
         ///

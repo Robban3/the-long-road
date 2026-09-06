@@ -1,6 +1,6 @@
 // The circle on the ground showing how far a troop group can hit.
 //
-// Close kin to Arna/RouteOverlay and different in the one way that matters: this is
+// Close kin to TheVeil/RouteOverlay and different in the one way that matters: this is
 // depth-tested. The drawn route is annotation and belongs on top of the picture; a
 // reach ring is a mark on the ground *in* it, so a tree standing in front of the far
 // side of the circle has to hide that part of it. Drawn with ZTest Always instead, the
@@ -10,7 +10,7 @@
 // A polygon offset pulls it a hair toward the camera. The ring's vertices are sampled
 // from the same height field the terrain mesh is built from and then lifted, which is
 // nearly the same surface — near enough to z-fight on a shallow slope without this.
-Shader "Arna/RangeRing"
+Shader "TheVeil/RangeRing"
 {
     SubShader
     {

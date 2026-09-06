@@ -1,4 +1,4 @@
-namespace Arna.Gen
+namespace TheVeil.Gen
 {
     /// <summary>
     /// Deterministic 2D value noise with fBm layering.

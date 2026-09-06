@@ -1,9 +1,9 @@
 # Skärmbilder
 
 Bilderna här är renderade utan Unity. Motorn är en Windows-binär och dess egna
-capture-metoder — `Arna.Editor.ArnaSetup.CaptureLevelPreview` och `CapturePlayScene` —
+capture-metoder — `TheVeil.Editor.TheVeilSetup.CaptureLevelPreview` och `CapturePlayScene` —
 kräver en installation med GPU. Generatorn kräver ingenting av det: en bana är ett
-recept plus ett frö, och den aritmetiken finns nu även i `Tools/arna_level.py`.
+recept plus ett frö, och den aritmetiken finns nu även i `Tools/veil_level.py`.
 `Tools/render_screens.py` ritar den med en egen rasteriserare, z-buffert och skuggkarta.
 
     cd Tools
@@ -29,7 +29,7 @@ precision just för att träffa dem exakt.
 
 **Kameran och ljuset är på riktigt.** Vinklar, synfält, ortografisk storlek,
 solriktningar, half-lambert-termen, trilight-ambient och den linjära dimman är avlästa
-ur `ArnaSetup.cs` och `TerrainGround.shader`.
+ur `TheVeilSetup.cs` och `TerrainGround.shader`.
 
 **Modellerna är det inte.** Varje FBX i repot är en Git LFS-pekare och packen är inte
 hämtade i den här miljön, så träd, vagnar, trupper och byggnader ritas som procedurella
@@ -91,7 +91,7 @@ aldrig *det står fyra bakom åsen*.
 
 ### Viltet och kråkorna
 
-Djuren i GDD §3.5 ritas i spelvyn. Placeringen kommer ur porten av `Arna.Sim.Wildlife`,
+Djuren i GDD §3.5 ritas i spelvyn. Placeringen kommer ur porten av `TheVeil.Sim.Wildlife`,
 och den är verifierad rad för rad mot motorn: samma fjorton djur, samma arter, samma
 positioner — jämfört genom att köra båda på en handbyggd karta och diffa utskrifterna.
 

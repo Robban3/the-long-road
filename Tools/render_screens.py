@@ -1,10 +1,10 @@
 """Renders The Long Road's two views to PNG without Unity.
 
-The engine's own captures — Arna.Editor.ArnaSetup.CaptureLevelPreview and
+The engine's own captures — TheVeil.Editor.TheVeilSetup.CaptureLevelPreview and
 CapturePlayScene — need a Unity install and a machine with a GPU. This draws the same
 two pictures from the same generated level: a software rasteriser with a z-buffer, a
 shadow map and the ground shader's own lighting arithmetic, over the level that
-Tools/arna_level.py generates from a seed.
+Tools/veil_level.py generates from a seed.
 
     python3 render_screens.py --chapter 1 --level 5 --out ../docs/screenshots
 
@@ -16,7 +16,7 @@ What is faithful, and what is not:
 
   * The camera, the sun and the ground shading are. Angles, field of view, orthographic
     size, light directions and colours, the half-lambert term, the trilight ambient and
-    the linear fog are all read off ArnaSetup.cs and TerrainGround.shader.
+    the linear fog are all read off TheVeilSetup.cs and TerrainGround.shader.
 
   * The models are not. Every FBX in the repository is a Git LFS pointer and the packs
     are not fetched here, so trees, wagons, troops and buildings are drawn as
@@ -39,7 +39,7 @@ from typing import List, Optional, Sequence, Tuple
 import numpy as np
 from PIL import Image
 
-import arna_level as A
+import veil_level as A
 
 
 # --- Palettes, read off TerrainPalette.cs ----------------------------------------
@@ -1840,7 +1840,7 @@ def _parse_waypoints(text: str, grid: A.TileGrid):
         x, _, y = token.partition(",")
         tile = grid.to_index(int(x), int(y))
         if not A.can_place_waypoint(grid, tile, placed):
-            raise SystemExit(f"[Arna] {token} is not somewhere a waypoint can go — "
+            raise SystemExit(f"[The Veil] {token} is not somewhere a waypoint can go — "
                              "impassable, already used, or past the limit of "
                              f"{A.MAX_WAYPOINTS}")
         placed.append(tile)
@@ -1853,7 +1853,7 @@ def _print_preview(level: A.LevelMap, route, waypoints) -> None:
     grid = level.grid
 
     if not route.valid:
-        print(f"[Arna] route: leg {route.failed_leg} has no path — the run cannot start")
+        print(f"[The Veil] route: leg {route.failed_leg} has no path — the run cannot start")
         return
 
     named = [(A.PLAINS, "plains"), (A.FOREST, "forest"), (A.MARSH, "marsh"),
@@ -1861,21 +1861,21 @@ def _print_preview(level: A.LevelMap, route, waypoints) -> None:
     mix = ", ".join(f"{name} {route.share_of(terrain):.0%}"
                     for terrain, name in named if route.share_of(terrain) >= 0.01)
 
-    print(f"[Arna] route: {len(route.tiles)} tiles, cost {route.travel_cost:.1f}, "
+    print(f"[The Veil] route: {len(route.tiles)} tiles, cost {route.travel_cost:.1f}, "
           f"about {route.estimated_seconds():.0f} s")
-    print(f"[Arna] ground: {mix}")
-    print(f"[Arna] ambush weight {route.ambush_exposure:.2f} "
+    print(f"[The Veil] ground: {mix}")
+    print(f"[The Veil] ambush weight {route.ambush_exposure:.2f} "
           f"(plains {A.AMBUSH[A.PLAINS]}, forest {A.AMBUSH[A.FOREST]}, "
           f"marsh {A.AMBUSH[A.MARSH]})")
 
     if route.crossings:
         where = ", ".join(str(grid.to_coords(c)) for c in route.crossings)
-        print(f"[Arna] crosses the river at {where}")
+        print(f"[The Veil] crosses the river at {where}")
 
     for index, leg in enumerate(route.legs):
         if not leg.is_detour:
             continue
-        print(f"[Arna] leg {index} runs {leg.detour:.1f}x the crow's line — "
+        print(f"[The Veil] leg {index} runs {leg.detour:.1f}x the crow's line — "
               "this did not become what you drew")
 
 
@@ -1916,7 +1916,7 @@ def main() -> None:
     seed = A.DeterministicRandom.seed_for(args.chapter, args.level)
     level = A.generate(A.LevelRecipe(), seed)
 
-    print(f"[Arna] {args.chapter}-{args.level} (seed {seed}): "
+    print(f"[The Veil] {args.chapter}-{args.level} (seed {seed}): "
           f"fastest {level.fastest_route_cost:.1f}, "
           f"overlap {A.worst_overlap(level.corridors):.0%}, "
           f"{len(level.encounters.enemies)} enemy groups, "
@@ -1931,7 +1931,7 @@ def main() -> None:
         if args.eagle:
             flight = A.fly_the_eagle(level)
             covered = 100.0 * flight.coverage / level.grid.tile_count
-            print(f"[Arna] eagle: {flight.seconds:.0f} s aloft, {covered:.0f}% of the map, "
+            print(f"[The Veil] eagle: {flight.seconds:.0f} s aloft, {covered:.0f}% of the map, "
                   f"{len(flight.revealed_enemies)} of {len(level.encounters.enemies)} groups found")
         elif args.no_overlay:
             flight = A.ScoutFlight([], set(range(level.grid.tile_count)), [], 0.0)
@@ -1953,7 +1953,7 @@ def main() -> None:
             image = image.resize((args.width, args.width), Image.LANCZOS)
         path = os.path.join(args.out, f"plan-{args.chapter}-{args.level}.png")
         image.save(path)
-        print(f"[Arna] wrote {path}")
+        print(f"[The Veil] wrote {path}")
 
     if args.view in ("play", "both"):
         kind = {"fast": A.FAST, "safe": A.SAFE, "odd": A.ODD}[args.route]
@@ -1971,7 +1971,7 @@ def main() -> None:
                             f"play-{args.chapter}-{args.level}-{args.route}{args.suffix}.png")
         image.save(path)
         angle = math.degrees(math.atan2(args.follow_height, args.follow_distance))
-        print(f"[Arna] wrote {path} — {caravan.progress:.0%} along the {args.route} route, "
+        print(f"[The Veil] wrote {path} — {caravan.progress:.0%} along the {args.route} route, "
               f"in {A.TERRAIN_NAMES[caravan.current_terrain]}, "
               f"camera {angle:.0f}° down at {args.fov:.0f}° fov")
 

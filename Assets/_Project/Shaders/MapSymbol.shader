@@ -1,7 +1,7 @@
 // The little signs on the planning map that say what a thing is.
 //
-// Close kin to Arna/RangeRing and different in one way: it reads a texture. The symbols
-// are painted at run time into one atlas by Arna.UI.Pixels — a gable for a house, a
+// Close kin to TheVeil/RangeRing and different in one way: it reads a texture. The symbols
+// are painted at run time into one atlas by TheVeil.UI.Pixels — a gable for a house, a
 // broken wall for a ruin, a bird for a flock of crows — and drawn as camera-facing
 // quads, so what this has to do is sample that atlas and blend it over the landscape.
 //
@@ -11,7 +11,7 @@
 // you a house through a mountain is not showing you the country.
 //
 // Unlit on purpose. A sign is not lit by the sun in the world it is a sign about.
-Shader "Arna/MapSymbol"
+Shader "TheVeil/MapSymbol"
 {
     Properties
     {

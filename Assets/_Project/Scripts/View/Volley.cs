@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Arrows in the air.
@@ -357,8 +357,8 @@ namespace Arna.View
                 if (!_warned)
                 {
                     _warned = true;
-                    Debug.LogWarning("[Arna] No arrow model on the visual library, so the "
-                                     + "volley is firing plain darts. Run Arna > Setup "
+                    Debug.LogWarning("[The Veil] No arrow model on the visual library, so the "
+                                     + "volley is firing plain darts. Run The Veil > Set Up "
                                      + "Project — it assigns SM_Prop_Arrow_01, which is in "
                                      + "the project.");
                 }

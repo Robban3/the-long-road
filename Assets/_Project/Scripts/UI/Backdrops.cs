@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Arna.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// The painted backdrops the screens stand on.
@@ -10,7 +10,7 @@ namespace Arna.UI
     /// Loaded by name at run time from a Resources folder rather than wired into the
     /// scenes as serialized fields, and that is a deliberate choice against this
     /// project's own habit. Everything else the scenes use — the models, the scenery, the
-    /// materials — is a serialized field that `Arna → Refresh Scene Assets` fills in, and
+    /// materials — is a serialized field that `TheVeil → Refresh Scene Assets` fills in, and
     /// forgetting to run it has produced four separate false bug reports: the code
     /// changed, the saved scene did not, and nothing said so. A painting dropped in a
     /// folder and found by name has no such trap. Put the file there and it is in the
@@ -22,11 +22,11 @@ namespace Arna.UI
     /// </summary>
     public static class Backdrops
     {
-        public const string Menu = "ArnaBackdrop";
-        public const string Roadmap = "ArnaRoadmap";
-        public const string Shop = "ArnaShop";
-        public const string Victory = "ArnaVictory";
-        public const string Defeat = "ArnaDefeat";
+        public const string Menu = "TheVeilBackdrop";
+        public const string Roadmap = "TheVeilRoadmap";
+        public const string Shop = "TheVeilShop";
+        public const string Victory = "TheVeilVictory";
+        public const string Defeat = "TheVeilDefeat";
 
         /// <summary>Where the paintings live, for the editor's forgiving search and for saying so.</summary>
         public const string Folder = "Assets/_Project/Art/Resources";
@@ -79,12 +79,12 @@ namespace Arna.UI
             {
                 _found[name] = sprite;
 
-                Debug.Log($"[Arna] Backdrop '{name}' found, {sprite.rect.width:0}×"
+                Debug.Log($"[The Veil] Backdrop '{name}' found, {sprite.rect.width:0}×"
                           + $"{sprite.rect.height:0} px.");
             }
             else
             {
-                Debug.Log($"[Arna] No backdrop '{name}'. Put {name}.png in "
+                Debug.Log($"[The Veil] No backdrop '{name}'. Put {name}.png in "
                           + "Assets/_Project/Art/Resources to use one — the screen draws "
                           + "its own until then.");
             }
@@ -111,7 +111,7 @@ namespace Arna.UI
         }
 
 #if UNITY_EDITOR
-        /// <summary>Letters and digits only, lowercased. "Arna Backdrop 1" and "arnabackdrop" meet here.</summary>
+        /// <summary>Letters and digits only, lowercased. "TheVeil Backdrop 1" and "theveilbackdrop" meet here.</summary>
         static string Plain(string name)
         {
             var text = new System.Text.StringBuilder(name.Length);
@@ -126,14 +126,14 @@ namespace Arna.UI
         /// A file's name with every image extension taken off, not only the last one.
         ///
         /// Windows Explorer hides known extensions by default. Save a file you have called
-        /// "ArnaShop.png" into a folder where ".png" is hidden and what lands on disk is
-        /// ArnaShop.png.png. Unity strips one extension, names the resource "ArnaShop.png",
-        /// and Resources.Load("ArnaShop") finds nothing — which is the whole reason the
-        /// shop kept showing the castle. "ArnaBackdrop..png" is the same slip one step
+        /// "TheVeilShop.png" into a folder where ".png" is hidden and what lands on disk is
+        /// TheVeilShop.png.png. Unity strips one extension, names the resource "TheVeilShop.png",
+        /// and Resources.Load("TheVeilShop") finds nothing — which is the whole reason the
+        /// shop kept showing the castle. "TheVeilBackdrop..png" is the same slip one step
         /// further, and it is the one that happened to survive the match below, which is
         /// why exactly one painting out of four worked and nothing said why.
         ///
-        /// Shared with the importer that renames such a file (Arna.Editor.BackdropImporter)
+        /// Shared with the importer that renames such a file (TheVeil.Editor.BackdropImporter)
         /// so the two agree on what the name was meant to be.
         /// </summary>
         public static string Bare(string path)
@@ -161,7 +161,7 @@ namespace Arna.UI
             // in the project, which is its own thing to say.
             if (!System.IO.Directory.Exists(Folder))
             {
-                Debug.Log($"[Arna] {Folder} does not exist.");
+                Debug.Log($"[The Veil] {Folder} does not exist.");
                 return Elsewhere(name, wanted);
             }
 
@@ -188,17 +188,17 @@ namespace Arna.UI
 
                 if (sprite == null) continue;
 
-                Debug.LogWarning($"[Arna] Using '{file}' for the '{name}' backdrop. Rename the "
+                Debug.LogWarning($"[The Veil] Using '{file}' for the '{name}' backdrop. Rename the "
                                  + $"file to {name}.png and it will load in a build too — "
                                  + "this loose match is editor-only.");
                 return sprite;
             }
 
             if (listed.Count > 0)
-                Debug.Log($"[Arna] {Folder} holds: {string.Join(", ", listed)}. "
+                Debug.Log($"[The Veil] {Folder} holds: {string.Join(", ", listed)}. "
                           + $"None of them is '{name}'.");
             else
-                Debug.Log($"[Arna] {Folder} holds no images at all.");
+                Debug.Log($"[The Veil] {Folder} holds no images at all.");
 
             return Elsewhere(name, wanted);
         }
@@ -230,7 +230,7 @@ namespace Arna.UI
 
                 if (sprite == null) continue;
 
-                Debug.LogWarning($"[Arna] Found '{name}' at {path}, outside {Folder}. "
+                Debug.LogWarning($"[The Veil] Found '{name}' at {path}, outside {Folder}. "
                                  + "Using it for now — move the file into that folder and "
                                  + "it will work in a build too.");
                 return sprite;
@@ -340,7 +340,7 @@ namespace Arna.UI
             var shade = Widgets.Panel("Shade", frame,
                 Pixels.Gradient(new Color(0f, 0f, 0f, 0f),
                                 new Color(0.02f, 0.02f, 0.03f, Mathf.Clamp01(darken)),
-                                "ArnaShade"));
+                                "TheVeilShade"));
 
             shade.type = Image.Type.Sliced;
             shade.raycastTarget = false;

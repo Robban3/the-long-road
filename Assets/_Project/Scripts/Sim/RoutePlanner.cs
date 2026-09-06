@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// One stretch of the route, from the last point the player put down to the next.

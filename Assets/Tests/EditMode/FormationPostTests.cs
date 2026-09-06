@@ -1,7 +1,7 @@
-using Arna.Sim;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVeil.Tests
 {
     /// <summary>
     /// The shape of the escort: six posts in the line that open as a chapter goes on, and

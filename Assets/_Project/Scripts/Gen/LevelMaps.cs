@@ -1,6 +1,6 @@
-using Arna.Sim;
+using TheVeil.Sim;
 
-namespace Arna.Gen
+namespace TheVeil.Gen
 {
     /// <summary>
     /// The one place a level's map comes from.

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Fits imported models to the world.
@@ -93,35 +93,25 @@ namespace Arna.View
         /// bridge is scaled up until its deck is wide enough and a short one until it
         /// reaches across.
         ///
-        /// <b>And then <paramref name="rise"/> overrules both, because a bridge that
-        /// towers is worse than one that falls short.</b>
+        /// <b>Nothing here caps the height, and it used to.</b> Satisfying a five-metre
+        /// deck on a model three metres wide multiplies everything — height included — by
+        /// five thirds, and the packs' arched bridges are tall to begin with. What came
+        /// out was a monument straddling a four-metre brook with the caravan on its
+        /// roadway several metres up. The cap that answered that scaled the model down
+        /// uniformly, because the caller yaws the bridge before fitting it and lays Z-up
+        /// prefabs down with a quarter turn about X, so a non-uniform localScale here
+        /// would squash whichever axis happened to be pointing the wrong way. Uniform
+        /// meant the bridge bought its height by giving up its span, and stopped
+        /// reaching across.
+        ///
+        /// A bridge that towers is not too big. It is too high, and height is a
+        /// *position*: the model stands on its underside here, and the caller drops it
+        /// afterwards until its roadway is level with the bank — see
+        /// TerrainDecorator.Bridge and DeckClearance. The footings end up in the channel,
+        /// which is where a bridge keeps them.
         /// </summary>
-        /// <param name="rise">
-        /// The most the bridge may stand above the bank, in metres, or zero for no cap.
-        ///
-        /// The packs' stone bridges are tall things, and satisfying a five-metre deck on
-        /// a model three metres wide multiplies everything — height included — by five
-        /// thirds. What came out was a monument straddling a four-metre brook with the
-        /// caravan on its roadway several metres up, reached by nothing at either end.
-        ///
-        /// <b>Uniform, and the alternative is worth recording.</b> Scaling width, span
-        /// and height apart is what this obviously wants, and it cannot be done here: the
-        /// caller yaws the bridge onto the crossing's bearing *before* fitting it, and
-        /// lays Z-up prefabs down with a quarter turn about X on top of that, so the
-        /// model's local axes are not the world's. A non-uniform localScale would stretch
-        /// whichever axis happened to be pointing the wrong way — squashing the span
-        /// instead of the height on every Z-up bridge in the set. Doing it properly needs
-        /// an unrotated wrapper to carry the scale, which is a change to the hierarchy
-        /// that BridgeDeck and the occupancy marking both read.
-        ///
-        /// So the cap simply wins, uniformly, and the bridge comes out smaller all round
-        /// when the model is too tall to fit under it. That trades span for height
-        /// knowingly: a crossing whose ends stop short of the banks reads as a low
-        /// crossing, because BridgeDeck hands the caravan back to the ground the moment it
-        /// steps off the deck. A crossing in the air reads as a mistake.
-        /// </param>
         public static void FitToCrossing(GameObject instance, float deck, float span,
-                                         float groundY = 0f, float rise = 0f)
+                                         float groundY = 0f)
         {
             var bounds = Measure(instance);
 
@@ -129,12 +119,7 @@ namespace Arna.View
             float along = Mathf.Max(bounds.size.x, bounds.size.z);
             if (across <= 0.0001f || along <= 0.0001f) return;
 
-            float scale = Mathf.Max(deck / across, span / along);
-
-            if (rise > 0.0001f && bounds.size.y > 0.0001f)
-                scale = Mathf.Min(scale, rise / bounds.size.y);
-
-            instance.transform.localScale *= scale;
+            instance.transform.localScale *= Mathf.Max(deck / across, span / along);
 
             var scaled = Measure(instance);
             instance.transform.position += new Vector3(0f, groundY - scaled.min.y, 0f);

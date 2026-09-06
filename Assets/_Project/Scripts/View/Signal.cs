@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Marks a prop that is telling the player something, rather than dressing the map.

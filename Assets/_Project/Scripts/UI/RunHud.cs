@@ -1,10 +1,10 @@
 using System;
-using Arna.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-namespace Arna.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// What is on screen while a level is being played: the top bar, the pause menu, and

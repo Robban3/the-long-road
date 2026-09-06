@@ -1,4 +1,4 @@
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// Permanent levels bought on a troop type with gold, kept between runs.

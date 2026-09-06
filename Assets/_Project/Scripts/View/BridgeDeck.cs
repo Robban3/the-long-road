@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Marks a bridge and answers how high its deck is at a given place.

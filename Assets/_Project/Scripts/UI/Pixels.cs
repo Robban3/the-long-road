@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Arna.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// Paints the menu's sprites into textures at run time (see <see cref="Theme"/> for
@@ -459,7 +459,7 @@ namespace Arna.UI
 
         /// <summary>
         /// Deterministic value noise, so the ground is the same ground every time it is
-        /// painted. The same trick <see cref="Arna.Sim.DeterministicRandom"/> uses, and
+        /// painted. The same trick <see cref="TheVeil.Sim.DeterministicRandom"/> uses, and
         /// for the same reason: a texture that differs between two runs is a texture
         /// nobody can compare a screenshot of.
         /// </summary>

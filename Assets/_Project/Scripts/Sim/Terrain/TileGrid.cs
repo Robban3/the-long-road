@@ -1,4 +1,4 @@
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// The level's terrain, as a flat row-major array. Default size is 64x64 tiles

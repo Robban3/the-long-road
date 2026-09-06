@@ -1,4 +1,4 @@
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// Enemy types for the forest chapter (docs/GDD.md §7.1). Values are persisted in

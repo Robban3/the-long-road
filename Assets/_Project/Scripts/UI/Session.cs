@@ -1,7 +1,7 @@
-using Arna.Sim;
+using TheVeil.Sim;
 using UnityEngine;
 
-namespace Arna.UI
+namespace TheVeil.UI
 {
     /// <summary>
     /// What the menus and the level share: the campaign, and which level the player is
@@ -18,7 +18,28 @@ namespace Arna.UI
         public const string PlanScene = "LevelPreview";
         public const string PlayScene = "PlayLevel";
 
-        const string SaveKey = "arna.campaign.v1";
+        const string SaveKey = "theveil.campaign.v1";
+
+        /// <summary>
+        /// Every key the campaign has ever been kept under, newest first.
+        ///
+        /// A PlayerPrefs key is a contract with a device, not a name in the source, and
+        /// renaming one is silent: the game reads an empty string, decides this is a new
+        /// player and starts at chapter one, with every star and every purchase still
+        /// sitting on disk under a key nobody asks for any more. No error, no warning,
+        /// nothing on screen but a fresh save.
+        ///
+        /// <b>A list rather than one previous name, because the world has been renamed
+        /// twice.</b> It was Arna, then briefly The Vail — a misspelling that shipped —
+        /// and now The Veil. A device that ran the game in between has already moved to
+        /// the middle key and no longer has the first; one that did not is still on the
+        /// first. Both have to work, and a single fallback would only ever serve one of
+        /// them.
+        ///
+        /// Anything added here is prepended, never appended: the order is the order they
+        /// are tried, and a newer save must always win over an older one left beside it.
+        /// </summary>
+        static readonly string[] OldSaveKeys = { "thevail.campaign.v1", "arna.campaign.v1" };
 
         static Campaign _campaign;
 
@@ -38,9 +59,55 @@ namespace Arna.UI
         {
             get
             {
-                if (_campaign == null) _campaign = Campaign.Load(PlayerPrefs.GetString(SaveKey, ""));
+                if (_campaign == null) _campaign = Campaign.Load(Carried());
                 return _campaign;
             }
+        }
+
+        /// <summary>
+        /// The saved campaign, from wherever it is, moving it if it is in the old place.
+        ///
+        /// The new key wins whenever it holds anything, so a player who has saved once
+        /// since the rename never touches the old one again. Only a device that has the
+        /// old and not the new is migrated, and it is migrated on the read rather than on
+        /// some startup hook, because the read is the one thing that is guaranteed to
+        /// happen before the save can matter.
+        /// </summary>
+        static string Carried()
+        {
+            string current = PlayerPrefs.GetString(SaveKey, "");
+            if (!string.IsNullOrEmpty(current)) return current;
+
+            foreach (string key in OldSaveKeys)
+            {
+                string old = PlayerPrefs.GetString(key, "");
+                if (string.IsNullOrEmpty(old)) continue;
+
+                PlayerPrefs.SetString(SaveKey, old);
+
+                // Every old key, not just the one that answered. A device that has two of
+                // them would otherwise keep the oldest lying around for good, and the day
+                // somebody wipes the save it would be migrated straight back in.
+                DeleteKeys(OldSaveKeys);
+                PlayerPrefs.Save();
+
+                Debug.Log($"[The Veil] Campaign carried over from \"{key}\".");
+                return old;
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Deletes a set of keys. Deleting one that is not there is not an error.
+        ///
+        /// Not called Forget: that name is taken by the one that clears the last run's
+        /// result, and two methods called Forget doing unrelated things is how somebody
+        /// deletes a save meaning to clear a scoreboard.
+        /// </summary>
+        static void DeleteKeys(string[] keys)
+        {
+            foreach (string key in keys) PlayerPrefs.DeleteKey(key);
         }
 
         /// <summary>
@@ -168,6 +235,10 @@ namespace Arna.UI
         {
             _campaign = new Campaign();
             PlayerPrefs.DeleteKey(SaveKey);
+
+            // And every old one. A wipe that leaves any of them behind would be undone by
+            // the very next read, which migrates whichever survived straight back in.
+            DeleteKeys(OldSaveKeys);
             PlayerPrefs.Save();
             Forget();
         }

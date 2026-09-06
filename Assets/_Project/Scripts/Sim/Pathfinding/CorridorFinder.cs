@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     public enum CorridorKind
     {

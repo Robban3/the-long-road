@@ -1,8 +1,8 @@
-using Arna.Gen;
-using Arna.Sim;
+using TheVeil.Gen;
+using TheVeil.Sim;
 using NUnit.Framework;
 
-namespace Arna.Tests
+namespace TheVeil.Tests
 {
     /// <summary>
     /// The reach a troop group actually has, which the view now draws as a circle on the

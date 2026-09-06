@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Arna.Sim
+namespace TheVeil.Sim
 {
     /// <summary>
     /// What is standing in the way, and how to get round it.

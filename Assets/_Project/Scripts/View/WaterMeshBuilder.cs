@@ -1,9 +1,9 @@
-using Arna.Sim;
+using TheVeil.Sim;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Builds the water as one continuous surface instead of a plane per tile.
@@ -99,12 +99,38 @@ namespace Arna.View
         }
 
         /// <summary>
+        /// How far a corner is drawn in toward the water, as a share of a tile, by how
+        /// many of the four tiles meeting there are wet.
+        ///
+        /// **This is what takes the staircase off the waterline.** A river drawn on a
+        /// four-metre grid is a run of squares, and a bank that steps in four-metre
+        /// right angles reads as pixel art however good the material is. Nothing about
+        /// the grid can be helped — the simulation thinks in tiles and must — but the
+        /// *surface* need not be drawn on the tile boundary.
+        ///
+        /// So every corner is pulled toward the middle of the water that meets it, by an
+        /// amount that depends on how surrounded it is. A corner with all four tiles wet
+        /// is in open water and does not move. One with a single wet tile is the outside
+        /// of a right angle and moves furthest, which cuts the corner off. One with two
+        /// is on a straight bank and moves a little, which softens the edge without
+        /// narrowing the channel much. Three is the inside of a bend and barely moves.
+        ///
+        /// The corners are shared between tiles, so both sides of every edge move
+        /// together and the sheet stays one continuous surface — it is the same
+        /// guarantee the heights already rely on.
+        /// </summary>
+        static readonly float[] Inset = { 0f, 0.55f, 0.25f, 0.12f, 0f };
+
+        /// <summary>
         /// One shared corner.
         ///
         /// Its height is the lowest bed of the wet tiles meeting there. Lowest rather
         /// than averaged, because the bank is what the surface must not climb: average a
         /// riverside corner with the meadow beside it and the waterline rides up the
         /// grass, which is the artefact this whole builder exists to remove.
+        ///
+        /// Its position is the grid corner drawn in toward that same water — see
+        /// <see cref="Inset"/>.
         /// </summary>
         static int Corner(TileGrid grid, Dictionary<int, int> corners, List<Vector3> vertices,
                           List<Vector2> uvs, int x, int y, float tileSize, float heightScale,
@@ -114,6 +140,11 @@ namespace Arna.View
             if (corners.TryGetValue(key, out int found)) return found;
 
             float lowest = float.MaxValue;
+
+            // Where the water that meets this corner lies, in tiles, so the corner knows
+            // which way to move as well as how far.
+            float towardX = 0f, towardZ = 0f;
+            int wet = 0;
 
             for (int dy = -1; dy <= 0; dy++)
             {
@@ -127,13 +158,29 @@ namespace Arna.View
                               * heightScale;
 
                     if (bed < lowest) lowest = bed;
+
+                    towardX += dx + 0.5f;
+                    towardZ += dy + 0.5f;
+                    wet++;
                 }
             }
 
             if (lowest == float.MaxValue) lowest = 0f;
 
+            float px = x * tileSize, pz = y * tileSize;
+
+            if (wet > 0)
+            {
+                float pull = Inset[wet];
+                px += towardX / wet * pull * tileSize;
+                pz += towardZ / wet * pull * tileSize;
+            }
+
             int index = vertices.Count;
-            vertices.Add(new Vector3(x * tileSize, lowest + Depth, y * tileSize));
+            vertices.Add(new Vector3(px, lowest + Depth, pz));
+
+            // UVs stay on the grid rather than following the moved vertex, so the ripple
+            // the material puts on the surface does not stretch where the bank is cut.
             uvs.Add(new Vector2(x * 0.5f, y * 0.5f));
             corners[key] = index;
 

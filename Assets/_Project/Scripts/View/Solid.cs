@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Arna.View
+namespace TheVeil.View
 {
     /// <summary>
     /// Says that this prop is something you have to walk round.
@@ -10,7 +10,7 @@ namespace Arna.View
     /// on it — so the column drove through trunks and boulders because, to the code
     /// moving it, they were not there. This is the note the two sides pass each other:
     /// the decorator marks what is solid and how wide, and the run collects the marks
-    /// into an <see cref="Arna.Sim.ObstacleField"/> before the first step is taken.
+    /// into an <see cref="TheVeil.Sim.ObstacleField"/> before the first step is taken.
     ///
     /// The radius is the part that matters, and it is not the prop's own width. A spruce
     /// has four and a half metres of crown over half a metre of trunk, and a wood you
