@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Bird Flock Asset - Documentation</title>
+	<style>
+		:root {
+			--page: #f7f3ee;
+			--card: #fffcf7;
+			--border: #d6cec0;
+			--text: #2c2418;
+			--dim: #7a6e5e;
+			--accent: #b85c3a;
+			--accent2: #3a7a5c;
+			--warn: #b8922a;
+			--code-bg: #efe9de;
+			--head: #4a3020;
+			--sidebar-w: 270px;
+		}
+
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		body {
+			font-family: "Georgia", "Palatino", "Times New Roman", serif;
+			background: var(--page);
+			color: var(--text);
+			line-height: 1.65;
+			display: flex;
+			min-height: 100vh;
+			font-size: 16px;
+		}
+
+		nav {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: var(--sidebar-w);
+			height: 100vh;
+			overflow-y: auto;
+			background: var(--card);
+			border-right: 2px solid var(--border);
+			padding: 0;
+			font-family: "Segoe UI", system-ui, sans-serif;
+			font-size: 14px;
+		}
+
+		nav .brand {
+			padding: 1.25rem 1rem 0.75rem;
+			border-bottom: 2px solid var(--border);
+			margin-bottom: 0.5rem;
+		}
+
+		nav .brand h1 {
+			font-size: 1.1rem;
+			font-weight: 700;
+			color: var(--head);
+			font-family: Georgia, serif;
+			letter-spacing: -0.01em;
+		}
+
+		nav .brand p {
+			font-size: 0.75rem;
+			color: var(--dim);
+			margin-top: 0.2rem;
+			font-style: italic;
+		}
+
+		nav ul {
+			list-style: none;
+			padding-bottom: 1.5rem;
+		}
+
+		nav li a {
+			display: block;
+			padding: 0.2rem 1rem 0.2rem 1.25rem;
+			color: var(--dim);
+			text-decoration: none;
+			font-size: 0.82rem;
+			border-left: 3px solid transparent;
+			transition: none;
+		}
+
+		nav li a:hover {
+			color: var(--text);
+			background: #e8e0d4;
+			border-left-color: var(--accent);
+		}
+
+		nav li a.active {
+			color: var(--text);
+			background: #e8e0d4;
+			border-left-color: var(--accent);
+			font-weight: 600;
+		}
+
+		nav .section-label {
+			padding: 0.6rem 1rem 0.15rem 1rem;
+			font-size: 0.7rem;
+			text-transform: uppercase;
+			letter-spacing: 0.1em;
+			color: var(--dim);
+			font-weight: 700;
+			font-family: "Segoe UI", system-ui, sans-serif;
+		}
+
+		main {
+			margin-left: var(--sidebar-w);
+			flex: 1;
+			max-width: 880px;
+			padding: 2.5rem 3rem 4rem;
+		}
+
+		h2 {
+			font-size: 1.65rem;
+			font-weight: 700;
+			margin: 2.5rem 0 0.75rem;
+			padding-bottom: 0.4rem;
+			border-bottom: 2px solid var(--border);
+			color: var(--head);
+			font-family: "Segoe UI", system-ui, sans-serif;
+		}
+
+		h2:first-child {
+			margin-top: 0;
+		}
+
+		h3 {
+			font-size: 1.15rem;
+			font-weight: 700;
+			margin: 1.75rem 0 0.5rem;
+			color: var(--accent);
+			font-family: "Segoe UI", system-ui, sans-serif;
+		}
+
+		h4 {
+			font-size: 1rem;
+			font-weight: 700;
+			margin: 1.25rem 0 0.4rem;
+			color: var(--text);
+			font-family: "Segoe UI", system-ui, sans-serif;
+		}
+
+		p {
+			margin-bottom: 1rem;
+			color: var(--text);
+		}
+
+		a {
+			color: var(--accent);
+			text-decoration: underline;
+			text-underline-offset: 2px;
+		}
+
+		a:hover {
+			color: #8a3c1a;
+		}
+
+		.lead {
+			font-size: 1.05rem;
+			color: var(--dim);
+			margin-bottom: 1.5rem;
+			font-style: italic;
+		}
+
+		.badge {
+			display: inline-block;
+			font-size: 0.65rem;
+			font-weight: 700;
+			padding: 0.1rem 0.45rem;
+			border-radius: 3px;
+			margin-left: 0.4rem;
+			vertical-align: middle;
+			font-family: "Segoe UI", system-ui, sans-serif;
+			letter-spacing: 0.03em;
+			text-transform: uppercase;
+		}
+
+		.badge-core {
+			background: #d4c4b0;
+			color: #5a3a22;
+		}
+
+		.badge-addon {
+			background: #bccfc0;
+			color: #2a5a3c;
+		}
+
+		.badge-demo {
+			background: #e0cfad;
+			color: #6a4a10;
+		}
+
+		.badge-editor {
+			background: #cfb8cf;
+			color: #5a2a6a;
+		}
+
+		.card {
+			background: var(--card);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 1.1rem 1.4rem;
+			margin: 1rem 0 1.5rem;
+			box-shadow: 1px 1px 4px rgba(0,0,0,0.04);
+		}
+
+		.card-title {
+			font-weight: 700;
+			font-size: 1rem;
+			margin-bottom: 0.35rem;
+			font-family: "Segoe UI", system-ui, sans-serif;
+		}
+
+		.card-meta {
+			font-size: 0.78rem;
+			color: var(--dim);
+			font-family: "Cascadia Code", "Consolas", monospace;
+			margin-bottom: 0.6rem;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 0.75rem 0 1.5rem;
+			font-size: 0.85rem;
+			background: var(--card);
+			border: 1px solid var(--border);
+			border-radius: 4px;
+		}
+
+		th, td {
+			text-align: left;
+			padding: 0.45rem 0.7rem;
+			border-bottom: 1px solid var(--border);
+		}
+
+		th {
+			background: #e8e0d4;
+			color: var(--head);
+			font-weight: 700;
+			font-size: 0.72rem;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			font-family: "Segoe UI", system-ui, sans-serif;
+		}
+
+		td code {
+			font-size: 0.8rem;
+			color: var(--accent);
+		}
+
+		code {
+			font-family: "Cascadia Code", "Consolas", monospace;
+			background: var(--code-bg);
+			padding: 0.15rem 0.35rem;
+			border-radius: 3px;
+			font-size: 0.84em;
+			color: var(--head);
+		}
+
+		pre {
+			background: var(--code-bg);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 1rem 1.15rem;
+			overflow-x: auto;
+			margin: 0.75rem 0 1.5rem;
+			font-size: 0.8rem;
+			line-height: 1.5;
+		}
+
+		pre code {
+			background: none;
+			padding: 0;
+			font-size: inherit;
+			color: var(--text);
+		}
+
+		.diagram {
+			background: var(--code-bg);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 1.15rem;
+			font-family: "Cascadia Code", "Consolas", monospace;
+			font-size: 0.75rem;
+			line-height: 1.4;
+			overflow-x: auto;
+			white-space: pre;
+			color: var(--head);
+			margin: 0.75rem 0 1.5rem;
+		}
+
+		.tip, .warn {
+			border-radius: 6px;
+			padding: 0.75rem 1rem;
+			margin: 0.75rem 0 1.5rem;
+			font-size: 0.9rem;
+			border: 1px solid var(--border);
+		}
+
+		.tip {
+			background: #e4efe4;
+			border-left: 4px solid var(--accent2);
+		}
+
+		.warn {
+			background: #f3eddc;
+			border-left: 4px solid var(--warn);
+		}
+
+		.tip strong, .warn strong {
+			display: block;
+			margin-bottom: 0.2rem;
+			font-family: "Segoe UI", system-ui, sans-serif;
+		}
+
+		ul, ol {
+			margin: 0 0 1rem 1.5rem;
+			color: var(--text);
+		}
+
+		li {
+			margin-bottom: 0.3rem;
+		}
+
+		footer {
+			margin-top: 3rem;
+			padding-top: 1.25rem;
+			border-top: 2px solid var(--border);
+			font-size: 0.78rem;
+			color: var(--dim);
+		}
+
+		footer p {
+			color: var(--dim);
+		}
+
+		@media (max-width: 768px) {
+			nav {
+				display: none;
+			}
+
+			main {
+				margin-left: 0;
+				padding: 1.5rem;
+			}
+
+			body {
+				font-size: 15px;
+			}
+		}
+	</style>
+</head>
+
+<body>
+
+	<nav>
+		<div class="brand">
+			<h1>Bird Flock Asset</h1>
+			<p>docs by Unluck Software</p>
+		</div>
+		<ul>
+			<li class="section-label">Overview</li>
+			<li><a href="#overview">Introduction</a></li>
+			<li><a href="#quick-start">Quick Start</a></li>
+			<li><a href="#asset-store">Asset Store</a></li>
+
+			<li class="section-label">Guides</li>
+			<li><a href="#custom-bird-prefab">Custom Bird Prefab</a></li>
+			<li><a href="#free-moving-flock">Free Moving Flock</a></li>
+			<li><a href="#baked-birds">Baked Birds</a></li>
+
+			<li class="section-label">Inspector Reference</li>
+			<li><a href="#flock-properties">Flock Properties</a></li>
+			<li><a href="#landing-spot-properties">Landing Spot Properties</a></li>
+
+			<li class="section-label">Core Scripts</li>
+			<li><a href="#flock-controller">FlockController</a></li>
+			<li><a href="#flock-child">FlockChild</a></li>
+			<li><a href="#landing-spot-controller">LandingSpotController</a></li>
+			<li><a href="#landing-spot">LandingSpot</a></li>
+			<li><a href="#flock-scare">FlockScare</a></li>
+			<li><a href="#flock-child-sound">FlockChildSound</a></li>
+			<li><a href="#flock-waypoint-trigger">FlockWaypointTrigger</a></li>
+
+			<li class="section-label">Addons</li>
+			<li><a href="#addons">Addon Scripts</a></li>
+
+			<li class="section-label">Demo & Editor</li>
+			<li><a href="#demo">Demo Scripts</a></li>
+			<li><a href="#editor">Editor Scripts</a></li>
+
+			<li class="section-label">Reference</li>
+			<li><a href="#api">Public API</a></li>
+			<li><a href="#misc-functions">Misc Functions</a></li>
+			<li><a href="#urp-hdrp">URP / HDRP</a></li>
+			<li><a href="#performance">Performance Tips</a></li>
+		</ul>
+	</nav>
+
+	<main>
+
+		<section id="overview">
+			<h2>Introduction</h2>
+			<p class="lead">
+				The Bird Flock Asset is a Unity flocking system by <strong>Unluck Software</strong> that simulates
+				realistic bird behavior - roaming, soaring, diving, collision avoidance, landing, and takeoff. All
+				runtime scripts live in the <code>UnluckSoftware</code> namespace (except a few utility addons).
+			</p>
+			<p>
+				The system is built around a central <strong>FlockController</strong> that spawns and manages many
+				<strong>FlockChild</strong> bird instances. Optional <strong>LandingSpotController</strong> /
+				<strong>LandingSpot</strong> components add perching behavior. Animation is supported via legacy
+				<code>Animation</code>, Mecanim <code>Animator</code>, or baked mesh animation
+				(<code>BakedMeshAnimator</code>).
+			</p>
+			<p>
+				This page combines the original PDF user guide with detailed script reference documentation.
+			</p>
+
+			<div class="card">
+				<div class="card-title">Script Inventory</div>
+				<table>
+					<thead>
+						<tr>
+							<th>Script</th>
+							<th>Folder</th>
+							<th>Role</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><code>FlockController</code></td>
+							<td>Root</td>
+							<td>Spawns and drives the flock</td>
+						</tr>
+						<tr>
+							<td><code>FlockChild</code></td>
+							<td>Root</td>
+							<td>Individual bird AI and animation</td>
+						</tr>
+						<tr>
+							<td><code>LandingSpotController</code></td>
+							<td>Root</td>
+							<td>Manages landing spots for a flock</td>
+						</tr>
+						<tr>
+							<td><code>LandingSpot</code></td>
+							<td>Root</td>
+							<td>Single perch / landing target</td>
+						</tr>
+						<tr>
+							<td><code>FlockScare</code></td>
+							<td>Root</td>
+							<td>Proximity-based scare trigger</td>
+						</tr>
+						<tr>
+							<td><code>FlockChildSound</code></td>
+							<td>Root</td>
+							<td>Idle, flight, and scare audio</td>
+						</tr>
+						<tr>
+							<td><code>FlockWaypointTrigger</code></td>
+							<td>Root</td>
+							<td>Periodic waypoint change trigger</td>
+						</tr>
+						<tr>
+							<td><code>RandomMaterial</code></td>
+							<td>Addons</td>
+							<td>Random material on spawn</td>
+						</tr>
+						<tr>
+							<td><code>BirdMaterialChanger</code></td>
+							<td>Addons</td>
+							<td>Sequential material assignment</td>
+						</tr>
+						<tr>
+							<td><code>UnluckDistanceDisabler</code></td>
+							<td>Addons</td>
+							<td>Distance-based GameObject culling</td>
+						</tr>
+						<tr>
+							<td><code>LandingButtons</code></td>
+							<td>Demo</td>
+							<td>On-screen demo UI</td>
+						</tr>
+						<tr>
+							<td><code>CameraFreeMove</code></td>
+							<td>Demo</td>
+							<td>Free-fly camera for demos</td>
+						</tr>
+						<tr>
+							<td><code>LookAtCamera</code></td>
+							<td>Demo</td>
+							<td>Billboard toward camera</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
+
+		<section id="quick-start">
+			<h2>Quick Start</h2>
+			<ol>
+				<li>Create an empty GameObject and attach <code>FlockController</code>.</li>
+				<li>Assign a bird prefab with <code>FlockChild</code> on it to <strong>Bird Prefab</strong>
+					(<code>_childPrefab</code>).</li>
+				<li>On the bird prefab, ensure a child named <strong>Model</strong> exists and references are filled
+					(use the <strong>Click Me!</strong> button in the FlockChild inspector).</li>
+				<li>Set animation clip names on the FlockController: <code>Flap</code>, <code>Soar</code>, and
+					<code>Idle</code> (or your clip names).</li>
+				<li>Adjust flock size (<code>_childAmount</code>), roaming area (<code>_positionSphere</code>
+					dimensions), and speed ranges.</li>
+				<li>Press Play - birds spawn and roam within the spawn sphere around the controller's position buffer.</li>
+			</ol>
+
+			<h3>Optional: Landing Spots</h3>
+			<ol>
+				<li>Create a GameObject with <code>LandingSpotController</code> and assign the
+					<code>FlockController</code>.</li>
+				<li>Add child GameObjects, each with a <code>LandingSpot</code> component (orient the spot's forward/up
+					for takeoff direction).</li>
+				<li>Configure auto-catch and auto-dismount delays. Birds within range will land, idle, then fly away.</li>
+			</ol>
+
+			<div class="tip">
+				<strong>Tip</strong>
+				Scene gizmos on FlockController show the spawn box (gray) and roaming area (dark). LandingSpot gizmos
+				show detection radii and approach waypoints when enabled.
+			</div>
+		</section>
+
+		<section id="asset-store">
+			<h2>Asset Store</h2>
+			<p class="lead">
+				Assets are available on the <a href="https://assetstore.unity.com/publishers/1075">Unity Asset Store</a>.
+				Individual bird packages are also available; the complete bundle always includes the most up-to-date
+				versions of all assets.
+			</p>
+			<div class="card">
+				<div class="card-title">Bundles</div>
+				<ul>
+					<li><strong>Bird Flock Complete Bundle</strong> - includes all individual assets with the latest updates</li>
+					<li><a href="https://assetstore.unity.com/packages/-/-/25576">Bird Flock Bundle</a></li>
+					<li><a href="https://assetstore.unity.com/packages/-/-/71740">Bird Flock Bundle II</a></li>
+					<li><a href="https://assetstore.unity.com/packages/-/-/15397">Toon Bird Flock</a></li>
+				</ul>
+				<p style="margin-top: 0.75rem; margin-bottom: 0;">
+					If you own a previous bundle, you receive an upgrade discount on newer bundles. If you own both
+					bundles, contact <a href="mailto:support@chemicalbliss.com">support@chemicalbliss.com</a> - these
+					discounts do not stack automatically.
+				</p>
+			</div>
+			<div class="tip">
+				<strong>Support</strong>
+				For additional information or help, visit <a href="https://www.chemicalbliss.com">www.chemicalbliss.com</a>
+				or email <a href="mailto:support@chemicalbliss.com">support@chemicalbliss.com</a>.
+			</div>
+		</section>
+
+		<section id="custom-bird-prefab">
+			<h2>Custom Bird Prefab</h2>
+			<p>Create a new bird prefab using a custom bird model.</p>
+			<ol>
+				<li>Make sure the custom model uses the Legacy animation system. (version 3.0+ also allows Generic)</li>
+				<li>Drag the custom model to the scene.</li>
+				<li>Duplicate an existing Bird prefab in the project.</li>
+				<li>Drag the new prefab to the scene.</li>
+				<li>Drag the custom model in the scene into the bird GameObject.</li>
+				<li>Adjust scale, rotation, and position so that it aligns with the current bird.</li>
+				<li>Configure animations of the custom model.</li>
+				<li>Delete the old model.</li>
+				<li>Rename the custom model to <strong>Model</strong>.</li>
+				<li>Click <strong>Apply</strong> in the Inspector to save changes.</li>
+				<li>Drag the new prefab into the desired Bird Flock <strong>Bird Prefab</strong> property.</li>
+			</ol>
+		</section>
+
+		<section id="free-moving-flock">
+			<h2>Free Moving Flock</h2>
+			<p>A flock that can be moved around in the scene.</p>
+			<ol>
+				<li>Set the roaming area to <code>0, 0, 0</code> so that only the flock box is visible.</li>
+				<li>Disable <strong>Group to Flock</strong>. Birds will no longer be parented as child objects to the
+					flock GameObject.</li>
+				<li>Set <strong>Automatic Flock Waypoint</strong> to <code>1</code>. The flock will follow its new
+					position faster.</li>
+				<li>Enable <strong>Force Bird Waypoints</strong>. Birds also change direction when the flock has been
+					moved.</li>
+			</ol>
+		</section>
+
+		<section id="baked-birds">
+			<h2>Baked Birds</h2>
+			<p>
+				Use a series of regular meshes instead of a skinned mesh to improve performance, at the cost of
+				crossfading. See the example scenes and prefabs in the <strong>Baked (performance)</strong> folder.
+			</p>
+			<p>
+				Bird prefabs with baked animations can be used in any previously made flock. To create custom baked
+				animations, use the
+				<a href="https://assetstore.unity.com/packages/tools/utilities/skinnedmesh-baker-153874">SkinnedMesh Baker</a>
+				tool on the Asset Store.
+			</p>
+		</section>
+
+		<section id="flock-properties">
+			<h2>Flock Properties</h2>
+			<p class="lead">
+				Inspector reference for <code>FlockController</code>. Field names in parentheses match the script
+				properties.
+			</p>
+
+			<h3>Roaming Area</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Roaming Area</td>
+						<td>Area that the flock flies within.</td>
+					</tr>
+					<tr>
+						<td>Area Width, Depth, Height</td>
+						<td>X, Z, Y (<code>_positionSphere</code>, <code>_positionSphereDepth</code>,
+							<code>_positionSphereHeight</code>)</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Grouping</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Group to Flock</td>
+						<td>Parent each bird as a child of the flock object.</td>
+					</tr>
+					<tr>
+						<td>Group to New Game Object</td>
+						<td>Create a new parent object.</td>
+					</tr>
+					<tr>
+						<td>Group Name</td>
+						<td>Name of the parent object.</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Size of the Flock</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Bird Amount</td>
+						<td>Number of birds to spawn when the game starts.</td>
+					</tr>
+					<tr>
+						<td>Flock Width, Depth, Height</td>
+						<td>X, Z, Y (<code>_spawnSphere</code>, <code>_spawnSphereDepth</code>,
+							<code>_spawnSphereHeight</code>)</td>
+					</tr>
+					<tr>
+						<td>Start Position Offset</td>
+						<td>Offset the position the flock is instantiated.</td>
+					</tr>
+					<tr>
+						<td>Slow Spawn Birds</td>
+						<td>Slowly instantiate birds one at a time.</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Behaviour and Appearance</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Birds Min / Max Speed</td>
+						<td>Speed of each bird (randomly set on each waypoint change).</td>
+					</tr>
+					<tr>
+						<td>Birds Dive Depth</td>
+						<td>How far to dive.</td>
+					</tr>
+					<tr>
+						<td>Birds Dive Chance</td>
+						<td>Makes birds dive downwards randomly.</td>
+					</tr>
+					<tr>
+						<td>Birds Soar Chance</td>
+						<td>Randomly makes birds soar instead of flapping wings (triggered at waypoint).</td>
+					</tr>
+					<tr>
+						<td>Soar Time</td>
+						<td>How long birds soar (<code>0</code> = always).</td>
+					</tr>
+					<tr>
+						<td>Birds Min / Max Damping Turns</td>
+						<td>How fast birds turn toward the next waypoint (bigger number = faster turns).</td>
+					</tr>
+					<tr>
+						<td>Birds Min / Max Scale</td>
+						<td>Randomize size of birds when added.</td>
+					</tr>
+					<tr>
+						<td>Disable Pitch Rotation</td>
+						<td>Flattens out rotation when flying or soaring upwards.</td>
+					</tr>
+					<tr>
+						<td>Flat Soar</td>
+						<td>Disable rotation when soaring.</td>
+					</tr>
+					<tr>
+						<td>Flat Flap</td>
+						<td>Disable rotation when flapping wings.</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Animations</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Flap / Soar / Idle Animation</td>
+						<td>Names of animations (must exist in the model animation list).</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Bird Trigger Flock Waypoint</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Bird Trigger Waypoint</td>
+						<td>Bird's waypoint triggers a new flock waypoint.</td>
+					</tr>
+					<tr>
+						<td>Distance To Waypoint</td>
+						<td>Distance from waypoint before trigger.</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Automatic Flock Waypoint</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Auto Waypoint Delay</td>
+						<td>Automatically change the flock waypoint (<code>0</code> = never).</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Force Bird Waypoints</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Force Bird Waypoints</td>
+						<td>Force all birds to change waypoints when the flock changes waypoint.</td>
+					</tr>
+					<tr>
+						<td>Bird Waypoint Delay</td>
+						<td>Randomized delay for changing waypoints.</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Avoidance</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Bird Avoid</td>
+						<td>Birds steer away from colliders (raycast).</td>
+					</tr>
+					<tr>
+						<td>Collider Mask</td>
+						<td>Collision layers to avoid.</td>
+					</tr>
+					<tr>
+						<td>Avoid Horizontal Force</td>
+						<td>How fast to steer when avoiding.</td>
+					</tr>
+					<tr>
+						<td>Min / Max Avoid Distance</td>
+						<td>How far away a bird should be before steering away from objects.</td>
+					</tr>
+					<tr>
+						<td>Bird Avoid Up</td>
+						<td>Avoid objects above.</td>
+					</tr>
+					<tr>
+						<td>Bird Avoid Down</td>
+						<td>Avoid objects below.</td>
+					</tr>
+					<tr>
+						<td>Avoid Vertical Force</td>
+						<td>How fast to steer away from objects above and below.</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<section id="landing-spot-properties">
+			<h2>Landing Spot Properties</h2>
+			<p>
+				Landing spots let birds land on manually set positions. Landing spots must be placed within a
+				<code>LandingSpotController</code>. See the landing spot example scenes for setup.
+			</p>
+			<table>
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Auto Catch Delay</td>
+						<td>How often landing spots try to find a bird to land (min/max seconds).</td>
+					</tr>
+					<tr>
+						<td>Auto Dismount Delay</td>
+						<td>How long a bird sits on a landing spot (min/max seconds).</td>
+					</tr>
+					<tr>
+						<td>Max Bird Distance</td>
+						<td>Maximum distance a bird can be to be captured by a landing spot.</td>
+					</tr>
+					<tr>
+						<td>Min Bird Distance</td>
+						<td>Minimum distance a bird must be to be captured (avoids capturing birds too close or the
+							same bird after release).</td>
+					</tr>
+					<tr>
+						<td>Take Closest</td>
+						<td>Landing spot finds the closest possible bird to land.</td>
+					</tr>
+					<tr>
+						<td>Flock</td>
+						<td>Bird flock that landing spots will find birds from.</td>
+					</tr>
+					<tr>
+						<td>Land On Start</td>
+						<td>Find birds to land instantly on start.</td>
+					</tr>
+					<tr>
+						<td>Only Birds Above</td>
+						<td>Only land birds above the landing spot; avoids strange behaviors.</td>
+					</tr>
+					<tr>
+						<td>Landing Speed Modifier</td>
+						<td>Modifies bird speed when landing; adjust manually to improve landing.</td>
+					</tr>
+					<tr>
+						<td>Landing Speed Turns</td>
+						<td>How fast birds turn when landing.</td>
+					</tr>
+					<tr>
+						<td>Feather PS</td>
+						<td>The feather particle object.</td>
+					</tr>
+					<tr>
+						<td>Active Landing Spots</td>
+						<td>Keeps track of how many birds have landed or are landing.</td>
+					</tr>
+					<tr>
+						<td>Snap Land Distance</td>
+						<td>Snap the bird in place once it gets within a certain distance.</td>
+					</tr>
+					<tr>
+						<td>Landed Rotate Speed</td>
+						<td>How fast birds rotate to the correct position after landing.</td>
+					</tr>
+					<tr>
+						<td>Gizmo Size</td>
+						<td>Editor gizmo sizes.</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- FLOCK CONTROLLER -->
+		<section id="flock-controller">
+			<h2>FlockController <span class="badge badge-core">Core</span></h2>
+			<div class="card-meta">FlockController.cs · namespace UnluckSoftware · Requires FlockChild prefab</div>
+			<p>
+				The root manager for the flock. Instantiates bird prefabs, maintains the list of active roamers,
+				periodically repositions the flock center, and exposes global movement, animation, and avoidance
+				settings.
+			</p>
+
+			<h3>Key Responsibilities</h3>
+			<ul>
+				<li>Spawn birds via <code>AddChild(int)</code> and remove via <code>RemoveChild(int)</code></li>
+				<li>Keep live bird count in sync with <code>_childAmount</code> at runtime</li>
+				<li>Move flock waypoint volume with <code>SetFlockRandomPosition()</code> on a repeating timer</li>
+				<li>Optionally group spawned birds under a new transform or the controller itself</li>
+				<li>Draw spawn/roaming gizmos in the Scene view</li>
+			</ul>
+
+			<h3>Inspector Groups</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Category</th>
+						<th>Key Fields</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Flock Properties</td>
+						<td><code>_childPrefab</code>, <code>_childAmount</code>, <code>_spawnSphere*</code></td>
+						<td>Prefab, count, and local spawn volume dimensions</td>
+					</tr>
+					<tr>
+						<td>Roaming Area</td>
+						<td><code>_positionSphere*</code>, <code>_randomPositionTimer</code></td>
+						<td>World-space volume the flock center moves within</td>
+					</tr>
+					<tr>
+						<td>Speed & Scale</td>
+						<td><code>_minSpeed</code>, <code>_maxSpeed</code>, <code>_minAcceleration</code>,
+							<code>_maxAcceleration</code>, <code>_minScale</code>, <code>_maxScale</code></td>
+						<td>Per-bird random ranges applied on spawn</td>
+					</tr>
+					<tr>
+						<td>Behavior</td>
+						<td><code>_soarFrequency</code>, <code>_diveFrequency</code>, <code>_diveValue</code>,
+							<code>_waypointDistance</code></td>
+						<td>Flight mode probabilities and steering</td>
+					</tr>
+					<tr>
+						<td>Rotation</td>
+						<td><code>_minDamping</code>, <code>_maxDamping</code>, <code>_flatFly</code>,
+							<code>_flatSoar</code>, <code>_birdRoll</code></td>
+						<td>Turn smoothing and banking</td>
+					</tr>
+					<tr>
+						<td>Animations</td>
+						<td><code>_flapAnimation</code>, <code>_soarAnimation</code>, <code>_idleAnimation</code>,
+							<code>_minAnimationSpeed</code>, <code>_maxAnimationSpeed</code></td>
+						<td>Clip names and speed ranges</td>
+					</tr>
+					<tr>
+						<td>Avoidance</td>
+						<td><code>_birdAvoid</code>, <code>_birdAvoidHorizontalForce</code>, <code>_avoidanceMask</code></td>
+						<td>Raycast-based obstacle steering</td>
+					</tr>
+					<tr>
+						<td>Performance</td>
+						<td><code>_skipFrame</code>, <code>_slowSpawn</code></td>
+						<td>Update every other frame; staggered spawning</td>
+					</tr>
+					<tr>
+						<td>Grouping</td>
+						<td><code>_groupChildToNewTransform</code>, <code>_groupChildToFlock</code></td>
+						<td>Hierarchy organization for spawned birds</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Public Methods</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Method</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>AddChild(int amount)</code></td>
+						<td>Instantiate and register new birds</td>
+					</tr>
+					<tr>
+						<td><code>RemoveChild(int amount)</code></td>
+						<td>Destroy the last N birds in the list</td>
+					</tr>
+					<tr>
+						<td><code>SetFlockRandomPosition()</code></td>
+						<td>Pick a new random center within the position sphere; optionally force child waypoints</td>
+					</tr>
+					<tr>
+						<td><code>destroyBirds()</code></td>
+						<td>Destroy all birds and reset count to zero</td>
+					</tr>
+					<tr>
+						<td><code>AddChildToParent(Transform)</code></td>
+						<td>Reparent a bird under the configured group transform</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- FLOCK CHILD -->
+		<section id="flock-child">
+			<h2>FlockChild <span class="badge badge-core">Core</span></h2>
+			<div class="card-meta">FlockChild.cs · Attached to each bird prefab</div>
+			<p>
+				Individual bird agent. Steers toward waypoints, switches between flap/soar/dive modes, performs
+				collision avoidance, and handles the full landing sequence when assigned to a <code>LandingSpot</code>.
+			</p>
+
+			<h3>Flight Modes</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Mode</th>
+						<th>Trigger</th>
+						<th>Behavior</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><strong>Flap</strong></td>
+						<td>Default / after soar timeout</td>
+						<td>Random waypoint in spawn sphere; flap animation</td>
+					</tr>
+					<tr>
+						<td><strong>Soar</strong></td>
+						<td><code>_soarFrequency</code> random check</td>
+						<td>Only if waypoint is below bird; glide animation</td>
+					</tr>
+					<tr>
+						<td><strong>Dive</strong></td>
+						<td><code>_diveFrequency</code> random check</td>
+						<td>Waypoint drops by <code>_diveValue</code>; uses soar animation</td>
+					</tr>
+					<tr>
+						<td><strong>Landing</strong></td>
+						<td>Assigned by LandingSpot</td>
+						<td>Approach, snap, idle; controlled by landing controller modifiers</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Important Fields</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>_model</code> / <code>_modelT</code></td>
+						<td>Bird mesh child (expected name: "Model")</td>
+					</tr>
+					<tr>
+						<td><code>_bakedAnimator</code></td>
+						<td>Optional baked mesh animator (index 0=flap, 1=soar, 2=idle)</td>
+					</tr>
+					<tr>
+						<td><code>_modelAnimation</code> / <code>_animator</code></td>
+						<td>Legacy Animation or Mecanim Animator on the model</td>
+					</tr>
+					<tr>
+						<td><code>_landingOffsetFix</code></td>
+						<td>Vertical offset so feet touch ground (scale-aware)</td>
+					</tr>
+					<tr>
+						<td><code>_landingPosOffset</code></td>
+						<td>Per-bird landing position offset on the spot</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Public Methods</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Method</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>BirdUpdate()</code></td>
+						<td>Main per-frame update (called by FlockController)</td>
+					</tr>
+					<tr>
+						<td><code>Wander()</code> / <code>Wander(float delay)</code></td>
+						<td>Pick new damping, speed, and flight mode</td>
+					</tr>
+					<tr>
+						<td><code>Flap()</code> / <code>Soar()</code> / <code>Dive()</code></td>
+						<td>Force a specific flight mode</td>
+					</tr>
+					<tr>
+						<td><code>FindWaypoint(bool force)</code></td>
+						<td>Generate a new random waypoint in the spawn volume</td>
+					</tr>
+					<tr>
+						<td><code>FindRequiredComponents()</code></td>
+						<td>Auto-fill transform and animation references</td>
+					</tr>
+					<tr>
+						<td><code>PauseLanding(float delay)</code></td>
+						<td>Temporarily prevent this bird from being caught for landing</td>
+					</tr>
+					<tr>
+						<td><code>GetLandingSpotPosition()</code></td>
+						<td>World position where the bird should land</td>
+					</tr>
+					<tr>
+						<td><code>CrossfadeDismount()</code></td>
+						<td>Speed up animation crossfade when leaving a perch</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Collision Avoidance</h3>
+			<p>
+				When <code>_birdAvoid</code> is enabled on the controller, each bird casts rays forward-left and
+				forward-right (and optionally up/down). Hits on <code>_avoidanceMask</code> layers cause yaw/pitch
+				adjustments. Avoidance is disabled near landing spots within
+				<code>_disableLandingAvoidanceDistance</code>.
+			</p>
+		</section>
+
+		<!-- LANDING SPOT CONTROLLER -->
+		<section id="landing-spot-controller">
+			<h2>LandingSpotController <span class="badge badge-core">Core</span></h2>
+			<div class="card-meta">LandingSpotController.cs · Parent of LandingSpot children</div>
+			<p>
+				Coordinates all landing spots under its transform. References a <code>FlockController</code> to pull
+				birds from, and exposes global landing timing, movement modifiers, and batch operations.
+			</p>
+
+			<h3>Key Settings</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Default</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>_autoCatchDelay</code></td>
+						<td>(10, 20)</td>
+						<td>Random delay before a spot tries to catch a bird</td>
+					</tr>
+					<tr>
+						<td><code>_autoDismountDelay</code></td>
+						<td>(10, 20)</td>
+						<td>Random idle time before bird flies away</td>
+					</tr>
+					<tr>
+						<td><code>_minBirdDistance</code> / <code>_maxBirdDistance</code></td>
+						<td>5 / 20</td>
+						<td>Valid catch range from spot center</td>
+					</tr>
+					<tr>
+						<td><code>_takeClosest</code></td>
+						<td>false</td>
+						<td>Pick nearest eligible bird vs. first match</td>
+					</tr>
+					<tr>
+						<td><code>_onlyBirdsAbove</code></td>
+						<td>false</td>
+						<td>Only catch birds higher than the spot</td>
+					</tr>
+					<tr>
+						<td><code>_soarLand</code></td>
+						<td>true</td>
+						<td>Use soar animation during approach</td>
+					</tr>
+					<tr>
+						<td><code>_landOnStart</code></td>
+						<td>false</td>
+						<td>Instantly place birds on all spots at start</td>
+					</tr>
+					<tr>
+						<td><code>_parentBirdToSpot</code></td>
+						<td>false</td>
+						<td>Parent landed bird to spot transform (for moving perches)</td>
+					</tr>
+					<tr>
+						<td><code>_abortLanding</code></td>
+						<td>false</td>
+						<td>Cancel stuck landing attempts after timer</td>
+					</tr>
+					<tr>
+						<td><code>_featherPS</code></td>
+						<td>-</td>
+						<td>Particle system transform for takeoff feathers</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<h3>Public Methods</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Method</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>ScareAll()</code></td>
+						<td>Release all birds from all child landing spots immediately</td>
+					</tr>
+					<tr>
+						<td><code>ScareAll(float minDelay, float maxDelay)</code></td>
+						<td>Overload (currently releases immediately on all spots)</td>
+					</tr>
+					<tr>
+						<td><code>LandAll()</code></td>
+						<td>Trigger catch coroutine on every spot (0–2 s delay)</td>
+					</tr>
+					<tr>
+						<td><code>InstantLand(float delay)</code></td>
+						<td>Coroutine - teleport birds onto spots after delay</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<div class="warn">
+				<strong>Note</strong>
+				Enabling both <code>_randomRotate</code> and <code>_parentBirdToSpot</code> is not supported; random
+				rotate is automatically disabled with a warning.
+			</div>
+		</section>
+
+		<!-- LANDING SPOT -->
+		<section id="landing-spot">
+			<h2>LandingSpot <span class="badge badge-core">Core</span></h2>
+			<div class="card-meta">LandingSpot.cs · One per perch / branch / wire</div>
+			<p>
+				A single landing target. Periodically searches the flock for an eligible bird, assigns it, manages the
+				landing lifecycle, and releases the bird after the configured idle period.
+			</p>
+
+			<h3>Landing Lifecycle</h3>
+			<ol>
+				<li><strong>Catch</strong> - <code>GetFlockChild()</code> coroutine finds a bird within min/max distance</li>
+				<li><strong>Approach</strong> - Bird steers to spot; optional <code>_preLandWaypoint</code> for curved approaches</li>
+				<li><strong>Land</strong> - Speed reduced; animation transitions to Idle; position snapped</li>
+				<li><strong>Idle</strong> - Bird sits until auto-dismount timer or external scare</li>
+				<li><strong>Release</strong> - <code>ReleaseFlockChild()</code> emits feathers, flaps away, pauses re-landing for 5 s</li>
+			</ol>
+
+			<h3>Public Methods</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Method</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>GetFlockChild(float minDelay, float maxDelay)</code></td>
+						<td>Coroutine - wait then attempt to catch a bird</td>
+					</tr>
+					<tr>
+						<td><code>InstantLand()</code></td>
+						<td>Immediately assign and idle the first available bird</td>
+					</tr>
+					<tr>
+						<td><code>Landed()</code></td>
+						<td>Called by FlockChild when snap landing completes</td>
+					</tr>
+					<tr>
+						<td><code>ReleaseFlockChild()</code></td>
+						<td>Force bird to take off from this spot</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- FLOCK SCARE -->
+		<section id="flock-scare">
+			<h2>FlockScare <span class="badge badge-core">Core</span></h2>
+			<div class="card-meta">FlockScare.cs · Attach to player, camera, or trigger object</div>
+			<p>
+				Periodically scans assigned <code>LandingSpotController</code> instances. When this transform is within
+				<code>distanceToScare</code> of an occupied landing spot, it either scares all birds on that controller
+				or releases only the nearby bird.
+			</p>
+
+			<table>
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>landingSpotControllers</code></td>
+						<td>Array of controllers to monitor</td>
+					</tr>
+					<tr>
+						<td><code>scareInterval</code></td>
+						<td>Seconds between proximity checks (default 0.1)</td>
+					</tr>
+					<tr>
+						<td><code>distanceToScare</code></td>
+						<td>Scare radius around this object</td>
+					</tr>
+					<tr>
+						<td><code>checkEveryNthLandingSpot</code></td>
+						<td>Skip spots for faster scanning across many controllers</td>
+					</tr>
+					<tr>
+						<td><code>InvokeAmounts</code></td>
+						<td>Parallel coroutines for large controller counts</td>
+					</tr>
+					<tr>
+						<td><code>scareAll</code></td>
+						<td>true = <code>ScareAll()</code> on controller; false = single spot release</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- FLOCK CHILD SOUND -->
+		<section id="flock-child-sound">
+			<h2>FlockChildSound <span class="badge badge-core">Core</span></h2>
+			<div class="card-meta">FlockChildSound.cs · Requires AudioSource + FlockChild on same GameObject</div>
+			<p>
+				Plays randomized idle and flight sounds while the bird is active. Plays scare sounds when a previously
+				landed bird takes off again.
+			</p>
+
+			<table>
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>_idleSounds</code> / <code>_flightSounds</code> / <code>_scareSounds</code></td>
+						<td>Clip pools for each state</td>
+					</tr>
+					<tr>
+						<td><code>_idleSoundRandomChance</code> / <code>_flightSoundRandomChance</code></td>
+						<td>Per-second probability of playing (default 0.05)</td>
+					</tr>
+					<tr>
+						<td><code>_pitchMin</code> / <code>_pitchMax</code></td>
+						<td>Random pitch range (0.85–1.0)</td>
+					</tr>
+					<tr>
+						<td><code>_volumeMin</code> / <code>_volumeMax</code></td>
+						<td>Random volume range (0.6–0.8)</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- FLOCK WAYPOINT TRIGGER -->
+		<section id="flock-waypoint-trigger">
+			<h2>FlockWaypointTrigger <span class="badge badge-core">Core</span></h2>
+			<div class="card-meta">FlockWaypointTrigger.cs · Optional child of a bird</div>
+			<p>
+				Invokes <code>FlockChild.Wander(0)</code> on a repeating random timer. Useful for forcing periodic
+				direction changes independent of waypoint distance. Auto-finds <code>FlockChild</code> on the parent if
+				not assigned.
+			</p>
+		</section>
+
+		<!-- ADDONS -->
+		<section id="addons">
+			<h2>Addon Scripts <span class="badge badge-addon">Addons</span></h2>
+
+			<div class="card">
+				<div class="card-title">RandomMaterial</div>
+				<div class="card-meta">Addons/RandomMaterial.cs</div>
+				<p>On Start, assigns a random material from <code>materials[]</code> to <code>targetRenderer</code>.
+					Call <code>ChangeMaterial()</code> to re-randomize.</p>
+			</div>
+
+			<div class="card">
+				<div class="card-title">BirdMaterialChanger</div>
+				<div class="card-meta">Addons/BirdMaterialChanger.cs</div>
+				<p>Assigns materials sequentially from <code>materials[]</code> to the first
+					<code>SkinnedMeshRenderer</code> in children, using a static counter so each spawned bird gets the
+					next material in the array.</p>
+			</div>
+
+			<div class="card">
+				<div class="card-title">UnluckDistanceDisabler</div>
+				<div class="card-meta">Addons/UnluckDistanceDisabler.cs</div>
+				<p>Performance utility. Disables the GameObject when farther than <code>_distanceDisable</code> from a
+					reference transform (or main camera). Re-enables when back in range. Uses separate check intervals
+					for disable (10 s default) and enable (1 s default).</p>
+				<table>
+					<thead>
+						<tr>
+							<th>Field</th>
+							<th>Description</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td><code>_distanceDisable</code></td>
+							<td>Distance threshold in world units (default 1000)</td>
+						</tr>
+						<tr>
+							<td><code>_distanceFromMainCam</code></td>
+							<td>Use Camera.main as reference</td>
+						</tr>
+						<tr>
+							<td><code>_disableOnStart</code></td>
+							<td>Start disabled if out of range</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
+
+		<!-- DEMO -->
+		<section id="demo">
+			<h2>Demo Scripts <span class="badge badge-demo">Demo</span></h2>
+
+			<div class="card">
+				<div class="card-title">LandingButtons</div>
+				<div class="card-meta">Demo/LandingButtons.cs · namespace UnluckSoftware</div>
+				<p>IMGUI overlay for demo scenes. Shows FPS, landing spot count, and provides buttons:</p>
+				<ul>
+					<li><strong>Scare All</strong> - calls <code>LandingSpotController.ScareAll()</code></li>
+					<li><strong>Land In Reach</strong> - calls <code>LandAll()</code></li>
+					<li><strong>Land Instant</strong> - calls <code>InstantLand(0.01f)</code></li>
+					<li><strong>Destroy</strong> - calls <code>FlockController.destroyBirds()</code></li>
+					<li><strong>Bird Amount slider</strong> - adjusts <code>_childAmount</code> live (0–2000)</li>
+				</ul>
+			</div>
+
+			<div class="card">
+				<div class="card-title">CameraFreeMove</div>
+				<div class="card-meta">Demo/CameraFreeMove.cs</div>
+				<p>First-person free camera. WASD movement, mouse look, Q/E for down/up. Locks cursor on start.</p>
+			</div>
+
+			<div class="card">
+				<div class="card-title">LookAtCamera</div>
+				<div class="card-meta">Demo/LookAtCamera.cs</div>
+				<p>Billboards the transform toward <code>lookAtCamera</code> (defaults to Camera.main). Optional
+					one-shot on awake via <code>lookOnlyOnAwake</code>.</p>
+			</div>
+		</section>
+
+		<!-- EDITOR -->
+		<section id="editor">
+			<h2>Editor Scripts <span class="badge badge-editor">Editor</span></h2>
+			<p>Custom inspectors in the <code>Editor/</code> folder organize complex settings into foldout sections with
+				persisted expand/collapse state.</p>
+
+			<table>
+				<thead>
+					<tr>
+						<th>Editor</th>
+						<th>Target</th>
+						<th>Sections</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>FlockControllerEditor</code></td>
+						<td>FlockController</td>
+						<td>Flock Properties, Behaviors & Appearance, Animations, Avoidance, Grouping</td>
+					</tr>
+					<tr>
+						<td><code>FlockChildEditor</code></td>
+						<td>FlockChild</td>
+						<td>Default inspector + "Click Me!" to auto-fill missing references</td>
+					</tr>
+					<tr>
+						<td><code>LandingSpotControllerEditor</code></td>
+						<td>LandingSpotController</td>
+						<td>Setup, Timings & Safety, Movement, Visuals</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- API -->
+		<section id="api">
+			<h2>Public API Summary</h2>
+			<p>Common calls for gameplay integration:</p>
+
+			<pre><code>// Flock management
+flockController.AddChild(10);
+flockController.RemoveChild(5);
+flockController.destroyBirds();
+flockController.SetFlockRandomPosition();
+
+// Landing control
+landingSpotController.ScareAll();
+landingSpotController.LandAll();
+StartCoroutine(landingSpotController.InstantLand(1.0f));
+
+// Per-spot control
+landingSpot.ReleaseFlockChild();
+landingSpot.InstantLand();
+
+// Per-bird control
+flockChild.Flap();
+flockChild.Soar();
+flockChild.Wander();
+flockChild.PauseLanding(5f);</code></pre>
+		</section>
+
+		<section id="misc-functions">
+			<h2>Misc Functions</h2>
+			<p>A selection of functions that can be useful for controlling flock behavior.</p>
+			<table>
+				<thead>
+					<tr>
+						<th>Function</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>LandingSpotController.ScareAll()</code></td>
+						<td>Scares all birds sitting on landing spots.</td>
+					</tr>
+				</tbody>
+			</table>
+			<p>More information about functions can be found in the code comments.</p>
+		</section>
+
+		<section id="urp-hdrp">
+			<h2>Convert to URP or HDRP</h2>
+			<p>
+				To convert materials and shaders to URP or HDRP, use Unity's Render Pipeline Converter:
+				<a href="https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@15.0/manual/features/rp-converter.html">Unity Render Pipeline Converter documentation</a>.
+			</p>
+		</section>
+
+		<!-- PERFORMANCE -->
+		<section id="performance">
+			<h2>Performance Tips</h2>
+			<ul>
+				<li><strong>Skip Frame</strong> - Enable <code>_skipFrame</code> on FlockController to update half the birds per frame.</li>
+				<li><strong>Bird count</strong> - Reduce <code>_childAmount</code> or use the demo slider to find your target FPS.</li>
+				<li><strong>Distance culling</strong> - Attach <code>UnluckDistanceDisabler</code> to the flock root or controller; disable distant flocks entirely.</li>
+				<li><strong>Avoidance</strong> - Raycasts per bird per frame are expensive. Disable <code>_birdAvoid</code> or narrow <code>_avoidanceMask</code> if not needed.</li>
+				<li><strong>Grouping</strong> - Use <code>_groupChildToNewTransform</code> to keep the hierarchy tidy; no direct performance gain but easier to toggle entire flocks.</li>
+				<li><strong>Baked animation</strong> - The baked mesh path (<code>BakedMeshAnimator</code>) avoids skinning overhead for large flocks.</li>
+				<li><strong>FlockScare scanning</strong> - Increase <code>checkEveryNthLandingSpot</code> and tune <code>InvokeAmounts</code> when monitoring many controllers.</li>
+			</ul>
+		</section>
+
+		<footer>
+			<p>Copyright Unluck Software · <a href="https://www.chemicalbliss.com">www.chemicalbliss.com</a> ·
+				<a href="mailto:support@chemicalbliss.com">support@chemicalbliss.com</a></p>
+		</footer>
+
+	</main>
+
+	<script>
+		// highlight current section in sidebar
+		const sections = document.querySelectorAll('section[id]');
+		const navLinks = document.querySelectorAll('nav a');
+
+		function onScroll() {
+			let current = '';
+			sections.forEach(s => {
+				if (window.scrollY >= s.offsetTop - 80) current = s.id;
+			});
+			navLinks.forEach(a => {
+				a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+			});
+		}
+
+		window.addEventListener('scroll', onScroll);
+		onScroll();
+	</script>
+
+</body>
+</html>

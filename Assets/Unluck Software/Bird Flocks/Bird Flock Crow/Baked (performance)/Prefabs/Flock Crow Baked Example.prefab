@@ -1,0 +1,109 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &178482
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 465644}
+  - component: {fileID: 11491306}
+  m_Layer: 0
+  m_Name: Flock Crow Baked Example
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &465644
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 178482}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -10.5, z: 9.039294}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &11491306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 178482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5564f499341508a43819ce17743cd92b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _childPrefab: {fileID: 11400000, guid: cad1b8b10edfa6540b56ed52c4c8b4c1, type: 3}
+  _childAmount: 333
+  _slowSpawn: 0
+  _spawnSphere: 5.75
+  _spawnSphereHeight: 2.65
+  _spawnSphereDepth: 5.75
+  _minSpeed: 9
+  _maxSpeed: 14
+  _minAcceleration: 10
+  _maxAcceleration: 20
+  _minScale: 1
+  _maxScale: 1
+  _soarFrequency: 0.3
+  _soarAnimation: CrowSoar
+  _flapAnimation: CrowFlap
+  _idleAnimation: CrowIdle
+  _diveValue: 5
+  _diveFrequency: 0.1
+  _minDamping: 2.08
+  _maxDamping: 3.63
+  _waypointDistance: 5
+  _minAnimationSpeed: 0.53
+  _maxAnimationSpeed: 1.2
+  _randomPositionTimer: 3
+  _positionSphere: 25
+  _positionSphereHeight: 5
+  _positionSphereDepth: 25
+  _childTriggerPos: 0
+  _forceChildWaypoints: 0
+  _forcedRandomDelay: 3
+  _flatFly: 1
+  _flatSoar: 1
+  _birdRoll: 1
+  _birdRollAmount: 45
+  _birdAvoid: 1
+  _disableLandingAvoidanceDistance: 4
+  _birdAvoidHorizontalForce: 1000
+  _birdAvoidDown: 1
+  _birdAvoidUp: 0
+  _birdAvoidVerticalForce: 300
+  _birdAvoidDistanceMax: 7.077202
+  _birdAvoidDistanceMin: 7.577202
+  _soarMaxTime: 0.5
+  _avoidanceMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _roamers: []
+  _posBuffer: {x: 0, y: -10.5, z: 9.039294}
+  _skipFrame: 0
+  _newDelta: 0
+  _updateCounter: 0
+  _activeChildren: 0
+  _groupChildToNewTransform: 0
+  _groupTransform: {fileID: 0}
+  _groupName: 
+  _groupChildToFlock: 1
+  _startPosOffset: {x: 0, y: 0, z: 0}
+  _thisT: {fileID: 465644}
+  LimitPitchRotation: 1
+  _childCountCache: 0
+  idleAnimationDelayMin: 0.1
+  idleAnimationDelayMax: 0.75
+  _idleAnimationSpeed: 1
