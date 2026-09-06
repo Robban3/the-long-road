@@ -438,17 +438,39 @@ namespace TheVeil.View
         /// out as a vague darker smear that could as easily have been the shadow of a
         /// hill, and water is impassable — a route drawn across one is not a route.
         ///
-        /// Water takes a corner only on a majority, never on a tie. Letting a single
-        /// water tile claim the corner widened every river by half a tile in each
-        /// direction, which swallowed the fords — and a ford is the one tile of a river
-        /// the caravan may cross, so painting it as river hides the crossing and leaves
-        /// the wagons apparently driving through the water.
+        /// <b>The shore is a shore, and it is not a step.</b> Water used to take a corner
+        /// on a strict majority and nothing else, so a corner was either the full river
+        /// blue or entirely dry, and the whole bank happened across the one tile between
+        /// them. Four metres on a 256-metre map is about seven pixels of plan: not a
+        /// shoreline, a cut edge. A river drawn that way is a ruled blue band, which is
+        /// exactly what it looked like.
+        ///
+        /// So the corner takes the water's *share* of the tiles meeting there. Deep water
+        /// is still deep — four wet tiles give the full colour — and a corner with one
+        /// wet tile of four is a quarter blue instead of dry. The bank then spans two
+        /// tiles rather than one, and the staircase a diagonal river is drawn as gets its
+        /// outside corners knocked off, because those are precisely the corners with one
+        /// wet tile.
+        ///
+        /// It reads as depth as well as edge, which is the other half of what a river
+        /// seen from above should do: the middle is saturated, the margins pale toward
+        /// the bank. Nothing here computes a depth — the plan map is flat by construction
+        /// (heightScale is zero, see CornerHeight) and cannot have a bed. This is the
+        /// only cue available from directly overhead, and it is free.
+        ///
+        /// <b>Except where a ford meets the corner, which keeps the old strict rule.</b>
+        /// A ford is the one tile of a river the caravan may cross, and it is one to three
+        /// tiles wide — so every corner of it has open water alongside, and a share-based
+        /// blend would wash half the crossing in river blue and hide the one thing the
+        /// player is looking for. That was the bug the majority rule was written to fix,
+        /// and it is still worth fixing. Fords are rare, so the hard edge survives in the
+        /// few places it earns its keep.
         /// </summary>
         static Color CornerColor(TileGrid grid, int cornerX, int cornerY)
         {
             float r = 0f, g = 0f, b = 0f;
             int tiles = 0, water = 0;
-            bool road = false;
+            bool road = false, ford = false;
 
             for (int dy = -1; dy <= 0; dy++)
             {
@@ -463,6 +485,7 @@ namespace TheVeil.View
                     var terrain = grid[x, y];
                     if (terrain == TerrainType.Water) { water++; continue; }
                     if (terrain == TerrainType.Road) road = true;
+                    if (terrain == TerrainType.Ford) ford = true;
 
                     var c = TerrainPalette.OfGround(terrain);
                     r += c.r; g += c.g; b += c.b;
@@ -471,17 +494,23 @@ namespace TheVeil.View
 
             if (tiles == 0) return Color.black;
 
-            // A road wins its corners outright, unlike water, which needs a majority.
-            // Roads are one tile wide, so no corner is ever surrounded by four of them
-            // and the averaging diluted every road to half grass — a road that vanishes
-            // into the meadow it crosses. Claiming the corner widens it by half a tile
-            // each side, which is exactly what a track needs to stay continuous. Water
-            // cannot have the same rule: there it swallowed the fords.
+            // A road wins its corners outright, unlike water. Roads are one tile wide, so
+            // no corner is ever surrounded by four of them and the averaging diluted every
+            // road to half grass — a road that vanishes into the meadow it crosses.
+            // Claiming the corner widens it by half a tile each side, which is exactly
+            // what a track needs to stay continuous.
             if (road) return TerrainPalette.OfGround(TerrainType.Road);
-            if (water * 2 > tiles) return TerrainPalette.OfGround(TerrainType.Water);
+
+            var deep = TerrainPalette.OfGround(TerrainType.Water);
+            if (water == tiles) return deep;
 
             int land = tiles - water;
-            return new Color(r / land, g / land, b / land, 1f);
+            var dry = new Color(r / land, g / land, b / land, 1f);
+
+            if (water == 0) return dry;
+            if (ford) return water * 2 > tiles ? deep : dry;
+
+            return Color.Lerp(dry, deep, (float)water / tiles);
         }
 
         /// <summary>How deep a riverbed sits below the ground around it.</summary>
