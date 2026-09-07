@@ -125,6 +125,7 @@ namespace TheVeil.Editor
             var runner = runnerGo.AddComponent<LevelRunner>();
             runner.Decor = LoadForestDecor();
             runner.Models = LoadModels();
+            FitWater(out runner.WaterMaterial, out runner.MarshWaterMaterial);
 
             EditorSceneManager.SaveScene(scene, PlayScenePath);
             RegisterScenes();
@@ -508,6 +509,41 @@ namespace TheVeil.Editor
             }
 
             return null;
+        }
+
+        /// <summary>The nature pack's water, which the project has owned all along.</summary>
+        const string RiverMaterialPath = SyntyNaturePack + "/Materials/Water/Water_01.mat";
+
+        /// <summary>And its swamp variant, for the standing water in a marsh.</summary>
+        const string MarshMaterialPath = SyntyNaturePack + "/Materials/Water/Water_Swamp_01.mat";
+
+        /// <summary>
+        /// Puts the pack's water in a component's two material slots.
+        ///
+        /// <b>Assigned here rather than left for somebody to drag in.</b> The slots exist
+        /// so a water package can be swapped without a code change, and the answer to
+        /// which package turned out to be one the project already had: the nature pack
+        /// ships a water shadergraph targeting URP as well as Built-in, and two materials
+        /// tuned on it. Nothing had ever pointed at them.
+        ///
+        /// A material a scene refers to is never stripped from a player build, which is
+        /// the whole reason these are slots and not Shader.Find calls — see
+        /// WaterMeshBuilder.Material.
+        ///
+        /// Missing is not an error. A project without the nature pack keeps the project's
+        /// own shader, which is what an empty slot means everywhere else.
+        /// </summary>
+        static void FitWater(out Material river, out Material marsh)
+        {
+            river = AssetDatabase.LoadAssetAtPath<Material>(RiverMaterialPath);
+            marsh = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath);
+
+            if (river == null)
+                Debug.LogWarning("[The Veil] Water material not found, so the river keeps "
+                                 + $"the project's own shader: {RiverMaterialPath}");
+            if (marsh == null)
+                Debug.LogWarning("[The Veil] Swamp water not found, so the marsh pools keep "
+                                 + $"the project's own shader: {MarshMaterialPath}");
         }
 
         static GameObject One(string path)
@@ -1432,6 +1468,7 @@ namespace TheVeil.Editor
 
             var preview = terrainGo.AddComponent<LevelPreview>();
             preview.Decor = LoadPlanDecor();
+            FitWater(out preview.WaterMaterial, out preview.MarshWaterMaterial);
 
             // The cast, for the eagle. The plan draws one actor and only one: the bird
             // flying the scouting ability's own flight over the ground it scouts.
@@ -2523,6 +2560,7 @@ namespace TheVeil.Editor
             {
                 runner.Models = LoadModels();
                 runner.Decor = LoadForestDecor();
+                FitWater(out runner.WaterMaterial, out runner.MarshWaterMaterial);
                 EditorUtility.SetDirty(runner);
                 touched++;
 
@@ -2545,6 +2583,7 @@ namespace TheVeil.Editor
             {
                 preview.Models = LoadModels();
                 preview.Decor = LoadPlanDecor();
+                FitWater(out preview.WaterMaterial, out preview.MarshWaterMaterial);
 
                 // The hand that draws the road, added to scenes saved before it existed.
                 var drawing = preview.GetComponent<RouteDrawing>()

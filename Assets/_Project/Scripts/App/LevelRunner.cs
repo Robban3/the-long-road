@@ -70,6 +70,15 @@ namespace TheVeil.App
         public Material WaterMaterial;
 
         /// <summary>
+        /// The marsh pools' material. Empty keeps the project's own shader, tinted the
+        /// colour of the pack's swamp water.
+        ///
+        /// Assets/Synty/PolygonNature/Materials/Water/Water_Swamp_01.mat is the one this
+        /// was written for. See WaterMaterial above for why it is a slot and not a name.
+        /// </summary>
+        public Material MarshWaterMaterial;
+
+        /// <summary>
         /// What every landmark's own size is multiplied by in the run.
         ///
         /// 1.6, and it is measured rather than nudged. A house is built at six metres
@@ -302,7 +311,7 @@ namespace TheVeil.App
             // that said nothing — which is the half where the signal was meant to work.
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
-                waterMaterial: WaterMaterial,
+                waterMaterial: WaterMaterial, marshWaterMaterial: MarshWaterMaterial,
                 ruinSites: TrapSigns.Sites(map),
                 driveLine: _run.Caravan.Sweep(TerrainDecorator.DriveHalfWidth),
                 campSites: CampSignal.Tiles(map), driveMargin: 0,

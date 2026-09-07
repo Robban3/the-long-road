@@ -70,6 +70,15 @@ namespace TheVeil.App
         public Material WaterMaterial;
 
         /// <summary>
+        /// The marsh pools' material. Empty keeps the project's own shader, tinted the
+        /// colour of the pack's swamp water.
+        ///
+        /// Assets/Synty/PolygonNature/Materials/Water/Water_Swamp_01.mat is the one this
+        /// was written for. See WaterMaterial above for why it is a slot and not a name.
+        /// </summary>
+        public Material MarshWaterMaterial;
+
+        /// <summary>
         /// Denser than the play view. A map is read at a glance from far above, where
         /// scattered individual trees disappear; a forest has to look like a forest at
         /// map scale or the player cannot tell it from a meadow.
@@ -1445,7 +1454,7 @@ namespace TheVeil.App
             int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
                 maxProps: MaxProps, densityScale: DensityScale,
-                waterMaterial: WaterMaterial,
+                waterMaterial: WaterMaterial, marshWaterMaterial: MarshWaterMaterial,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
                 campSites: CampSignal.Tiles(map), travelled: Travelled(map),
                 found: _landmarks,

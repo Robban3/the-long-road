@@ -838,7 +838,8 @@ namespace TheVeil.View
                                    int goalTile = -1,
                                    float minimumLandmark = 0f,
                                    float landmarkScale = 1f,
-                                   Material waterMaterial = null)
+                                   Material waterMaterial = null,
+                                   Material marshWaterMaterial = null)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -947,7 +948,7 @@ namespace TheVeil.View
             // The water goes on last, over everything laid on its bed. Nothing claims
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
-            placed += PlaceWater(parent, grid, heightScale, waterMaterial);
+            placed += PlaceWater(parent, grid, heightScale, waterMaterial, marshWaterMaterial);
             placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale, road);
             placed += PlaceWillows(parent, grid, rng, decor, occupied, heightScale,
                                    densityScale, road);
@@ -1016,7 +1017,7 @@ namespace TheVeil.View
         /// to read. Null keeps the project's own shader. See WaterMeshBuilder.Material.
         /// </summary>
         static int PlaceWater(Transform parent, TileGrid grid, float heightScale,
-                              Material waterMaterial)
+                              Material waterMaterial, Material marshWaterMaterial)
         {
             var mesh = WaterMeshBuilder.Build(grid, TileGrid.TileSize, heightScale);
             if (mesh == null) return 0;
@@ -1034,6 +1035,46 @@ namespace TheVeil.View
 
             var renderer = surface.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = WaterMeshBuilder.Material(waterMaterial);
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+            return 1 + PlacePools(parent, grid, heightScale, marshWaterMaterial);
+        }
+
+        /// <summary>
+        /// Lays the standing water in the marshes, where there is any.
+        ///
+        /// <b>Pools, and never a sheet.</b> Marsh is a tenth of the map and it arrives in
+        /// a few large patches — the biggest measured is 186 tiles — and it is *passable*:
+        /// the caravan drives through a fen at rather more than twice the cost of open
+        /// plains, which is the whole reason the terrain exists. Flooding it would draw an
+        /// inland sea across ground the route is meant to cross, and a player reads blue
+        /// as a thing to go round. So only the hollows fill, which is also simply what
+        /// water does. See WaterMeshBuilder.PoolDrop.
+        ///
+        /// Nothing here touches the simulation. The tiles stay Marsh, they stay passable
+        /// and they cost exactly what they cost — this is paint on ground that was already
+        /// wet.
+        ///
+        /// Its own object rather than another material on the river's, because the two
+        /// meshes are separate: a pool must not share a corner with a bank, or it would
+        /// drag the river's surface down to its own level.
+        /// </summary>
+        static int PlacePools(Transform parent, TileGrid grid, float heightScale,
+                              Material marshWaterMaterial)
+        {
+            var mesh = WaterMeshBuilder.Pools(grid, TileGrid.TileSize, heightScale);
+            if (mesh == null) return 0;
+
+            var pools = new GameObject("Marsh water");
+            pools.transform.SetParent(parent, false);
+
+            // Terrain rather than scenery, for the reason the river is — one mesh over the
+            // whole map would otherwise be filed under tile zero and fog as a single prop.
+            pools.AddComponent<Signal>();
+            pools.AddComponent<MeshFilter>().sharedMesh = mesh;
+
+            var renderer = pools.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = WaterMeshBuilder.PoolMaterial(marshWaterMaterial);
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             return 1;

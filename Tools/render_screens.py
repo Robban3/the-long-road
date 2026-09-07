@@ -652,6 +652,28 @@ WATER_SURFACE_DEPTH = 0.35
 WATER_FILM = 0.1
 """WaterMeshBuilder.Film: the thinnest the water may ever be, in metres."""
 
+MARSH_POOL_DEPTH = 0.18
+"""WaterMeshBuilder.PoolDepth: how deep a marsh pool stands. Ankle deep on purpose."""
+
+MARSH_POOL_DROP = 0.2
+"""WaterMeshBuilder.PoolDrop: how far below its surroundings a marsh tile must lie.
+
+Measured: at this threshold 18-24% of the marsh fills, in 19-42 separate pools, the
+median a tile or two across and the largest six to twelve. At 0.1 m the biggest pool on
+1-5 is forty tiles and reads as a lake; the marsh is passable ground and must not.
+"""
+
+MARSH_POOL_RING = 2
+"""How far around a marsh tile the ground is compared, in tiles."""
+
+MARSH_SURFACE = np.array([0.051, 0.081, 0.030])
+"""WaterMeshBuilder.MarshSurface, off the pack's Water_Swamp_01: dark olive."""
+
+MARSH_SHALLOW = np.array([0.132, 0.176, 0.031])
+"""And its shallow end: peaty yellow-green. A bog is not blue, and that is the tell."""
+
+MARSH_ALPHA, MARSH_SHALLOW_ALPHA = 0.67, 0.40
+
 WATER_LEVELLING = 2
 """WaterMeshBuilder.Levelling: how far either way the bed is averaged, in tiles."""
 
@@ -695,7 +717,7 @@ def _wet(terrain: int) -> bool:
     return terrain in (A.WATER, A.FORD)
 
 
-def _bedding(grid: A.TileGrid, cx: int, cy: int, height_scale: float) -> float:
+def _bedding(grid: A.TileGrid, wet, cx: int, cy: int, height_scale: float) -> float:
     """WaterMeshBuilder.Bedding: the bed under this corner, levelled over its neighbours.
 
     The surface used to be the lowest of the four beds at a corner plus a fixed 0.35 m,
@@ -709,7 +731,7 @@ def _bedding(grid: A.TileGrid, cx: int, cy: int, height_scale: float) -> float:
     for dy in range(-WATER_LEVELLING, WATER_LEVELLING):
         for dx in range(-WATER_LEVELLING, WATER_LEVELLING):
             tx, ty = cx + dx, cy + dy
-            if not grid.in_bounds(tx, ty) or not _wet(grid.at(tx, ty)):
+            if not grid.in_bounds(tx, ty) or not wet(tx, ty):
                 continue
             total += grid.surface_elevation((tx + 0.5) * A.TILE_SIZE,
                                             (ty + 0.5) * A.TILE_SIZE) * height_scale
@@ -718,11 +740,55 @@ def _bedding(grid: A.TileGrid, cx: int, cy: int, height_scale: float) -> float:
     return total / counted if counted else 0.0
 
 
-def build_water(grid: A.TileGrid, height_scale: float):
-    """The river surface as WaterMeshBuilder builds it: one sheet, corners shared.
+def _hollows(grid: A.TileGrid, height_scale: float):
+    """WaterMeshBuilder.Hollows: the marsh tiles low enough to hold standing water.
 
-    Not drawn at all until now, which is why none of the rounding was visible here.
+    Compared against the marsh around them, not against sea level — a fen on a hillside
+    is still a fen and its pools sit in its own dips.
     """
+    pools = set()
+    for y in range(grid.height):
+        for x in range(grid.width):
+            if grid.at(x, y) != A.MARSH:
+                continue
+            here = grid.surface_elevation((x + 0.5) * A.TILE_SIZE,
+                                          (y + 0.5) * A.TILE_SIZE) * height_scale
+            vals = [grid.surface_elevation((tx + 0.5) * A.TILE_SIZE,
+                                           (ty + 0.5) * A.TILE_SIZE) * height_scale
+                    for ty in range(y - MARSH_POOL_RING, y + MARSH_POOL_RING + 1)
+                    for tx in range(x - MARSH_POOL_RING, x + MARSH_POOL_RING + 1)
+                    if grid.in_bounds(tx, ty) and grid.at(tx, ty) == A.MARSH]
+            if len(vals) < 3:
+                continue
+            if here <= sum(vals) / len(vals) - MARSH_POOL_DROP:
+                pools.add((x, y))
+    return pools
+
+
+def build_pools(grid: A.TileGrid, height_scale: float):
+    """The standing water in the marshes. Pools in the hollows, never a sheet.
+
+    Marsh is passable ground the caravan crosses at over twice the cost of plains, and it
+    comes in patches of up to 186 tiles. Sheeting it would draw a lake across the route.
+    """
+    holes = _hollows(grid, height_scale)
+    return build_water(grid, height_scale, wet=lambda x, y: (x, y) in holes,
+                       depth=MARSH_POOL_DEPTH, shelve=False)
+
+
+def build_water(grid: A.TileGrid, height_scale: float, wet=None,
+                depth: float = None, shelve: bool = True):
+    """One sheet over whichever tiles `wet` marks, corners shared so it cannot seam.
+
+    A mask rather than a terrain test, so the same code lays the river and the marsh
+    pools. `shelve` fades the depth to nothing at the waterline — right for a channel
+    with banks, wrong for a puddle a tile across, which would come out all foam.
+    """
+    if wet is None:
+        wet = lambda x, y: _wet(grid.at(x, y))
+    if depth is None:
+        depth = WATER_SURFACE_DEPTH
+
     corners = {}
     vertices, normals, colours = [], [], []
 
@@ -733,39 +799,51 @@ def build_water(grid: A.TileGrid, height_scale: float):
 
         lowest = math.inf
         toward_x = toward_z = 0.0
-        wet = 0
+
+        # How many of the four tiles meeting here are under water. Named apart from the
+        # mask above on purpose: this used to be `wet` too, and the counter shadowed the
+        # predicate the moment the mask arrived.
+        touching = 0
 
         for dy in (-1, 0):
             for dx in (-1, 0):
                 tx, ty = cx + dx, cy + dy
-                if not grid.in_bounds(tx, ty) or not _wet(grid.at(tx, ty)):
+                if not grid.in_bounds(tx, ty) or not wet(tx, ty):
                     continue
                 bed = grid.surface_elevation((tx + 0.5) * A.TILE_SIZE,
                                              (ty + 0.5) * A.TILE_SIZE) * height_scale
                 lowest = min(lowest, bed)
                 toward_x += dx + 0.5
                 toward_z += dy + 0.5
-                wet += 1
+                touching += 1
 
         if lowest == math.inf:
             lowest = 0.0
 
         px, pz = cx * A.TILE_SIZE, cy * A.TILE_SIZE
-        if wet:
-            pull = WATER_INSET[wet]
-            px += toward_x / wet * pull * A.TILE_SIZE
-            pz += toward_z / wet * pull * A.TILE_SIZE
+        if touching:
+            pull = WATER_INSET[touching]
+            px += toward_x / touching * pull * A.TILE_SIZE
+            pz += toward_z / touching * pull * A.TILE_SIZE
             px += _wander(cx, cy, 0x9E37) * WATER_WOBBLE * A.TILE_SIZE
             pz += _wander(cx, cy, 0x85EB) * WATER_WOBBLE * A.TILE_SIZE
 
-        surface = max(_bedding(grid, cx, cy, height_scale) + WATER_SURFACE_DEPTH,
-                      lowest + WATER_FILM)
+        # A channel gets a levelled surface and a puddle gets a film. Levelling a pool
+        # one or two tiles across floats it: measured, 0.84 m above the fen at 63% of
+        # its corners and buried at the rest. The ground mesh's own corner height is the
+        # only number that cannot do that.
+        surface = (max(_bedding(grid, wet, cx, cy, height_scale) + depth,
+                       lowest + WATER_FILM) if shelve
+                   else corner_height(grid, cx, cy, height_scale) + depth)
 
         # How deep the water is here, as the shader gets it: the mesh carries it in the
         # vertex colour, and here it is simply blended into the colour itself. The two
         # ends of that blend are far enough apart in colour that the pixel shader can
         # read the depth straight back out of the interpolated albedo — see lay_water.
-        t = min(max((surface - lowest) * WATER_SHELVING[wet] / WATER_DEEP_ENOUGH, 0.0), 1.0)
+        # A pool is the same depth all over — it is a film. Only a channel has a
+        # shore-to-middle gradient to describe.
+        raw = (surface - lowest) * WATER_SHELVING[touching] if shelve else depth
+        t = min(max(raw / WATER_DEEP_ENOUGH, 0.0), 1.0)
 
         corners[key] = len(vertices)
         vertices.append(np.array([px, surface, pz]))
@@ -776,7 +854,7 @@ def build_water(grid: A.TileGrid, height_scale: float):
     triangles = []
     for y in range(grid.height):
         for x in range(grid.width):
-            if not _wet(grid.at(x, y)):
+            if not wet(x, y):
                 continue
             a = corner(x, y)
             b = corner(x + 1, y)
@@ -801,11 +879,29 @@ def lay_water(image: np.ndarray, opaque: Frame, camera: Camera, grid: A.TileGrid
     A pass of its own rather than another mesh in the opaque one: the sheet is
     transparent, and an opaque z-buffer would punch a hole in the riverbed instead of
     letting it show through.
-    """
-    built = build_water(grid, height_scale)
-    if built is None:
-        return image
 
+    Two sheets now, and the river goes down first: the marsh pools are separate geometry
+    with their own colours, and a pool lying beside a bank must not be blended under the
+    river it is next to.
+    """
+    for built, shallow, deep, shallow_a, deep_a in (
+            (build_water(grid, height_scale),
+             WATER_SHALLOW, WATER_SURFACE, WATER_SHALLOW_ALPHA, WATER_ALPHA),
+            (build_pools(grid, height_scale),
+             MARSH_SHALLOW, MARSH_SURFACE, MARSH_SHALLOW_ALPHA, MARSH_ALPHA)):
+        if built is None:
+            continue
+        image = _lay_sheet(image, built, opaque, camera, shallow, deep, shallow_a, deep_a,
+                           sun, sun_color, sun_intensity, shadow_of, shadow_strength,
+                           background, fog)
+    return image
+
+
+def _lay_sheet(image: np.ndarray, built, opaque: Frame, camera: Camera,
+               shallow, deep, shallow_a: float, deep_a: float,
+               sun, sun_color, sun_intensity, shadow_of, shadow_strength,
+               background, fog) -> np.ndarray:
+    """One transparent sheet, blended where it is nearer than the ground."""
     vertices, triangles, colors, normals, material = built
 
     sheet = Frame(opaque.width, opaque.height)
@@ -822,8 +918,8 @@ def lay_water(image: np.ndarray, opaque: Frame, camera: Camera, grid: A.TileGrid
     # channel through the rasteriser for one pass that wants it. The shader does not do
     # this: there the depth arrives on the vertex and the colour is worked out from it,
     # which is the same blend read the other way round.
-    span = WATER_SURFACE - WATER_SHALLOW
-    t = np.clip((sheet.albedo - WATER_SHALLOW) @ span / (span @ span), 0.0, 1.0)
+    span = deep - shallow
+    t = np.clip((sheet.albedo - shallow) @ span / (span @ span), 0.0, 1.0)
 
     # Ripples, frozen at time zero, exactly as the shader sums them. Their movement is
     # the point of them and a stillframe cannot show it — but their *number* is what
@@ -850,7 +946,7 @@ def lay_water(image: np.ndarray, opaque: Frame, camera: Camera, grid: A.TileGrid
     foam = np.clip(1.0 - t / np.maximum(edge, 1e-3), 0.0, 1.0) ** 2
     lit = lit * (1.0 - foam)[..., None] + WATER_FOAM * foam[..., None]
 
-    alpha = WATER_SHALLOW_ALPHA + (WATER_ALPHA - WATER_SHALLOW_ALPHA) * t
+    alpha = shallow_a + (deep_a - shallow_a) * t
     alpha = alpha + (1.0 - alpha) * foam * 0.85
 
     a = (over * alpha)[..., None]

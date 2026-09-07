@@ -551,7 +551,16 @@ namespace TheVeil.View
         /// pale blue bands along every river turned out to be. Sharing the corner
         /// makes the bank a slope instead of a cliff with a gap in it.
         /// </summary>
-        static float CornerHeight(TileGrid grid, int cornerX, int cornerY, float heightScale)
+        /// <summary>
+        /// Public because the water has to agree with it.
+        ///
+        /// A marsh pool is a film lying on the ground, and the only ground that exists is
+        /// the one this mesh is drawn at. Working the pool's height out from tile-centre
+        /// bed samples instead — which is right for a river, whose channel is carved —
+        /// floated the sheet 0.84 m over the fen at most of its corners and buried it at
+        /// the rest. Measured, on levels 1 and 5.
+        /// </summary>
+        public static float CornerHeight(TileGrid grid, int cornerX, int cornerY, float heightScale)
         {
             float elevation = grid.CornerElevation(cornerX, cornerY) * heightScale;
 

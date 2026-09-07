@@ -66,8 +66,8 @@ namespace TheVeil.View
         /// Wet tiles only. Averaging the meadow in would lift the surface onto the grass,
         /// which is the artefact this whole builder was written to remove.
         /// </summary>
-        static float Bedding(TileGrid grid, int cornerX, int cornerY, float tileSize,
-                             float heightScale)
+        static float Bedding(TileGrid grid, bool[] wetMask, int cornerX, int cornerY,
+                             float tileSize, float heightScale)
         {
             float sum = 0f;
             int counted = 0;
@@ -78,7 +78,7 @@ namespace TheVeil.View
                 {
                     int tx = cornerX + dx, ty = cornerY + dy;
                     if (!grid.InBounds(tx, ty)) continue;
-                    if (!Wet(grid[grid.ToIndex(tx, ty)])) continue;
+                    if (!wetMask[grid.ToIndex(tx, ty)]) continue;
 
                     sum += grid.SurfaceElevation((tx + 0.5f) * tileSize, (ty + 0.5f) * tileSize)
                          * heightScale;
@@ -165,12 +165,122 @@ namespace TheVeil.View
         public static readonly Color Shallows = new Color(0.30f, 0.47f, 0.40f, 0.42f);
 
         /// <summary>
+        /// And the marsh's own two, which are nothing like the river's.
+        ///
+        /// Taken from the nature pack's Water_Swamp_01 rather than invented, so a level
+        /// looks the same whether the swamp material is in the inspector slot or the
+        /// project's own shader is standing in for it. Dark olive going to a peaty
+        /// yellow-green: standing water over rotting leaves does not reflect the sky the
+        /// way a river does, and the single strongest thing separating a bog from a pond
+        /// is that it is not blue.
+        /// </summary>
+        public static readonly Color MarshSurface = new Color(0.051f, 0.081f, 0.030f, 0.67f);
+        public static readonly Color MarshShallows = new Color(0.132f, 0.176f, 0.031f, 0.40f);
+
+        /// <summary>
         /// Whether this terrain is under water. Fords included: a ford is a shallow
         /// place in a river, not a hole in it, and leaving them dry cut every river into
         /// pieces with a green stripe where the crossing is.
         /// </summary>
         public static bool Wet(TerrainType terrain)
             => terrain == TerrainType.Water || terrain == TerrainType.Ford;
+
+        /// <summary>
+        /// How deep a marsh pool stands, in metres.
+        ///
+        /// Half the river's, and the shallowness is the whole point. A marsh is ground
+        /// the caravan drives across at rather more than twice the cost of open plains,
+        /// and it must keep looking like ground: a player reads blue as a thing to go
+        /// round, and pools deep enough to argue with would be a lie about where the
+        /// route can go. Ankle deep, with the bed showing through.
+        /// </summary>
+        public const float PoolDepth = 0.18f;
+
+        /// <summary>
+        /// How far below its surroundings a marsh tile has to lie to hold water, in metres.
+        ///
+        /// <b>Measured, because the alternative is a lake.</b> Marsh is about a tenth of
+        /// the map and it arrives in a handful of large patches — six of them on levels 1
+        /// and 5, the biggest 186 tiles. Sheeting all of that is not a marsh, it is an
+        /// inland sea across ground the caravan is meant to drive through.
+        ///
+        /// So only the hollows fill, which is what water does. At this threshold that is
+        /// 18 to 24 per cent of the marsh in 19 to 42 separate pools, the median one a
+        /// tile or two across and the largest six to twelve. Halving it to 0.1 m puts the
+        /// biggest pool on level 5 at forty tiles, which reads as a lake again; doubling
+        /// it to 0.5 leaves single tiles that look like a bug rather than a bog.
+        /// </summary>
+        public const float PoolDrop = 0.2f;
+
+        /// <summary>How far around a marsh tile the ground is compared, in tiles.</summary>
+        const int PoolRing = 2;
+
+        /// <summary>
+        /// The marsh tiles low enough to hold standing water.
+        ///
+        /// Compared against the marsh around them rather than against sea level: a fen on
+        /// a hillside is still a fen, and its pools sit in its own dips, not at the bottom
+        /// of the map. Dry ground in the ring is not counted for the same reason the
+        /// river's Bedding does not count the meadow — the question is where this marsh
+        /// dips, not whether it is lower than the hill beside it.
+        /// </summary>
+        static bool[] Hollows(TileGrid grid, float tileSize, float heightScale)
+        {
+            var pools = new bool[grid.Width * grid.Height];
+
+            for (int y = 0; y < grid.Height; y++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    if (grid[grid.ToIndex(x, y)] != TerrainType.Marsh) continue;
+
+                    float here = grid.SurfaceElevation((x + 0.5f) * tileSize,
+                                                       (y + 0.5f) * tileSize) * heightScale;
+                    float sum = 0f;
+                    int counted = 0;
+
+                    for (int dy = -PoolRing; dy <= PoolRing; dy++)
+                    {
+                        for (int dx = -PoolRing; dx <= PoolRing; dx++)
+                        {
+                            int tx = x + dx, ty = y + dy;
+                            if (!grid.InBounds(tx, ty)) continue;
+                            if (grid[grid.ToIndex(tx, ty)] != TerrainType.Marsh) continue;
+
+                            sum += grid.SurfaceElevation((tx + 0.5f) * tileSize,
+                                                         (ty + 0.5f) * tileSize) * heightScale;
+                            counted++;
+                        }
+                    }
+
+                    // Too small a sample to say anything about a neighbourhood. A lone
+                    // marsh tile in a meadow is not a pool, it is a patch of soft ground.
+                    if (counted < 3) continue;
+
+                    pools[grid.ToIndex(x, y)] = here <= sum / counted - PoolDrop;
+                }
+            }
+
+            return pools;
+        }
+
+        /// <summary>
+        /// The standing water in a marsh, or null where none of it is low enough.
+        ///
+        /// A separate mesh from the river rather than another submesh of it, because the
+        /// two are different water: this one is shallower, it is drawn with the swamp
+        /// material, and its corners must not be shared with the river's — a pool beside
+        /// a bank would otherwise drag the river's surface down to its own level.
+        /// </summary>
+        public static Mesh Pools(TileGrid grid, float tileSize, float heightScale)
+        {
+            if (grid == null) return null;
+
+            var mesh = Build(grid, Hollows(grid, tileSize, heightScale), PoolDepth,
+                             tileSize, heightScale, shelve: false);
+            if (mesh != null) mesh.name = "Marsh water";
+            return mesh;
+        }
 
         /// <summary>
         /// Builds the sheet, or null when the map has no water.
@@ -183,6 +293,29 @@ namespace TheVeil.View
         {
             if (grid == null) return null;
 
+            var wet = new bool[grid.Width * grid.Height];
+            for (int i = 0; i < wet.Length; i++) wet[i] = Wet(grid[i]);
+
+            return Build(grid, wet, Depth, tileSize, heightScale, shelve: true);
+        }
+
+        /// <summary>
+        /// One sheet over whichever tiles the mask marks, standing <paramref name="depth"/>
+        /// above the ground levelled under them.
+        ///
+        /// A mask rather than a terrain test, so the same machinery lays the river and the
+        /// marsh pools. Everything that made the river read as water — corners shared so
+        /// the sheet cannot seam, the bank drawn in and wandered so it is not a staircase,
+        /// the depth carried on the vertex — is the same problem for a pool, and solving
+        /// it twice is how the two drift apart.
+        ///
+        /// <paramref name="shelve"/> fades the depth to nothing at the waterline, which is
+        /// right for a channel with banks and wrong for a puddle: a pool a tile or two
+        /// across is all edge, and fading it would leave it entirely foam.
+        /// </summary>
+        static Mesh Build(TileGrid grid, bool[] wet, float depth, float tileSize,
+                          float heightScale, bool shelve)
+        {
             var vertices = new List<Vector3>();
             var triangles = new List<int>();
             var uvs = new List<Vector2>();
@@ -197,12 +330,12 @@ namespace TheVeil.View
             {
                 for (int x = 0; x < grid.Width; x++)
                 {
-                    if (!Wet(grid[grid.ToIndex(x, y)])) continue;
+                    if (!wet[grid.ToIndex(x, y)]) continue;
 
-                    int a = Corner(grid, corners, vertices, uvs, depths, x, y, tileSize, heightScale, stride);
-                    int b = Corner(grid, corners, vertices, uvs, depths, x + 1, y, tileSize, heightScale, stride);
-                    int c = Corner(grid, corners, vertices, uvs, depths, x + 1, y + 1, tileSize, heightScale, stride);
-                    int d = Corner(grid, corners, vertices, uvs, depths, x, y + 1, tileSize, heightScale, stride);
+                    int a = Corner(grid, wet, corners, vertices, uvs, depths, x, y, tileSize, heightScale, depth, shelve, stride);
+                    int b = Corner(grid, wet, corners, vertices, uvs, depths, x + 1, y, tileSize, heightScale, depth, shelve, stride);
+                    int c = Corner(grid, wet, corners, vertices, uvs, depths, x + 1, y + 1, tileSize, heightScale, depth, shelve, stride);
+                    int d = Corner(grid, wet, corners, vertices, uvs, depths, x, y + 1, tileSize, heightScale, depth, shelve, stride);
 
                     triangles.Add(a); triangles.Add(d); triangles.Add(c);
                     triangles.Add(a); triangles.Add(c); triangles.Add(b);
@@ -310,9 +443,10 @@ namespace TheVeil.View
         /// Its position is the grid corner drawn in toward that same water — see
         /// <see cref="Inset"/>.
         /// </summary>
-        static int Corner(TileGrid grid, Dictionary<int, int> corners, List<Vector3> vertices,
-                          List<Vector2> uvs, List<float> depths, int x, int y, float tileSize,
-                          float heightScale, int stride)
+        static int Corner(TileGrid grid, bool[] wetMask, Dictionary<int, int> corners,
+                          List<Vector3> vertices, List<Vector2> uvs, List<float> depths,
+                          int x, int y, float tileSize, float heightScale, float depth,
+                          bool shelve, int stride)
         {
             int key = y * stride + x;
             if (corners.TryGetValue(key, out int found)) return found;
@@ -330,7 +464,7 @@ namespace TheVeil.View
                 {
                     int tx = x + dx, ty = y + dy;
                     if (!grid.InBounds(tx, ty)) continue;
-                    if (!Wet(grid[grid.ToIndex(tx, ty)])) continue;
+                    if (!wetMask[grid.ToIndex(tx, ty)]) continue;
 
                     float bed = grid.SurfaceElevation((tx + 0.5f) * tileSize, (ty + 0.5f) * tileSize)
                               * heightScale;
@@ -345,8 +479,19 @@ namespace TheVeil.View
 
             if (lowest == float.MaxValue) lowest = 0f;
 
-            float surface = Mathf.Max(Bedding(grid, x, y, tileSize, heightScale) + Depth,
-                                      lowest + Film);
+            // A channel gets a levelled surface and a puddle gets a film, and the two
+            // are not a preference — a river's bed is carved and a marsh's is not.
+            //
+            // <b>Levelling a puddle floats it.</b> Bedding averages tile-centre bed
+            // samples over the wet tiles, and a pool one or two tiles across has almost
+            // none: measured on levels 1 and 5, the sheet ended up 0.84 m above the fen
+            // at 63% of its corners and buried under it at the other 37%, all at once.
+            // The ground mesh's own corner height is the only number that cannot do
+            // that, because it is where the ground actually is.
+            float surface = shelve
+                ? Mathf.Max(Bedding(grid, wetMask, x, y, tileSize, heightScale) + depth,
+                            lowest + Film)
+                : TerrainMeshBuilder.CornerHeight(grid, x, y, heightScale) + depth;
 
             float px = x * tileSize, pz = y * tileSize;
 
@@ -377,7 +522,9 @@ namespace TheVeil.View
             // How deep the water is here, carried on the vertex so the shader can colour
             // and foam by it without reading a depth buffer — see Deeps. Faded out at
             // the waterline, which the mesh has no vertex on — see Shelving.
-            depths.Add(Mathf.Max(0f, surface - lowest) * Shelving[wet]);
+            // A pool is the same depth all over: it is a film, and its thickness is what
+            // it is. Only a channel has a shore-to-middle gradient to describe.
+            depths.Add(shelve ? Mathf.Max(0f, surface - lowest) * Shelving[wet] : depth);
 
             // UVs stay on the grid rather than following the moved vertex, so the ripple
             // the material puts on the surface does not stretch where the bank is cut.
@@ -396,6 +543,16 @@ namespace TheVeil.View
         /// how an opaque sheet went out looking like paint over the river.
         /// </summary>
         public static Material Material(Material chosen = null)
+            => Material(chosen, Surface, Shallows);
+
+        /// <summary>
+        /// The marsh pools' material: the swamp water from the pack, or our own tinted
+        /// like it. Same construction as the river's — only the two colours differ.
+        /// </summary>
+        public static Material PoolMaterial(Material chosen = null)
+            => Material(chosen, MarshSurface, MarshShallows);
+
+        static Material Material(Material chosen, Color deep, Color shallow)
         {
             // A material somebody dropped in the inspector wins over everything below.
             //
@@ -422,8 +579,8 @@ namespace TheVeil.View
             if (moving != null)
             {
                 var river = new Material(moving) { name = "Water" };
-                river.SetColor(BaseColourId, Surface);
-                river.SetColor(ShallowColourId, Shallows);
+                river.SetColor(BaseColourId, deep);
+                river.SetColor(ShallowColourId, shallow);
                 river.renderQueue = (int)RenderQueue.Transparent;
                 return river;
             }
@@ -451,7 +608,7 @@ namespace TheVeil.View
             // One colour has to stand for the whole river here, so it is neither of the
             // two: Lit has no vertex-colour depth to blend them with, and the deep tint
             // on its own would put an opaque navy sheet over the fords.
-            water.SetColor(BaseColourId, Color.Lerp(Shallows, Surface, 0.6f));
+            water.SetColor(BaseColourId, Color.Lerp(shallow, deep, 0.6f));
 
             return water;
         }
