@@ -226,6 +226,22 @@ namespace TheVeil.View
         /// </summary>
         public static Material Material()
         {
+            // The project's own water first: waves and drifting ripples, all of it on the
+            // GPU — see Shaders/Water.shader. Standing water reads as a painted floor
+            // however good its colour is, and stock Lit has nothing on it that can move.
+            var moving = Shader.Find("TheVeil/Water");
+            if (moving != null)
+            {
+                var river = new Material(moving) { name = "Water" };
+                river.SetColor(BaseColourId, Surface);
+                river.renderQueue = (int)RenderQueue.Transparent;
+                return river;
+            }
+
+            // And stock Lit when it is missing, which is still water, just still.
+            Debug.LogWarning("[The Veil] Shader 'TheVeil/Water' not found, so the river "
+                           + "will not move. Run The Veil > Set Up Project.");
+
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) return null;
 
