@@ -99,7 +99,22 @@ namespace TheVeil.View
         /// buildings go.
         /// </summary>
         public static GameObject House(Transform parent, BuildingKit kit, DeterministicRandom rng)
+            => House(parent, kit, rng, out _);
+
+        /// <summary>
+        /// As above, and says whether it came out with a second storey.
+        ///
+        /// <b>The caller needs to know, because it decides how tall to scale the result.</b>
+        /// A cottage and a two-storey house are stacked from the same sets and differ by
+        /// one piece, and scaling both to one height makes the cottage a hall and squashes
+        /// the tall one — the storeys end up different heights in two buildings standing
+        /// next to each other. Nothing here can fix that on its own: the builder does not
+        /// know what height it is going to be given.
+        /// </summary>
+        public static GameObject House(Transform parent, BuildingKit kit, DeterministicRandom rng,
+                                       out bool twoStorey)
         {
+            twoStorey = false;
             if (kit == null || !kit.CanBuildHouse) return null;
 
             var host = new GameObject("House");
@@ -115,7 +130,10 @@ namespace TheVeil.View
             Stack(host.transform, Pick(kit.Rooms, style), ref top, kit.Rooms.ZUp);
 
             if (kit.UpperRooms.Any && rng.Chance(UpperStorey))
+            {
                 Stack(host.transform, Pick(kit.UpperRooms, style), ref top, kit.UpperRooms.ZUp);
+                twoStorey = true;
+            }
 
             var roof = Stack(host.transform, Pick(kit.Roofs, style), ref top, kit.Roofs.ZUp);
 

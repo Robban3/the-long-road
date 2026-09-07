@@ -389,7 +389,28 @@ namespace TheVeil.View
         public const float DeadTreeHeight = 9f;
 
         /// <summary>Landmark sizes. Buildings are measured by height, ground works by width.</summary>
-        public const float HouseHeight = 6f;
+        public const float HouseHeight = 7f;
+
+        /// <summary>
+        /// What a second storey adds, in metres before the landmark multiplier.
+        ///
+        /// <b>A house was scaled to one height however many storeys it had.</b>
+        /// BuildingBuilder stacks a foundation, a room, sometimes an upper room, and a
+        /// roof — and Raise then fitted the whole stack to HouseHeight regardless. So a
+        /// cottage and a two-storey house standing beside each other came out the same
+        /// height, which means their storeys did not: the cottage got a hall with a
+        /// four-metre ceiling and the tall one got two squashed floors. It is why some of
+        /// them read as three houses piled up.
+        ///
+        /// Two metres, which is a floor. Not a multiplier: a storey is a fixed thing, and
+        /// scaling by a ratio would make the farm's extra floor shorter than the house's
+        /// for no reason anybody could name.
+        /// </summary>
+        public const float UpperStoreyRise = 2f;
+
+        /// <summary>The height to fit a stacked building to, by what it was stacked from.</summary>
+        static float Storeys(float baseHeight, bool twoStorey)
+            => twoStorey ? baseHeight + UpperStoreyRise : baseHeight;
         public const float WatchtowerHeight = 11f;
 
         /// <summary>How far into the ground a building is set, as a share of its size.</summary>
@@ -2084,6 +2105,43 @@ namespace TheVeil.View
         /// knows how big the thing actually came out and a table only knows what was
         /// asked for.
         /// </summary>
+        /// <summary>
+        /// Whether a building, at the size it ended up, has any part of itself in the
+        /// caravan's lane.
+        ///
+        /// <b>This is why the column drove through the watchtower.</b> A landmark was
+        /// rejected only when the *tile it stands on* was in the lane — PlaceLandmarks
+        /// tests road.Contains(i) and nothing else. Its body was never asked about. So a
+        /// tower could stand legally on the first tile outside the swept band, four
+        /// metres from the edge, and since Raise scales the model uniformly to its target
+        /// height a tall one is several tiles wide. Its wall landed in the road.
+        ///
+        /// The same footprint the building reserves against other props, asked of the
+        /// road as well — FootprintRadius is what Reserve already uses, so a landmark
+        /// cannot claim ground it is not standing on and cannot overhang ground the
+        /// caravan needs.
+        ///
+        /// Null road means nobody said where the caravan goes, which is the planning map.
+        /// </summary>
+        static bool InTheRoad(TileGrid grid, HashSet<int> road, GameObject instance,
+                              float x, float z)
+        {
+            if (road == null || instance == null) return false;
+
+            bool hit = false;
+            ForEachTileUnder(grid, x, z, FootprintRadius(instance),
+                             tile => { if (road.Contains(tile)) hit = true; });
+            return hit;
+        }
+
+        /// <summary>Takes a building down again, at edit time or in play.</summary>
+        static void Unbuild(GameObject instance)
+        {
+            if (instance == null) return;
+            if (Application.isPlaying) Object.Destroy(instance);
+            else Object.DestroyImmediate(instance);
+        }
+
         static void Reserve(TileGrid grid, HashSet<int> occupied, GameObject instance,
                             float x, float z)
         {
@@ -2212,8 +2270,14 @@ namespace TheVeil.View
             var castle = BuildingBuilder.Castle(parent, decor.Kit, rng);
             if (castle == null) return 0;
 
+            // Named, because road now sits where yaw used to and a castle passing its gate
+            // angle positionally would hand it in as a set of road tiles.
+            //
+            // And no road is passed on purpose. The castle stands on the goal because that
+            // is what the goal is, and its gate is turned to face the way the caravan
+            // arrives — it is the one building the route is supposed to reach.
             if (!Raise(grid, goalTile, rng, castle, CastleHeight, heightScale, occupied,
-                       GateYaw(grid, goalTile, travelled)))
+                       yaw: GateYaw(grid, goalTile, travelled)))
                 return 0;
 
             // The Solid that Raise just added, taken straight back off. See the note
@@ -2359,7 +2423,8 @@ namespace TheVeil.View
                 // foundation, a room and a roof; a castle tower is a base, a shaft and a
                 // top; a ruin is what is left of one with its stone lying around it.
                 if (decor.Kit != null
-                    && Built(parent, grid, rng, decor, i, heightScale, occupied, travelled, found))
+                    && Built(parent, grid, rng, decor, i, heightScale, occupied, travelled,
+                             road, found))
                 {
                     placed++;
                     continue;
@@ -2620,7 +2685,7 @@ namespace TheVeil.View
         static bool Built(Transform parent, TileGrid grid, DeterministicRandom rng,
                           BiomeDecor decor, int tile, float heightScale,
                           HashSet<int> occupied, HashSet<int> line,
-                          List<Landmark> found = null)
+                          HashSet<int> road = null, List<Landmark> found = null)
         {
             var kit = decor.Kit;
             var terrain = grid[tile];
@@ -2628,7 +2693,7 @@ namespace TheVeil.View
             if (terrain == TerrainType.MountainPass && kit.CanBuildTower && rng.Chance(TowerChance))
                 return Note(found, LandmarkKind.Watchtower, tile,
                             Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),
-                                  TowerHeight, heightScale, occupied));
+                                  TowerHeight, heightScale, occupied, road));
 
             grid.ToCoords(tile, out int x, out int y);
 
@@ -2638,15 +2703,24 @@ namespace TheVeil.View
                         && Beside(grid, line, x, y, SettlementReach)
                         && Fall(grid, tile, heightScale) < BuildableFall;
 
+            // The height follows what was actually stacked — see UpperStoreyRise. Asking
+            // for the building first and its height second is the whole point: a cottage
+            // and a two-storey house are the same call with a different die roll.
             if (settled && kit.CanBuildHouse && rng.Chance(HouseChance))
+            {
+                var house = BuildingBuilder.House(parent, kit, rng, out bool upstairs);
                 return Note(found, LandmarkKind.House, tile,
-                            Raise(grid, tile, rng, BuildingBuilder.House(parent, kit, rng),
-                                  HouseHeight, heightScale, occupied));
+                            Raise(grid, tile, rng, house,
+                                  Storeys(HouseHeight, upstairs), heightScale, occupied, road));
+            }
 
             if (settled && kit.CanBuildHouse && rng.Chance(FarmChance))
+            {
+                var farm = BuildingBuilder.House(parent, kit, rng, out bool upstairs);
                 return Note(found, LandmarkKind.Farm, tile,
-                            Raise(grid, tile, rng, BuildingBuilder.House(parent, kit, rng),
-                                  FarmHeight, heightScale, occupied));
+                            Raise(grid, tile, rng, farm,
+                                  Storeys(FarmHeight, upstairs), heightScale, occupied, road));
+            }
 
             // Ruins go the other way: out in the country, away from the line, because a
             // ruin beside a living road reads as a building somebody would have repaired.
@@ -2655,7 +2729,7 @@ namespace TheVeil.View
                 && kit.CanBuildRuin && rng.Chance(StoneRuinChance))
                 return Note(found, LandmarkKind.Ruin, tile,
                             Raise(grid, tile, rng, BuildingBuilder.Ruin(parent, kit, rng),
-                                  StoneRuinHeight, heightScale, occupied));
+                                  StoneRuinHeight, heightScale, occupied, road));
 
             return false;
         }
@@ -2735,7 +2809,20 @@ namespace TheVeil.View
         public const float FarmHeight = 5.5f;
 
         /// <summary>How tall a built castle tower stands, and a stone ruin.</summary>
-        public const float TowerHeight = 15f;
+        /// <summary>
+        /// How tall a tower stands out of the kit, in metres before the multiplier.
+        ///
+        /// <b>Eleven, which is what the prefab watchtower has always been.</b> Two
+        /// constants named the same building and drifted apart: this one was fifteen, and
+        /// the run multiplies every landmark by LandmarkScale, so the kit tower went up at
+        /// twenty-four metres — seven and a half wagons, two and a half times a house, and
+        /// half again a prefab watchtower standing on the next pass. A cathedral, not a
+        /// lookout.
+        ///
+        /// At eleven both towers come out at 17.6 m in the run: above a two-storey house
+        /// at 14.4 and well below the castle at 35.2, which is the order they should be in.
+        /// </summary>
+        public const float TowerHeight = WatchtowerHeight;
         public const float StoneRuinHeight = 4.5f;
 
         /// <summary>
@@ -2755,7 +2842,7 @@ namespace TheVeil.View
         /// </param>
         static bool Raise(TileGrid grid, int tile, DeterministicRandom rng, GameObject building,
                           float height, float heightScale, HashSet<int> occupied,
-                          float yaw = -1f)
+                          HashSet<int> road = null, float yaw = -1f)
         {
             if (building == null) return false;
 
@@ -2784,6 +2871,16 @@ namespace TheVeil.View
             float above = standing.max.y - surfaceY;
 
             if (above > 0.0001f) building.transform.localScale *= height / above;
+
+            // Scaled before the lane is checked, because until it is scaled nobody knows
+            // how much ground it covers — the same order Scatter uses, and for the same
+            // reason. A building that will not fit beside the road comes down again
+            // rather than being left standing in it.
+            if (InTheRoad(grid, road, building, at.X, at.Y))
+            {
+                Unbuild(building);
+                return false;
+            }
 
             Block(building, canopy: false);
             Reserve(grid, occupied, building, at.X, at.Y);
