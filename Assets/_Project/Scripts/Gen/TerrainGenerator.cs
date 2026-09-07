@@ -59,6 +59,10 @@ namespace TheVeil.Gen
                 if (!TryPlaceEndpoints(grid, recipe, rng, out int sx, out int sy, out int gx, out int gy))
                     continue;
 
+                // Before the corridors are found, so none of them is ever offered a
+                // crossing that is about to stop being one.
+                CloseTheStrandedCrossings(grid, sx, sy);
+
                 var corridors = CorridorFinder.Find(grid, sx, sy, gx, gy);
                 if (corridors.Count == 0) continue;
 
@@ -391,6 +395,62 @@ namespace TheVeil.Gen
 
             SinkTheChannel(grid);
             LevelTheCrossings(grid);
+        }
+
+        /// <summary>
+        /// Turns a ford nobody can walk to back into river.
+        ///
+        /// <b>A bridge in the middle of the water, with no way to reach it.</b> Fords are
+        /// cut a fixed number per river, wherever the river happens to run, and nothing
+        /// asked whether the bank on either side connects to anything. Measured over
+        /// chapter one: two of the thirty crossings sat in ground cut off from the start
+        /// by cliff or water — one of them on level 1, which is the level most people see
+        /// first. TerrainDecorator then stood a bridge on each, because a ford is where a
+        /// bridge goes.
+        ///
+        /// Fixed here rather than by declining to build the bridge. A ford that stays in
+        /// the grid is still a well-marked crossing on the planning map and still a
+        /// cheap tile to the route planner — the terrain would go on promising something
+        /// it cannot deliver, just without the model that made the promise visible.
+        ///
+        /// <b>Reachable, not used.</b> The test is whether a walk from the start can get
+        /// there at all, not whether one of the three corridors does. Eleven of the
+        /// thirty crossings are on no corridor and every one of them is kept: the player
+        /// draws their own line and may cross anywhere, and a drawn route over a river
+        /// with no bridge under it is the worse fault.
+        /// </summary>
+        static void CloseTheStrandedCrossings(TileGrid grid, int startX, int startY)
+        {
+            var reached = new bool[grid.TileCount];
+            var queue = new Queue<int>();
+
+            int from = grid.ToIndex(startX, startY);
+            reached[from] = true;
+            queue.Enqueue(from);
+
+            while (queue.Count > 0)
+            {
+                grid.ToCoords(queue.Dequeue(), out int x, out int y);
+
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+                        if (!grid.IsPassable(x + dx, y + dy)) continue;
+
+                        int next = grid.ToIndex(x + dx, y + dy);
+                        if (reached[next]) continue;
+
+                        reached[next] = true;
+                        queue.Enqueue(next);
+                    }
+                }
+            }
+
+            for (int i = 0; i < grid.TileCount; i++)
+                if (grid[i] == TerrainType.Ford && !reached[i])
+                    grid[i] = TerrainType.Water;
         }
 
         /// <summary>

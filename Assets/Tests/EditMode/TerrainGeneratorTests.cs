@@ -10,6 +10,71 @@ namespace TheVeil.Tests
         static LevelRecipe Recipe() => new LevelRecipe();
 
         /// <summary>
+        /// Every crossing can be walked to.
+        ///
+        /// It was reported as "a bridge in the middle of the river nobody can get to",
+        /// and that is exactly what it was: fords are cut a fixed number per river,
+        /// wherever the river runs, and nothing asked whether the ground either side
+        /// connects to anything. Two of chapter one's thirty crossings sat in a pocket
+        /// closed off by cliff or water, one of them on level 1.
+        ///
+        /// Reachable, not used. A crossing on none of the three corridors is fine and
+        /// there are eleven of those — the player draws their own line and may cross
+        /// anywhere. What must never happen is a crossing that no walk from the start
+        /// can arrive at.
+        /// </summary>
+        [Test]
+        public void EveryCrossingCanBeWalkedTo()
+        {
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = LevelMaps.For(1, level);
+                var grid = map.Grid;
+
+                var reached = new bool[grid.TileCount];
+                var queue = new Queue<int>();
+
+                reached[map.StartIndex] = true;
+                queue.Enqueue(map.StartIndex);
+
+                while (queue.Count > 0)
+                {
+                    grid.ToCoords(queue.Dequeue(), out int x, out int y);
+
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            if (!grid.IsPassable(x + dx, y + dy)) continue;
+
+                            int next = grid.ToIndex(x + dx, y + dy);
+                            if (reached[next]) continue;
+
+                            reached[next] = true;
+                            queue.Enqueue(next);
+                        }
+                    }
+                }
+
+                int fords = 0, stranded = 0;
+
+                for (int i = 0; i < grid.TileCount; i++)
+                {
+                    if (grid[i] != TerrainType.Ford) continue;
+
+                    fords++;
+                    if (!reached[i]) stranded++;
+                }
+
+                Assert.Greater(fords, 0, $"level {level} has no crossing at all");
+                Assert.AreEqual(0, stranded,
+                    $"level {level}: {stranded} of {fords} ford tiles cannot be walked to "
+                  + "from the start, and a bridge would be built on each of them");
+            }
+        }
+
+        /// <summary>
         /// The river runs *through* the ground, not along the top of it.
         ///
         /// It did not, for as long as the generator has existed: a water tile kept the

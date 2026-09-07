@@ -121,6 +121,22 @@ namespace TheVeil.View
         /// </summary>
         static readonly float[] Inset = { 0f, 0.55f, 0.25f, 0.12f, 0f };
 
+        /// <summary>How far a corner may wander, as a share of a tile. An eighth: half a metre.</summary>
+        const float Wobble = 0.125f;
+
+        /// <summary>A deterministic offset in -1..1 for a grid corner. The same hash Tint uses.</summary>
+        static float Wander(int cx, int cy, int salt)
+        {
+            unchecked
+            {
+                uint h = (uint)((cx * 73856093) ^ (cy * 19349663) ^ salt);
+                h ^= h >> 13;
+                h *= 1274126177u;
+                h ^= h >> 16;
+                return (h & 0xFFFF) / 32767.5f - 1f;
+            }
+        }
+
         /// <summary>
         /// One shared corner.
         ///
@@ -174,6 +190,20 @@ namespace TheVeil.View
                 float pull = Inset[wet];
                 px += towardX / wet * pull * tileSize;
                 pz += towardZ / wet * pull * tileSize;
+
+                // And a wander on top, so the bank is not a ruled line.
+                //
+                // The inset knocks the corners off a staircase but it cannot make a
+                // straight run of river crooked, and a river drawn on a four-metre grid
+                // has long straight runs. This moves each corner half a metre or so of
+                // its own, which is a shoreline rather than an edge.
+                //
+                // Deterministic from the corner, never from a clock: a seed is a level,
+                // and a bank that reshaped itself on every load would be a worse fault
+                // than a straight one. Corners are shared, so both sides of every edge
+                // move together and the sheet stays continuous.
+                px += Wander(x, y, 0x9E37) * Wobble * tileSize;
+                pz += Wander(x, y, 0x85EB) * Wobble * tileSize;
             }
 
             int index = vertices.Count;

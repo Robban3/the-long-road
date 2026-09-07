@@ -1725,6 +1725,10 @@ def generate(recipe: LevelRecipe, seed: int) -> LevelMap:
             continue
         sx, sy, gx, gy = endpoints
 
+        # Before the corridors are found, so none of them is ever offered a crossing
+        # that is about to stop being one.
+        _close_the_stranded_crossings(grid, sx, sy)
+
         corridors = find_corridors(grid, sx, sy, gx, gy)
         if not corridors:
             continue
@@ -1865,6 +1869,40 @@ CHANNEL_DEPTH = 0.1
 A tenth, which the run's fourteen metres of relief make about 1.4 m. Ported from
 TerrainGenerator.ChannelDepth.
 """
+
+
+def _close_the_stranded_crossings(grid: TileGrid, start_x: int, start_y: int) -> None:
+    """Turns a ford nobody can walk to back into river.
+
+    Fords are cut a fixed number per river, wherever the river runs, and nothing asked
+    whether the ground either side connects to anything. Two of chapter one's thirty
+    crossings sat in a pocket closed off by cliff or water, and a bridge was built on
+    each. Ported from TerrainGenerator.CloseTheStrandedCrossings.
+    """
+    from collections import deque
+
+    reached = [False] * (grid.width * grid.height)
+    start = start_y * grid.width + start_x
+    reached[start] = True
+    queue = deque([start])
+
+    while queue:
+        x, y = grid.to_coords(queue.popleft())
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                if not grid.is_passable(x + dx, y + dy):
+                    continue
+                nxt = (y + dy) * grid.width + (x + dx)
+                if reached[nxt]:
+                    continue
+                reached[nxt] = True
+                queue.append(nxt)
+
+    for i in range(grid.width * grid.height):
+        if int(grid.tiles[i]) == FORD and not reached[i]:
+            grid.tiles[i] = WATER
 
 
 def _sink_the_channel(grid: TileGrid) -> None:

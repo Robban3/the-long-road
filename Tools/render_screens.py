@@ -580,7 +580,7 @@ def corner_color(grid: A.TileGrid, cx: int, cy: int) -> np.ndarray:
     if ford:
         return deep if water * 2 > tiles else dry
 
-    share = water / tiles
+    share = min(max(water / tiles + _wander(cx, cy, 0x5F3A) * SHORE_WOBBLE, 0.0), 1.0)
     return dry * (1.0 - share) + deep * share
 
 
@@ -622,6 +622,22 @@ WaterMeshBuilder.Inset. A river on a four-metre grid is a run of squares, and a 
 that steps in right angles reads as pixel art. Corners are shared, so both sides of
 every edge move together and the sheet stays continuous.
 """
+
+
+WATER_WOBBLE = 0.125
+"""How far a water corner may wander, as a share of a tile. WaterMeshBuilder.Wobble."""
+
+SHORE_WOBBLE = 0.17
+"""And the same on the plan map's colour boundary. TerrainMeshBuilder.Wobble."""
+
+
+def _wander(cx: int, cy: int, salt: int) -> float:
+    """A deterministic offset in -1..1 for a grid corner. The hash the tint uses."""
+    h = ((cx * 73856093) ^ (cy * 19349663) ^ salt) & 0xFFFFFFFF
+    h ^= h >> 13
+    h = (h * 1274126177) & 0xFFFFFFFF
+    h ^= h >> 16
+    return (h & 0xFFFF) / 32767.5 - 1.0
 
 
 def _wet(terrain: int) -> bool:
@@ -666,6 +682,8 @@ def build_water(grid: A.TileGrid, height_scale: float):
             pull = WATER_INSET[wet]
             px += toward_x / wet * pull * A.TILE_SIZE
             pz += toward_z / wet * pull * A.TILE_SIZE
+            px += _wander(cx, cy, 0x9E37) * WATER_WOBBLE * A.TILE_SIZE
+            pz += _wander(cx, cy, 0x85EB) * WATER_WOBBLE * A.TILE_SIZE
 
         corners[key] = len(vertices)
         vertices.append(np.array([px, lowest + WATER_SURFACE_DEPTH, pz]))

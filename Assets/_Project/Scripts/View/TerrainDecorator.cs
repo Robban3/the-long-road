@@ -1043,22 +1043,91 @@ namespace TheVeil.View
         static int PlaceFords(Transform parent, TileGrid grid, DeterministicRandom rng,
                               BiomeDecor decor, HashSet<int> occupied, float heightScale)
         {
-            if (!decor.Fords.Any) return 0;
-
-            int placed = 0;
-            var bridges = new List<int>();
+            var crossings = new List<int>();
 
             for (int i = 0; i < grid.TileCount; i++)
             {
                 if (grid[i] != TerrainType.Ford) continue;
                 if (occupied.Contains(i)) continue;
 
-                // One per crossing. A ford is several tiles wide and a bridge on each of
-                // them is a pier, not a crossing.
-                if (!Apart(grid, i, bridges, 4f)) continue;
-                bridges.Add(i);
+                // One entry per crossing. A ford is several tiles wide, and treating each
+                // of its tiles as a crossing of its own builds a pier.
+                if (!Apart(grid, i, crossings, 4f)) continue;
+                crossings.Add(i);
+            }
 
-                if (Bridge(parent, grid, rng, decor, i, heightScale, occupied)) placed++;
+            if (crossings.Count == 0) return 0;
+
+            int placed = 0;
+
+            // One bridge on the level, and the dice choose which crossing gets it.
+            //
+            // Every crossing used to get one, which made three bridges a level and a
+            // built structure the ordinary case. A bridge is somebody's work: it should
+            // be the exception, and where it happens to stand is worth something in
+            // itself. Sometimes it is the crossing the enemies are watching, sometimes
+            // one nobody has any reason to go near, and the player cannot know which
+            // until they look — the placer is not consulted and deliberately so.
+            //
+            // Drawn from the level's own stream, so a seed is still a level.
+            if (decor.Fords.Any &&
+                Bridge(parent, grid, rng, decor, crossings[rng.Range(0, crossings.Count)],
+                       heightScale, occupied))
+                placed++;
+
+            // And every other crossing is what a ford actually is: stones in shallow
+            // water. The gravel bar is already level with the banks — LevelTheCrossings
+            // raises it — so the sheet runs thin over it and the bed shows through. What
+            // was missing is the reason it reads as a place to cross rather than as
+            // river that happens to be paler.
+            placed += PlaceSteppingStones(parent, grid, rng, decor, occupied, heightScale);
+
+            return placed;
+        }
+
+        /// <summary>How wide a stepping stone is, in metres.</summary>
+        // Knee height on a wagon's wheel. Big enough to break the water, small enough
+        // that a line of them reads as a crossing rather than as a dam.
+        public const float SteppingStoneSize = 1.1f;
+
+        /// <summary>
+        /// Marks the crossings that have no bridge with stone.
+        ///
+        /// A ford is passable water and it has never looked like anything: the same blue
+        /// as the river, a little paler because the bar under it is higher. A player
+        /// looking for somewhere to cross had nothing to look *at*.
+        ///
+        /// Stones, from the shore set the waterline already uses, so the pack's own
+        /// river-worn piles do the work rather than generic scatter. Laid on the ford
+        /// tiles themselves, which is where somebody putting them there would have laid
+        /// them.
+        /// </summary>
+        static int PlaceSteppingStones(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                       BiomeDecor decor, HashSet<int> occupied, float heightScale)
+        {
+            var stones = decor.Shore.Any ? decor.Shore : decor.Rocks;
+            if (!stones.Any) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] != TerrainType.Ford) continue;
+
+                // The bridge claimed its own tiles on the way in, so this cannot strew
+                // stones across a roadway.
+                if (occupied.Contains(i)) continue;
+
+                int pile = 2 + rng.Range(0, 3);
+
+                for (int s = 0; s < pile; s++)
+                {
+                    var choice = new Choice(stones, Any(stones, rng), SteppingStoneSize,
+                                            byWidth: true);
+
+                    if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.5f))
+                        placed++;
+                }
             }
 
             return placed;

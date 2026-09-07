@@ -510,7 +510,31 @@ namespace TheVeil.View
             if (water == 0) return dry;
             if (ford) return water * 2 > tiles ? deep : dry;
 
-            return Color.Lerp(dry, deep, (float)water / tiles);
+            // And a wander on the share, so the waterline is not a ruled line. The inset
+            // knocks the corners off a staircase; it cannot make a straight run of river
+            // crooked, and a river drawn on a four-metre grid has long straight runs.
+            //
+            // Deterministic from the corner, like the tint below it: a seed is a level,
+            // and a coast that reshaped itself on every load would be worse than a
+            // straight one.
+            float share = Mathf.Clamp01((float)water / tiles + Wander(cornerX, cornerY) * Wobble);
+            return Color.Lerp(dry, deep, share);
+        }
+
+        /// <summary>How far the waterline may wander, as a share of a corner. A sixth.</summary>
+        const float Wobble = 0.17f;
+
+        /// <summary>A deterministic offset in -1..1 for a grid corner. The hash Tint uses.</summary>
+        static float Wander(int cornerX, int cornerY)
+        {
+            unchecked
+            {
+                uint h = (uint)((cornerX * 73856093) ^ (cornerY * 19349663) ^ 0x5F3A);
+                h ^= h >> 13;
+                h *= 1274126177u;
+                h ^= h >> 16;
+                return (h & 0xFFFF) / 32767.5f - 1f;
+            }
         }
 
         /// <summary>How deep a riverbed sits below the ground around it.</summary>
