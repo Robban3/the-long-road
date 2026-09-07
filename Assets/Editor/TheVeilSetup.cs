@@ -567,10 +567,18 @@ namespace TheVeil.Editor
 
                 // The marsh gets the swamp trees as well as the bare dead ones. A fen
                 // with nothing but grey sticks in it is a diagram of a fen.
+                //
+                // All of the pack's swamp trees now, not most of them. Five of the
+                // fifteen swamp models went unloaded — a fourth tree, a second branch,
+                // a second stump and both of the Trees folder's root sprawls — which is
+                // a third of the kit sitting in the project doing nothing. A marsh drawn
+                // from three trees repeats visibly at the density these are scattered at.
                 DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
                                   "SM_Tree_Pine_Dead_01", "SM_Tree_Generic_Dead_01",
                                   "SM_Tree_Swamp_01", "SM_Tree_Swamp_02", "SM_Tree_Swamp_03",
-                                  "SM_Tree_Swamp_Branch_01", "SM_Tree_Swamp_Stump_01"),
+                                  "SM_Tree_Swamp_04",
+                                  "SM_Tree_Swamp_Branch_01", "SM_Tree_Swamp_Branch_02",
+                                  "SM_Tree_Swamp_Stump_01", "SM_Tree_Swamp_Stump_02"),
 
                 // The layer between the grass and the trees. Without it a forest is
                 // trunks standing in a lawn, which is what the old one was.
@@ -631,6 +639,16 @@ namespace TheVeil.Editor
                         "SM_Swamp_Root_01", "SM_Swamp_Root_02",
                         "SM_Terrain_Swamp_Growth_01", "SM_Terrain_Swamp_Growth_02",
                         "SM_Terrain_Swamp_Growth_03"
+                    }),
+
+                    // And the two root sprawls the pack files under Trees rather than
+                    // Terrain. They are ground clutter whatever folder they sit in — the
+                    // same thing as SM_Swamp_Root_01 above, which is in this set already
+                    // — and the split is the pack's filing, not a statement about what
+                    // they are. Loading them here is the only reason they are used at all.
+                    Load($"{SyntyNatureDir}/Trees", new[]
+                    {
+                        "SM_Tree_Swamp_Root_01", "SM_Tree_Swamp_Root_02"
                     })),
 
                 // Back on the water, and back in their own set. Note the pack's own
