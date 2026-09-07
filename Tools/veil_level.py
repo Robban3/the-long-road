@@ -208,12 +208,29 @@ class TileGrid:
         return self.in_bounds(x, y) and PASSABLE[int(self.tiles[y * self.width + x])]
 
     def corner_elevation(self, cx: int, cy: int) -> float:
+        """Height at a tile corner, averaged from the tiles that meet there.
+
+        A crossing is a causeway, so its corners belong to the causeway. A ford raised
+        to the height of its banks still has river tiles in every corner it shares with
+        the channel, and the average drags the crossing back down until the ground sags
+        into the water in the middle of the bridge. Where a ford is one of the four, the
+        river is left out. Ported from TileGrid.CornerElevation.
+        """
+        crossing = False
+        for dy in (-1, 0):
+            for dx in (-1, 0):
+                x, y = cx + dx, cy + dy
+                if self.in_bounds(x, y) and self.at(x, y) == FORD:
+                    crossing = True
+
         total = 0.0
         count = 0
         for dy in (-1, 0):
             for dx in (-1, 0):
                 x, y = cx + dx, cy + dy
                 if not self.in_bounds(x, y):
+                    continue
+                if crossing and self.at(x, y) == WATER:
                     continue
                 total += float(self.elevation[y * self.width + x])
                 count += 1
@@ -1837,6 +1854,59 @@ def _carve_rivers(grid: TileGrid, recipe: LevelRecipe, rng: DeterministicRandom)
         for tile in path:
             grid.tiles[tile] = WATER
         _place_fords(grid, path, max(1, recipe.fords_per_river))
+
+    _sink_the_channel(grid)
+    _level_the_crossings(grid)
+
+
+CHANNEL_DEPTH = 0.1
+"""How far below its banks a river's bed lies, as a share of the height field.
+
+A tenth, which the run's fourteen metres of relief make about 1.4 m. Ported from
+TerrainGenerator.ChannelDepth.
+"""
+
+
+def _sink_the_channel(grid: TileGrid) -> None:
+    """Digs the riverbed.
+
+    Without it a water tile keeps whatever height the noise field gave the meadow
+    beside it, and the surface is laid above that — a blue film on a green field
+    rather than a river. Cut before the crossings are levelled, because a ford is
+    defined against its banks and has to be raised back afterwards.
+    """
+    for i in range(grid.width * grid.height):
+        if int(grid.tiles[i]) == WATER:
+            grid.elevation[i] -= CHANNEL_DEPTH
+
+
+def _level_the_crossings(grid: TileGrid) -> None:
+    """Raises every ford to the height of the banks it joins.
+
+    A ford is not a hole in the river, it is the shallow place: a bar of gravel level
+    with the banks, which is why anything can cross there at all. Ported from
+    TerrainGenerator.LevelTheCrossings.
+    """
+    for i in range(grid.width * grid.height):
+        if int(grid.tiles[i]) != FORD:
+            continue
+
+        x, y = grid.to_coords(i)
+        total = 0.0
+        banks = 0
+
+        for dy in range(-2, 3):
+            for dx in range(-2, 3):
+                nx, ny = x + dx, y + dy
+                if not grid.in_bounds(nx, ny):
+                    continue
+                if grid.at(nx, ny) in (WATER, FORD):
+                    continue
+                total += float(grid.elevation[ny * grid.width + nx])
+                banks += 1
+
+        if banks:
+            grid.elevation[i] = total / banks
 
 
 def _meander_south(grid: TileGrid, start_x: int, end_x: int,

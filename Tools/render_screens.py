@@ -532,10 +532,22 @@ def corner_height(grid: A.TileGrid, cx: int, cy: int, height_scale: float) -> fl
 
 
 def corner_color(grid: A.TileGrid, cx: int, cy: int) -> np.ndarray:
-    """Ground colour at a corner: averaged, except water, which needs a majority."""
+    """Ground colour at a corner: averaged, with water taking its share.
+
+    Water used to take a corner on a strict majority and nothing else, so the whole
+    bank happened across the one tile between a blue corner and a dry one — four
+    metres, about seven pixels of plan, which is a cut edge rather than a shoreline.
+    The corner now takes the water's share of the tiles meeting there, so the bank
+    spans two tiles and a diagonal river loses its outside corners.
+
+    Except where a ford meets the corner, which keeps the strict rule: a ford is one to
+    three tiles wide with open water alongside every corner, and a share-based blend
+    would wash half the crossing in river blue and hide the one thing the player is
+    looking for. Ported from TerrainMeshBuilder.CornerColor.
+    """
     total = np.zeros(3)
     tiles = water = 0
-    road = False
+    road = ford = False
 
     for dy in (-1, 0):
         for dx in (-1, 0):
@@ -549,15 +561,27 @@ def corner_color(grid: A.TileGrid, cx: int, cy: int) -> np.ndarray:
                 continue
             if terrain == A.ROAD:
                 road = True
+            if terrain == A.FORD:
+                ford = True
             total += GROUND_COLORS[terrain]
 
     if tiles == 0:
         return np.zeros(3)
     if road:
         return GROUND_COLORS[A.ROAD]
-    if water * 2 > tiles:
-        return GROUND_COLORS[A.WATER]
-    return total / (tiles - water)
+
+    deep = GROUND_COLORS[A.WATER]
+    if water == tiles:
+        return deep
+
+    dry = total / (tiles - water)
+    if water == 0:
+        return dry
+    if ford:
+        return deep if water * 2 > tiles else dry
+
+    share = water / tiles
+    return dry * (1.0 - share) + deep * share
 
 
 def _tint(color: np.ndarray, cx: int, cy: int) -> np.ndarray:
@@ -578,6 +602,121 @@ def corner_normal(grid: A.TileGrid, cx: int, cy: int, height_scale: float) -> np
     north = corner_height(grid, cx, cy + 1, height_scale)
     n = np.array([(west - east) * 0.5, A.TILE_SIZE, (south - north) * 0.5])
     return n / np.linalg.norm(n)
+
+
+# --- The water surface -----------------------------------------------------------
+
+WATER_SURFACE = np.array([0.16, 0.34, 0.46])
+"""WaterMeshBuilder.Surface's colour: standing water seen from above."""
+
+WATER_ALPHA = 0.80
+"""And its alpha. The bed shows through in the shallows, which is what makes it water."""
+
+WATER_SURFACE_DEPTH = 0.35
+"""WaterMeshBuilder.Depth: how far the sheet sits above the bed of its shallowest tile."""
+
+WATER_INSET = (0.0, 0.55, 0.25, 0.12, 0.0)
+"""How far a corner is drawn in toward the water, by how many of its four tiles are wet.
+
+WaterMeshBuilder.Inset. A river on a four-metre grid is a run of squares, and a bank
+that steps in right angles reads as pixel art. Corners are shared, so both sides of
+every edge move together and the sheet stays continuous.
+"""
+
+
+def _wet(terrain: int) -> bool:
+    """A ford is a shallow place in a river, not a hole in it."""
+    return terrain in (A.WATER, A.FORD)
+
+
+def build_water(grid: A.TileGrid, height_scale: float):
+    """The river surface as WaterMeshBuilder builds it: one sheet, corners shared.
+
+    Not drawn at all until now, which is why none of the rounding was visible here.
+    """
+    corners = {}
+    vertices, normals = [], []
+
+    def corner(cx: int, cy: int) -> int:
+        key = cy * (grid.width + 1) + cx
+        if key in corners:
+            return corners[key]
+
+        lowest = math.inf
+        toward_x = toward_z = 0.0
+        wet = 0
+
+        for dy in (-1, 0):
+            for dx in (-1, 0):
+                tx, ty = cx + dx, cy + dy
+                if not grid.in_bounds(tx, ty) or not _wet(grid.at(tx, ty)):
+                    continue
+                bed = grid.surface_elevation((tx + 0.5) * A.TILE_SIZE,
+                                             (ty + 0.5) * A.TILE_SIZE) * height_scale
+                lowest = min(lowest, bed)
+                toward_x += dx + 0.5
+                toward_z += dy + 0.5
+                wet += 1
+
+        if lowest == math.inf:
+            lowest = 0.0
+
+        px, pz = cx * A.TILE_SIZE, cy * A.TILE_SIZE
+        if wet:
+            pull = WATER_INSET[wet]
+            px += toward_x / wet * pull * A.TILE_SIZE
+            pz += toward_z / wet * pull * A.TILE_SIZE
+
+        corners[key] = len(vertices)
+        vertices.append(np.array([px, lowest + WATER_SURFACE_DEPTH, pz]))
+        normals.append(np.array([0.0, 1.0, 0.0]))
+        return corners[key]
+
+    triangles = []
+    for y in range(grid.height):
+        for x in range(grid.width):
+            if not _wet(grid.at(x, y)):
+                continue
+            a = corner(x, y)
+            b = corner(x + 1, y)
+            c = corner(x + 1, y + 1)
+            d = corner(x, y + 1)
+            triangles.append([a, d, c])
+            triangles.append([a, c, b])
+
+    if not triangles:
+        return None
+
+    v = np.array(vertices)
+    return (v, np.array(triangles, int),
+            np.tile(WATER_SURFACE, (len(v), 1)), np.array(normals),
+            np.ones(len(v)))
+
+
+def lay_water(image: np.ndarray, opaque: Frame, camera: Camera, grid: A.TileGrid,
+              height_scale: float, sun, sun_color, sun_intensity, shadow_of,
+              shadow_strength, background, fog) -> np.ndarray:
+    """Blends the surface over the shaded scene where it is nearer than the ground.
+
+    A pass of its own rather than another mesh in the opaque one: the sheet is
+    transparent, and an opaque z-buffer would punch a hole in the riverbed instead of
+    letting it show through.
+    """
+    built = build_water(grid, height_scale)
+    if built is None:
+        return image
+
+    vertices, triangles, colors, normals, material = built
+
+    sheet = Frame(opaque.width, opaque.height)
+    rasterise(sheet, camera, vertices, triangles, colors, normals, material)
+
+    lit = shade(sheet, sun, sun_color, sun_intensity, shadow_of(sheet.world),
+                shadow_strength, background, fog, camera)
+
+    over = sheet.covered & (sheet.depth < opaque.depth)
+    a = (over * WATER_ALPHA)[..., None]
+    return image * (1.0 - a) + lit * a
 
 
 def build_terrain(mesh: Mesh, level: A.LevelMap, height_scale: float,
@@ -1812,11 +1951,17 @@ def render_play(level: A.LevelMap, corridor: A.Corridor, progress: float = 0.45,
     rasterise(frame, camera, vertices, triangles, colors, normals, material)
 
     sun = euler_forward(38.0, -52.0)
-    shadow = cast_shadows(_scene_bounds(level, height_scale), sun, vertices, triangles)(
-        frame.world)
+    shadow_of = cast_shadows(_scene_bounds(level, height_scale), sun, vertices, triangles)
 
-    image = shade(frame, sun, np.array([1.0, 0.96, 0.88]), 1.0, shadow, 0.7,
-                  SKY_COLOR, (70.0, 520.0), camera)
+    sun_color, fog = np.array([1.0, 0.96, 0.88]), (70.0, 520.0)
+    image = shade(frame, sun, sun_color, 1.0, shadow_of(frame.world), 0.7,
+                  SKY_COLOR, fog, camera)
+
+    # And the river over it. Transparent, so it goes on after the ground is shaded
+    # rather than into the same z-buffer — see lay_water.
+    image = lay_water(image, frame, camera, grid, height_scale,
+                      sun, sun_color, 1.0, shadow_of, 0.7, SKY_COLOR, fog)
+
     return _to_image(image), caravan
 
 
@@ -1914,7 +2059,11 @@ def main() -> None:
 
     os.makedirs(args.out, exist_ok=True)
     seed = A.DeterministicRandom.seed_for(args.chapter, args.level)
-    level = A.generate(A.LevelRecipe(), seed)
+    # The chapter's own recipe, as LevelMaps.For does it. A bare LevelRecipe asks
+    # for different terrain, and TerrainGenerator keeps the first field that
+    # satisfies the recipe — so two recipes accept different attempts and the
+    # picture is of a level nobody has played.
+    level = A.generate(A.ChapterRecipe().for_level(args.level), seed)
 
     print(f"[The Veil] {args.chapter}-{args.level} (seed {seed}): "
           f"fastest {level.fastest_route_cost:.1f}, "
