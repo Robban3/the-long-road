@@ -1009,6 +1009,24 @@ def _tilt(segments: int = 9):
     return vertices, np.array(triangles)
 
 
+def _wheel(segments: int = 8):
+    """A cylinder laid on its side: a wheel, centred on its hub, axle along x.
+
+    There is no other way to get one. `_transform` yaws and nothing else — it has no
+    pitch and no roll, because every other thing in this scene stands upright and only
+    needs turning. So `_add(CYLINDER, ..., yaw + 90, ...)` does not tip a cylinder over;
+    it spins a flat disc about the vertical axis and leaves it lying flat. That is what
+    the caravan has been rolling on.
+
+    A rotation about z rather than a swap of axes, so the winding survives: swapping two
+    axes mirrors the solid and turns its normals inward, and an inside-out wheel is lit
+    from the wrong side.
+    """
+    vertices, triangles = _outward(_cylinder(segments))
+    turned = np.stack([vertices[:, 1] - 0.5, -vertices[:, 0], vertices[:, 2]], axis=1)
+    return turned, triangles
+
+
 def _quad_cross():
     """Two crossed quads: a tuft of grass seen from any angle."""
     v = np.array([
@@ -1050,6 +1068,7 @@ BOX = _box()
 ROCK = _outward(_rock())
 TUFT = _quad_cross()
 TILT = _tilt()
+WHEEL = _wheel()
 
 
 # Crows (docs/GDD.md §3.5). One metre across, so 12 to 20 pixels in the play view and
@@ -1397,8 +1416,41 @@ def build_prop(mesh: Mesh, prop: A.Prop) -> None:
                  prop.yaw + 90, base + np.array([dx * size, size * 0.12, dz * size]))
 
 
+WAGON_HEIGHT = 3.2
+"""VisualLibrary.WagonHeight: a wagon to the top of its hood.
+
+Copied here because the picture is worthless if it disagrees. The stand-in built below
+stood 1.93 m for a long time while the game fitted every wagon to 3.2 — so beside a
+1.85 m trooper the caravan came out 1.04 times a man, which is a handcart. That is the
+exact mistake VisualLibrary's own comment warns about, and these pictures have been
+telling it back to me: how the wagons sit on a bridge, how they read against the troops,
+whether they look right in a ford, all judged from a cart at 60% size.
+"""
+
+WAGON_LENGTH = 6.5
+"""And its length, from the same comment: a covered wagon fitted to 3.2 m is about this.
+
+The wagons trail eight metres apart (Sim.Caravan.WagonSpacing), so at 6.5 the column is
+nearly continuous — which is what a caravan should look like and what the old 4.65 m
+stand-in did not.
+"""
+
+WAGON_WIDTH = 2.5
+"""Wide enough that the deck of a bridge has to be built for it. See BridgeDeck."""
+
+
 def build_wagon(mesh: Mesh, position, ground_y: float, heading, kind: int) -> None:
-    """A bed, a canvas over hoops and four wheels — the shape Tools/wagon.py builds.
+    """A bed on four wheels under a canvas hood, at the size the game gives it.
+
+    Built from WAGON_HEIGHT down rather than from a set of loose numbers: the hood's top
+    is the height, the wheels stand on the ground, and everything between is a share of
+    the two. Written that way because the previous version was neither — it stood 1.93 m
+    against a game that fits wagons to 3.2, and nothing in it said what it was supposed
+    to be, so the disagreement could sit there through every picture I have sent.
+
+    The wheels are upright now. They were flat discs lying under the bed: the call asked
+    for `yaw + 90` to tip them over, and `_transform` has no pitch — it yaws, and only
+    yaws. A disc spun about the vertical axis is the same disc. See `_wheel`.
 
     The treasure wagon is a different colour on purpose: the player is meant to see at a
     glance which cart holds the loot, because damage to that one costs them the reward.
@@ -1408,20 +1460,40 @@ def build_wagon(mesh: Mesh, position, ground_y: float, heading, kind: int) -> No
     color = WAGON_COLORS[kind]
     canvas = color if kind == A.TREASURE else CANVAS
 
-    _add(mesh, BOX, WOOD, (1.7, 0.34, 3.2), yaw, base + np.array([0.0, 0.86, 0.0]))
-    _add(mesh, BOX, WOOD * 1.15, (1.85, 0.12, 3.3), yaw, base + np.array([0.0, 1.14, 0.0]))
-    _add(mesh, TILT, canvas, (1.85, 1.15, 3.0), yaw, base + np.array([0.0, 1.2, 0.0]))
-    # The draught pole, so the cart has a front.
-    _add(mesh, BOX, WOOD, (0.14, 0.14, 1.6), yaw,
-         base + _transform(np.array([[0.0, 0.0, 2.2]]), np.ones(3), yaw, np.zeros(3))[0]
-         + np.array([0.0, 0.7, 0.0]))
+    def at(x, z):
+        """A point in the wagon's own frame, turned to its heading and set on the ground."""
+        return base + _transform(np.array([[x, 0.0, z]]), np.ones(3), yaw, np.zeros(3))[0]
 
-    for dx, dz, radius in ((-0.95, -1.15, 0.42), (0.95, -1.15, 0.42),
-                           (-0.95, 1.15, 0.60), (0.95, 1.15, 0.60)):
-        offset = _transform(np.array([[dx, 0.0, dz]]), np.ones(3), yaw, np.zeros(3))[0]
-        _add(mesh, CYLINDER, np.array([0.26, 0.18, 0.12]),
-             (radius * 2, 0.18, radius * 2), yaw + 90,
-             base + offset + np.array([0.0, radius, 0.0]))
+    # Rear wheels larger than front, as a cart's are: the front pair has to swing under
+    # the bed to steer.
+    rear, front = 0.75, 0.55
+
+    # The bed rides just clear of the larger axle, and the hood runs from the bed to the
+    # full height — so the top of the hood is WAGON_HEIGHT exactly, not near it.
+    floor = rear + 0.30
+    deck = 0.35
+    hood = WAGON_HEIGHT - (floor + deck)
+
+    body = WAGON_LENGTH * 0.80          # the bed; the rest is the draught pole
+    _add(mesh, BOX, WOOD, (WAGON_WIDTH * 0.84, deck, body), yaw,
+         base + np.array([0.0, floor, 0.0]))
+    _add(mesh, BOX, WOOD * 1.15, (WAGON_WIDTH * 0.92, 0.12, body * 1.02), yaw,
+         base + np.array([0.0, floor + deck - 0.06, 0.0]))
+    _add(mesh, TILT, canvas, (WAGON_WIDTH * 0.92, hood, body * 0.92), yaw,
+         base + np.array([0.0, floor + deck, 0.0]))
+
+    # The draught pole, so the cart has a front and something to hitch a team to.
+    _add(mesh, BOX, WOOD, (0.16, 0.16, WAGON_LENGTH * 0.24), yaw,
+         at(0.0, body * 0.5) + np.array([0.0, front * 0.9, 0.0]))
+
+    # Upright, on the ground, and set at the ends of the bed rather than under its
+    # middle — a wheelbase shorter than the body is a barrow.
+    hub = WAGON_WIDTH * 0.5 - 0.12
+    for dx, dz, radius in ((-hub, -body * 0.34, rear), (hub, -body * 0.34, rear),
+                           (-hub, body * 0.36, front), (hub, body * 0.36, front)):
+        _add(mesh, WHEEL, np.array([0.26, 0.18, 0.12]),
+             (0.18, radius * 2, radius * 2), yaw,
+             at(dx, dz) + np.array([0.0, radius, 0.0]))
 
 
 def build_figure(mesh: Mesh, position, ground_y: float, body: np.ndarray,
