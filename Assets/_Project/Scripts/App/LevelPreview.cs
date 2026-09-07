@@ -53,6 +53,23 @@ namespace TheVeil.App
         public float HeightScale = 22f;
 
         /// <summary>
+        /// The water's material, when a package's is to be used instead of the project's.
+        ///
+        /// Empty is the normal state and keeps Shaders/Water.shader. Fill it with a
+        /// material from a water package — bought or free — and the river uses that
+        /// instead, with no code change and nothing to compile: the mesh already carries
+        /// the depth in its vertex colours and has tangents, which is what such a shader
+        /// wants to read.
+        ///
+        /// A slot rather than a shader name on purpose. A shader looked up by name at
+        /// runtime is stripped from a player build unless it is also registered in the
+        /// graphics settings, so it works in the editor and turns magenta on the phone;
+        /// a material a scene refers to cannot be stripped. See
+        /// TheVeil.View.WaterMeshBuilder.Material.
+        /// </summary>
+        public Material WaterMaterial;
+
+        /// <summary>
         /// Denser than the play view. A map is read at a glance from far above, where
         /// scattered individual trees disappear; a forest has to look like a forest at
         /// map scale or the player cannot tell it from a meadow.
@@ -1428,6 +1445,7 @@ namespace TheVeil.App
             int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
                 maxProps: MaxProps, densityScale: DensityScale,
+                waterMaterial: WaterMaterial,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
                 campSites: CampSignal.Tiles(map), travelled: Travelled(map),
                 found: _landmarks,

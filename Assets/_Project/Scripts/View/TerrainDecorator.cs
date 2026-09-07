@@ -837,7 +837,8 @@ namespace TheVeil.View
                                    List<Landmark> found = null,
                                    int goalTile = -1,
                                    float minimumLandmark = 0f,
-                                   float landmarkScale = 1f)
+                                   float landmarkScale = 1f,
+                                   Material waterMaterial = null)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -946,7 +947,7 @@ namespace TheVeil.View
             // The water goes on last, over everything laid on its bed. Nothing claims
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
-            placed += PlaceWater(parent, grid, heightScale);
+            placed += PlaceWater(parent, grid, heightScale, waterMaterial);
             placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale, road);
             placed += PlaceWillows(parent, grid, rng, decor, occupied, heightScale,
                                    densityScale, road);
@@ -1008,8 +1009,14 @@ namespace TheVeil.View
         /// <c>decor.Water</c> is no longer read. A water prefab is a flat square with a
         /// shader from another pipeline on it, and neither half of that survived contact
         /// with this map.
+        ///
+        /// <paramref name="waterMaterial"/> is the one thing about the water a scene gets
+        /// to decide, and it is there so a bought or downloaded water package can be tried
+        /// without a code change — the mesh already carries the depth such a package wants
+        /// to read. Null keeps the project's own shader. See WaterMeshBuilder.Material.
         /// </summary>
-        static int PlaceWater(Transform parent, TileGrid grid, float heightScale)
+        static int PlaceWater(Transform parent, TileGrid grid, float heightScale,
+                              Material waterMaterial)
         {
             var mesh = WaterMeshBuilder.Build(grid, TileGrid.TileSize, heightScale);
             if (mesh == null) return 0;
@@ -1026,7 +1033,7 @@ namespace TheVeil.View
             surface.AddComponent<MeshFilter>().sharedMesh = mesh;
 
             var renderer = surface.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = WaterMeshBuilder.Material();
+            renderer.sharedMaterial = WaterMeshBuilder.Material(waterMaterial);
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             return 1;

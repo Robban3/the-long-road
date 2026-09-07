@@ -53,6 +53,23 @@ namespace TheVeil.App
         [Range(200, 4000)] public int MaxProps = 2200;
 
         /// <summary>
+        /// The water's material, when a package's is to be used instead of the project's.
+        ///
+        /// Empty is the normal state and keeps Shaders/Water.shader. Fill it with a
+        /// material from a water package — bought or free — and the river uses that
+        /// instead, with no code change and nothing to compile: the mesh already carries
+        /// the depth in its vertex colours and has tangents, which is what such a shader
+        /// wants to read.
+        ///
+        /// A slot rather than a shader name on purpose. A shader looked up by name at
+        /// runtime is stripped from a player build unless it is also registered in the
+        /// graphics settings, so it works in the editor and turns magenta on the phone;
+        /// a material a scene refers to cannot be stripped. See
+        /// TheVeil.View.WaterMeshBuilder.Material.
+        /// </summary>
+        public Material WaterMaterial;
+
+        /// <summary>
         /// What every landmark's own size is multiplied by in the run.
         ///
         /// 1.6, and it is measured rather than nudged. A house is built at six metres
@@ -285,6 +302,7 @@ namespace TheVeil.App
             // that said nothing — which is the half where the signal was meant to work.
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
+                waterMaterial: WaterMaterial,
                 ruinSites: TrapSigns.Sites(map),
                 driveLine: _run.Caravan.Sweep(TerrainDecorator.DriveHalfWidth),
                 campSites: CampSignal.Tiles(map), driveMargin: 0,

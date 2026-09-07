@@ -621,6 +621,17 @@ WATER_SHALLOW_ALPHA = 0.42
 WATER_FOAM = np.array([0.86, 0.92, 0.94])
 """Shaders/Water.shader's _FoamColor: the line along the waterline."""
 
+WATER_RIPPLE = 0.18
+"""Shaders/Water.shader's _RippleDepth: how much a crest lightens the surface."""
+
+WATER_RIPPLE_SCALE = 16.0
+"""_RippleScale: the ripple's length in metres, and the number that decides the count.
+
+Two crossing waves of 2.5 and 4 m — what this was — make a lattice with a two-metre
+pitch: one crest across a four-metre brook, twelve to twenty-five across a fifty-metre
+river. Sixteen metres puts three to five on the widest water the generator makes.
+"""
+
 WATER_FOAM_WIDTH = 0.40
 """_FoamWidth, in normalised depth rather than in metres along the ground.
 
@@ -814,15 +825,29 @@ def lay_water(image: np.ndarray, opaque: Frame, camera: Camera, grid: A.TileGrid
     span = WATER_SURFACE - WATER_SHALLOW
     t = np.clip((sheet.albedo - WATER_SHALLOW) @ span / (span @ span), 0.0, 1.0)
 
+    # Ripples, frozen at time zero, exactly as the shader sums them. Their movement is
+    # the point of them and a stillframe cannot show it — but their *number* is what
+    # went wrong on the wide rivers, and a stillframe shows that perfectly. Drawing them
+    # here is the only way to count them without opening Unity.
+    #
+    # The swell in the vertex stage and the sun glitter are still not drawn: both need
+    # the surface to move to read as anything, and neither changes the count.
+    k = 2.0 * math.pi / WATER_RIPPLE_SCALE
+    along = sheet.world[..., 0] * 0.94 + sheet.world[..., 2] * 0.34
+    across = sheet.world[..., 0] * 0.82 + sheet.world[..., 2] * 0.57
+    crest = np.clip(np.sin(along * k) * 0.6 + np.sin(across * k / 0.68) * 0.4, 0.0, 1.0)
+
+    lit = lit + WATER_RIPPLE * (crest * crest * t)[..., None]
+
     # Foam where the depth runs out. Squared, so the band falls off toward the water
     # instead of ending in a hard line, and set in depth rather than in metres from the
     # bank — which is what puts a broad rim round a gravel bar and a thin line along a
     # cut bank without anything here knowing which is which.
     #
-    # Still water and a still picture: the wave crests that make this band surge, and
-    # the sun glitter on them, are in the shader and are not drawn here. They do not
-    # show in a stillframe anyway.
-    foam = np.clip(1.0 - t / WATER_FOAM_WIDTH, 0.0, 1.0) ** 2
+    # Its width breathes with the ripple, as in the shader, so the waterline surges
+    # rather than sitting there as a painted stripe.
+    edge = WATER_FOAM_WIDTH * (0.72 + 0.5 * crest)
+    foam = np.clip(1.0 - t / np.maximum(edge, 1e-3), 0.0, 1.0) ** 2
     lit = lit * (1.0 - foam)[..., None] + WATER_FOAM * foam[..., None]
 
     alpha = WATER_SHALLOW_ALPHA + (WATER_ALPHA - WATER_SHALLOW_ALPHA) * t

@@ -100,6 +100,18 @@ namespace TheVeil.View
         ///
         /// Normalised against DeepEnough so the shader works in 0..1 and the metres stay
         /// here, where they mean something.
+        ///
+        /// <b>The channel contract, for a bought material.</b> The depth goes in red,
+        /// green and blue alike, and alpha is left at one. Writing it three times was
+        /// incidental — it is one number and any channel would have done — but it is what
+        /// makes this mesh usable by a water package without touching the mesh: the
+        /// stylised water assets read foam and transparency weights off a vertex colour
+        /// channel, and whichever one a given package picks, it finds the depth there.
+        ///
+        /// What is not guaranteed is the *polarity*. Here one means deep. A package that
+        /// reads the channel as "how much foam" or "how transparent" wants the opposite,
+        /// and the fix is to write 1 - t here instead. That cannot be settled from
+        /// outside the editor, so it is written down rather than guessed at.
         /// </summary>
         static List<Color> Deeps(List<float> depths)
         {
@@ -207,6 +219,17 @@ namespace TheVeil.View
             mesh.SetColors(Deeps(depths));
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateNormals();
+
+            // Tangents, which our own shader does not read and every bought one does.
+            //
+            // Nothing here uses a normal map: the ripples are arithmetic. But a water
+            // package's whole look is its normal maps, and a mesh without tangents does
+            // not fail loudly when one is applied to it — the lighting simply comes out
+            // wrong, in a way that reads as a broken shader rather than as a missing
+            // line. One call, paid once at level build, and the mesh is ready for a
+            // material nobody has bought yet. See Material.
+            mesh.RecalculateTangents();
+
             mesh.RecalculateBounds();
 
             return mesh;
@@ -365,16 +388,35 @@ namespace TheVeil.View
         }
 
         /// <summary>
-        /// The water material: URP Lit, turned transparent in code.
+        /// The water material: whatever was put in the inspector, else the project's own
+        /// shader, else URP Lit turned transparent in code.
         ///
         /// Transparency on the Lit shader is four properties and a keyword rather than
         /// one flag, and setting the colour's alpha alone does nothing at all — which is
         /// how an opaque sheet went out looking like paint over the river.
         /// </summary>
-        public static Material Material()
+        public static Material Material(Material chosen = null)
         {
-            // The project's own water first: waves and drifting ripples, all of it on the
-            // GPU — see Shaders/Water.shader. Standing water reads as a painted floor
+            // A material somebody dropped in the inspector wins over everything below.
+            //
+            // <b>A slot rather than a shader name, and that is deliberate.</b> The obvious
+            // way to take a bought water package is another Shader.Find with its name in
+            // it — and a shader found by name at runtime is stripped from a player build
+            // unless it is also listed in GraphicsSettings' always-included shaders. That
+            // fails in the one place it is expensive to find out: it works in the editor
+            // and comes out magenta on the phone. This project has already been caught by
+            // it three times.
+            //
+            // A material a scene refers to is never stripped, because the build can see
+            // the reference. So the slot removes the failure rather than moving it, and
+            // it needs no name from a package nobody here can open.
+            //
+            // Instanced rather than used directly: the mesh is built per level and the
+            // asset in the project folder should not pick up whatever a run does to it.
+            if (chosen != null) return new Material(chosen) { name = "Water" };
+
+            // The project's own water otherwise: waves and drifting ripples, all of it on
+            // the GPU — see Shaders/Water.shader. Standing water reads as a painted floor
             // however good its colour is, and stock Lit has nothing on it that can move.
             var moving = Shader.Find("TheVeil/Water");
             if (moving != null)

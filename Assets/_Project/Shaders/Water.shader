@@ -41,7 +41,12 @@ Shader "TheVeil/Water"
 
         // And the ripples, which are what actually reads at that distance. Movement
         // along the surface tells the eye it is water; the swell alone does not.
-        _RippleDepth ("Ripple strength", Range(0, 1)) = 0.22
+        //
+        // The length is in metres and it is the number that matters: it decides how many
+        // crests a body of water carries, and a count that suits a brook is a gale on a
+        // river. See the fragment stage.
+        _RippleDepth ("Ripple strength", Range(0, 1)) = 0.18
+        _RippleScale ("Ripple length", Range(2, 60)) = 16.0
         _FlowSpeed   ("Flow speed", Range(0, 4)) = 1.1
 
         // Foam along the bank, measured in depth rather than in metres from the edge.
@@ -89,6 +94,7 @@ Shader "TheVeil/Water"
                 float _WaveScale;
                 float _WaveSpeed;
                 float _RippleDepth;
+                float _RippleScale;
                 float _FlowSpeed;
                 half4 _FoamColor;
                 float _FoamWidth;
@@ -175,12 +181,36 @@ Shader "TheVeil/Water"
                 half ndotl = saturate(dot(normal, sun.direction)) * 0.5 + 0.5;
                 half3 colour = body * ndotl * sun.color;
 
-                // Ripples: two fine bands drifting at different speeds and angles. Only
-                // the crests are kept — saturate throws the troughs away — so the surface
+                // Ripples: two long bands drifting at slightly different angles. Only the
+                // crests are kept — saturate throws the troughs away — so the surface
                 // lightens in moving streaks instead of pulsing as a whole.
+                //
+                // <b>The length is in metres now, and that was the whole fault.</b> These
+                // were two crossing waves of 2.5 and 4 metres multiplied together, which
+                // is a lattice with about a two-metre pitch. Across a brook four metres
+                // wide that is a single crest and reads as moving water; across a river
+                // fifty metres wide it is twelve to twenty-five, and reads as chop on a
+                // lake in a gale. Same shader, same numbers — which is exactly why the
+                // brooks looked right while the rivers did not.
+                //
+                // Sixteen metres puts three to five crests on the widest water the
+                // generator makes, which is a river with a current and not a sea.
                 float time = _Time.y * _FlowSpeed;
-                float crest = sin(dot(IN.positionWS.xz, float2(0.9, 0.42)) * 1.6 - time * 2.6)
-                            * sin(dot(IN.positionWS.xz, float2(-0.35, 1.0)) * 2.4 + time * 1.7);
+                float k = 6.28318 / max(_RippleScale, 0.01);
+
+                // Two directions fifteen degrees apart rather than at right angles, and
+                // summed rather than multiplied. Crossing them at ninety degrees builds a
+                // chequerboard; a narrow fan builds streaks running with the current,
+                // which is what the surface of a river actually does.
+                float along  = dot(IN.positionWS.xz, float2(0.94, 0.34));
+                float across = dot(IN.positionWS.xz, float2(0.82, 0.57));
+
+                // The drift rates come down with the length rather than staying put. A
+                // wave four times longer at the same angular rate travels four times
+                // faster, so keeping the old numbers here would have answered too much
+                // chop with a river running at walking pace.
+                float crest = sin(along * k - time * 0.43) * 0.6
+                            + sin(across * k / 0.68 + time * 0.47) * 0.4;
                 crest = saturate(crest);
 
                 colour += _RippleDepth * crest * crest * deep;
