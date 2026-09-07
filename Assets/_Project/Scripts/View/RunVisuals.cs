@@ -142,8 +142,35 @@ namespace TheVeil.View
                 ? System.Array.Empty<BridgeDeck>()
                 : props.GetComponentsInChildren<BridgeDeck>(true);
 
-            if (_bridges.Length > 0)
-                Debug.Log($"[The Veil] {_bridges.Length} bridge(s) found; the column rides over them.");
+            if (_bridges.Length == 0) return;
+
+            // What each one measured, not just that it is there.
+            //
+            // <b>GroundAt only lifts the column when deck > ground.</b> A bridge whose
+            // Measure found no meshes answers NaN and is skipped; one whose roadway came
+            // out at or below the bank is skipped too, and either way the caravan walks
+            // through it at ground level with nothing in the log to say why. That is
+            // exactly the failure that has been argued about from screenshots three
+            // times, and it costs one line to make it answer for itself.
+            var said = new System.Text.StringBuilder();
+            foreach (var bridge in _bridges)
+            {
+                if (bridge == null) continue;
+
+                var at = bridge.transform.position;
+                float ground = _grid == null || _heightScale <= 0f
+                    ? 0f
+                    : _grid.SurfaceElevation(at.x, at.z) * _heightScale;
+
+                said.Append(said.Length == 0 ? "" : ", ");
+                said.Append(float.IsNaN(bridge.Deck)
+                    ? "deck NOT MEASURED (no mesh)"
+                    : $"deck {bridge.Deck:0.00} m over ground {ground:0.00} m"
+                      + (bridge.Deck > ground ? "" : " — TOO LOW, the column walks through"));
+            }
+
+            Debug.Log($"[The Veil] {_bridges.Length} bridge(s) found; the column rides over "
+                      + $"them: {said}");
         }
 
         /// <summary>

@@ -977,6 +977,7 @@ namespace TheVeil.View
                                  found);
 
             Census(parent);
+            Tallest(parent);
 
             return placed;
         }
@@ -993,6 +994,61 @@ namespace TheVeil.View
         /// By prefab rather than by set, because the answer wanted is "that shape", and a
         /// shape has a name. Clone suffixes are trimmed so the counts add up.
         /// </summary>
+        /// <summary>
+        /// Measures everything big that was actually built, and says so.
+        ///
+        /// <b>Written because guessing at sizes from a screenshot has been wrong three
+        /// times.</b> Nothing outside Unity can see these models — every FBX in this
+        /// repository is a Git LFS pointer — so a constant can say a tower is eleven
+        /// metres while the thing on screen is a slab, and the only way to tell has been
+        /// to argue about a picture.
+        ///
+        /// Height *and* width, because the two faults so far were one of each: a tower
+        /// that was not too tall but far too broad, and a tent that reads as tiny for a
+        /// reason the arithmetic does not predict. Measured after fitting, so this is what
+        /// the player sees rather than what was asked for.
+        ///
+        /// Only what stands over MeasuredFrom, so the line is readable: nobody has ever
+        /// complained about a pebble.
+        /// </summary>
+        static void Tallest(Transform parent)
+        {
+            var biggest = new Dictionary<string, Vector2>();
+
+            foreach (Transform child in parent)
+            {
+                var bounds = ModelScaling.Measure(child.gameObject);
+                float high = bounds.size.y;
+                if (high < MeasuredFrom) continue;
+
+                string name = child.name;
+                int clone = name.IndexOf("(Clone)", System.StringComparison.Ordinal);
+                if (clone >= 0) name = name.Substring(0, clone);
+
+                float wide = Mathf.Max(bounds.size.x, bounds.size.z);
+
+                // The largest of each shape, because the complaint is always about the
+                // one that stands out, never about the median.
+                if (!biggest.TryGetValue(name, out var seen) || high > seen.x)
+                    biggest[name] = new Vector2(high, wide);
+            }
+
+            if (biggest.Count == 0) return;
+
+            var ranked = new List<KeyValuePair<string, Vector2>>(biggest);
+            ranked.Sort((a, b) => b.Value.x.CompareTo(a.Value.x));
+
+            var lines = new List<string>();
+            for (int i = 0; i < ranked.Count && i < 14; i++)
+                lines.Add($"{ranked[i].Key} {ranked[i].Value.x:0.0}x{ranked[i].Value.y:0.0} m");
+
+            Debug.Log($"[The Veil] Tallest built (height x width), against a wagon at "
+                      + $"{VisualLibrary.WagonHeight:0.0} m: {string.Join(", ", lines)}");
+        }
+
+        /// <summary>How tall a thing has to be to be worth reporting, in metres.</summary>
+        const float MeasuredFrom = 3f;
+
         static void Census(Transform parent)
         {
             var counts = new Dictionary<string, int>();
@@ -2870,7 +2926,26 @@ namespace TheVeil.View
             var standing = ModelScaling.Measure(building);
             float above = standing.max.y - surfaceY;
 
-            if (above > 0.0001f) building.transform.localScale *= height / above;
+            // <b>A width cap, which every other prop in this file has had and buildings
+            // never did.</b> Scatter fits its props with ModelScaling.FitWithin and a cap
+            // of size * SpreadLimit, precisely because fitting by height hands a model a
+            // width nobody asked for. Raise fits by height and nothing else.
+            //
+            // Which is worse here than anywhere, because what Raise fits is the height
+            // that *shows* — the model minus however far Seat buried it. Measured over
+            // chapter 1: a mountain pass falls 0.34 m at the median and 1.79 at the worst,
+            // so a tower is sunk 1.5 to 2.4 m before it is measured, and the factor that
+            // pushes its top back up to eleven metres is between 1.3 and 3.05 depending on
+            // how tall the model was to begin with. Every one of those multiplies the
+            // width too. That is the tower that is not tall but is enormously broad.
+            //
+            // The smaller demand wins, as it does in FitWithin: a building may be half
+            // again as wide as it is tall and no wider.
+            float byHeight = above > 0.0001f ? height / above : 1f;
+            float widest = Mathf.Max(standing.size.x, standing.size.z);
+            float byWidth = widest > 0.0001f ? height * SpreadLimit / widest : byHeight;
+
+            building.transform.localScale *= Mathf.Min(byHeight, byWidth);
 
             // Scaled before the lane is checked, because until it is scaled nobody knows
             // how much ground it covers — the same order Scatter uses, and for the same
