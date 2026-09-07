@@ -35,10 +35,122 @@ namespace TheVeil.View
         /// </summary>
         public const float Depth = 0.35f;
 
-        static readonly int BaseColourId = Shader.PropertyToID("_BaseColor");
+        /// <summary>
+        /// The thinnest the water may ever be, in metres.
+        ///
+        /// A floor under the levelled surface, so a bank whose bed happens to sit above
+        /// its neighbourhood does not leave the river showing dry ground where the map
+        /// says water. Ten centimetres: visible, and not a puddle standing on a hill.
+        /// </summary>
+        public const float Film = 0.1f;
 
-        /// <summary>The colour of standing water seen from above, with the depth to see into it.</summary>
-        public static readonly Color Surface = new Color(0.16f, 0.34f, 0.46f, 0.80f);
+        /// <summary>How far either way the bed is averaged to find the water's level, in tiles.</summary>
+        // Two. Enough to flatten a channel one to three tiles wide, short enough that the
+        // river still follows the valley it runs down.
+        const int Levelling = 2;
+
+        /// <summary>
+        /// The height the water stands at here: the bed, levelled.
+        ///
+        /// <b>This is what gives the river a depth at all.</b> The surface used to be the
+        /// lowest bed of the four tiles at a corner plus Depth, which makes it a
+        /// thirty-five centimetre film draped over the bottom — the same thickness in the
+        /// middle of the channel as at the edge, following every bump underneath. Water
+        /// does the opposite: the surface is level and the *depth* is what varies.
+        ///
+        /// Measured on levels 1 and 5, the bed falls 1.2 to 1.4 m across the channel and
+        /// only 0.3 m per row along it. Averaging over two tiles either way flattens the
+        /// cross-section while leaving the fall along the river alone, so the water lies
+        /// level from bank to bank and still runs downhill.
+        ///
+        /// Wet tiles only. Averaging the meadow in would lift the surface onto the grass,
+        /// which is the artefact this whole builder was written to remove.
+        /// </summary>
+        static float Bedding(TileGrid grid, int cornerX, int cornerY, float tileSize,
+                             float heightScale)
+        {
+            float sum = 0f;
+            int counted = 0;
+
+            for (int dy = -Levelling; dy <= Levelling - 1; dy++)
+            {
+                for (int dx = -Levelling; dx <= Levelling - 1; dx++)
+                {
+                    int tx = cornerX + dx, ty = cornerY + dy;
+                    if (!grid.InBounds(tx, ty)) continue;
+                    if (!Wet(grid[grid.ToIndex(tx, ty)])) continue;
+
+                    sum += grid.SurfaceElevation((tx + 0.5f) * tileSize, (ty + 0.5f) * tileSize)
+                         * heightScale;
+                    counted++;
+                }
+            }
+
+            return counted == 0 ? 0f : sum / counted;
+        }
+
+        /// <summary>
+        /// How deep the water is, packed into the vertex colour for the shader.
+        ///
+        /// <b>Not the depth buffer.</b> URP can hand a shader the depth of whatever is
+        /// behind it and that is how water is usually done, but it costs a pass on a
+        /// phone — and it is unnecessary here, because this builder already knows where
+        /// the bed is. Carrying the number on the vertex is exact where a screen-space
+        /// read is an approximation, and free.
+        ///
+        /// Normalised against DeepEnough so the shader works in 0..1 and the metres stay
+        /// here, where they mean something.
+        /// </summary>
+        static List<Color> Deeps(List<float> depths)
+        {
+            var packed = new List<Color>(depths.Count);
+
+            foreach (float depth in depths)
+            {
+                float t = Mathf.Clamp01(depth / DeepEnough);
+                packed.Add(new Color(t, t, t, 1f));
+            }
+
+            return packed;
+        }
+
+        /// <summary>
+        /// The depth at which water counts as fully deep, in metres.
+        ///
+        /// Measured rather than chosen, and it came out less than half of what was
+        /// expected. Levelling the surface was supposed to leave getting on for two
+        /// metres in the middle of the channel; what the generator actually digs, once
+        /// only the wet tiles are averaged, is a median of 0.54 m out in the open water
+        /// against 0.13 m at the outermost corners, topping out around 0.9 m. The bigger
+        /// cross-section the plan expected was measured across the *banks* as well, and
+        /// the banks are not water.
+        ///
+        /// So this is 0.8 m, near the deepest the map has. Set to the metre and a half
+        /// that was guessed and the deep colour would simply never be reached: the river
+        /// would come out uniformly shallow and green, which is the fault this was
+        /// written to fix, only in the other direction.
+        /// </summary>
+        public const float DeepEnough = 0.8f;
+
+        static readonly int BaseColourId = Shader.PropertyToID("_BaseColor");
+        static readonly int ShallowColourId = Shader.PropertyToID("_ShallowColor");
+
+        /// <summary>
+        /// The colour out in the channel: blue, dark, and nearly opaque.
+        ///
+        /// Darker and less see-through than the one colour the water used to have,
+        /// because it is no longer the only one. A single tint has to stand for the whole
+        /// river and ends up a compromise between water you can see the gravel through
+        /// and water you cannot see into at all; with a shallow colour beside it this one
+        /// is free to be what deep water actually looks like from above.
+        /// </summary>
+        public static readonly Color Surface = new Color(0.13f, 0.28f, 0.42f, 0.88f);
+
+        /// <summary>
+        /// And the colour at the waterline: green from the bed showing through, and
+        /// transparent enough that it does.
+        /// </summary>
+        public static readonly Color Shallows = new Color(0.30f, 0.47f, 0.40f, 0.42f);
 
         /// <summary>
         /// Whether this terrain is under water. Fords included: a ford is a shallow
@@ -62,6 +174,7 @@ namespace TheVeil.View
             var vertices = new List<Vector3>();
             var triangles = new List<int>();
             var uvs = new List<Vector2>();
+            var depths = new List<float>();
 
             // One vertex per shared corner, made on demand. The key is the corner's grid
             // coordinate, which is what makes neighbouring tiles agree.
@@ -74,10 +187,10 @@ namespace TheVeil.View
                 {
                     if (!Wet(grid[grid.ToIndex(x, y)])) continue;
 
-                    int a = Corner(grid, corners, vertices, uvs, x, y, tileSize, heightScale, stride);
-                    int b = Corner(grid, corners, vertices, uvs, x + 1, y, tileSize, heightScale, stride);
-                    int c = Corner(grid, corners, vertices, uvs, x + 1, y + 1, tileSize, heightScale, stride);
-                    int d = Corner(grid, corners, vertices, uvs, x, y + 1, tileSize, heightScale, stride);
+                    int a = Corner(grid, corners, vertices, uvs, depths, x, y, tileSize, heightScale, stride);
+                    int b = Corner(grid, corners, vertices, uvs, depths, x + 1, y, tileSize, heightScale, stride);
+                    int c = Corner(grid, corners, vertices, uvs, depths, x + 1, y + 1, tileSize, heightScale, stride);
+                    int d = Corner(grid, corners, vertices, uvs, depths, x, y + 1, tileSize, heightScale, stride);
 
                     triangles.Add(a); triangles.Add(d); triangles.Add(c);
                     triangles.Add(a); triangles.Add(c); triangles.Add(b);
@@ -91,6 +204,7 @@ namespace TheVeil.View
 
             mesh.SetVertices(vertices);
             mesh.SetUVs(0, uvs);
+            mesh.SetColors(Deeps(depths));
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
@@ -124,6 +238,31 @@ namespace TheVeil.View
         /// <summary>How far a corner may wander, as a share of a tile. An eighth: half a metre.</summary>
         const float Wobble = 0.125f;
 
+        /// <summary>
+        /// How much of its depth a corner keeps, by how many of its four tiles are wet.
+        ///
+        /// <b>The waterline is where the depth is zero, and the mesh has no vertex
+        /// there.</b> The outermost ring of corners sits inside the last wet tile, and
+        /// the bed under it is already a hand's width down — measured, 0.13 m — so the
+        /// sheet stops in a small vertical lip of water rather than running out onto the
+        /// bank. The colour and the foam both key off the depth, and with the shallowest
+        /// reading on the whole river a sixth of the way to full depth, the entire
+        /// shallow end of the gradient had nowhere to happen: the foam came out a single
+        /// pixel wide.
+        ///
+        /// This is not a depth the mesh could carry, because dropping those corners onto
+        /// the bed would drain any river one tile wide — every corner of one touches
+        /// land. So the *surface* stays where it is, level, and only the depth written
+        /// for the shader is faded out toward the bank. It is the truthful number
+        /// anyway: somewhere between that last vertex and the grass the water is nothing
+        /// deep, and this is where the mesh says the shore is.
+        ///
+        /// The same signal <see cref="Inset"/> reads, for the same reason — how
+        /// surrounded a corner is by water is what tells the middle of a channel from
+        /// its edge.
+        /// </summary>
+        static readonly float[] Shelving = { 0f, 0f, 0.45f, 0.8f, 1f };
+
         /// <summary>A deterministic offset in -1..1 for a grid corner. The same hash Tint uses.</summary>
         static float Wander(int cx, int cy, int salt)
         {
@@ -149,8 +288,8 @@ namespace TheVeil.View
         /// <see cref="Inset"/>.
         /// </summary>
         static int Corner(TileGrid grid, Dictionary<int, int> corners, List<Vector3> vertices,
-                          List<Vector2> uvs, int x, int y, float tileSize, float heightScale,
-                          int stride)
+                          List<Vector2> uvs, List<float> depths, int x, int y, float tileSize,
+                          float heightScale, int stride)
         {
             int key = y * stride + x;
             if (corners.TryGetValue(key, out int found)) return found;
@@ -183,6 +322,9 @@ namespace TheVeil.View
 
             if (lowest == float.MaxValue) lowest = 0f;
 
+            float surface = Mathf.Max(Bedding(grid, x, y, tileSize, heightScale) + Depth,
+                                      lowest + Film);
+
             float px = x * tileSize, pz = y * tileSize;
 
             if (wet > 0)
@@ -207,7 +349,12 @@ namespace TheVeil.View
             }
 
             int index = vertices.Count;
-            vertices.Add(new Vector3(px, lowest + Depth, pz));
+            vertices.Add(new Vector3(px, surface, pz));
+
+            // How deep the water is here, carried on the vertex so the shader can colour
+            // and foam by it without reading a depth buffer — see Deeps. Faded out at
+            // the waterline, which the mesh has no vertex on — see Shelving.
+            depths.Add(Mathf.Max(0f, surface - lowest) * Shelving[wet]);
 
             // UVs stay on the grid rather than following the moved vertex, so the ripple
             // the material puts on the surface does not stretch where the bank is cut.
@@ -234,6 +381,7 @@ namespace TheVeil.View
             {
                 var river = new Material(moving) { name = "Water" };
                 river.SetColor(BaseColourId, Surface);
+                river.SetColor(ShallowColourId, Shallows);
                 river.renderQueue = (int)RenderQueue.Transparent;
                 return river;
             }
@@ -257,7 +405,11 @@ namespace TheVeil.View
             water.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             water.DisableKeyword("_ALPHATEST_ON");
             water.renderQueue = (int)RenderQueue.Transparent;
-            water.SetColor(BaseColourId, Surface);
+
+            // One colour has to stand for the whole river here, so it is neither of the
+            // two: Lit has no vertex-colour depth to blend them with, and the deep tint
+            // on its own would put an opaque navy sheet over the fords.
+            water.SetColor(BaseColourId, Color.Lerp(Shallows, Surface, 0.6f));
 
             return water;
         }

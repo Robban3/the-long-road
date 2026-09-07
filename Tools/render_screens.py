@@ -606,14 +606,43 @@ def corner_normal(grid: A.TileGrid, cx: int, cy: int, height_scale: float) -> np
 
 # --- The water surface -----------------------------------------------------------
 
-WATER_SURFACE = np.array([0.16, 0.34, 0.46])
-"""WaterMeshBuilder.Surface's colour: standing water seen from above."""
+WATER_SURFACE = np.array([0.13, 0.28, 0.42])
+"""WaterMeshBuilder.Surface: the colour out in the channel, where you cannot see in."""
 
-WATER_ALPHA = 0.80
-"""And its alpha. The bed shows through in the shallows, which is what makes it water."""
+WATER_ALPHA = 0.88
+"""And its alpha. Deep water is nearly opaque from above."""
+
+WATER_SHALLOW = np.array([0.30, 0.47, 0.40])
+"""WaterMeshBuilder.Shallows: green from the bed showing through it."""
+
+WATER_SHALLOW_ALPHA = 0.42
+"""And its alpha, low enough that the bed actually does show."""
+
+WATER_FOAM = np.array([0.86, 0.92, 0.94])
+"""Shaders/Water.shader's _FoamColor: the line along the waterline."""
+
+WATER_FOAM_WIDTH = 0.40
+"""_FoamWidth, in normalised depth rather than in metres along the ground.
+
+Wide because the water is shallow: the outermost corners sit about a sixth of the way to
+full depth, so a narrow band falls off the mesh entirely and draws nothing.
+"""
+
+WATER_DEEP_ENOUGH = 0.8
+"""WaterMeshBuilder.DeepEnough: the depth past which the colour stops changing.
+
+Measured through this port: a median of 0.54 m out in the open water against 0.13 m at
+the corners with one wet tile, topping out near 0.9 m.
+"""
 
 WATER_SURFACE_DEPTH = 0.35
-"""WaterMeshBuilder.Depth: how far the sheet sits above the bed of its shallowest tile."""
+"""WaterMeshBuilder.Depth: how far the sheet stands above the bed under it."""
+
+WATER_FILM = 0.1
+"""WaterMeshBuilder.Film: the thinnest the water may ever be, in metres."""
+
+WATER_LEVELLING = 2
+"""WaterMeshBuilder.Levelling: how far either way the bed is averaged, in tiles."""
 
 WATER_INSET = (0.0, 0.55, 0.25, 0.12, 0.0)
 """How far a corner is drawn in toward the water, by how many of its four tiles are wet.
@@ -626,6 +655,16 @@ every edge move together and the sheet stays continuous.
 
 WATER_WOBBLE = 0.125
 """How far a water corner may wander, as a share of a tile. WaterMeshBuilder.Wobble."""
+
+WATER_SHELVING = (0.0, 0.0, 0.45, 0.8, 1.0)
+"""How much of its depth a corner keeps, by how many of its four tiles are wet.
+
+WaterMeshBuilder.Shelving. The waterline is where the depth is zero and the mesh has no
+vertex there — its outermost ring already stands 0.13 m off the bed. Fading the depth
+out toward the bank is what gives the shallow end of the gradient, and the foam, room to
+happen; the surface itself stays level, because dropping those corners onto the bed
+would drain any river one tile wide.
+"""
 
 SHORE_WOBBLE = 0.17
 """And the same on the plan map's colour boundary. TerrainMeshBuilder.Wobble."""
@@ -645,13 +684,36 @@ def _wet(terrain: int) -> bool:
     return terrain in (A.WATER, A.FORD)
 
 
+def _bedding(grid: A.TileGrid, cx: int, cy: int, height_scale: float) -> float:
+    """WaterMeshBuilder.Bedding: the bed under this corner, levelled over its neighbours.
+
+    The surface used to be the lowest of the four beds at a corner plus a fixed 0.35 m,
+    which is a film draped over the bottom rather than a body of water — the same depth
+    at the bank as in the middle. Averaging the bed over a couple of tiles either way
+    flattens the cross-section and leaves the fall along the river alone, so the water
+    lies level from bank to bank and the depth is free to vary.
+    """
+    total, counted = 0.0, 0
+
+    for dy in range(-WATER_LEVELLING, WATER_LEVELLING):
+        for dx in range(-WATER_LEVELLING, WATER_LEVELLING):
+            tx, ty = cx + dx, cy + dy
+            if not grid.in_bounds(tx, ty) or not _wet(grid.at(tx, ty)):
+                continue
+            total += grid.surface_elevation((tx + 0.5) * A.TILE_SIZE,
+                                            (ty + 0.5) * A.TILE_SIZE) * height_scale
+            counted += 1
+
+    return total / counted if counted else 0.0
+
+
 def build_water(grid: A.TileGrid, height_scale: float):
     """The river surface as WaterMeshBuilder builds it: one sheet, corners shared.
 
     Not drawn at all until now, which is why none of the rounding was visible here.
     """
     corners = {}
-    vertices, normals = [], []
+    vertices, normals, colours = [], [], []
 
     def corner(cx: int, cy: int) -> int:
         key = cy * (grid.width + 1) + cx
@@ -685,8 +747,18 @@ def build_water(grid: A.TileGrid, height_scale: float):
             px += _wander(cx, cy, 0x9E37) * WATER_WOBBLE * A.TILE_SIZE
             pz += _wander(cx, cy, 0x85EB) * WATER_WOBBLE * A.TILE_SIZE
 
+        surface = max(_bedding(grid, cx, cy, height_scale) + WATER_SURFACE_DEPTH,
+                      lowest + WATER_FILM)
+
+        # How deep the water is here, as the shader gets it: the mesh carries it in the
+        # vertex colour, and here it is simply blended into the colour itself. The two
+        # ends of that blend are far enough apart in colour that the pixel shader can
+        # read the depth straight back out of the interpolated albedo — see lay_water.
+        t = min(max((surface - lowest) * WATER_SHELVING[wet] / WATER_DEEP_ENOUGH, 0.0), 1.0)
+
         corners[key] = len(vertices)
-        vertices.append(np.array([px, lowest + WATER_SURFACE_DEPTH, pz]))
+        vertices.append(np.array([px, surface, pz]))
+        colours.append(WATER_SHALLOW + (WATER_SURFACE - WATER_SHALLOW) * t)
         normals.append(np.array([0.0, 1.0, 0.0]))
         return corners[key]
 
@@ -706,8 +778,7 @@ def build_water(grid: A.TileGrid, height_scale: float):
         return None
 
     v = np.array(vertices)
-    return (v, np.array(triangles, int),
-            np.tile(WATER_SURFACE, (len(v), 1)), np.array(normals),
+    return (v, np.array(triangles, int), np.array(colours), np.array(normals),
             np.ones(len(v)))
 
 
@@ -733,7 +804,31 @@ def lay_water(image: np.ndarray, opaque: Frame, camera: Camera, grid: A.TileGrid
                 shadow_strength, background, fog, camera)
 
     over = sheet.covered & (sheet.depth < opaque.depth)
-    a = (over * WATER_ALPHA)[..., None]
+
+    # Read the depth back out of the rasterised colour. Every water vertex was given a
+    # colour on the line from shallow to deep, so an interpolated pixel is still on that
+    # line and its position along it is the depth — which saves carrying a fourth
+    # channel through the rasteriser for one pass that wants it. The shader does not do
+    # this: there the depth arrives on the vertex and the colour is worked out from it,
+    # which is the same blend read the other way round.
+    span = WATER_SURFACE - WATER_SHALLOW
+    t = np.clip((sheet.albedo - WATER_SHALLOW) @ span / (span @ span), 0.0, 1.0)
+
+    # Foam where the depth runs out. Squared, so the band falls off toward the water
+    # instead of ending in a hard line, and set in depth rather than in metres from the
+    # bank — which is what puts a broad rim round a gravel bar and a thin line along a
+    # cut bank without anything here knowing which is which.
+    #
+    # Still water and a still picture: the wave crests that make this band surge, and
+    # the sun glitter on them, are in the shader and are not drawn here. They do not
+    # show in a stillframe anyway.
+    foam = np.clip(1.0 - t / WATER_FOAM_WIDTH, 0.0, 1.0) ** 2
+    lit = lit * (1.0 - foam)[..., None] + WATER_FOAM * foam[..., None]
+
+    alpha = WATER_SHALLOW_ALPHA + (WATER_ALPHA - WATER_SHALLOW_ALPHA) * t
+    alpha = alpha + (1.0 - alpha) * foam * 0.85
+
+    a = (over * alpha)[..., None]
     return image * (1.0 - a) + lit * a
 
 

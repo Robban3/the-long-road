@@ -10,6 +10,13 @@
 // and time evaluated per vertex, so neighbouring quads that share a corner compute the
 // same displacement from the same world position and the surface cannot tear.
 //
+// **What tells this apart from a blue sheet is the depth.** WaterMeshBuilder writes how
+// deep the water is at every corner into the vertex colour, and everything below reads
+// it: the shallows are green and see-through, the channel is blue and dark, there is
+// foam where the depth runs out, and the swell dies down as the bed comes up. A flat
+// colour cannot do any of that, and it is the difference between a river and a strip of
+// paint far more than the waves are.
+//
 // Cheap on purpose. This is a mobile game, the water can cover a good part of the
 // screen, and the whole effect is a handful of sines — no texture fetches, no depth
 // buffer read, no grab pass.
@@ -17,7 +24,14 @@ Shader "TheVeil/Water"
 {
     Properties
     {
-        _BaseColor ("Colour", Color) = (0.16, 0.34, 0.46, 0.80)
+        // Deep water, and what the C# side sets. Kept under this name because
+        // WaterMeshBuilder.Material writes _BaseColor and a rename there would be silent.
+        _BaseColor ("Deep colour", Color) = (0.13, 0.28, 0.42, 0.88)
+
+        // And the shallows: greener, and much more transparent, because in a foot of
+        // water you can see the gravel. Both halves matter — deep water that you cannot
+        // see into is only convincing next to shallow water that you can.
+        _ShallowColor ("Shallow colour", Color) = (0.30, 0.47, 0.40, 0.42)
 
         // Waves. Small on purpose: the camera looks down from 47 m, and a river four to
         // eight metres wide with half-metre swell reads as a storm at sea.
@@ -29,6 +43,20 @@ Shader "TheVeil/Water"
         // along the surface tells the eye it is water; the swell alone does not.
         _RippleDepth ("Ripple strength", Range(0, 1)) = 0.22
         _FlowSpeed   ("Flow speed", Range(0, 4)) = 1.1
+
+        // Foam along the bank, measured in depth rather than in metres from the edge.
+        // Wide, because the band is in normalised depth and the map's water is shallow:
+        // the outermost corners come out around a sixth of the way to full depth, so a
+        // narrow band lands entirely outside the mesh and draws nothing at all. This is
+        // 0.4 of full depth — about 32 cm of water — which is a rim you can see.
+        _FoamColor ("Foam colour", Color) = (0.86, 0.92, 0.94, 1)
+        _FoamWidth ("Foam width", Range(0, 1)) = 0.40
+
+        // Sun on the surface. Tight and bright rather than broad and dim: a wide
+        // highlight is a plastic sheen, a narrow one that only a few crests catch is
+        // glitter.
+        _Glitter   ("Sun glitter", Range(0, 3)) = 1.1
+        _Tightness ("Glitter tightness", Range(8, 512)) = 120
     }
 
     SubShader
@@ -56,20 +84,33 @@ Shader "TheVeil/Water"
 
             CBUFFER_START(UnityPerMaterial)
                 half4 _BaseColor;
+                half4 _ShallowColor;
                 float _WaveHeight;
                 float _WaveScale;
                 float _WaveSpeed;
                 float _RippleDepth;
                 float _FlowSpeed;
+                half4 _FoamColor;
+                float _FoamWidth;
+                float _Glitter;
+                float _Tightness;
             CBUFFER_END
 
-            struct Attributes { float4 positionOS : POSITION; };
+            // The vertex colour is the depth, normalised against
+            // WaterMeshBuilder.DeepEnough — zero at the waterline, one out in the
+            // channel. All three channels carry it; red is as good as any.
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float4 colour     : COLOR;
+            };
 
             struct Varyings
             {
                 float4 positionHCS : SV_POSITION;
                 float3 positionWS  : TEXCOORD0;
                 half3  normalWS    : TEXCOORD1;
+                half   depth       : TEXCOORD2;
             };
 
             // Two crossing swells rather than one, so the surface never shows the ruled
@@ -90,7 +131,16 @@ Shader "TheVeil/Water"
                 float3 world = TransformObjectToWorld(IN.positionOS.xyz);
                 float time = _Time.y;
 
-                world.y += Swell(world.xz, time) * _WaveHeight;
+                // Swell dies in the shallows. A wave is the water moving up and down,
+                // and there is nothing under a hand's depth of it to move — so a full
+                // swell at the bank drives the surface through the bed and back out
+                // again, which is a hole in the river once a frame. Scaling the height
+                // by the depth also happens to be what water does: the shallows go
+                // glassy and the channel keeps the chop.
+                float shelf = saturate(IN.colour.r * 2.2);
+                float height = _WaveHeight * shelf;
+
+                world.y += Swell(world.xz, time) * height;
 
                 // The normal from the slope of the swell, sampled either side rather than
                 // differentiated by hand: the surface has to catch the light differently
@@ -101,20 +151,29 @@ Shader "TheVeil/Water"
                 float dz = Swell(world.xz + float2(0, probe), time)
                          - Swell(world.xz - float2(0, probe), time);
 
-                OUT.normalWS = normalize(half3(-dx * _WaveHeight, probe * 2.0, -dz * _WaveHeight));
+                OUT.normalWS = normalize(half3(-dx * height, probe * 2.0, -dz * height));
                 OUT.positionWS = world;
+                OUT.depth = (half)IN.colour.r;
                 OUT.positionHCS = TransformWorldToHClip(world);
                 return OUT;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
-                Light main = GetMainLight();
+                Light sun = GetMainLight();
+                half3 normal = normalize(IN.normalWS);
+                half deep = saturate(IN.depth);
+
+                // Shallow to deep. The single strongest thing on this list: a body of
+                // water is read as a body by the gradient from its edge to its middle,
+                // not by the colour it happens to be.
+                half3 body = lerp(_ShallowColor.rgb, _BaseColor.rgb, deep);
+                half alpha = lerp(_ShallowColor.a, _BaseColor.a, deep);
 
                 // Half-lambert, like the ground shader: water turned away from the sun is
                 // still water, and a hard terminator on a river looks like a seam.
-                half ndotl = saturate(dot(normalize(IN.normalWS), main.direction)) * 0.5 + 0.5;
-                half3 colour = _BaseColor.rgb * ndotl * main.color;
+                half ndotl = saturate(dot(normal, sun.direction)) * 0.5 + 0.5;
+                half3 colour = body * ndotl * sun.color;
 
                 // Ripples: two fine bands drifting at different speeds and angles. Only
                 // the crests are kept — saturate throws the troughs away — so the surface
@@ -122,10 +181,40 @@ Shader "TheVeil/Water"
                 float time = _Time.y * _FlowSpeed;
                 float crest = sin(dot(IN.positionWS.xz, float2(0.9, 0.42)) * 1.6 - time * 2.6)
                             * sin(dot(IN.positionWS.xz, float2(-0.35, 1.0)) * 2.4 + time * 1.7);
+                crest = saturate(crest);
 
-                colour += _RippleDepth * saturate(crest) * saturate(crest);
+                colour += _RippleDepth * crest * crest * deep;
 
-                return half4(colour, _BaseColor.a);
+                // Foam where the depth runs out. The band is set in depth rather than in
+                // metres along the ground, so it is wide where the bank shelves gently
+                // and narrow where it drops — which is what puts foam around a gravel bar
+                // and only a line along a cut bank, without anything here knowing which
+                // is which.
+                //
+                // Its width breathes with the ripple, so the waterline surges instead of
+                // sitting there as a painted stripe.
+                float edge = _FoamWidth * (0.72 + 0.5 * crest);
+                half foam = 1.0h - smoothstep(0.0, max(edge, 0.001), deep);
+                foam *= foam;
+
+                colour = lerp(colour, _FoamColor.rgb * sun.color, foam);
+                alpha = lerp(alpha, 1.0h, foam * 0.85h);
+
+                // Sun glitter. Blinn-Phong on the wave normal, which the vertex stage has
+                // already worked out — so the whole cost of it is a half vector and a
+                // power, and it is the thing that makes the surface look wet rather than
+                // merely blue.
+                half3 view = GetWorldSpaceNormalizeViewDir(IN.positionWS);
+                half3 halfway = normalize(sun.direction + view);
+                half spec = pow(saturate(dot(normal, halfway)), _Tightness) * _Glitter;
+
+                colour += spec * sun.color;
+
+                // A highlight has to be visible through transparency, or the glitter is
+                // brightest exactly where the water is thinnest and least opaque.
+                alpha = saturate(alpha + spec);
+
+                return half4(colour, alpha);
             }
             ENDHLSL
         }
