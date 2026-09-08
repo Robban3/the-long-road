@@ -411,7 +411,7 @@ namespace TheVeil.View
         /// <summary>The height to fit a stacked building to, by what it was stacked from.</summary>
         static float Storeys(float baseHeight, bool twoStorey)
             => twoStorey ? baseHeight + UpperStoreyRise : baseHeight;
-        public const float WatchtowerHeight = 11f;
+        public const float WatchtowerHeight = 8f;
 
         /// <summary>How far into the ground a building is set, as a share of its size.</summary>
         public const float BuildingSink = 0.12f;
@@ -467,8 +467,24 @@ namespace TheVeil.View
         /// a wagon needs without the bridge growing into a viaduct. Five metres is two
         /// wagons abreast, which is what the crossing has to look like it could carry.
         /// </summary>
-        public const float FordDeck = 5f;
+        public const float FordDeck = 7f;
         public const float FordSpan = 12f;
+
+        /// <summary>
+        /// How far onto each bank the bridge reaches past the water, in metres.
+        ///
+        /// <b>Without this the bridge collapsed to its floor.</b> Splitting the width off
+        /// the length left FitToCrossing with only the span term, and the span was the
+        /// twelve-metre floor on every crossing — so a bridge that had been twenty-one
+        /// metres became twelve, and because the fit is uniform its height came down with
+        /// it to four parts in seven. What was left was a plank at the water's edge.
+        ///
+        /// Measured: the crossings carry four to eight metres of water, two tiles at the
+        /// median. Three metres of landing either side puts the span at fourteen to
+        /// eighteen, which is a bridge that meets dry ground at both ends rather than one
+        /// that stops where the river does.
+        /// </summary>
+        public const float BridgeLanding = 3f;
 
         /// <summary>
         /// How far the roadway sits above the bank it meets, in metres.
@@ -1482,7 +1498,9 @@ namespace TheVeil.View
             // Long enough to reach both banks. The crossing is measured rather than
             // assumed at three tiles: fords are cut to the width of their river, and a
             // twelve-metre bridge over a five-tile ford is a jetty from each side.
-            float span = Mathf.Max(FordSpan, (FordWidth(grid, tile, across) + 1) * TileGrid.TileSize);
+            float span = Mathf.Max(FordSpan,
+                                   (FordWidth(grid, tile, across) + 1) * TileGrid.TileSize
+                                   + 2f * BridgeLanding);
 
             // Fitted by the span alone — a zero deck demand leaves only the length term —
             // and then widened on its own axis. Asking FitToCrossing for both made the two
@@ -2667,7 +2685,7 @@ namespace TheVeil.View
         }
 
         /// <summary>How tall the castle stands, in metres. Half again the watchtower.</summary>
-        public const float CastleHeight = 22f;
+        public const float CastleHeight = 15f;
 
         /// <summary>Tiles around the goal that are looked at to find which way the road comes in.</summary>
         public const int GateLookback = 8;
