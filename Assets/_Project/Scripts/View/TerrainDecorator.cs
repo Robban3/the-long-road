@@ -1961,16 +1961,47 @@ namespace TheVeil.View
         public const int ApronTrees = 1400;
 
         /// <summary>
-        /// How far the apron stays clear of the start and the goal, in metres.
+        /// Half the width of the road left through the apron at the start and the goal.
         ///
-        /// The caravan forms up on Caravan.RunUp — forty metres — of road behind the
-        /// start line, and that road is off the map by construction: it is the reason the
-        /// skirt exists at all. Walling it in with trees would have the column muster
-        /// inside a thicket and drive out of one. Fifty-five leaves the run-up and a
-        /// margin, at both ends, because arriving through a wall is no better than
-        /// leaving through one.
+        /// <b>A corridor and not a clearing.</b> A round hole in the wood reads as a
+        /// glade the caravan happens to be standing in; a lane cut straight out through
+        /// the trees reads as the road it came in on, which is what it is. The column
+        /// forms up on Caravan.RunUp — forty metres — of road behind the start line, and
+        /// that road is off the map by construction: it is the reason the skirt exists.
+        ///
+        /// Eighteen either side, so thirty-six across. The caravan's own swept lane is
+        /// eight either side (DriveHalfWidth), so this is that with room to see out of,
+        /// and wide enough that a wagon at the back is not brushing trunks while the lead
+        /// is already on the map.
         /// </summary>
-        public const float ApronClearing = 55f;
+        public const float ApronCorridorHalf = 18f;
+
+        /// <summary>
+        /// Whether a point on the apron lies in the road left open at an opening.
+        ///
+        /// The lane runs straight out from whichever map edge the opening is nearest,
+        /// which for a start three tiles from the western edge is due west. Everything
+        /// beyond the opening in that direction, and within half a corridor either side
+        /// of it, stays bare.
+        /// </summary>
+        static bool InCorridor(Vec2 opening, float x, float z, float width, float depth)
+        {
+            float west = opening.X, east = width - opening.X;
+            float south = opening.Y, north = depth - opening.Y;
+
+            float nearest = Mathf.Min(Mathf.Min(west, east), Mathf.Min(south, north));
+
+            if (nearest == west)
+                return x <= opening.X && Mathf.Abs(z - opening.Y) < ApronCorridorHalf;
+
+            if (nearest == east)
+                return x >= opening.X && Mathf.Abs(z - opening.Y) < ApronCorridorHalf;
+
+            if (nearest == south)
+                return z <= opening.Y && Mathf.Abs(x - opening.X) < ApronCorridorHalf;
+
+            return z >= opening.Y && Mathf.Abs(x - opening.X) < ApronCorridorHalf;
+        }
 
         /// <summary>
         /// How far outside the map the wood starts, in metres.
@@ -2043,14 +2074,11 @@ namespace TheVeil.View
                     x = rng.Range(0, 2) == 0 ? -out_ : width + out_;
                 }
 
-                bool blocked = false;
+                bool onTheRoad = false;
                 foreach (var opening in clear)
-                {
-                    float dx = x - opening.X, dz = z - opening.Y;
-                    if (dx * dx + dz * dz < ApronClearing * ApronClearing) { blocked = true; break; }
-                }
+                    if (InCorridor(opening, x, z, width, depth)) { onTheRoad = true; break; }
 
-                if (blocked) continue;
+                if (onTheRoad) continue;
 
                 // The elevation sampler clamps outside the grid and the skirt is drawn flat
                 // at the edge's own height, so the two agree out here by construction.
