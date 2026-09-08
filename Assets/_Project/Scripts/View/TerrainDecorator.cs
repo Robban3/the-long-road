@@ -887,7 +887,8 @@ namespace TheVeil.View
                                    float minimumLandmark = 0f,
                                    float landmarkScale = 1f,
                                    Material waterMaterial = null,
-                                   Material marshWaterMaterial = null)
+                                   Material marshWaterMaterial = null,
+                                   IReadOnlyCollection<int> apronOpenings = null)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -977,6 +978,13 @@ namespace TheVeil.View
             {
                 placed += PlaceBackdrop(parent, grid, decor);
                 placed += PlaceHorizon(parent, grid, rng, decor);
+
+                // And the ground between the two: the apron the skirt draws outside the
+                // grid, which has been bare since it was added. Under the same flag as the
+                // skyline because it is the same job — what the map ends in — and the
+                // planning view turns both off, where a fringe of trees would only hide
+                // the corner of the map somebody is trying to read.
+                placed += PlaceApron(parent, grid, rng, decor, heightScale, apronOpenings);
             }
 
             // Bridges before anything scattered, and they claim the ground they cover.
@@ -1927,6 +1935,129 @@ namespace TheVeil.View
         /// backdrop that anything can get level with is a wall.
         /// </summary>
         public const float BackdropWidth = 1600f;
+
+        /// <summary>
+        /// How many trees stand on the apron, the drawn ground outside the playable grid.
+        ///
+        /// <b>A count rather than a density, because the apron is large and the triangle
+        /// budget is not.</b> The skirt runs TerrainMeshBuilder.SkirtWidth — forty-eight
+        /// metres — out from every edge, so on a 64x64 map it is about 58,000 square
+        /// metres against the grid's 65,500: nearly as much ground again. Filling it at
+        /// the forest's own density would be some 2,300 trees, and the trees are already
+        /// the largest single line in the budget at around 800.
+        ///
+        /// Fourteen hundred, weighted toward the map's edge (see below). Spread evenly
+        /// that would be one tree per forty square metres, which is a heath; the weighting
+        /// puts half of them inside the first fourteen metres, where it comes to one per
+        /// twenty-one against a pine canopy of about sixteen. That is a closed wall of
+        /// wood seen from inside the map, thinning honestly behind it.
+        ///
+        /// <b>It is also the largest thing added to the budget in one go, and it is one
+        /// number to turn down.</b> The trees were already the biggest single line at
+        /// around 800, so this roughly triples them. Nothing walks out here, so they claim
+        /// no ground, block nothing and signal nothing — but triangles are triangles, and
+        /// if the frame rate drops on a phone this is the first place to look.
+        /// </summary>
+        public const int ApronTrees = 1400;
+
+        /// <summary>
+        /// How far the apron stays clear of the start and the goal, in metres.
+        ///
+        /// The caravan forms up on Caravan.RunUp — forty metres — of road behind the
+        /// start line, and that road is off the map by construction: it is the reason the
+        /// skirt exists at all. Walling it in with trees would have the column muster
+        /// inside a thicket and drive out of one. Fifty-five leaves the run-up and a
+        /// margin, at both ends, because arriving through a wall is no better than
+        /// leaving through one.
+        /// </summary>
+        public const float ApronClearing = 55f;
+
+        /// <summary>
+        /// Plants the apron: dense wood on the drawn ground outside the playable map,
+        /// open at the start and the goal.
+        ///
+        /// The skirt was added so the caravan's run-up had ground under it and so the
+        /// world did not end at the last tile. It has been bare ever since, which trades
+        /// a hard edge for a soft one without giving the eye anything to stop at. A wood
+        /// is what stops it, and it costs nothing in play: nothing walks there, so these
+        /// trees claim no ground, block nothing and signal nothing.
+        ///
+        /// Weighted toward the map's edge rather than spread evenly. The near rows are
+        /// what anybody sees; the far ones are behind them. Squaring the random depth
+        /// puts about half the wood in the first fifteen metres, which reads as a wall
+        /// from inside the map and thins honestly toward the horizon.
+        /// </summary>
+        static int PlaceApron(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, float heightScale,
+                              IReadOnlyCollection<int> openings)
+        {
+            var wood = decor.Pines.Any ? decor.Pines : decor.Trees;
+            if (!wood.Any) return 0;
+
+            float skirt = TerrainMeshBuilder.SkirtWidth;
+            float width = grid.Width * TileGrid.TileSize;
+            float depth = grid.Height * TileGrid.TileSize;
+
+            // Where the apron may not close in. Kept as world points rather than tiles:
+            // the clearing has to reach out onto the apron, which has no tiles.
+            var clear = new List<Vec2>();
+            if (openings != null)
+                foreach (int tile in openings)
+                    if (tile >= 0 && tile < grid.TileCount) clear.Add(Vec2.FromTile(grid, tile));
+
+            int placed = 0;
+
+            for (int i = 0; i < ApronTrees; i++)
+            {
+                // A side, then a place along it, then how far out. The sides are weighted
+                // by length so a long map is not fringed like a square one.
+                bool northSouth = rng.Range(0f, width + depth) < width;
+
+                // Squared, so the wood is thickest against the map and thins outward.
+                float t = rng.Range(0f, 1f);
+                float out_ = skirt * (1f - t) * (1f - t);
+
+                float x, z;
+
+                if (northSouth)
+                {
+                    x = rng.Range(-skirt, width + skirt);
+                    z = rng.Range(0, 2) == 0 ? -out_ : depth + out_;
+                }
+                else
+                {
+                    z = rng.Range(-skirt, depth + skirt);
+                    x = rng.Range(0, 2) == 0 ? -out_ : width + out_;
+                }
+
+                bool blocked = false;
+                foreach (var opening in clear)
+                {
+                    float dx = x - opening.X, dz = z - opening.Y;
+                    if (dx * dx + dz * dz < ApronClearing * ApronClearing) { blocked = true; break; }
+                }
+
+                if (blocked) continue;
+
+                // The elevation sampler clamps outside the grid and the skirt is drawn flat
+                // at the edge's own height, so the two agree out here by construction.
+                float groundY = grid.SurfaceElevation(x, z) * heightScale;
+
+                var instance = Object.Instantiate(Any(wood, rng), parent);
+
+                instance.transform.rotation = wood.ZUp
+                    ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
+                    : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+
+                instance.transform.position = new Vector3(x, groundY, z);
+                ModelScaling.Fit(instance, PineHeight * rng.Range(TreeJitterLow, TreeJitterHigh),
+                                 groundY);
+
+                placed++;
+            }
+
+            return placed;
+        }
 
         static int PlaceHorizon(Transform parent, TileGrid grid, DeterministicRandom rng,
                                 BiomeDecor decor)

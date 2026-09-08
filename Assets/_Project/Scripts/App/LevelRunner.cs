@@ -312,6 +312,11 @@ namespace TheVeil.App
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
                 waterMaterial: WaterMaterial, marshWaterMaterial: MarshWaterMaterial,
+
+                // The two places the wood outside the map must not close in: the ground
+                // the column musters on behind the start line, and the ground it arrives
+                // on. Both are off the grid — that is what the skirt is for.
+                apronOpenings: new[] { map.StartIndex, map.GoalIndex },
                 ruinSites: TrapSigns.Sites(map),
                 driveLine: _run.Caravan.Sweep(TerrainDecorator.DriveHalfWidth),
                 campSites: CampSignal.Tiles(map), driveMargin: 0,
