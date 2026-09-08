@@ -58,11 +58,12 @@ namespace TheVeil.App
         {
             LandmarkKind.House, LandmarkKind.Farm, LandmarkKind.Watchtower,
             LandmarkKind.Ruin, LandmarkKind.Camp, LandmarkKind.Wreck,
-            LandmarkKind.Bones, LandmarkKind.Totem, LandmarkKind.Castle
+            LandmarkKind.Bones, LandmarkKind.Totem, LandmarkKind.Castle,
+            LandmarkKind.Bridge
         };
 
         /// <summary>Index into the sheet for the crows, which are not a landmark.</summary>
-        const int CrowSlot = 9;
+        const int CrowSlot = 10;
 
         /// <summary>
         /// Paints the sheet once and packs it into one texture.
@@ -89,6 +90,7 @@ namespace TheVeil.App
                 Pixels.Bones("SymbolBones"),
                 Pixels.Totem("SymbolTotem"),
                 Pixels.Castle("SymbolCastle"),
+                Pixels.Bridge("SymbolBridge"),
                 Pixels.Crow("SymbolCrow"));
 
             return _sheet;

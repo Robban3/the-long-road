@@ -784,6 +784,49 @@ namespace TheVeil.UI
         }
 
         /// <summary>A wreck: a cart on its side with a wheel come off.</summary>
+        /// <summary>
+        /// A bridge: an arch with a deck across it and a bank at each end.
+        ///
+        /// <b>The one landmark the map could not draw, and the one the route is planned
+        /// around.</b> A crossing decides where a line can go, and the planning map showed
+        /// the pale water and the stones but never said which of the three has a bridge on
+        /// it — so the player picked a crossing blind and found out in the run.
+        ///
+        /// Drawn as a side view rather than from above. From four hundred metres a bridge
+        /// seen from overhead is a short grey bar, which is a wall, a wreck or a log; the
+        /// arch is what says bridge and it only exists side-on. The map's other symbols
+        /// take the same liberty for the same reason.
+        /// </summary>
+        public static Sprite Bridge(string name)
+        {
+            const float s = SymbolSize;
+            var texture = SymbolPlate(name);
+
+            var stone = new Color(0.62f, 0.60f, 0.56f, 1f);
+            var deck = new Color(0.55f, 0.40f, 0.26f, 1f);
+
+            // The two banks it lands on, so the arch has something to stand between.
+            Draw(texture, Rect(s * 0.06f, s * 0.24f, s * 0.26f, s * 0.40f), stone);
+            Draw(texture, Rect(s * 0.74f, s * 0.24f, s * 0.94f, s * 0.40f), stone);
+
+            // The arch: a run of blocks round a half circle, so what is left is an arch
+            // and not a doughnut.
+            for (int i = 0; i <= 24; i++)
+            {
+                float a = Mathf.PI * i / 24f;
+                float ax = s * 0.5f + Mathf.Cos(a) * s * 0.26f;
+                float ay = s * 0.38f + Mathf.Sin(a) * s * 0.26f;
+
+                Draw(texture, Rect(ax - s * 0.045f, ay - s * 0.045f,
+                                   ax + s * 0.045f, ay + s * 0.045f), stone);
+            }
+
+            // And the roadway over the top, which is the part the caravan uses.
+            Draw(texture, Rect(s * 0.10f, s * 0.62f, s * 0.90f, s * 0.73f), deck);
+
+            return Make(texture, default);
+        }
+
         public static Sprite Wreck(string name)
         {
             const float s = SymbolSize;

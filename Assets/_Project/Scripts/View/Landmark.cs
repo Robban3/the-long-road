@@ -20,7 +20,18 @@ namespace TheVeil.View
         Totem = 8,
 
         /// <summary>The keep at the goal — where the road is taking the caravan.</summary>
-        Castle = 9
+        Castle = 9,
+
+        /// <summary>
+        /// The one crossing with a bridge on it.
+        ///
+        /// <b>The landmark the route is actually planned around, and the only one the map
+        /// could not draw.</b> A level has three crossings and one of them has a bridge;
+        /// the planning map showed the pale water and the stepping stones at all three
+        /// and never said which. So the line was drawn blind and the answer arrived in
+        /// the run.
+        /// </summary>
+        Bridge = 10
     }
 
     /// <summary>

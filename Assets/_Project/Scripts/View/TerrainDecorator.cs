@@ -994,7 +994,7 @@ namespace TheVeil.View
             // shore pass had already strewn with boulders. One of them came up through
             // the deck. Placed first and claiming its whole footprint, the stones go
             // round it.
-            placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale, road);
+            placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale, road, found);
 
             placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
                                        heightScale, densityScale);
@@ -1202,7 +1202,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceFords(Transform parent, TileGrid grid, DeterministicRandom rng,
                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                              HashSet<int> road)
+                              HashSet<int> road, List<Landmark> found)
         {
             var crossings = new List<int>();
 
@@ -1231,10 +1231,19 @@ namespace TheVeil.View
             // until they look — the placer is not consulted and deliberately so.
             //
             // Drawn from the level's own stream, so a seed is still a level.
+            int bridged = crossings[rng.Range(0, crossings.Count)];
+
             if (decor.Fords.Any &&
-                Bridge(parent, grid, rng, decor, crossings[rng.Range(0, crossings.Count)],
-                       heightScale, occupied, road))
+                Bridge(parent, grid, rng, decor, bridged, heightScale, occupied, road))
+            {
                 placed++;
+
+                // Written down, so the planning map can put a sign on it. A level has
+                // three crossings and one of them has this; the map showed the pale water
+                // and the stones at all three and never said which, so the line was drawn
+                // blind and the answer arrived in the run.
+                Landmark.Note(found, LandmarkKind.Bridge, bridged);
+            }
 
             // And every other crossing is what a ford actually is: stones in shallow
             // water. The gravel bar is already level with the banks — LevelTheCrossings
