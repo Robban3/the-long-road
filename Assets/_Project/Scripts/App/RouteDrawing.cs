@@ -134,7 +134,10 @@ namespace TheVeil.App
             _dragging = Nearest(x, y);
             if (_dragging >= 0) return;
 
-            if (_planner.TryAddWaypoint(x, y)) Solve();
+            // With the ends, so the point lands on the leg it was tapped on rather than
+            // on the end of the list. Without them a tap past the river could only ever
+            // shape the road beyond the river.
+            if (_planner.TryAddWaypoint(x, y, _map.StartIndex, _map.GoalIndex)) Solve();
         }
 
         void Drag()

@@ -160,7 +160,29 @@ namespace TheVeil.Sim
         /// water should do nothing rather than silently snap somewhere the player did
         /// not choose.
         /// </summary>
-        public bool TryAddWaypoint(int x, int y)
+        public bool TryAddWaypoint(int x, int y) => TryAddWaypoint(x, y, -1, -1);
+
+        /// <summary>
+        /// Puts a waypoint where it belongs in the route rather than on the end of it.
+        ///
+        /// <b>Appending was the whole of what this did, and it made the first half of the
+        /// route unreachable.</b> The line runs start → waypoints in order → goal, so a
+        /// waypoint dropped after another one can only shape the road beyond it. Tap once
+        /// past the river and every tap afterwards moves the far bank; the near half is
+        /// fixed and nothing the player does touches it. It reads as "I can only change
+        /// the route after the water", because that is exactly what it was.
+        ///
+        /// The leg the tap is nearest to is the leg it splits. Cost is the detour it adds
+        /// — the way in, the way out, less the way it replaces — measured straight rather
+        /// than by pathfinding: this runs on a press, the answer only has to pick which of
+        /// half a dozen legs the finger was on, and a full solve per leg to choose an
+        /// insertion point would be a search for a search.
+        ///
+        /// <paramref name="startTile"/> and <paramref name="goalTile"/> may be -1, which
+        /// appends as before. The route has no ends of its own — they arrive at Solve — so
+        /// a caller that does not know them cannot ask this question.
+        /// </summary>
+        public bool TryAddWaypoint(int x, int y, int startTile, int goalTile)
         {
             if (IsFull) return false;
             if (!_grid.IsPassable(x, y)) return false;
@@ -168,8 +190,40 @@ namespace TheVeil.Sim
             int index = _grid.ToIndex(x, y);
             if (_waypoints.Contains(index)) return false;
 
-            _waypoints.Add(index);
+            if (startTile < 0 || goalTile < 0 || _waypoints.Count == 0)
+            {
+                _waypoints.Add(index);
+                return true;
+            }
+
+            int at = _waypoints.Count;
+            float cheapest = float.MaxValue;
+
+            for (int leg = 0; leg <= _waypoints.Count; leg++)
+            {
+                int from = leg == 0 ? startTile : _waypoints[leg - 1];
+                int to = leg == _waypoints.Count ? goalTile : _waypoints[leg];
+
+                float detour = Apart(from, index) + Apart(index, to) - Apart(from, to);
+
+                if (detour >= cheapest) continue;
+
+                cheapest = detour;
+                at = leg;
+            }
+
+            _waypoints.Insert(at, index);
             return true;
+        }
+
+        /// <summary>Straight-line distance between two tiles, in tiles.</summary>
+        float Apart(int a, int b)
+        {
+            _grid.ToCoords(a, out int ax, out int ay);
+            _grid.ToCoords(b, out int bx, out int by);
+
+            float dx = ax - bx, dy = ay - by;
+            return (float)System.Math.Sqrt(dx * dx + dy * dy);
         }
 
         public bool MoveWaypoint(int waypointIndex, int x, int y)
