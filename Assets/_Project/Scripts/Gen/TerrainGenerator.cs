@@ -451,6 +451,156 @@ namespace TheVeil.Gen
             for (int i = 0; i < grid.TileCount; i++)
                 if (grid[i] == TerrainType.Ford && !reached[i])
                     grid[i] = TerrainType.Water;
+
+            // And cut new ones where the closed ones were lost. Closing alone was the
+            // cheap half of this fix and it took the level down with it — see
+            // MinCrossings.
+            MendTheCrossings(grid, reached);
+        }
+
+        /// <summary>
+        /// How many separate crossings a level must end up with.
+        ///
+        /// <b>Three: one for the bridge and two to ford.</b> The recipe cuts
+        /// LevelRecipe.FordsPerRiver of them and that is three, but
+        /// CloseTheStrandedCrossings then deleted any the player could not walk to — and
+        /// deleting was only half a fix. Measured over chapter one it left 1-1 and 1-5
+        /// with two crossings apiece against everybody else's three, so those two levels
+        /// had a bridge and a single ford, and a player who did not like where the bridge
+        /// fell had one alternative instead of two.
+        ///
+        /// A crossing that cannot be reached should be moved, not removed. The river is
+        /// still there and it still has banks somebody can stand on.
+        /// </summary>
+        public const int MinCrossings = 3;
+
+        /// <summary>How far apart two tiles must be to count as different crossings, in tiles.</summary>
+        const int CrossingSpacing = 6;
+
+        /// <summary>
+        /// How far from the map's border a mended crossing may be cut, in tiles.
+        ///
+        /// PlaceFords spaces its own through the interior and says why: a crossing at the
+        /// very edge is one the caravan cannot reach round. Scanning the grid in index
+        /// order does not inherit that — the first candidate it finds is on row zero — and
+        /// a test caught exactly that, a ford at (27,0) on level 10.
+        /// </summary>
+        const int CrossingMargin = 4;
+
+        /// <summary>
+        /// Cuts fords until the level has <see cref="MinCrossings"/> of them.
+        ///
+        /// Candidates are water with dry, walkable ground close on both sides, at least
+        /// one of which the start can already reach — so the new crossing is a place
+        /// somebody can walk to, which is the whole point of having closed the old one.
+        /// Spaced apart, or a wide river answers with the same crossing three times.
+        ///
+        /// It does nothing when the level already has enough, which is most of them.
+        /// </summary>
+        static void MendTheCrossings(TileGrid grid, bool[] reached)
+        {
+            var crossings = new List<int>();
+
+            for (int i = 0; i < grid.TileCount; i++)
+                if (grid[i] == TerrainType.Ford && Apart(grid, i, crossings))
+                    crossings.Add(i);
+
+            if (crossings.Count >= MinCrossings) return;
+
+            bool cut = false;
+
+            for (int i = 0; i < grid.TileCount && crossings.Count < MinCrossings; i++)
+            {
+                if (grid[i] != TerrainType.Water) continue;
+                if (!Inland(grid, i)) continue;
+                if (!Apart(grid, i, crossings)) continue;
+                if (!Crossable(grid, reached, i)) continue;
+
+                grid.ToCoords(i, out int fx, out int fy);
+                grid[i] = TerrainType.Ford;
+
+                // The neighbours either side, as PlaceFords does, so the crossing is
+                // walkable where the river widened.
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int nx = fx + dx;
+                    if (grid.InBounds(nx, fy) && grid[nx, fy] == TerrainType.Water)
+                        grid[nx, fy] = TerrainType.Ford;
+                }
+
+                crossings.Add(i);
+                cut = true;
+            }
+
+            // Anything cut here was cut after the channel was dug and the crossings
+            // levelled, so it is a hole in the river rather than a gravel bar at bank
+            // height. Levelling again is idempotent for the ones already right — the
+            // average it takes counts dry ground only, and only ford heights changed.
+            if (cut) LevelTheCrossings(grid);
+        }
+
+        /// <summary>Whether a tile is far enough inside the map to be worth crossing at.</summary>
+        static bool Inland(TileGrid grid, int tile)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            return x >= CrossingMargin && y >= CrossingMargin
+                && x < grid.Width - CrossingMargin && y < grid.Height - CrossingMargin;
+        }
+
+        /// <summary>Whether a tile is far enough from every crossing already counted.</summary>
+        static bool Apart(TileGrid grid, int tile, List<int> crossings)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            foreach (int other in crossings)
+            {
+                grid.ToCoords(other, out int ox, out int oy);
+                if (Math.Abs(x - ox) < CrossingSpacing && Math.Abs(y - oy) < CrossingSpacing)
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Whether a river tile has ground on both sides that somebody could stand on,
+        /// and whether the start can already get to one of them.
+        ///
+        /// Rivers are cut north to south across the caravan's travel, so the banks are
+        /// east and west. Three tiles either way, which is wider than any river the
+        /// generator carves.
+        /// </summary>
+        static bool Crossable(TileGrid grid, bool[] reached, int tile)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            bool west = Bank(grid, reached, x, y, -1, out bool westReached);
+            bool east = Bank(grid, reached, x, y, 1, out bool eastReached);
+
+            return west && east && (westReached || eastReached);
+        }
+
+        /// <summary>The first dry walkable tile in one direction, within three tiles.</summary>
+        static bool Bank(TileGrid grid, bool[] reached, int x, int y, int step, out bool known)
+        {
+            known = false;
+
+            for (int i = 1; i <= 3; i++)
+            {
+                int nx = x + step * i;
+                if (!grid.InBounds(nx, y)) return false;
+
+                var terrain = grid[nx, y];
+                if (terrain == TerrainType.Water || terrain == TerrainType.Ford) continue;
+
+                if (!grid.IsPassable(nx, y)) return false;
+
+                known = reached[grid.ToIndex(nx, y)];
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

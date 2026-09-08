@@ -1904,6 +1904,100 @@ def _close_the_stranded_crossings(grid: TileGrid, start_x: int, start_y: int) ->
         if int(grid.tiles[i]) == FORD and not reached[i]:
             grid.tiles[i] = WATER
 
+    _mend_the_crossings(grid, reached)
+
+
+MIN_CROSSINGS = 3
+"""TerrainGenerator.MinCrossings: one for the bridge and two to ford."""
+
+CROSSING_SPACING = 6
+"""How far apart two tiles must be to count as different crossings, in tiles."""
+
+CROSSING_MARGIN = 4
+"""How far from the map's border a mended crossing may be cut, in tiles.
+
+PlaceFords spaces its own through the interior; scanning the grid in index order does
+not inherit that, and the first candidate it finds is on row zero.
+"""
+
+
+def _inland(grid: TileGrid, tile: int) -> bool:
+    x, y = grid.to_coords(tile)
+    return (CROSSING_MARGIN <= x < grid.width - CROSSING_MARGIN
+            and CROSSING_MARGIN <= y < grid.height - CROSSING_MARGIN)
+
+
+def _apart(grid: TileGrid, tile: int, crossings) -> bool:
+    x, y = grid.to_coords(tile)
+    for other in crossings:
+        ox, oy = grid.to_coords(other)
+        if abs(x - ox) < CROSSING_SPACING and abs(y - oy) < CROSSING_SPACING:
+            return False
+    return True
+
+
+def _bank(grid: TileGrid, reached, x: int, y: int, step: int):
+    """The first dry walkable tile in one direction, within three tiles."""
+    for i in range(1, 4):
+        nx = x + step * i
+        if not grid.in_bounds(nx, y):
+            return False, False
+        terrain = int(grid.at(nx, y))
+        if terrain in (WATER, FORD):
+            continue
+        if not grid.is_passable(nx, y):
+            return False, False
+        return True, reached[grid.to_index(nx, y)]
+    return False, False
+
+
+def _mend_the_crossings(grid: TileGrid, reached) -> None:
+    """TerrainGenerator.MendTheCrossings: cut fords until the level has three.
+
+    Closing a stranded crossing was only half the fix — it left 1-1 and 1-5 with two
+    apiece against everybody else's three, so a player who did not like where the bridge
+    fell had one alternative instead of two. A crossing nobody can reach should be moved,
+    not removed.
+    """
+    crossings = []
+    for i in range(grid.width * grid.height):
+        if int(grid.tiles[i]) == FORD and _apart(grid, i, crossings):
+            crossings.append(i)
+
+    if len(crossings) >= MIN_CROSSINGS:
+        return
+
+    cut = False
+
+    for i in range(grid.width * grid.height):
+        if len(crossings) >= MIN_CROSSINGS:
+            break
+        if int(grid.tiles[i]) != WATER or not _inland(grid, i):
+            continue
+        if not _apart(grid, i, crossings):
+            continue
+
+        x, y = grid.to_coords(i)
+        west, west_known = _bank(grid, reached, x, y, -1)
+        east, east_known = _bank(grid, reached, x, y, 1)
+        if not (west and east and (west_known or east_known)):
+            continue
+
+        grid.tiles[i] = FORD
+        for dx in (-1, 0, 1):
+            nx = x + dx
+            if grid.in_bounds(nx, y) and int(grid.at(nx, y)) == WATER:
+                grid.tiles[grid.to_index(nx, y)] = FORD
+
+        crossings.append(i)
+        cut = True
+
+    # Cut after the channel was dug and the crossings levelled, so a new ford is a hole
+    # in the river rather than a gravel bar at bank height. Levelling again is idempotent
+    # for the ones already right.
+    if cut:
+        _level_the_crossings(grid)
+
 
 def _sink_the_channel(grid: TileGrid) -> None:
     """Digs the riverbed.
