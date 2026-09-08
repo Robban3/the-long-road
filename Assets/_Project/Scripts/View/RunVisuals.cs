@@ -576,7 +576,14 @@ namespace TheVeil.View
 
             // Troops march at the caravan's pace, so the column animates as one: when
             // the fen slows the wagons the escort trudges too.
-            float pace = run.Caravan.CurrentSpeed;
+            //
+            // <b>And nothing marches once the run is over.</b> LevelRun.Advance returns
+            // early the moment the outcome is decided, so CurrentSpeed keeps whatever it
+            // held on the last stepped tick — full march, at the goal. The wagons stop,
+            // because their wheels are rolled by how far they actually moved, but the
+            // teams and the escort walked on the spot behind the victory screen. A column
+            // that has arrived is a column standing still, and it has to look like one.
+            float pace = run.Outcome == RunOutcome.InProgress ? run.Caravan.CurrentSpeed : 0f;
 
             // And so do the horses, which is the same argument: a team standing still
             // in the traces while the wagon behind it moves is worse than no team.
@@ -997,6 +1004,7 @@ namespace TheVeil.View
                 // this tick, not what the view can guess from a distance and an assumed
                 // slack — those two disagreed, and animals bit the air a metre out.
                 float speed = enemy.Awake && !enemy.Striking
+                               && run.Outcome == RunOutcome.InProgress
                     ? EnemyTable.Speed(enemy.Kind) * TileGrid.TileSize
                     : 0f;
 
