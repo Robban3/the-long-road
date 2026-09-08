@@ -113,7 +113,18 @@ namespace TheVeil.View
         /// each one answers with a ray rather than with a rule, because nothing here
         /// knows what the model looks like.
         /// </summary>
-        float GroundAt(Vec2 position)
+        /// <summary>
+        /// The height anything standing at this point rides at: the ground, or a bridge's
+        /// roadway where one covers it.
+        ///
+        /// Public because the camera has to ask the same question the column does. It used
+        /// to work the ground out for itself straight from the grid, which is right
+        /// everywhere except the one place it matters — on a crossing the wagons were
+        /// three metres up on the deck and the camera was aiming at the water under them.
+        /// Two code paths for one height is the same fault the wagons had before they were
+        /// given this one.
+        /// </summary>
+        public float GroundAt(Vec2 position)
         {
             if (_grid == null || _heightScale <= 0f) return 0f;
 

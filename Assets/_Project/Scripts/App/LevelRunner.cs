@@ -532,9 +532,16 @@ namespace TheVeil.App
         Vector3 CaravanWorldPosition()
         {
             var position = _run.Caravan.ColumnCentre;
-            float ground = _levelGrid != null && HeightScale > 0f
-                ? _levelGrid.SurfaceElevation(position.X, position.Y) * HeightScale
-                : 0f;
+
+            // Through the visuals, so the camera rides what the column rides. Asking the
+            // grid directly gives the water under a bridge while the wagons are up on its
+            // deck, and the camera then swings to a point three metres below the thing it
+            // is meant to be following — which is what made the view lurch at a crossing.
+            float ground = _visuals != null
+                ? _visuals.GroundAt(position)
+                : _levelGrid != null && HeightScale > 0f
+                    ? _levelGrid.SurfaceElevation(position.X, position.Y) * HeightScale
+                    : 0f;
 
             return new Vector3(position.X, ground, position.Y);
         }
