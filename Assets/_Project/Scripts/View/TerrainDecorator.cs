@@ -1465,7 +1465,13 @@ namespace TheVeil.View
             // not — so the number is already there to be read.
             float before = float.NaN, after = float.NaN;
 
-            if (!float.IsNaN(deck.Deck))
+            // Only an exact measurement may move the bridge. A roadway taken from the
+            // model's own boxes is good enough to ride over and not good enough to seat
+            // by: dropping the bridge until a guessed deck sat a quarter of a metre above
+            // the bank would bury it to the parapet, which is the tunnel this was written
+            // to stop happening a third time. Inexact means the bridge stays where
+            // FitToCrossing put it and the column is still lifted onto it.
+            if (deck.Exact)
             {
                 before = deck.Deck - groundY;
                 instance.transform.position +=
@@ -1485,7 +1491,9 @@ namespace TheVeil.View
                     + $"span asked {span:F1} m and got {Mathf.Max(got.size.x, got.size.z):F1} m, "
                     + $"deck {Mathf.Min(got.size.x, got.size.z):F1} m wide, "
                     + $"roadway {before:F1} m above the bank before settling and {after:F1} m after, "
-                    + $"from {deck.Meshes} mesh(es) and {deck.Surfaces} collider(s).");
+                    + $"from {deck.Meshes} mesh(es) and {deck.Surfaces} collider(s), "
+                    + $"{(deck.Exact ? "measured by ray" : "from the model's own boxes")} "
+                    + $"at {deck.Deck:F2} m.");
 
             Claim(grid, got, occupied);
             return true;

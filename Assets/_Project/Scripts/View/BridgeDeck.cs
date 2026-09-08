@@ -32,6 +32,21 @@ namespace TheVeil.View
         public int Meshes { get; private set; }
         public int Surfaces => _surfaces == null ? 0 : _surfaces.Length;
 
+        /// <summary>
+        /// Whether the roadway was found by the ray rather than by the fallback.
+        ///
+        /// It decides one thing and it matters: only an exact measurement may be used to
+        /// *move* the bridge. The caller drops the model until its roadway sits a quarter
+        /// of a metre above the bank, and a roadway guessed a metre too high would bury
+        /// the bridge to its parapet — which is the tunnel this class was written to stop
+        /// happening a third time. A rough answer is good enough to lift the column onto
+        /// a bridge that is standing where it was put; it is not good enough to decide
+        /// where to put it.
+        /// </summary>
+        public bool Exact { get; private set; }
+
+        Renderer[] _pieces;
+
         /// <summary>The roadway's height, measured once. NaN until <see cref="Measure"/> runs.</summary>
         float _deck = float.NaN;
 
@@ -54,9 +69,24 @@ namespace TheVeil.View
 
             _surfaces = surfaces.ToArray();
             _deck = float.NaN;
+            Exact = false;
             Meshes = filters.Length;
 
-            if (_surfaces.Length == 0) return;
+            // The footprint from the renderers rather than the colliders, because
+            // renderer bounds need no physics, no collider and no read/write flag on the
+            // mesh — they are there the moment the object is. Everything below can then
+            // fail and the bridge still knows where it stands.
+            _pieces = GetComponentsInChildren<Renderer>(true);
+            if (_pieces.Length == 0) return;
+
+            _footprint = _pieces[0].bounds;
+            for (int i = 1; i < _pieces.Length; i++) _footprint.Encapsulate(_pieces[i].bounds);
+
+            if (_surfaces.Length == 0)
+            {
+                Fallback();
+                return;
+            }
 
             // <b>Without this the ray misses and the bridge is never seated.</b> The
             // colliders are created, the bridge is turned, scaled and moved, and then it
@@ -72,17 +102,55 @@ namespace TheVeil.View
             // nobody had read the line.
             Physics.SyncTransforms();
 
-            _footprint = _surfaces[0].bounds;
-            for (int i = 1; i < _surfaces.Length; i++) _footprint.Encapsulate(_surfaces[i].bounds);
-
             _deck = Sample(_footprint.center.x, _footprint.center.z);
+            Exact = !float.IsNaN(_deck);
 
-            // Loudly, because a silent NaN here is invisible until somebody watches the
-            // caravan walk through a bridge and cannot say why.
-            if (float.IsNaN(_deck))
-                Debug.LogWarning($"[The Veil] {name}: {filters.Length} mesh(es), "
-                               + $"{_surfaces.Length} collider(s), and the ray found no "
-                               + "roadway. The column will not be lifted onto this bridge.");
+            if (!Exact) Fallback();
+        }
+
+        /// <summary>
+        /// The roadway from the pieces' own boxes, when the ray could not find it.
+        ///
+        /// <b>Because a bridge the column walks through is worse than a bridge it rides
+        /// half a metre high.</b> The ray is exact and the ray is also fragile: it needs a
+        /// MeshCollider, which needs a mesh, which on an imported model needs Read/Write
+        /// enabled, and it needs the physics scene to have been told where any of it is.
+        /// Any one of those missing gave NaN, and NaN meant Height refused, GroundAt never
+        /// lifted anything, and the caravan crossed at ground level through the deck.
+        ///
+        /// A renderer's bounds need none of that. The highest box standing over the middle
+        /// of the span is the roadway or the parapet above it — never the vault
+        /// underneath, which is the one answer that would put the column back where it
+        /// started. On a bridge built of several pieces the rails run along the edges and
+        /// their boxes do not cover the centre line, so this lands on the deck itself; on
+        /// a bridge that is one mesh it lands on the top of whatever that mesh is, which
+        /// is high rather than wrong.
+        ///
+        /// Marked inexact, so the caller lifts the column but does not move the bridge.
+        /// </summary>
+        void Fallback()
+        {
+            float x = _footprint.center.x, z = _footprint.center.z;
+            float top = float.NaN;
+
+            foreach (var piece in _pieces)
+            {
+                if (piece == null) continue;
+
+                var box = piece.bounds;
+                if (x < box.min.x || x > box.max.x || z < box.min.z || z > box.max.z) continue;
+
+                if (float.IsNaN(top) || box.max.y > top) top = box.max.y;
+            }
+
+            // Nothing over the middle at all: one flat piece off to the side, or a prefab
+            // with no renderers under it. Take the whole thing's top and say so.
+            _deck = float.IsNaN(top) ? _footprint.max.y : top;
+
+            Debug.LogWarning($"[The Veil] {name}: the ray found no roadway "
+                           + $"({Meshes} mesh(es), {Surfaces} collider(s)), so the deck is "
+                           + $"taken from the model's own boxes at {_deck:0.00} m. The "
+                           + "column rides over it; the bridge is left where it stands.");
         }
 
         /// <summary>
@@ -136,7 +204,7 @@ namespace TheVeil.View
         public bool Height(float worldX, float worldZ, float groundY, out float deck)
         {
             deck = groundY;
-            if (_surfaces == null || _surfaces.Length == 0 || float.IsNaN(_deck)) return false;
+            if (float.IsNaN(_deck)) return false;
 
             // Cheap rejection first: most of the map is not a bridge.
             if (worldX < _footprint.min.x || worldX > _footprint.max.x ||
