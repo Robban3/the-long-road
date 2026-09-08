@@ -28,6 +28,10 @@ namespace TheVeil.View
         Collider[] _surfaces;
         Bounds _footprint;
 
+        /// <summary>What the last Measure found, so a failure can say which step failed.</summary>
+        public int Meshes { get; private set; }
+        public int Surfaces => _surfaces == null ? 0 : _surfaces.Length;
+
         /// <summary>The roadway's height, measured once. NaN until <see cref="Measure"/> runs.</summary>
         float _deck = float.NaN;
 
@@ -50,13 +54,35 @@ namespace TheVeil.View
 
             _surfaces = surfaces.ToArray();
             _deck = float.NaN;
+            Meshes = filters.Length;
 
             if (_surfaces.Length == 0) return;
+
+            // <b>Without this the ray misses and the bridge is never seated.</b> The
+            // colliders are created, the bridge is turned, scaled and moved, and then it
+            // is asked where its roadway is — all inside one call. Unity has not synced
+            // transforms into the physics scene at that point, because
+            // Physics.autoSyncTransforms is off by default in current versions, so every
+            // collider is still where it was before any of that happened and a ray cast
+            // at the finished bridge passes through nothing.
+            //
+            // The measurement came back NaN, Height then refused for the rest of the run,
+            // GroundAt never lifted the column, and the caravan walked through the bridge
+            // at ground level. It printed "roadway NaN m above the bank" every time and
+            // nobody had read the line.
+            Physics.SyncTransforms();
 
             _footprint = _surfaces[0].bounds;
             for (int i = 1; i < _surfaces.Length; i++) _footprint.Encapsulate(_surfaces[i].bounds);
 
             _deck = Sample(_footprint.center.x, _footprint.center.z);
+
+            // Loudly, because a silent NaN here is invisible until somebody watches the
+            // caravan walk through a bridge and cannot say why.
+            if (float.IsNaN(_deck))
+                Debug.LogWarning($"[The Veil] {name}: {filters.Length} mesh(es), "
+                               + $"{_surfaces.Length} collider(s), and the ray found no "
+                               + "roadway. The column will not be lifted onto this bridge.");
         }
 
         /// <summary>

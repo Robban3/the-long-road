@@ -452,7 +452,22 @@ namespace TheVeil.View
         // so anything narrower is a plank the caravan straddles. Twelve of span, which is
         // the ford tile plus a bank at each end — a bridge that stops at the waterline is
         // a jetty. See ModelScaling.FitToCrossing for why both numbers are needed.
-        public const float FordDeck = 5f;
+        /// <summary>
+        /// How wide the roadway has to be, in metres.
+        ///
+        /// <b>Three and a half, down from five, because the width was stretching the
+        /// bridge.</b> FitToCrossing takes the larger of the two demands — deck across and
+        /// span along — and scales the model uniformly by it, so a bridge whose own
+        /// proportions are about four parts long to one across has to grow to twenty-one
+        /// metres before it is five metres wide. The log said so: "span asked 12,0 m and
+        /// got 21,0 m, deck 5,0 m wide". Nearly twice the crossing it was built for.
+        ///
+        /// A wagon measures 2.44 m across, so this is the wagon and half a metre either
+        /// side. At the same proportions the span comes out near fifteen metres against a
+        /// twelve-metre crossing, which is a bridge that lands on both banks rather than a
+        /// viaduct.
+        /// </summary>
+        public const float FordDeck = 3.5f;
         public const float FordSpan = 12f;
 
         /// <summary>
@@ -1469,7 +1484,8 @@ namespace TheVeil.View
             Debug.Log($"[The Veil] Bridge {prefab.name} on tile {tile}: bearing {across:F0}°, "
                     + $"span asked {span:F1} m and got {Mathf.Max(got.size.x, got.size.z):F1} m, "
                     + $"deck {Mathf.Min(got.size.x, got.size.z):F1} m wide, "
-                    + $"roadway {before:F1} m above the bank before settling and {after:F1} m after.");
+                    + $"roadway {before:F1} m above the bank before settling and {after:F1} m after, "
+                    + $"from {deck.Meshes} mesh(es) and {deck.Surfaces} collider(s).");
 
             Claim(grid, got, occupied);
             return true;
