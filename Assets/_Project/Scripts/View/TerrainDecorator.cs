@@ -1973,6 +1973,17 @@ namespace TheVeil.View
         public const float ApronClearing = 55f;
 
         /// <summary>
+        /// How far outside the map the wood starts, in metres.
+        ///
+        /// Nothing here may touch the playing field. A tree placed exactly on the boundary
+        /// still leans over it — a pine's crown is about four and a half metres across, so
+        /// half of it hangs inside — and the apron is scenery, not terrain. Three metres
+        /// clears the widest crown the pack has and is invisible from the map: the wood
+        /// still reads as starting at the edge.
+        /// </summary>
+        public const float ApronInset = 3f;
+
+        /// <summary>
         /// Plants the apron: dense wood on the drawn ground outside the playable map,
         /// open at the start and the goal.
         ///
@@ -2013,9 +2024,11 @@ namespace TheVeil.View
                 // by length so a long map is not fringed like a square one.
                 bool northSouth = rng.Range(0f, width + depth) < width;
 
-                // Squared, so the wood is thickest against the map and thins outward.
+                // Squared, so the wood is thickest against the map and thins outward —
+                // and never nearer than ApronInset, so no crown hangs over the playing
+                // field. What is drawn out here changes nothing that is played on.
                 float t = rng.Range(0f, 1f);
-                float out_ = skirt * (1f - t) * (1f - t);
+                float out_ = ApronInset + (skirt - ApronInset) * (1f - t) * (1f - t);
 
                 float x, z;
 
