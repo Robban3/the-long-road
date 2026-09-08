@@ -120,14 +120,29 @@ namespace TheVeil.View
             float ground = _grid.SurfaceElevation(position.X, position.Y) * _heightScale;
             if (_bridges == null) return ground;
 
+            // The highest answer wins, and a bridge that answers at all is not skipped.
+            //
+            // <b>This used to return the deck only when it stood above the ground, and
+            // walk away otherwise.</b> A bridge is seated a quarter of a metre over the
+            // bank it meets, and the ground under a span is not level — it is a bank, a
+            // channel and the far bank. Wherever the terrain rose more than that quarter
+            // metre the test failed, the bridge was passed over in silence, and the column
+            // dropped to ground level in the middle of a crossing it was supposed to be
+            // riding across. One number being small was enough to undo the whole thing.
+            //
+            // Max rather than a test: on the bridge the column takes the roadway, off it
+            // the ground, and at the joins it takes whichever is higher — which is what
+            // walking onto a bridge is.
+            float highest = ground;
+
             foreach (var bridge in _bridges)
             {
                 if (bridge == null) continue;
-                if (bridge.Height(position.X, position.Y, ground, out float deck) && deck > ground)
-                    return deck;
+                if (bridge.Height(position.X, position.Y, ground, out float deck))
+                    highest = Mathf.Max(highest, deck);
             }
 
-            return ground;
+            return highest;
         }
 
         BridgeDeck[] _bridges;

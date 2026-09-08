@@ -455,19 +455,19 @@ namespace TheVeil.View
         /// <summary>
         /// How wide the roadway has to be, in metres.
         ///
-        /// <b>Three and a half, down from five, because the width was stretching the
-        /// bridge.</b> FitToCrossing takes the larger of the two demands — deck across and
-        /// span along — and scales the model uniformly by it, so a bridge whose own
-        /// proportions are about four parts long to one across has to grow to twenty-one
-        /// metres before it is five metres wide. The log said so: "span asked 12,0 m and
-        /// got 21,0 m, deck 5,0 m wide". Nearly twice the crossing it was built for.
+        /// <b>Five, and the span no longer follows it.</b> This was cut to 3.5 because
+        /// the width was stretching the bridge — FitToCrossing scales uniformly and takes
+        /// the larger demand, so a five-metre deck dragged a twelve-metre crossing out to
+        /// a twenty-one-metre bridge, which the log said plainly: "span asked 12,0 m and
+        /// got 21,0 m". But 3.5 is a wagon and half a metre either side, and a column
+        /// crossing on it has its flanks over the water.
         ///
-        /// A wagon measures 2.44 m across, so this is the wagon and half a metre either
-        /// side. At the same proportions the span comes out near fifteen metres against a
-        /// twelve-metre crossing, which is a bridge that lands on both banks rather than a
-        /// viaduct.
+        /// The two are separated now: the model is fitted by the span alone and then
+        /// widened on its own axis (see ModelScaling.Widen), so the deck may be as wide as
+        /// a wagon needs without the bridge growing into a viaduct. Five metres is two
+        /// wagons abreast, which is what the crossing has to look like it could carry.
         /// </summary>
-        public const float FordDeck = 3.5f;
+        public const float FordDeck = 5f;
         public const float FordSpan = 12f;
 
         /// <summary>
@@ -1452,7 +1452,20 @@ namespace TheVeil.View
             // twelve-metre bridge over a five-tile ford is a jetty from each side.
             float span = Mathf.Max(FordSpan, (FordWidth(grid, tile, across) + 1) * TileGrid.TileSize);
 
-            ModelScaling.FitToCrossing(instance, FordDeck, span, groundY);
+            // Fitted by the span alone — a zero deck demand leaves only the length term —
+            // and then widened on its own axis. Asking FitToCrossing for both made the two
+            // fight: it scales uniformly and takes the larger demand, so a five-metre deck
+            // dragged a twelve-metre crossing out to a twenty-one-metre bridge. The length
+            // is what the ford measures and the width is what a wagon needs, and they are
+            // not the same question.
+            ModelScaling.FitToCrossing(instance, 0f, span, groundY);
+
+            // Square to the run the bridge lies along.
+            float widthwise = (across + 90f) * Mathf.Deg2Rad;
+            ModelScaling.Widen(instance,
+                               FordDeck,
+                               new Vector3(Mathf.Sin(widthwise), 0f, Mathf.Cos(widthwise)),
+                               groundY);
 
             // Measured rather than described. Nothing here knows where the roadway is
             // inside a bridge model, so the bridge is asked at runtime — see BridgeDeck.

@@ -126,6 +126,58 @@ namespace TheVeil.View
         }
 
         /// <summary>
+        /// Widens a model across one horizontal direction without lengthening it.
+        ///
+        /// <b>The one place a non-uniform scale is right, and it has to pick its axis
+        /// carefully.</b> FitToCrossing scales uniformly and takes the larger of the two
+        /// demands, so asking for a wider deck asks for a longer bridge: a model running
+        /// 4.2 parts long to one across needed twenty-one metres of span before it was
+        /// five metres wide, over a crossing that is twelve. Fitting by span alone gets
+        /// the length right and leaves the deck too narrow to drive a wagon over, and no
+        /// uniform number satisfies both.
+        ///
+        /// The axis is found rather than assumed. The caller yaws the bridge onto the
+        /// ford's bearing and lays a Z-up prefab down with a quarter turn about X, so
+        /// which of the model's own axes points across the water depends on both — and
+        /// scaling the wrong one squashes the bridge instead of widening it, which is what
+        /// the old comment here warned about. Asking the transform to turn the world
+        /// direction into its local frame answers it exactly, for any rotation and either
+        /// prefab convention.
+        /// </summary>
+        public static void Widen(GameObject instance, float targetWidth, Vector3 acrossWorld,
+                                 float groundY = 0f)
+        {
+            if (instance == null || targetWidth <= 0.0001f) return;
+
+            var bounds = Measure(instance);
+
+            // How wide it is now, along that direction. The crossings are cut square to
+            // their rivers, so this is the bounding box's own x or z rather than a
+            // projection — and whichever of the two the direction leans on is the one.
+            var across = acrossWorld.normalized;
+            float now = Mathf.Abs(across.x) >= Mathf.Abs(across.z) ? bounds.size.x : bounds.size.z;
+            if (now <= 0.0001f) return;
+
+            float factor = targetWidth / now;
+            if (Mathf.Approximately(factor, 1f)) return;
+
+            // Which of the model's own axes that direction is, in its own frame.
+            var local = instance.transform.InverseTransformDirection(across);
+            var scale = instance.transform.localScale;
+
+            float ax = Mathf.Abs(local.x), ay = Mathf.Abs(local.y), az = Mathf.Abs(local.z);
+
+            if (ax >= ay && ax >= az) scale.x *= factor;
+            else if (ay >= az) scale.y *= factor;
+            else scale.z *= factor;
+
+            instance.transform.localScale = scale;
+
+            var widened = Measure(instance);
+            instance.transform.position += new Vector3(0f, groundY - widened.min.y, 0f);
+        }
+
+        /// <summary>
         /// Scales an instance so its widest horizontal dimension is
         /// <paramref name="targetWidth"/> metres, and stands it on the ground.
         ///
