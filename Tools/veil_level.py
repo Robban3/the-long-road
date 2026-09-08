@@ -2424,7 +2424,14 @@ COVER_DENSITY = {FOREST: 2.4, PLAINS: 1.7, MARSH: 2.0, MOUNTAIN_PASS: 0.5, ROAD:
 # 0.62 was tried and rejected on the evidence — the render showed two wagons and one
 # troop through a gap and the rest of the column gone, which is the old 0.55 failure
 # exactly. Overlapping crowns were the goal and 0.45 reaches them.
-DENSITY = {FOREST: 0.45, MOUNTAIN_PASS: 0.18, PLAINS: 0.03, MARSH: 0.06, ROAD: 0.01}
+DENSITY = {FOREST: 0.62, MOUNTAIN_PASS: 0.18, PLAINS: 0.11, MARSH: 0.45, ROAD: 0.01}
+"""TerrainDecorator.Density, and it had drifted.
+
+Forest stood at 0.45 and plains at 0.03 here while the game had moved to 0.62 and 0.11,
+so every picture rendered from this port has shown a thinner world than the one the
+player walks through — the same fault the wagons had, and the same reason: a number
+copied once and then not copied again.
+"""
 
 # How much ground a prop actually stands on, as a share of the size it is given.
 #

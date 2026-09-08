@@ -784,7 +784,19 @@ namespace TheVeil.View
             // meadow has copses, single trees and thickets in it, which is what the plains
             // table is mostly made of — the number was the only thing keeping them off.
             { TerrainType.Plains, 0.11f },
-            { TerrainType.Marsh, 0.06f },
+
+            // <b>A fen is not a lawn, and 0.06 made it the barest ground on the map.</b>
+            // Marsh was thinner than plains and second only to the road, so the one
+            // terrain whose whole character is standing water, drowned trees and rotting
+            // growth came out as empty green with a stump on it. The marsh table is
+            // already right — near half of it is dead and swamp trees and another third
+            // its own plants — and the density was the only thing keeping them off, the
+            // same fault the plains had before it.
+            //
+            // 0.45, just under the forest's 0.62, because a swamp is dense but its trees
+            // are not a closed canopy. On a 64x64 map that is about 400 marsh tiles, so
+            // roughly 180 props where there were 24 — and MaxProps still caps the level.
+            { TerrainType.Marsh, 0.45f },
             { TerrainType.Road, 0.01f }
         };
 
@@ -2781,7 +2793,7 @@ namespace TheVeil.View
             // Ruins go the other way: out in the country, away from the line, because a
             // ruin beside a living road reads as a building somebody would have repaired.
             if ((terrain == TerrainType.Plains || terrain == TerrainType.Forest)
-                && !Beside(grid, line, x, y, SettlementReach)
+                && !Beside(grid, line, x, y, RuinExclusion)
                 && kit.CanBuildRuin && rng.Chance(StoneRuinChance))
                 return Note(found, LandmarkKind.Ruin, tile,
                             Raise(grid, tile, rng, BuildingBuilder.Ruin(parent, kit, rng),
@@ -2855,8 +2867,34 @@ namespace TheVeil.View
         public const float TowerChance = 0.012f;
         public const float StoneRuinChance = 0.0015f;
 
-        /// <summary>How far from the caravan's road a building may still be said to be on it.</summary>
-        public const int SettlementReach = 3;
+        /// <summary>
+        /// How far from the caravan's road a building may still be said to be on it.
+        ///
+        /// <b>Five, and it had to move when the lane test arrived.</b> A building is now
+        /// refused when its *body* reaches the caravan's swept lane rather than only when
+        /// the tile under its middle does — which is what stopped the column driving
+        /// through the watchtower. But a house is required to stand near the road, and at
+        /// three tiles the two rules were fighting: measured over chapter 1, the plains
+        /// tiles that satisfied both fell from 1101 to 373, a third of what there was. At
+        /// eight parts in a thousand per tile that is the difference between three or four
+        /// buildings on a level and none, and on 1-2 the count went from 44 sites to 13.
+        ///
+        /// Five tiles restores the supply — 1225 sites, slightly more than before — with
+        /// every one of them far enough back that the building stands clear of the lane.
+        /// The houses move back rather than away.
+        /// </summary>
+        public const int SettlementReach = 5;
+
+        /// <summary>
+        /// How far from the caravan's line a ruin has to be to be out in the country.
+        ///
+        /// Held at the three tiles SettlementReach used to be, rather than following it
+        /// out to five. The two numbers were one number because they meant the same
+        /// thing; they stopped meaning the same thing when the settlement reach was
+        /// widened to make room for a house's body, and dragging the ruins out with it
+        /// would have thinned them for a reason that has nothing to do with ruins.
+        /// </summary>
+        public const int RuinExclusion = 3;
 
         /// <summary>Most a tile may fall across before nobody would have built on it.</summary>
         public const float BuildableFall = 1.6f;
