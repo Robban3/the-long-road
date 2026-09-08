@@ -994,7 +994,7 @@ namespace TheVeil.View
             // shore pass had already strewn with boulders. One of them came up through
             // the deck. Placed first and claiming its whole footprint, the stones go
             // round it.
-            placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale);
+            placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale, road);
 
             placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
                                        heightScale, densityScale);
@@ -1201,7 +1201,8 @@ namespace TheVeil.View
         /// passable, with nothing to say why. A plank bridge says it.
         /// </summary>
         static int PlaceFords(Transform parent, TileGrid grid, DeterministicRandom rng,
-                              BiomeDecor decor, HashSet<int> occupied, float heightScale)
+                              BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                              HashSet<int> road)
         {
             var crossings = new List<int>();
 
@@ -1232,7 +1233,7 @@ namespace TheVeil.View
             // Drawn from the level's own stream, so a seed is still a level.
             if (decor.Fords.Any &&
                 Bridge(parent, grid, rng, decor, crossings[rng.Range(0, crossings.Count)],
-                       heightScale, occupied))
+                       heightScale, occupied, road))
                 placed++;
 
             // And every other crossing is what a ford actually is: stones in shallow
@@ -1417,7 +1418,8 @@ namespace TheVeil.View
         /// the scatter deliberately randomises.
         /// </summary>
         static bool Bridge(Transform parent, TileGrid grid, DeterministicRandom rng,
-                           BiomeDecor decor, int tile, float heightScale, HashSet<int> occupied)
+                           BiomeDecor decor, int tile, float heightScale, HashSet<int> occupied,
+                           HashSet<int> road)
         {
             var prefab = Any(decor.Fords, rng);
             if (prefab == null) return false;
@@ -1441,9 +1443,22 @@ namespace TheVeil.View
             var bounds = ModelScaling.Measure(instance);
             bool longAlongX = bounds.size.x > bounds.size.z;
 
-            // And which way it has to lie is the ford's own bearing: the crossing is a
-            // run of tiles cut across the river, and the bridge lies along it.
-            float across = Crossing(grid, tile);
+            // And which way it has to lie is the way the caravan crosses.
+            //
+            // <b>The ford's own run is the answer only when nobody is using it.</b> A
+            // crossing is cut square to its river, so a bridge laid along it is square to
+            // the river too — and the player draws their own line, which meets the water
+            // at whatever angle they drew. The column then came onto a bridge that was
+            // not pointing where it was going, crabbed across it, and straightened out on
+            // the far bank.
+            //
+            // So the lane is asked first. Where the route passes the crossing the bridge
+            // turns to match it and the column drives straight on; where it does not — the
+            // bridge falls on a random crossing and two of the three are usually unused —
+            // the ford's run is still the right answer, because a bridge nobody is
+            // crossing should still be square to the water.
+            float square = Crossing(grid, tile);
+            float across = Squared(square, RoadBearing(grid, road, tile, RoadReach));
 
             // The model's own length is turned onto that bearing. A prefab authored
             // along X is already a quarter turn from one authored along Z.
@@ -1678,6 +1693,79 @@ namespace TheVeil.View
             float bearing = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
             return 90f - bearing * 57.29578f;
         }
+
+        /// <summary>
+        /// Which way the caravan's own lane runs past a tile, or NaN where it does not.
+        ///
+        /// The same doubled-angle sum <see cref="Bearing"/> uses on terrain, over the
+        /// swept lane instead. Doubling is what makes it an axis rather than a direction:
+        /// a road has no front, and tiles on both sides of the crossing have to add up
+        /// rather than cancel.
+        /// </summary>
+        static float RoadBearing(TileGrid grid, HashSet<int> road, int tile, int radius)
+        {
+            if (road == null || road.Count == 0) return float.NaN;
+
+            grid.ToCoords(tile, out int x, out int y);
+
+            float sumSin = 0f, sumCos = 0f;
+
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+                    if (!road.Contains(grid.ToIndex(x + dx, y + dy))) continue;
+
+                    float angle = (float)System.Math.Atan2(dy, dx);
+                    float weight = 1f / Mathf.Sqrt(dx * dx + dy * dy);
+
+                    sumSin += weight * (float)System.Math.Sin(angle * 2f);
+                    sumCos += weight * (float)System.Math.Cos(angle * 2f);
+                }
+            }
+
+            if (sumSin * sumSin + sumCos * sumCos < 0.0001f) return float.NaN;
+
+            float bearing = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
+            return 90f - bearing * 57.29578f;
+        }
+
+        /// <summary>
+        /// How far the lane may pull a bridge off square to its river, in degrees.
+        ///
+        /// <b>Measured, and the limit is not academic.</b> The ford run is 90° on every
+        /// crossing in chapter one, and the drawn route meets it at 83° to 99° — four to
+        /// nine degrees off, which is the crabbing across the deck. But on 1-7 the route
+        /// runs at 22°, nearly *along* the river rather than over it, and turning a bridge
+        /// to match would lay it lengthwise in the water.
+        ///
+        /// Thirty degrees separates the two cases with room on both sides. Past it the
+        /// route is not really crossing here, and a bridge square to the water is the
+        /// right answer whatever the line on the map says.
+        /// </summary>
+        const float BridgeSkew = 30f;
+
+        /// <summary>
+        /// The lane's bearing where it is close enough to the crossing's own, and the
+        /// crossing's where it is not or where there is no lane.
+        /// </summary>
+        static float Squared(float square, float lane)
+        {
+            if (float.IsNaN(lane)) return square;
+
+            // Axes, not directions: 179° and 1° are two degrees apart, and a bridge laid
+            // either way round is the same bridge.
+            float off = Mathf.Abs(Mathf.DeltaAngle(square * 2f, lane * 2f)) * 0.5f;
+
+            return off <= BridgeSkew ? lane : square;
+        }
+
+        /// <summary>How far around the bridge the caravan's lane is read, in tiles.</summary>
+        // Four. Wide enough to average out the tile-by-tile jitter of a drawn line and
+        // short enough that a bend fifty metres away does not turn the bridge.
+        const int RoadReach = 4;
 
         /// <summary>How many tiles wide the crossing is, along its own run.</summary>
         static int FordWidth(TileGrid grid, int tile, float bearing)
