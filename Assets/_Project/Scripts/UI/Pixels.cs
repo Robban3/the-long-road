@@ -793,7 +793,7 @@ namespace TheVeil.UI
         /// it — so the player picked a crossing blind and found out in the run.
         ///
         /// Drawn as a side view rather than from above. From four hundred metres a bridge
-        /// seen from overhead is a short grey bar, which is a wall, a wreck or a log; the
+        /// seen from overhead is a short brown bar, which is a wall, a wreck or a log; the
         /// arch is what says bridge and it only exists side-on. The map's other symbols
         /// take the same liberty for the same reason.
         /// </summary>
@@ -802,27 +802,35 @@ namespace TheVeil.UI
             const float s = SymbolSize;
             var texture = SymbolPlate(name);
 
-            var stone = new Color(0.62f, 0.60f, 0.56f, 1f);
-            var deck = new Color(0.55f, 0.40f, 0.26f, 1f);
+            // Timber, because the bridge is timber. The model the decorator stands on a
+            // crossing is the nature pack's plank bridge — brown boards on a curved
+            // frame — and a grey stone arch on the map would be a sign for a building
+            // that is not there.
+            var beam = new Color(0.46f, 0.32f, 0.19f, 1f);
+            var plank = new Color(0.62f, 0.45f, 0.28f, 1f);
 
-            // The two banks it lands on, so the arch has something to stand between.
-            Draw(texture, Rect(s * 0.06f, s * 0.24f, s * 0.26f, s * 0.40f), stone);
-            Draw(texture, Rect(s * 0.74f, s * 0.24f, s * 0.94f, s * 0.40f), stone);
+            // The trestles it lands on at each end.
+            Draw(texture, Rect(s * 0.08f, s * 0.22f, s * 0.20f, s * 0.44f), beam);
+            Draw(texture, Rect(s * 0.80f, s * 0.22f, s * 0.92f, s * 0.44f), beam);
 
-            // The arch: a run of blocks round a half circle, so what is left is an arch
-            // and not a doughnut.
+            // The curved frame under the roadway, in timbers rather than blocks.
             for (int i = 0; i <= 24; i++)
             {
                 float a = Mathf.PI * i / 24f;
-                float ax = s * 0.5f + Mathf.Cos(a) * s * 0.26f;
-                float ay = s * 0.38f + Mathf.Sin(a) * s * 0.26f;
+                float ax = s * 0.5f + Mathf.Cos(a) * s * 0.28f;
+                float ay = s * 0.34f + Mathf.Sin(a) * s * 0.22f;
 
-                Draw(texture, Rect(ax - s * 0.045f, ay - s * 0.045f,
-                                   ax + s * 0.045f, ay + s * 0.045f), stone);
+                Draw(texture, Rect(ax - s * 0.04f, ay - s * 0.04f,
+                                   ax + s * 0.04f, ay + s * 0.04f), beam);
             }
 
-            // And the roadway over the top, which is the part the caravan uses.
-            Draw(texture, Rect(s * 0.10f, s * 0.62f, s * 0.90f, s * 0.73f), deck);
+            // The deck, laid as boards with the gaps left dark. Individual planks are
+            // what says timber at this size — a solid brown bar could be anything.
+            for (int i = 0; i < 7; i++)
+            {
+                float x0 = s * (0.10f + i * 0.114f);
+                Draw(texture, Rect(x0, s * 0.58f, x0 + s * 0.088f, s * 0.70f), plank);
+            }
 
             return Make(texture, default);
         }
