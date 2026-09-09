@@ -42,6 +42,17 @@ namespace TheVeil.Sim
         public Vec2 Heading;
 
         public bool IsFleeing => Fleeing > 0f;
+
+        /// <summary>
+        /// How fast it is actually moving, in metres a second.
+        ///
+        /// <b>Because the view was guessing and guessing wrong.</b> It animated an animal
+        /// at the flight speed while fleeing and at zero otherwise — but "otherwise"
+        /// covers an animal walking home at GrazeSpeed, which came out sliding across the
+        /// grass with no legs moving. Only the step knows which of the three things an
+        /// animal is doing this tick, so only the step can say.
+        /// </summary>
+        public float Speed;
     }
 
     /// <summary>
@@ -277,6 +288,7 @@ namespace TheVeil.Sim
                 if (animal.Fleeing > 0f)
                 {
                     animal.Fleeing -= dt;
+                    animal.Speed = FleeSpeed;
                     animal.Position = new Vec2(animal.Position.X + animal.Heading.X * FleeSpeed * dt,
                                                animal.Position.Y + animal.Heading.Y * FleeSpeed * dt);
                     continue;
@@ -288,10 +300,23 @@ namespace TheVeil.Sim
                 var toHome = new Vec2(animal.Home.X - animal.Position.X,
                                       animal.Home.Y - animal.Position.Y);
                 float distance = (float)Math.Sqrt(toHome.X * toHome.X + toHome.Y * toHome.Y);
-                if (distance <= GrazeRadius) continue;
 
-                animal.Position = new Vec2(animal.Position.X + toHome.X / distance * GrazeSpeed * dt,
-                                           animal.Position.Y + toHome.Y / distance * GrazeSpeed * dt);
+                if (distance <= GrazeRadius)
+                {
+                    animal.Speed = 0f;
+                    continue;
+                }
+
+                // <b>Turned the way it is walking, which this never did.</b> Heading was
+                // set when the animal bolted and then left alone, so an animal walking
+                // home afterwards faced wherever it had run *from* — moving one way and
+                // pointing another, which is the sliding. Nothing else here knows the
+                // direction: the view is handed a heading and trusts it.
+                animal.Heading = new Vec2(toHome.X / distance, toHome.Y / distance);
+                animal.Speed = GrazeSpeed;
+
+                animal.Position = new Vec2(animal.Position.X + animal.Heading.X * GrazeSpeed * dt,
+                                           animal.Position.Y + animal.Heading.Y * GrazeSpeed * dt);
             }
         }
 

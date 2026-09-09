@@ -1231,7 +1231,11 @@ namespace TheVeil.View
                       Facing(new Vector3(animal.Heading.X, 0f, animal.Heading.Y),
                              Library.For(animal.Kind).YawOffset));
 
-                Animate(marker, animal.IsFleeing ? Wildlife.FleeSpeed : 0f, false, false);
+                // What it is actually doing, not what the view can guess. Fleeing or
+                // standing were the only two answers here, and an animal walking home at
+                // grazing pace got the standing one — moving with nothing animating,
+                // which is the slide.
+                Animate(marker, animal.Speed, false, false);
             }
         }
 

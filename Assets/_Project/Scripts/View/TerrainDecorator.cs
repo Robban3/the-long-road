@@ -486,6 +486,9 @@ namespace TheVeil.View
         /// </summary>
         public const float BridgeLanding = 3f;
 
+        /// <summary>How much clear ground the bridge keeps around itself, in metres.</summary>
+        public const float BridgeClearance = 6f;
+
         /// <summary>
         /// How far the roadway sits above the bank it meets, in metres.
         ///
@@ -959,7 +962,11 @@ namespace TheVeil.View
                     if (occupied.Contains(i)) continue;
                     if (!passRng.Chance(density * densityScale)) continue;
 
-                    var choice = Pick(decor, terrain, passRng);
+                    // Whether this tile touches water, so a boulder is not dropped into a
+                    // crossing — see Pick.
+                    grid.ToCoords(i, out int bankX, out int bankY);
+                    var choice = Pick(decor, terrain, passRng,
+                                      NextToWater(grid, bankX, bankY));
                     if (choice.Prefab == null) continue;
                     if (IsBulky(terrain, choice) != bulky) continue;
 
@@ -1304,14 +1311,20 @@ namespace TheVeil.View
                 // stones across a roadway.
                 if (occupied.Contains(i)) continue;
 
-                int pile = 2 + rng.Range(0, 3);
+                // Four to seven, up from two to four. A ford is crossed on stones and two
+                // of them is a pair of rocks in a river; what says "you can walk here" is
+                // a line of them, and they are 1.1 m across on a four-metre tile.
+                int pile = 4 + rng.Range(0, 4);
 
                 for (int s = 0; s < pile; s++)
                 {
                     var choice = new Choice(stones, Any(stones, rng), SteppingStoneSize,
                                             byWidth: true);
 
-                    if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.5f))
+                    // With the occupied set, so a stone is not dropped on something that
+                    // is already there. It was called without it, which is how one came
+                    // down on a tent.
+                    if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.5f, occupied))
                         placed++;
                 }
             }
@@ -1390,6 +1403,41 @@ namespace TheVeil.View
             return placed;
         }
 
+        /// <summary>How far a camp may be moved to find dry ground, in tiles.</summary>
+        const int CampReach = 3;
+
+        /// <summary>
+        /// The nearest tile to this one that a tent could stand on, or -1.
+        ///
+        /// Dry, passable and not a crossing. Searched outward in rings so the camp moves
+        /// as little as it can: a band watching a ford should still be at the ford.
+        /// </summary>
+        static int DryGroundNear(TileGrid grid, int tile)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            for (int ring = 0; ring <= CampReach; ring++)
+            {
+                for (int dy = -ring; dy <= ring; dy++)
+                {
+                    for (int dx = -ring; dx <= ring; dx++)
+                    {
+                        // The ring's edge only; the inside was covered by the ring before.
+                        if (ring > 0 && Mathf.Abs(dx) != ring && Mathf.Abs(dy) != ring) continue;
+                        if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                        var terrain = grid[grid.ToIndex(x + dx, y + dy)];
+                        if (terrain == TerrainType.Water || terrain == TerrainType.Ford) continue;
+                        if (!grid.IsPassable(x + dx, y + dy)) continue;
+
+                        return grid.ToIndex(x + dx, y + dy);
+                    }
+                }
+            }
+
+            return -1;
+        }
+
         static bool WithinReachOfWater(TileGrid grid, int x, int y, int reach)
         {
             for (int dy = -reach; dy <= reach; dy++)
@@ -1418,8 +1466,24 @@ namespace TheVeil.View
             foreach (int tile in sites)
             {
                 if (tile < 0 || tile >= grid.TileCount) continue;
-                if (occupied.Contains(tile)) continue;
-                if (road != null && road.Contains(tile)) continue;
+
+                // <b>On the bank, not in the river.</b> The site is where an enemy group
+                // holds ground, and a ford is a chokepoint, so that is where the ambushes
+                // are put — measured over chapter one, 29 of the 149 groups sit on a
+                // crossing, two or three on every level. Nothing here ever asked what the
+                // tile was, so their tents were pitched in the water, and the stepping
+                // stones were then strewn over the canvas.
+                //
+                // The ambush stays where it is; only the tent moves, to the nearest dry
+                // ground it can be pitched on. A camp beside the crossing the raiders are
+                // watching is what the signal was always meant to say.
+                int ground = DryGroundNear(grid, tile);
+                if (ground < 0) continue;
+
+                if (occupied.Contains(ground)) continue;
+                if (road != null && road.Contains(ground)) continue;
+
+                tile = ground;
 
                 var choice = new Choice(decor.Camps, Any(decor.Camps, rng), CampHeight,
                                         byWidth: false);
@@ -1558,6 +1622,19 @@ namespace TheVeil.View
                     + $"{(deck.Exact ? "measured by ray" : "from the model's own boxes")} "
                     + $"at {deck.Deck:F2} m.");
 
+            // Claimed with a margin, so the wood does not close over the crossing.
+            //
+            // <b>The bridge reserved its own footprint and nothing more, and that was
+            // enough until the marshes were filled.</b> Marsh density went from 0.06 to
+            // 0.45 — the fen beside a river is now the densest ground on the map after
+            // the forest — so trees grew to the deck's edge on both banks and the water
+            // under it went out of sight. What is left reads as a bridge standing in a
+            // wood.
+            //
+            // Six metres of clear ground round it: a tile and a half, enough to see the
+            // river it crosses and to drive up to it, and far too little to leave a
+            // clearing anybody would notice.
+            got.Expand(BridgeClearance * 2f);
             Claim(grid, got, occupied);
             return true;
         }
@@ -3319,6 +3396,22 @@ namespace TheVeil.View
                 return false;
             }
 
+            // <b>And whether anything is already standing in it.</b> Raise reserved its
+            // ground and never asked for it — the only test above it is
+            // PlaceLandmarks checking the single tile under the building's middle, which
+            // says nothing about a house four metres wide on the tile next door. So two
+            // of them could go up in the same place and did, one growing out of the roof
+            // of the other.
+            //
+            // Scatter has asked this since it was written, with this same call. Raise is
+            // the one path that skipped it, and it is the path that puts up everything
+            // large enough for the overlap to show.
+            if (!FootprintClear(grid, occupied, at.X, at.Y, FootprintRadius(building)))
+            {
+                Unbuild(building);
+                return false;
+            }
+
             Block(building, canopy: false);
             Reserve(grid, occupied, building, at.X, at.Y);
 
@@ -3375,9 +3468,21 @@ namespace TheVeil.View
         /// the odd tree. The pass is rock and boulder under landform. The marsh is dead
         /// standing timber.
         /// </summary>
-        static Choice Pick(BiomeDecor decor, TerrainType terrain, DeterministicRandom rng)
+        static Choice Pick(BiomeDecor decor, TerrainType terrain, DeterministicRandom rng,
+                           bool onTheBank = false)
         {
             float roll = rng.Range(0f, 1f);
+
+            // <b>No boulders at the water.</b> A boulder is fitted to BoulderWidth, five
+            // and a half metres across, and the rivers here carry four to eight metres of
+            // water — two tiles at the median. One of them dropped on the bank sits in the
+            // crossing looking like a rock the size of the river, and beside the stepping
+            // stones at 1.1 m it reads as though somebody rolled a house into the ford.
+            //
+            // The tile still gets something; it gets a rock, which is what a riverbank
+            // has. Nothing is removed and no other ground changes.
+            if (onTheBank && roll >= 0.56f && roll < 0.68f)
+                return From(decor.Rocks, rng, RockHeight);
 
             switch (terrain)
             {
