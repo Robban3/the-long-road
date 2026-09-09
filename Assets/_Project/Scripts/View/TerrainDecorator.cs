@@ -2623,10 +2623,6 @@ namespace TheVeil.View
             else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, seated);
             else ModelScaling.Fit(instance, size, seated);
 
-            // After the fitting, because turning a model changes which way its footprint
-            // runs, and it is re-seated on its new underside — the same order Wreck uses.
-            if (choice.Flat) LayFlat(instance, seated);
-
             if (signal) Mark(instance);
 
             Block(instance, choice.Canopy);
@@ -2938,9 +2934,21 @@ namespace TheVeil.View
                     if (placed >= MaxLandmarks) break;
                     if (clear != null && clear.Contains(tile)) continue;
                     if (road != null && road.Contains(tile)) continue;
-                    if (!occupied.Add(tile)) continue;
+                    if (occupied.Contains(tile)) continue;
 
-                    placed += Wreck(parent, grid, tile, rng, decor, heightScale, occupied, found);
+                    // Claimed after the wreck stands, not before it is attempted. Place
+                    // asks for its whole footprint now, and a tile claimed up front is
+                    // ground the site would have found taken by itself — which is only
+                    // survivable while a ruin's footprint stays inside one tile. At
+                    // RuinWidth and the landmark scale it comes to exactly a tile's four
+                    // metres, so the tell has been standing on the boundary of switching
+                    // itself off. It should not depend on that number.
+                    int built = Wreck(parent, grid, tile, rng, decor, heightScale,
+                                      occupied, found);
+                    if (built == 0) continue;
+
+                    occupied.Add(tile);
+                    placed += built;
 
                     // And a totem beside it, where the pack has one. A wreck says
                     // something happened here; a banner driven into the ground says
@@ -3114,20 +3122,9 @@ namespace TheVeil.View
             /// </summary>
             public readonly float Sink;
 
-            /// <summary>
-            /// Whether this prop is turned onto its side before it is seated.
-            ///
-            /// Asked of the set rather than measured off the model. <see cref="LayFlat"/>
-            /// turns down anything that is not already lying, which is the right rule for
-            /// wreckage — a wheel, a plank, a crate all belong on the floor — and the
-            /// wrong one for a set that contains anything upright, where it would fell
-            /// what was meant to stand.
-            /// </summary>
-            public readonly bool Flat;
-
             public Choice(PropSet set, GameObject prefab, float size, bool byWidth,
                           float low = JitterLow, float high = JitterHigh, bool canopy = false,
-                          float maxSpread = 0f, float sink = 0f, bool flat = false)
+                          float maxSpread = 0f, float sink = 0f)
             {
                 Prefab = prefab;
                 ZUp = set != null && set.ZUp;
@@ -3138,7 +3135,6 @@ namespace TheVeil.View
                 Canopy = canopy;
                 MaxSpread = maxSpread;
                 Sink = sink;
-                Flat = flat;
             }
         }
 
@@ -3691,9 +3687,15 @@ namespace TheVeil.View
                     // in a hundred they get back here. The marsh is dressed the same
                     // amount as before, in the same things, with two of them now lying
                     // down instead of standing on their ends.
+                    //
+                    // Measured across and left the way round it was drawn. Nothing here
+                    // turns it down, because the pack already did: the branch is 1.8 m
+                    // long and 0.76 m tall in its own file. It only ever stood up because
+                    // it was being fitted to a nine-metre height, which took three
+                    // quarters of a metre of fallen wood and made a nine-metre arch of
+                    // it. Sizing it across is the whole fix.
                     if (roll < 0.46f)
-                        return From(decor.Deadfall, rng, DeadfallWidth,
-                                    byWidth: true, flat: true);
+                        return From(decor.Deadfall, rng, DeadfallWidth, byWidth: true);
 
                     // Its own plants, not the meadow's. A fen dressed in the same grass
                     // and ferns as the plains is a meadow that happens to slow you down.
@@ -3725,11 +3727,10 @@ namespace TheVeil.View
         /// </summary>
         static Choice From(PropSet set, DeterministicRandom rng, float size,
                            float low = JitterLow, float high = JitterHigh,
-                           bool byWidth = false, float maxSpread = 0f, float sink = 0f,
-                           bool flat = false) =>
+                           bool byWidth = false, float maxSpread = 0f, float sink = 0f) =>
             set != null && set.Any
                 ? new Choice(set, Any(set, rng), size, byWidth, low, high,
-                             maxSpread: maxSpread, sink: sink, flat: flat)
+                             maxSpread: maxSpread, sink: sink)
                 : default;
 
         /// <summary>A tree: the wide size spread a stand of them wants, and canopy rules.</summary>

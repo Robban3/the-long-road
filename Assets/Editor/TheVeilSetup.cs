@@ -860,11 +860,28 @@ namespace TheVeil.Editor
                 // The loose pieces of a wreck: a wheel off the cart, a spilled crate,
                 // a barrel. Never a site on their own — see BiomeDecor.Wreckage for the
                 // five-metre wheel that made the distinction necessary.
+                //
+                // The barrel comes from the generic pack because the knights pack has
+                // none. It was asked of them by name for as long as this list has
+                // existed, along with a bucket, and every setup run said so in a warning
+                // nobody read: the wrecks have been a wheel and a crate the whole time.
+                // Three wooden ones rather than one, since they are here to be a mess.
+                // The metal barrels beside them stay where they are — that pack is half
+                // modern, and a steel drum in a wagon wreck is the other pack's
+                // sidewalks arriving by the back door.
+                //
+                // There is no bucket. Not in this pack, not in any of the three, so it is
+                // not named any more; asking for a model that does not exist is a warning
+                // every run and a promise the list cannot keep.
                 Wreckage = Mixed(
                     Load($"{SyntyKnightsDir}/Props", new[]
                     {
-                        "SM_Prop_CartWheel_01", "SM_Prop_Crate_01", "SM_Prop_Barrel_01",
-                        "SM_Prop_Bucket_01"
+                        "SM_Prop_CartWheel_01", "SM_Prop_Crate_01"
+                    }),
+                    Load($"{SyntyGenericDir}/Props", new[]
+                    {
+                        "SM_Gen_Prop_Barrel_Wood_01", "SM_Gen_Prop_Barrel_Wood_02",
+                        "SM_Gen_Prop_Barrel_Wood_03"
                     }),
                     Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Skull_01" })),
 
