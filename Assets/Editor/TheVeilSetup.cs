@@ -609,12 +609,21 @@ namespace TheVeil.Editor
                 // a second stump and both of the Trees folder's root sprawls — which is
                 // a third of the kit sitting in the project doing nothing. A marsh drawn
                 // from three trees repeats visibly at the density these are scattered at.
+                // The branches are no longer among them; see Deadfall below.
                 DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
                                   "SM_Tree_Pine_Dead_01", "SM_Tree_Generic_Dead_01",
                                   "SM_Tree_Swamp_01", "SM_Tree_Swamp_02", "SM_Tree_Swamp_03",
                                   "SM_Tree_Swamp_04",
-                                  "SM_Tree_Swamp_Branch_01", "SM_Tree_Swamp_Branch_02",
                                   "SM_Tree_Swamp_Stump_01", "SM_Tree_Swamp_Stump_02"),
+
+                // The two that were already on the ground before anything placed them.
+                //
+                // They sat in the set above and were sized and stood like the trunks, so
+                // each one arrived as an arch on two feet — a croquet hoop in a fen. The
+                // stumps stay with the trunks: a stump is a standing thing that happens
+                // to be short, and burying its roots is the whole of what it needed.
+                Deadfall = Synty("Trees", "SM_Tree_Swamp_Branch_01",
+                                 "SM_Tree_Swamp_Branch_02"),
 
                 // The layer between the grass and the trees. Without it a forest is
                 // trunks standing in a lawn, which is what the old one was.

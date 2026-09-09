@@ -64,6 +64,22 @@ namespace TheVeil.View
         public PropSet DeadTrees = new PropSet();
 
         /// <summary>
+        /// Wood that is already down: the swamp's fallen branches.
+        ///
+        /// Split out of <see cref="DeadTrees"/>, which is otherwise trunks that stand.
+        /// The pack files both under Trees and the set inherited the filing, but they are
+        /// two different props wearing one name — a standing trunk is a vertical line read
+        /// from above, and a fallen branch is a shape on the floor. Sharing a set forced
+        /// one rule onto both: the height that suits a trunk stretched the branches, and
+        /// the only tool that lays a thing down would have felled every trunk to reach
+        /// them, because it cannot be told which is which after the fact.
+        ///
+        /// So they are told apart here instead, where somebody decides it, rather than
+        /// derived later from whichever way round a model happens to have been drawn.
+        /// </summary>
+        public PropSet Deadfall = new PropSet();
+
+        /// <summary>
         /// The layer between the grass and the trees.
         ///
         /// Without it a forest is trunks standing in a lawn. Every reference for this
@@ -280,7 +296,8 @@ namespace TheVeil.View
         public PropSet Backdrop = new PropSet();
 
         public bool IsEmpty =>
-            !Has(Trees) && !Has(Pines) && !Has(Birch) && !Has(DeadTrees) && !Has(Bushes) &&
+            !Has(Trees) && !Has(Pines) && !Has(Birch) && !Has(DeadTrees) && !Has(Deadfall) &&
+            !Has(Bushes) &&
             !Has(Rocks) && !Has(Boulders) && !Has(Horizon) &&
             !Has(GroundCover) && !Has(MarshPlants) && !Has(Lilypads) &&
             !Has(GroundPatches) && !Has(Houses) && !Has(Farms) && !Has(Watchtowers) &&
@@ -416,7 +433,62 @@ namespace TheVeil.View
         /// <summary>How far into the ground a building is set, as a share of its size.</summary>
         public const float BuildingSink = 0.12f;
         public const float FarmWidth = 9f;
-        public const float TimberWidth = 3f;
+
+        /// <summary>
+        /// How tall a piece of fallen wood stands, in metres.
+        ///
+        /// Measured on the height, which is the way round that survives the set. Timber
+        /// was fitted to a three-metre footprint, and that is right for a log — the pack
+        /// authored one at 3.05 m — but the stumps are narrow and it dragged them up by
+        /// their width until SM_Tree_Stump_04, a 0.40 m stump, stood 12 to 30 times its
+        /// own size: a 36-metre stump, taller than the watchtower, which is what the
+        /// tallest-built report kept complaining about. Fitting on height instead puts a
+        /// stump at knee height where it belongs and lets the width cap hold the logs,
+        /// which lose about a metre of their authored length and are still logs.
+        /// </summary>
+        public const float TimberHeight = 1.4f;
+
+        /// <summary>How many times its height a piece of timber may be wide. See TimberHeight.</summary>
+        public const float TimberSpread = SpreadLimit;
+
+        /// <summary>
+        /// How many times its height a dead tree may be wide.
+        ///
+        /// Looser than <see cref="SpreadLimit"/>, because a bare trunk keeps its branches
+        /// and they are the point — it is the most legible model in the pack from above.
+        /// Tighter than a canopy's nothing, because the set is not all trunks: the pack
+        /// files the swamp's roots and fallen branches here too, and those are drawn
+        /// lying down. Given a nine-metre height and no width to answer to, one reached
+        /// twenty-four metres across. Capped, the demand that binds is the width, and the
+        /// branch settles at the sprawl it was drawn as instead of a nine-metre tree.
+        /// </summary>
+        public const float DeadTreeSpread = 0.8f;
+
+        /// <summary>
+        /// How far across a fallen branch lies, in metres.
+        ///
+        /// Measured across rather than up, the way the wreckage is, because that is the
+        /// dimension a thing on the floor has. Four metres is a branch off one of the
+        /// nine-metre trunks standing over it, which is where these came from.
+        /// </summary>
+        public const float DeadfallWidth = 4f;
+
+        /// <summary>
+        /// What share of a stump's height sits below the ground.
+        ///
+        /// Two fifths, which is far more than a building's taper because a stump is
+        /// mostly root: the pack models the flare where the trunk spreads into the
+        /// ground, and that flare is meant to be in the ground. Left on the surface it
+        /// reads as legs and the stump appears to be standing on them.
+        ///
+        /// Settled by looking rather than by arithmetic — the models are low-poly enough
+        /// that sampling the mesh for where the flare ends gives a number the eye then
+        /// disagrees with. Three depths were rendered from one camera on one level. At a
+        /// quarter the roots are still clear of the ground; at eleven twentieths the
+        /// stump is cut off and has lost its shape. This is the one in between.
+        /// </summary>
+        public const float StumpSink = 0.40f;
+
         public const float RuinWidth = 5f;
 
         /// <summary>
@@ -2527,13 +2599,33 @@ namespace TheVeil.View
             // authored low and broad gets a great deal of it: this is how five kinds of
             // grass became fifteen hundred five-metre discs. A tree may be wider than it
             // is tall — that is a canopy — and everything else may not, by much.
+            //
+            // A set may name its own ratio, and that is checked before canopy rather than
+            // after: a set says so precisely when being a canopy is not the whole truth
+            // about it. The dead trees are the case. Most of them are bare trunks and want
+            // the canopy's freedom, but the pack files the swamp's sprawling roots and
+            // fallen branches in with them, and unlimited width let those reach
+            // twenty-four metres across on a nine-metre budget.
             float cap = maxWidth > 0f ? maxWidth * rng.Range(low, high)
+                      : choice.MaxSpread > 0f ? size * choice.MaxSpread
                       : choice.Canopy ? 0f
                       : size * SpreadLimit;
 
-            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
-            else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, groundY);
-            else ModelScaling.Fit(instance, size, groundY);
+            // Seated below the surface when the model has a footing to bury. Taken off
+            // the fitted size rather than the table size, because jitter is what decides
+            // how big this one came out and a share of the wrong number buries the small
+            // ones to the neck and leaves the big ones on stilts.
+            float seated = choice.Sink > 0f
+                ? groundY - (size * choice.Sink + Fall(grid, tile, heightScale) * SlopeSink)
+                : groundY;
+
+            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, seated);
+            else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, seated);
+            else ModelScaling.Fit(instance, size, seated);
+
+            // After the fitting, because turning a model changes which way its footprint
+            // runs, and it is re-seated on its new underside — the same order Wreck uses.
+            if (choice.Flat) LayFlat(instance, seated);
 
             if (signal) Mark(instance);
 
@@ -2873,7 +2965,8 @@ namespace TheVeil.View
                         var dead = new Choice(decor.DeadTrees, Any(decor.DeadTrees, rng),
                                               DeadTreeHeight, byWidth: false,
                                               low: DeadJitterLow, high: DeadJitterHigh,
-                                              canopy: true);
+                                              canopy: true, maxSpread: DeadTreeSpread,
+                                              sink: StumpSink);
 
                         Scatter(parent, grid, rng, dead, tile, heightScale, spread: 2.6f);
                         placed++;
@@ -2924,15 +3017,13 @@ namespace TheVeil.View
                         break;
 
                     case TerrainType.Forest when decor.Timber.Any && rng.Chance(0.006f):
-                        choice = new Choice(decor.Timber, Any(decor.Timber, rng), TimberWidth, true);
+                        choice = new Choice(decor.Timber, Any(decor.Timber, rng), TimberHeight,
+                                            byWidth: false, maxSpread: TimberSpread);
                         kind = LandmarkKind.Timber;
                         break;
                 }
 
                 if (choice.Prefab == null) continue;
-
-                Landmark.Note(found, kind, i);
-                occupied.Add(i);
 
                 // Buildings are set into the ground rather than stood on it.
                 //
@@ -2942,8 +3033,19 @@ namespace TheVeil.View
                 // they read as pieces standing on a lawn. A tenth of their height buries
                 // the taper, and on the slope of a pass it also stops the uphill side
                 // showing daylight underneath.
-                Place(parent, grid, i, rng, choice, heightScale, occupied,
-                      sink: Seat(grid, i, heightScale, choice.Size));
+                //
+                // Nothing is written down until it stands. Place may now refuse the spot
+                // — it asks for its whole footprint, the way Raise does — and the tile is
+                // claimed and the landmark noted on the way out rather than on the way
+                // in, so a refusal does not leave a reservation on empty ground or a
+                // landmark on the plan that nobody built. The order used to be the other
+                // way because Place could not fail.
+                if (Place(parent, grid, i, rng, choice, heightScale, occupied,
+                          sink: Seat(grid, i, heightScale, choice.Size)) == null)
+                    continue;
+
+                Landmark.Note(found, kind, i);
+                occupied.Add(i);
                 placed++;
             }
 
@@ -2982,8 +3084,50 @@ namespace TheVeil.View
             /// </summary>
             public readonly bool Canopy;
 
+            /// <summary>
+            /// How many times its own height this prop may be wide. Zero takes the
+            /// default: <see cref="SpreadLimit"/>, or no limit at all for a canopy.
+            ///
+            /// Scatter has always capped a height-fitted prop, which is what keeps a low
+            /// broad model from being blown out sideways when the height it is given is
+            /// larger than the height it was drawn at. Two holes in that. Place had no
+            /// such rule at all, and canopy turns it off — rightly for a spruce, whose
+            /// crown is meant to outreach nothing, and disastrously for a set that is
+            /// only *mostly* upright. A fallen log is a fifth as tall as it is long; a
+            /// stump is three times taller than it is wide. One number cannot size both,
+            /// and whichever is chosen the other model is the one that comes out wrong.
+            /// Written as a ratio rather than metres so it survives jitter: the cap grows
+            /// with the size the prop actually came out at, not the one in the table.
+            /// </summary>
+            public readonly float MaxSpread;
+
+            /// <summary>
+            /// What share of its own size this prop is buried by. Zero rests it on top.
+            ///
+            /// Resting a model on its lowest point is right for a tree, whose trunk ends
+            /// where the bark ends, and wrong for anything the artist gave roots or a
+            /// footing to. A stump is modelled with its root flare, and set on the
+            /// surface the flare becomes legs: the stump stands on them like a stool
+            /// instead of growing out of the ground. Buildings had this from the start
+            /// and it is the same problem — see <see cref="Seat"/>, whose reasoning and
+            /// slope term apply here unchanged.
+            /// </summary>
+            public readonly float Sink;
+
+            /// <summary>
+            /// Whether this prop is turned onto its side before it is seated.
+            ///
+            /// Asked of the set rather than measured off the model. <see cref="LayFlat"/>
+            /// turns down anything that is not already lying, which is the right rule for
+            /// wreckage — a wheel, a plank, a crate all belong on the floor — and the
+            /// wrong one for a set that contains anything upright, where it would fell
+            /// what was meant to stand.
+            /// </summary>
+            public readonly bool Flat;
+
             public Choice(PropSet set, GameObject prefab, float size, bool byWidth,
-                          float low = JitterLow, float high = JitterHigh, bool canopy = false)
+                          float low = JitterLow, float high = JitterHigh, bool canopy = false,
+                          float maxSpread = 0f, float sink = 0f, bool flat = false)
             {
                 Prefab = prefab;
                 ZUp = set != null && set.ZUp;
@@ -2992,6 +3136,9 @@ namespace TheVeil.View
                 Low = low;
                 High = high;
                 Canopy = canopy;
+                MaxSpread = maxSpread;
+                Sink = sink;
+                Flat = flat;
             }
         }
 
@@ -3443,7 +3590,27 @@ namespace TheVeil.View
             float size = Mathf.Max(choice.Size * _landmarkScale, _landmarkFloor);
 
             if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
+            else if (choice.MaxSpread > 0f)
+                ModelScaling.FitWithin(instance, size, size * choice.MaxSpread, groundY);
             else ModelScaling.Fit(instance, size, groundY);
+
+            // Asked after scaling, because until it is scaled nobody knows how much
+            // ground it wants — the same order Scatter and Raise use, and for the same
+            // reason.
+            //
+            // <b>Place reserved its ground and never asked for it.</b> Raise had exactly
+            // this hole and it was closed there; this is the other path in, and it was
+            // left open. Today it puts up wells and fallen timber, where two in one spot
+            // is a small ugliness rather than the house growing out of a roof that made
+            // the case over there — but Farms and Watchtowers route through here too, and
+            // both are empty only because somebody emptied them. The hole should not be
+            // waiting when they are filled again.
+            if (!FootprintClear(grid, occupied, position.X, position.Y,
+                                FootprintRadius(instance)))
+            {
+                Unbuild(instance);
+                return null;
+            }
 
             Block(instance, choice.Canopy);
 
@@ -3496,7 +3663,7 @@ namespace TheVeil.View
                     if (roll < 0.76f) return Tree(decor.Birch, rng, TreeHeight);
                     if (roll < 0.90f) return From(decor.Bushes, rng, BushHeight);
                     if (roll < 0.97f) return From(decor.Rocks, rng, RockHeight);
-                    return From(decor.Timber, rng, TimberWidth, byWidth: true);
+                    return From(decor.Timber, rng, TimberHeight, sink: StumpSink);
 
                 // No whole mountains. A twenty-metre hill standing on a tile the caravan
                 // has to walk over is a wall in the road — the column drove straight into
@@ -3513,9 +3680,20 @@ namespace TheVeil.View
                 // Standing water killing the trees is the thing a marsh looks like, and
                 // a bare trunk is the most legible model in the pack from above.
                 case TerrainType.Marsh:
-                    if (roll < 0.46f)
+                    if (roll < 0.42f)
                         return Tree(decor.DeadTrees, rng, DeadTreeHeight,
-                                    DeadJitterLow, DeadJitterHigh);
+                                    DeadJitterLow, DeadJitterHigh,
+                                    sink: StumpSink, maxSpread: DeadTreeSpread);
+
+                    // What came off them. The share is taken out of the trunks' own and
+                    // not from anything else, because that is where these models were:
+                    // two of the thirteen in the dead set, which is about the four parts
+                    // in a hundred they get back here. The marsh is dressed the same
+                    // amount as before, in the same things, with two of them now lying
+                    // down instead of standing on their ends.
+                    if (roll < 0.46f)
+                        return From(decor.Deadfall, rng, DeadfallWidth,
+                                    byWidth: true, flat: true);
 
                     // Its own plants, not the meadow's. A fen dressed in the same grass
                     // and ferns as the plains is a meadow that happens to slow you down.
@@ -3547,16 +3725,20 @@ namespace TheVeil.View
         /// </summary>
         static Choice From(PropSet set, DeterministicRandom rng, float size,
                            float low = JitterLow, float high = JitterHigh,
-                           bool byWidth = false) =>
+                           bool byWidth = false, float maxSpread = 0f, float sink = 0f,
+                           bool flat = false) =>
             set != null && set.Any
-                ? new Choice(set, Any(set, rng), size, byWidth, low, high)
+                ? new Choice(set, Any(set, rng), size, byWidth, low, high,
+                             maxSpread: maxSpread, sink: sink, flat: flat)
                 : default;
 
         /// <summary>A tree: the wide size spread a stand of them wants, and canopy rules.</summary>
         static Choice Tree(PropSet set, DeterministicRandom rng, float size,
-                           float low = TreeJitterLow, float high = TreeJitterHigh) =>
+                           float low = TreeJitterLow, float high = TreeJitterHigh,
+                           float sink = 0f, float maxSpread = 0f) =>
             set != null && set.Any
-                ? new Choice(set, Any(set, rng), size, false, low, high, canopy: true)
+                ? new Choice(set, Any(set, rng), size, false, low, high, canopy: true,
+                             maxSpread: maxSpread, sink: sink)
                 : default;
 
         static GameObject Any(PropSet set, DeterministicRandom rng) =>
