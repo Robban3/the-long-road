@@ -3310,6 +3310,42 @@ namespace TheVeil.View
             Landmark.Note(found, IsBones(chosen) ? LandmarkKind.Bones : LandmarkKind.Wreck, tile);
 
             int placed = 1;
+
+            // A heap, when what the site turned out to be is remains.
+            //
+            // The GDD's §5 table asks for bone *piles* and the set could not make one:
+            // the pack has a skeleton and two skulls, one prop went down per site, and
+            // what stood there was a body or a head. At life size that is a skeleton
+            // 0.41 m off the ground, which from the height the game is played at could
+            // not be found even knowing where it was — it was looked for and missed.
+            //
+            // So the answer is more of them rather than a bigger one. Scaling a skeleton
+            // up until it reads is how the eight-metre skull happened; a dozen bones over
+            // two metres of ground is what the table asked for in the first place, and
+            // every piece of it stays the size a bone is.
+            if (IsBones(chosen))
+            {
+                int bones = rng.Range(3, 7);
+                for (int i = 0; i < bones; i++)
+                {
+                    var piece = Bones(decor.Ruins, rng);
+                    if (piece == null) break;
+
+                    var at = Vec2.FromTile(grid, tile);
+                    float bx = at.X + rng.Range(-BonePileSpread, BonePileSpread);
+                    float bz = at.Y + rng.Range(-BonePileSpread, BonePileSpread);
+                    float by = grid.SurfaceElevation(bx, bz) * heightScale;
+
+                    var bone = Object.Instantiate(piece, parent);
+                    bone.transform.position = new Vector3(bx, by, bz);
+                    bone.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+
+                    Ground(bone, by);
+                    Mark(bone);
+                    placed++;
+                }
+            }
+
             if (!decor.Wreckage.Any) return placed;
 
             int pieces = rng.Range(1, 4);
@@ -3337,6 +3373,33 @@ namespace TheVeil.View
             }
 
             return placed;
+        }
+
+        /// <summary>How far the pieces of a bone pile lie from its middle, in metres.</summary>
+        ///
+        /// Half what the wreckage scatters over. Debris came off a cart and travelled;
+        /// bones are where somebody fell, and a heap two metres across is a heap. Wider
+        /// and it stops being one thing that happened and becomes litter.
+        public const float BonePileSpread = 1.3f;
+
+        /// <summary>
+        /// One bone prop out of a set that is mostly not bones, or null if it has none.
+        ///
+        /// Drawn rather than filtered, and given up on after a few tries: the ruins are
+        /// five bones in nine, so a draw finds one almost always and the loop is cheap
+        /// insurance against a set somebody later fills with carts.
+        /// </summary>
+        static GameObject Bones(PropSet set, DeterministicRandom rng)
+        {
+            if (set == null || !set.Any) return null;
+
+            for (int attempt = 0; attempt < 12; attempt++)
+            {
+                var candidate = Any(set, rng);
+                if (IsBones(candidate)) return candidate;
+            }
+
+            return null;
         }
 
         /// <summary>

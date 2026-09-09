@@ -730,9 +730,13 @@ namespace TheVeil.Editor
                 // which is what separates an ambush site from an accident.
                 // Something somebody drove into the ground, which is what separates an
                 // ambush site from an accident. Banners and gravestones both say it.
+                //
+                // Banner_03 is out. It is the green one, and green is the one colour on
+                // this ground: it hangs a metre and a half of field-coloured cloth in
+                // front of a site whose whole job is to be read against grass. The other
+                // two are the pack's blue, which is a colour nothing out here is.
                 Markers = Knights("Props", "SM_Prop_Banner_01", "SM_Prop_Banner_02",
-                                  "SM_Prop_Banner_03", "SM_Prop_Gravestone_01",
-                                  "SM_Prop_Gravestone_02"),
+                                  "SM_Prop_Gravestone_01", "SM_Prop_Gravestone_02"),
 
                 // **Nothing, and this is the fourth and last treatment.**
                 //
@@ -896,8 +900,16 @@ namespace TheVeil.Editor
                     {
                         "SM_Gen_Prop_Barrel_Wood_01", "SM_Gen_Prop_Barrel_Wood_02",
                         "SM_Gen_Prop_Barrel_Wood_03"
-                    }),
-                    Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Skull_01" })),
+                    })),
+
+                // **The skull is no longer debris.** Wreckage is fitted to DebrisWidth,
+                // 1.3 m across, which is about what a wheel, a crate and a barrel are and
+                // five times what a skull is: they came out 0.9 to 1.1 m tall, heads the
+                // size of the barrel beside them. It never showed while a site was one
+                // prop on its own. It would now — the bone pile lays skulls at the size
+                // they were drawn, so the two would have stood side by side differing by
+                // a factor of five. Bones belong to the pile, which is sized by not
+                // sizing them.
 
                 // Two wells, which are the whole models the knights pack has that belong
                 // beside a road. Not houses — the pack's houses are a *kit*: seven
