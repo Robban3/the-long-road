@@ -785,11 +785,17 @@ namespace TheVeil.Editor
 
                 // What a band of raiders lives in. One per group, not a village.
                 // A camp again, and out of a medieval pack rather than an army one: three
-                // tents, a fire and a banner. The signal has been drawing nothing since
-                // the army pack was unwired, which meant a level could tell the player a
-                // camp was there and then show them an empty field.
+                // tents. The signal has been drawing nothing since the army pack was
+                // unwired, which meant a level could tell the player a camp was there and
+                // then show them an empty field.
+                //
+                // The lean-to is out, here as well as beside the road. It was the odd
+                // shape in a set fitted to CampHeight, and the three that stood in one
+                // level came out 5.5 to 7.4 m tall and up to 9.6 m across against a
+                // four-metre budget — a shelter one man sleeps under, drawn larger than
+                // the tents it camps with. Three tents are a camp; a building is not.
                 Camps = Knights("Buildings", "SM_Bld_Tent_01", "SM_Bld_Tent_02",
-                                "SM_Bld_Tent_03", "SM_Bld_Leanto_01"),
+                                "SM_Bld_Tent_03"),
 
                 // The one tree whose place is decided by water rather than by biome.
                 Willows = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
@@ -851,10 +857,18 @@ namespace TheVeil.Editor
                         "SM_Prop_Chest_Wood_01", "SM_Prop_Grave_03", "SM_Prop_CampFire_01"
                     }),
 
-                    // The bones the GDD's §5 table has always asked for, and the only
-                    // other ones in the project. A skeleton lying in the road is the
-                    // plainest thing on this list and says the most.
-                    Load($"{SyntyGenericDir}/Characters", new[] { "SM_Gen_Chr_Skeleton_01" }),
+                    // **The generic pack's skeleton is gone, and its skull stays.**
+                    //
+                    // It was loaded from Characters, and that is what it is: a figure
+                    // posed standing, 1.88 m tall, the height of a man on his feet. The
+                    // props here are remains — something that fell and stayed down — and
+                    // it stood up among them. Turning it over does not rescue it either;
+                    // a standing pose laid on its side is a shop dummy in a field, not a
+                    // body. Bones lie, and the only model in the three packs that is
+                    // actually drawn lying is SM_Prop_Skeleton_Ground_01 above.
+                    //
+                    // It was added to double the odds of a site reading as a killing.
+                    // Five of the nine left are still bones, so the odds hold.
                     Load($"{SyntyGenericDir}/Props", new[] { "SM_Gen_Prop_Skull_01" })),
 
                 // The loose pieces of a wreck: a wheel off the cart, a spilled crate,
@@ -885,13 +899,18 @@ namespace TheVeil.Editor
                     }),
                     Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Skull_01" })),
 
-                // A well and a shelter, which are the whole models the knights pack has
-                // that belong beside a road. Not houses — the pack's houses are a *kit*:
-                // seven foundations, seven rooms, seven roofs, doors, windows, chimneys,
-                // and a house is what you get by stacking them. That is a builder, not a
-                // wiring change, and it is the next piece of work.
-                Houses = Knights("Buildings", "SM_Bld_Village_Well_01", "SM_Bld_Well_01",
-                                 "SM_Bld_Leanto_01"),
+                // Two wells, which are the whole models the knights pack has that belong
+                // beside a road. Not houses — the pack's houses are a *kit*: seven
+                // foundations, seven rooms, seven roofs, doors, windows, chimneys, and a
+                // house is what you get by stacking them. That is a builder, not a wiring
+                // change, and it is the next piece of work.
+                //
+                // The lean-to is out. Nobody asked for shelters beside the road, and this
+                // set is fitted to HouseHeight, which a shelter is not: it came out 7.7 m
+                // tall and 9.8 m across, larger than the houses the kit builds and about
+                // four times the thing a lean-to is. A well and a shelter do not share a
+                // shape, so one number could never have sized both.
+                Houses = Knights("Buildings", "SM_Bld_Village_Well_01", "SM_Bld_Well_01"),
 
                 // **Empty on purpose now.** These were the pack's two mini towers, which
                 // are whole pieces and were reported twice as standing on the grass. They

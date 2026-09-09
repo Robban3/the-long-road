@@ -2929,12 +2929,28 @@ namespace TheVeil.View
 
             if (ruinSites != null && decor.Ruins.Any)
             {
-                foreach (int tile in ruinSites)
+                foreach (int wanted in ruinSites)
                 {
                     if (placed >= MaxLandmarks) break;
-                    if (clear != null && clear.Contains(tile)) continue;
-                    if (road != null && road.Contains(tile)) continue;
-                    if (occupied.Contains(tile)) continue;
+
+                    // Moved off the lane rather than dropped on it, and this is the whole
+                    // of whether the tell works.
+                    //
+                    // TrapSigns puts a sign within three tiles of its field and knows to
+                    // avoid water, cliff and the trap itself. It cannot avoid the lane:
+                    // it runs in the simulation, and at planning time there is no drawn
+                    // route to keep off. So the decorator was handed sites that sometimes
+                    // sat in the road and answered by discarding them — which selects
+                    // against exactly the signs worth having, because a trap laid on the
+                    // route is the one whose warning lands on the route too.
+                    //
+                    // Measured on 1-1: three traps, one of them on the driven line and
+                    // the other two 28 and 48 m off it. Two signs, and the one dropped
+                    // was the one beside the trap the caravan actually drives onto. What
+                    // survived stood 37 m out on ground nobody crosses. The player met no
+                    // warning and the map drew no bones, and both came of the same line.
+                    int tile = OffTheLane(grid, wanted, clear, road, occupied);
+                    if (tile < 0) continue;
 
                     // Claimed after the wreck stands, not before it is attempted. Place
                     // asks for its whole footprint now, and a tile claimed up front is
@@ -2954,12 +2970,24 @@ namespace TheVeil.View
                     // something happened here; a banner driven into the ground says
                     // somebody *chose* here, which is the difference between an accident
                     // and an ambush and is what the GDD's §5 table is asking for.
+                    // Beside the wreck, which is what this has always said and did not do.
+                    //
+                    // Both went on the centre of the one tile the site occupies, so the
+                    // banner stood in front of the bones. It is 4.8 m tall and they are
+                    // 0.41 m lying down, and the §5 table names the bones as the tell —
+                    // so the weaker signal was hiding the stronger one, and a player who
+                    // rode past read a banner in a field.
+                    //
+                    // The map has always known: MapSymbols pushes a second symbol on one
+                    // tile sideways rather than letting it land on the first, and says
+                    // why. The world was drawing what the map was careful not to.
                     if (decor.Markers.Any
                         && Mark(Place(parent, grid, tile, rng,
                                       new Choice(decor.Markers, Any(decor.Markers, rng),
                                                  MarkerHeight, byWidth: false),
                                       heightScale, occupied,
-                                      sink: Seat(grid, tile, heightScale, MarkerHeight))) != null)
+                                      sink: Seat(grid, tile, heightScale, MarkerHeight),
+                                      standoff: TotemStandoff)) != null)
                         Landmark.Note(found, LandmarkKind.Totem, tile);
 
                     // Dead trees around it. A cart alone is small enough to miss from
@@ -3122,9 +3150,24 @@ namespace TheVeil.View
             /// </summary>
             public readonly float Sink;
 
+            /// <summary>
+            /// Whether this prop is placed at the size it was drawn, unscaled.
+            ///
+            /// For a set whose models have no dimension in common because each one is
+            /// already the size of the real thing. Fitting them makes every member the
+            /// size of the number rather than the size of itself: a cart is three metres
+            /// across and a skull a quarter of one, and one width for both turned the
+            /// skull into an eight-metre boulder of a head.
+            ///
+            /// It costs nothing here because these props are not what makes their site
+            /// legible from map height. The totem beside them is nearly five metres and
+            /// the two dead trees are nine, and both were put there for that job.
+            /// </summary>
+            public readonly bool LifeSize;
+
             public Choice(PropSet set, GameObject prefab, float size, bool byWidth,
                           float low = JitterLow, float high = JitterHigh, bool canopy = false,
-                          float maxSpread = 0f, float sink = 0f)
+                          float maxSpread = 0f, float sink = 0f, bool lifeSize = false)
             {
                 Prefab = prefab;
                 ZUp = set != null && set.ZUp;
@@ -3135,6 +3178,7 @@ namespace TheVeil.View
                 Canopy = canopy;
                 MaxSpread = maxSpread;
                 Sink = sink;
+                LifeSize = lifeSize;
             }
         }
 
@@ -3153,6 +3197,73 @@ namespace TheVeil.View
 
             return false;
         }
+
+        /// <summary>
+        /// Rests a model on the ground without touching its size.
+        ///
+        /// The seating half of the fitters, on its own. A prefab's pivot is wherever the
+        /// artist left it, so a model dropped at the surface height stands in it or over
+        /// it as often as on it, and every fitter ends by measuring the thing and lifting
+        /// it back onto its own underside. This does that and stops.
+        /// </summary>
+        static void Ground(GameObject instance, float groundY)
+        {
+            var bounds = ModelScaling.Measure(instance);
+            instance.transform.position += new Vector3(0f, groundY - bounds.min.y, 0f);
+        }
+
+        /// <summary>
+        /// The nearest ground a trap sign may stand on, or -1 if there is none close by.
+        ///
+        /// Rings outward from the tile that was asked for and takes the first that will
+        /// have it, so a site that is already fine does not move at all and one that is
+        /// not moves the least it can. Three tiles is the reach, which is what
+        /// <c>TrapSigns.Offset</c> allows in the first place: a sign further from its
+        /// field than the offset that placed it is no longer a sign for that field.
+        ///
+        /// Deliberately the same three that the lane is wide either side of its middle,
+        /// so a site dead in the road can always get out of it — anything less and the
+        /// worst case, which is the case that matters, would still be dropped.
+        ///
+        /// Scanned in a fixed order rather than sampled, because the sites come from a
+        /// seed and two runs of one map must lay the same ground.
+        /// </summary>
+        static int OffTheLane(TileGrid grid, int tile, HashSet<int> clear,
+                              HashSet<int> road, HashSet<int> occupied)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            for (int ring = 0; ring <= SignReach; ring++)
+            {
+                for (int dy = -ring; dy <= ring; dy++)
+                {
+                    for (int dx = -ring; dx <= ring; dx++)
+                    {
+                        // Only the ring's own edge; the inside was walked already.
+                        if (ring > 0 && Mathf.Abs(dx) != ring && Mathf.Abs(dy) != ring) continue;
+
+                        int nx = x + dx;
+                        int ny = y + dy;
+                        if (!grid.InBounds(nx, ny)) continue;
+
+                        var terrain = grid[nx, ny];
+                        if (terrain == TerrainType.Water || terrain == TerrainType.Cliff) continue;
+
+                        int candidate = grid.ToIndex(nx, ny);
+                        if (clear != null && clear.Contains(candidate)) continue;
+                        if (road != null && road.Contains(candidate)) continue;
+                        if (occupied.Contains(candidate)) continue;
+
+                        return candidate;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>How far a trap sign may be pushed to get out of the lane, in tiles.</summary>
+        const int SignReach = 3;
 
         /// <summary>
         /// Builds the scene at a trap site rather than dropping one prop on it.
@@ -3177,11 +3288,23 @@ namespace TheVeil.View
             // exactly the map it was.
             var chosen = Any(decor.Ruins, rng);
 
+            // Life size, and not sunk at all.
+            //
+            // Seat exists for things with a foundation: a share of the model's own size
+            // to bury the taper, plus a share of the tile's fall so a building goes into
+            // a hillside rather than onto it. Neither applies to remains. At RuinWidth
+            // the first term alone is 0.6 m and a skull is 0.25 m tall, so it buried the
+            // prop outright — and dropping to the slope term did not save it: the fall
+            // across a tile at this height scale put the skeleton 0.53 m under, which is
+            // more than the 0.41 m it stands. Both were measured, not reasoned about.
+            //
+            // What is left is Ground, which rests the model on the surface and nothing
+            // else. A body lying on a slope may show a little daylight at one end; a body
+            // that is underground shows nothing at all.
             var main = Mark(Place(parent, grid, tile, rng,
                                   new Choice(decor.Ruins, chosen, RuinWidth,
-                                             byWidth: true),
-                                  heightScale, occupied,
-                                  sink: Seat(grid, tile, heightScale, RuinWidth)));
+                                             byWidth: true, lifeSize: true),
+                                  heightScale, occupied, sink: 0f));
             if (main == null) return 0;
 
             Landmark.Note(found, IsBones(chosen) ? LandmarkKind.Bones : LandmarkKind.Wreck, tile);
@@ -3243,6 +3366,16 @@ namespace TheVeil.View
         /// <summary>How wide a loose piece of wreckage is, and how far it lies from the cart.</summary>
         public const float DebrisWidth = 1.3f;
         public const float DebrisSpread = 2.6f;
+
+        /// <summary>
+        /// How far the totem stands from the wreck it marks, in metres.
+        ///
+        /// The same reach the debris scatters over, so the banner stands at the edge of
+        /// the site rather than outside it or in it. Wide enough to clear the largest
+        /// thing it could be standing in front of — the hay cart, at 3.2 m — and near
+        /// enough that the two still read as one piece of ground.
+        /// </summary>
+        public const float TotemStandoff = DebrisSpread;
 
         /// <summary>
         /// Tips a loose piece onto its side, whichever way it was modelled.
@@ -3565,9 +3698,22 @@ namespace TheVeil.View
         /// <summary>Stands one landmark on the centre of a tile, sized and seated.</summary>
         static GameObject Place(Transform parent, TileGrid grid, int tile, DeterministicRandom rng,
                                 Choice choice, float heightScale, HashSet<int> occupied = null,
-                                float sink = 0f)
+                                float sink = 0f, float standoff = 0f)
         {
-            var position = Vec2.FromTile(grid, tile);
+            var centre = Vec2.FromTile(grid, tile);
+
+            // Stood off the middle of the tile when something is already standing there.
+            //
+            // The ground is sampled where the model ends up rather than at the centre it
+            // was offset from, or a prop pushed onto a slope hangs by the difference.
+            var position = centre;
+            if (standoff > 0f)
+            {
+                float bearing = rng.Range(0, 8) * 45f * Mathf.Deg2Rad;
+                position = new Vec2(centre.X + Mathf.Cos(bearing) * standoff,
+                                    centre.Y + Mathf.Sin(bearing) * standoff);
+            }
+
             float groundY = grid.SurfaceElevation(position.X, position.Y) * heightScale - sink;
 
             var instance = Object.Instantiate(choice.Prefab, parent);
@@ -3585,7 +3731,8 @@ namespace TheVeil.View
             // one that decides whether it can be made out from map height.
             float size = Mathf.Max(choice.Size * _landmarkScale, _landmarkFloor);
 
-            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
+            if (choice.LifeSize) Ground(instance, groundY);
+            else if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
             else if (choice.MaxSpread > 0f)
                 ModelScaling.FitWithin(instance, size, size * choice.MaxSpread, groundY);
             else ModelScaling.Fit(instance, size, groundY);
