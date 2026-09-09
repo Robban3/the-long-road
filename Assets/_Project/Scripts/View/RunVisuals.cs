@@ -58,6 +58,12 @@ namespace TheVeil.View
         readonly Dictionary<TrackedEnemy, List<Transform>> _enemies =
             new Dictionary<TrackedEnemy, List<Transform>>();
         readonly Dictionary<TrackedTrap, Transform> _traps = new Dictionary<TrackedTrap, Transform>();
+
+        /// <summary>Run time at which each trap was first seen sprung. See SyncTraps.</summary>
+        readonly Dictionary<TrackedTrap, float> _sprung = new Dictionary<TrackedTrap, float>();
+
+        /// <summary>What each trap marker measures when it is not swelling.</summary>
+        readonly Dictionary<TrackedTrap, Vector3> _trapScale = new Dictionary<TrackedTrap, Vector3>();
         readonly Dictionary<WildAnimal, Transform> _wildlife = new Dictionary<WildAnimal, Transform>();
         readonly Dictionary<Color, Material> _materials = new Dictionary<Color, Material>();
         readonly Dictionary<Transform, Animator> _animators = new Dictionary<Transform, Animator>();
@@ -232,6 +238,15 @@ namespace TheVeil.View
         static readonly Color EnemyAsleepColor = new Color(0.62f, 0.32f, 0.55f);
         static readonly Color EnemyAwakeColor = new Color(0.95f, 0.25f, 0.20f);
         static readonly Color TrapColor = new Color(0.95f, 0.55f, 0.15f);
+
+        /// <summary>
+        /// A trap that has gone off: darker and redder than the live one.
+        ///
+        /// It has to be told apart from the warning at a glance and mean the opposite of
+        /// it — the orange says "here, and not yet", and this says "here, and already".
+        /// Red because that is what every other spent or hostile thing on this map is.
+        /// </summary>
+        static readonly Color SprungColor = new Color(0.55f, 0.13f, 0.10f);
         static readonly Color CacheColor = new Color(0.95f, 0.85f, 0.35f);
 
         public void Build(LevelRun run)
@@ -1085,7 +1100,22 @@ namespace TheVeil.View
         {
             foreach (var trap in run.Traps.Traps)
             {
-                bool show = trap.Revealed && !trap.Triggered && !trap.Disarmed;
+                // <b>A sprung trap is shown whether or not it was ever seen.</b>
+                //
+                // The rule was "revealed, and not yet triggered", which drew the warning
+                // and then took it away at the instant it came true: the marker vanished
+                // on the frame the caravan drove onto it. Everything else about the event
+                // is a number — 80 or 120 damage to whoever holds the van — and nothing
+                // in the view read TriggeredThisTick at all, so the whole of what a player
+                // saw when they hit a trap was a dot disappearing.
+                //
+                // Worse where it matters most: revealing depends on sight, so a trap the
+                // column never spotted was never drawn, and driving onto that one showed
+                // nothing whatsoever. The one case where the player most needs telling is
+                // the one case that said least.
+                //
+                // Disarming still clears it. That one the player chose and watched happen.
+                bool show = trap.Triggered || (trap.Revealed && !trap.Disarmed);
 
                 if (!show)
                 {
@@ -1099,11 +1129,48 @@ namespace TheVeil.View
                         $"Trap_{trap.Kind}", TrapColor, 1.4f);
                     Place(marker, new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y));
                     _traps[trap] = marker;
+                    _trapScale[trap] = marker.localScale;
                 }
 
                 marker.gameObject.SetActive(true);
+
+                if (!_trapScale.TryGetValue(trap, out var rest)) rest = marker.localScale;
+
+                if (!trap.Triggered)
+                {
+                    marker.localScale = rest;
+                    continue;
+                }
+
+                // Timed off the run rather than off Unity, so the flare pauses when the
+                // game does and slows when the player slows it. Nothing else in this file
+                // reads a wall clock and this should not be the first thing that does.
+                if (!_sprung.TryGetValue(trap, out float at))
+                {
+                    at = run.ElapsedSeconds;
+                    _sprung[trap] = at;
+                }
+
+                float age = run.ElapsedSeconds - at;
+
+                // Big for a moment, then down to a mark that stays. The flare is what
+                // catches the eye at the instant; what is left afterwards is the ground
+                // saying something happened here, which is how the rest of this game
+                // tells the player anything.
+                float swell = age >= SprungFlareSeconds
+                    ? 1f
+                    : Mathf.Lerp(SprungFlare, 1f, age / SprungFlareSeconds);
+
+                marker.localScale = rest * swell;
+                Tint(marker, SprungColor);
             }
         }
+
+        /// <summary>How many times its own size a trap swells at the moment it goes off.</summary>
+        const float SprungFlare = 3f;
+
+        /// <summary>How long that swell takes to settle, in seconds of run time.</summary>
+        const float SprungFlareSeconds = 0.9f;
 
         /// <summary>
         /// Stands one actor up outside a run, for a reference shot of the cast.
