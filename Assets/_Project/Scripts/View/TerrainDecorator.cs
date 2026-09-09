@@ -1477,23 +1477,24 @@ namespace TheVeil.View
                 // The ambush stays where it is; only the tent moves, to the nearest dry
                 // ground it can be pitched on. A camp beside the crossing the raiders are
                 // watching is what the signal was always meant to say.
-                int ground = DryGroundNear(grid, tile);
-                if (ground < 0) continue;
+                // Its own name rather than reusing the loop's, which C# will not let a
+                // foreach assign to anyway: the site is where the band is, the pitch is
+                // where its tent stands, and they are two different tiles.
+                int pitch = DryGroundNear(grid, tile);
+                if (pitch < 0) continue;
 
-                if (occupied.Contains(ground)) continue;
-                if (road != null && road.Contains(ground)) continue;
-
-                tile = ground;
+                if (occupied.Contains(pitch)) continue;
+                if (road != null && road.Contains(pitch)) continue;
 
                 var choice = new Choice(decor.Camps, Any(decor.Camps, rng), CampHeight,
                                         byWidth: false);
 
                 // A tent is pitched, not set down: it gets the same seating as a house so
                 // its pegged edge meets the ground on a slope.
-                if (Scatter(parent, grid, rng, choice, tile, heightScale, spread: 1.6f, occupied,
-                            lift: -Seat(grid, tile, heightScale, CampHeight), signal: true))
+                if (Scatter(parent, grid, rng, choice, pitch, heightScale, spread: 1.6f, occupied,
+                            lift: -Seat(grid, pitch, heightScale, CampHeight), signal: true))
                 {
-                    Landmark.Note(found, LandmarkKind.Camp, tile);
+                    Landmark.Note(found, LandmarkKind.Camp, pitch);
                     placed++;
                 }
             }
