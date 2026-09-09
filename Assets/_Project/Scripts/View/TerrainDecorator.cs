@@ -618,8 +618,21 @@ namespace TheVeil.View
         /// Ten metres against a spruce's fourteen, because a willow leans out over water
         /// rather than up out of a wood, and one drawn to a conifer's height beside a
         /// stream is the only tree on the map you would notice from the map.
+        ///
+        /// <b>Written as the height it reaches rather than the height it starts at,
+        /// because the two were compared as though they were the same thing.</b> The ten
+        /// was a table value and the fourteen was a measurement: every tree here is
+        /// jittered up to <see cref="TreeJitterHigh"/>, so a spruce entered at 8.5 m
+        /// arrives at 14.4 and a willow entered at 10 arrives at 17. The willows came out
+        /// the three tallest trees in the wood — 16.5, 16.3 and 15.4 m against every
+        /// pine's 14.4 — which is precisely the tree this note was written to prevent.
+        ///
+        /// So the ten is stated where it can be checked against the fourteen, and the
+        /// table value is derived from it. Both numbers now mean the same kind of thing.
         /// </summary>
-        public const float WillowHeight = 10f;
+        public const float WillowTallest = 10f;
+
+        public const float WillowHeight = WillowTallest / TreeJitterHigh;
 
         /// <summary>How many tiles from water a willow will take root.</summary>
         public const int WillowReach = 2;
