@@ -458,6 +458,44 @@ namespace TheVeil.UI
         }
 
         /// <summary>
+        /// The smithy's mark: a hammer, head up and leaning left.
+        ///
+        /// Leaning because upright it is a letter T, and a T on the run's top bar reads as
+        /// a text tool rather than as "upgrade". Drawn straight and then turned, so the
+        /// proportions are a hammer's rather than whatever a sheared set of corners makes.
+        /// </summary>
+        public static Sprite Hammer(string name)
+        {
+            const int size = 44;
+            float c = size * 0.5f;
+            var texture = Canvas(size, size, name);
+
+            const float lean = 35f * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(lean), sin = Mathf.Sin(lean);
+
+            Vector2[] Turned(float x0, float y0, float x1, float y1)
+            {
+                var corners = new[]
+                {
+                    new Vector2(x0, y0), new Vector2(x1, y0), new Vector2(x1, y1), new Vector2(x0, y1)
+                };
+
+                for (int i = 0; i < corners.Length; i++)
+                {
+                    float dx = corners[i].x - c, dy = corners[i].y - c;
+                    corners[i] = new Vector2(c + dx * cos - dy * sin, c + dx * sin + dy * cos);
+                }
+
+                return corners;
+            }
+
+            Draw(texture, Polygon(Turned(size * 0.45f, size * 0.06f, size * 0.57f, size * 0.70f)), Color.white);
+            Draw(texture, Polygon(Turned(size * 0.24f, size * 0.64f, size * 0.78f, size * 0.90f)), Color.white);
+
+            return Make(texture, default);
+        }
+
+        /// <summary>
         /// Deterministic value noise, so the ground is the same ground every time it is
         /// painted. The same trick <see cref="TheVeil.Sim.DeterministicRandom"/> uses, and
         /// for the same reason: a texture that differs between two runs is a texture

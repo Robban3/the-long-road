@@ -19,6 +19,12 @@ namespace TheVeil.Sim
         public const float ArmourReductionPerLevel = 0.04f;
 
         /// <summary>
+        /// Metres of sight a level of the scout's special track buys in the field. A named
+        /// number so the smithy's "now → next" and the fight read the same one.
+        /// </summary>
+        public const float ScoutSightPerLevel = 6f;
+
+        /// <summary>
         /// Attack range costs more than any other upgrade.
         ///
         /// Range is the strongest statistic in a defence game: every metre is time the

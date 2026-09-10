@@ -161,6 +161,28 @@ namespace TheVeil.Tests
             Assert.AreEqual(0f, TroopTable.Range(TroopKind.Scout));
         }
 
+        [Test]
+        public void TheSmithyPromisesWhatTheFightWillUse()
+        {
+            // The "now" on a smithy button has to be the troop as it stands, or the "next"
+            // beside it is a promise about some other troop.
+            var archers = new TroopGroup(TroopKind.Archers, FormationSlot.Van) { SpecialLevel = 2, ArmourLevel = 1 };
+
+            Assert.AreEqual(archers.EffectiveMaxHp, archers.StatAt(UpgradeTrack.Armour, archers.ArmourLevel), 0.001f);
+            Assert.AreEqual(archers.AttackRange(TerrainType.Plains)
+                            / TroopTable.TerrainRangeMultiplier(TroopKind.Archers, TerrainType.Plains),
+                            archers.StatAt(UpgradeTrack.Special, archers.SpecialLevel), 0.001f);
+
+            var scout = new TroopGroup(TroopKind.Scout, FormationSlot.Van) { SpecialLevel = 3 };
+            Assert.AreEqual(scout.SightRadius, scout.StatAt(UpgradeTrack.Special, scout.SpecialLevel), 0.001f);
+
+            foreach (var track in new[] { UpgradeTrack.Weapon, UpgradeTrack.Armour, UpgradeTrack.Special })
+                Assert.Greater(archers.StatAt(track, 3), archers.StatAt(track, 2), $"{track} bought nothing");
+
+            Assert.AreEqual(0f, new TroopGroup(TroopKind.Swordsmen, FormationSlot.Van).StatAt(UpgradeTrack.Special, 3),
+                "a swordsman's special track promised something");
+        }
+
         // --- troop statistics -------------------------------------------------------
 
         [Test]

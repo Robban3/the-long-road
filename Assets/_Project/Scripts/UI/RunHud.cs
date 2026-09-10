@@ -38,6 +38,9 @@ namespace TheVeil.UI
         Camera _camera;
         Text _wagons, _kills, _silver, _progress;
         Image _bar;
+
+        /// <summary>The mark on the hammer while something can be bought. See Refresh.</summary>
+        Image _smithyBadge;
         GameObject _sheet;
         bool _paused;
         bool _resultShown;
@@ -148,10 +151,22 @@ namespace TheVeil.UI
             _silver.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0f, 0.5f), new Vector2(412f, 0f), new Vector2(210f, 76f));
 
-            var smithy = Widgets.Chip("Smithy", bar, Theme.GemIcon, Upgrades, 84f,
+            // A hammer, not a gem. The gem is the premium currency on every other screen, so
+            // the one button that opens the smithy was dressed as the shop for real money.
+            var smithy = Widgets.Chip("Smithy", bar, Theme.HammerIcon, Upgrades, 84f,
                                       Theme.BrightGold);
             smithy.image.rectTransform.Place(new Vector2(1f, 0.5f), new Vector2(-98f, 0f),
                                              new Vector2(84f, 84f));
+
+            _smithyBadge = Widgets.Panel("Badge", smithy.transform, Theme.Round, Theme.Danger);
+            _smithyBadge.rectTransform.Place(new Vector2(1f, 1f), new Vector2(8f, 8f), new Vector2(34f, 34f));
+            _smithyBadge.raycastTarget = false;
+
+            var mark = Widgets.Label("Mark", _smithyBadge.transform, "!", Widgets.SmallSize - 4, Color.white);
+            mark.rectTransform.Fill();
+            mark.raycastTarget = false;
+
+            _smithyBadge.gameObject.SetActive(false);
 
             var pause = Widgets.Chip("Pause", bar, Theme.Flat, Pause, 84f);
             pause.image.rectTransform.Place(new Vector2(1f, 0.5f), new Vector2(0f, 0f),
@@ -227,6 +242,53 @@ namespace TheVeil.UI
             _progress.text = Loc.F("{0:P0} of the way   ·   {1}   ·   {2:F0} s (par {3:F0} s)",
                                    Run.Caravan.Progress, Names.Ground(Run.Caravan.CurrentTerrain),
                                    Run.TravelSeconds, Run.ParSeconds);
+
+            _smithyBadge.gameObject.SetActive(AnythingAffordable());
+        }
+
+        /// <summary>
+        /// Whether a living group has a step the purse can pay for right now.
+        ///
+        /// The mark on the hammer is the only thing on the run's screen that says "stop
+        /// and spend", and a mark that is always lit says nothing — so it is lit only while
+        /// it is true.
+        /// </summary>
+        bool AnythingAffordable()
+        {
+            if (Run.Squad == null || Run.Outcome != RunOutcome.InProgress) return false;
+
+            foreach (var group in Run.Squad.Slots)
+            {
+                if (group == null || !group.Alive) continue;
+
+                foreach (var track in TroopBoonTable.Tracks)
+                {
+                    if (!Offers(group, track)) continue;
+
+                    int price = Run.PriceOf(group.Slot, track);
+                    if (price > 0 && Run.Economy.Silver >= price) return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The tracks worth offering a group: no weapon for the scout, who does not fight,
+        /// and a special track only where it does something — reach for a bow or a staff,
+        /// sight for the scout. A swordsman's special track was sold here for silver and
+        /// changed nothing at all; the shop already refuses to sell it (TroopBoonTable.Sells).
+        /// </summary>
+        static bool Offers(TroopGroup group, UpgradeTrack track)
+        {
+            bool scout = TroopTable.Scouts(group.Kind);
+
+            switch (track)
+            {
+                case UpgradeTrack.Weapon: return !scout;
+                case UpgradeTrack.Armour: return true;
+                default: return scout || TroopTable.HasRangedSpecial(group.Kind);
+            }
         }
 
         // ---- pause -------------------------------------------------------------
@@ -306,7 +368,7 @@ namespace TheVeil.UI
         void Post(RectTransform panel, TroopGroup group, ref float y)
         {
             var row = Widgets.Panel("Post" + group.Slot, panel, Theme.SoftFrame, Color.white);
-            row.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(Widgets.SafeWidth - 60f, 108f));
+            row.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(Widgets.SafeWidth - 60f, 136f));
 
             var name = Widgets.Label("Name", row.transform, Names.Troop(group.Kind), Widgets.SmallSize,
                                      group.Alive ? Theme.Parchment : Theme.Dim, TextAnchor.MiddleLeft);
@@ -325,18 +387,28 @@ namespace TheVeil.UI
             span.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(18f, -26f),
                                      new Vector2(210f, 34f));
 
-            // No weapon to sharpen on a troop that does not fight.
-            if (!scout) Track(row.transform, group, UpgradeTrack.Weapon, Loc.T("WEAPON"), 240f);
+            y -= 146f;
+
+            // Nothing left to spend on. Buttons under a fallen group's name would take
+            // silver for a corpse — the upgrade went through and did nothing.
+            if (!group.Alive)
+            {
+                var fallen = Widgets.Label("Fallen", row.transform, Loc.T("FALLEN"), Widgets.SmallSize,
+                                           Theme.Danger);
+                fallen.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(240f, 0f), new Vector2(530f, 60f));
+                return;
+            }
+
+            if (Offers(group, UpgradeTrack.Weapon))
+                Track(row.transform, group, UpgradeTrack.Weapon, Loc.T("WEAPON"), 240f);
+
             Track(row.transform, group, UpgradeTrack.Armour, Loc.T("ARMOUR"), 420f);
 
             // A bow's special track *is* its reach, and a scout's is her sight. Saying so
             // on the button is the difference between an upgrade the player understands
             // and one they buy last.
-            Track(row.transform, group, UpgradeTrack.Special,
-                  TroopTable.HasRangedSpecial(group.Kind) ? Loc.T("REACH")
-                  : scout ? Loc.T("SIGHT") : Loc.T("SPEC"), 600f);
-
-            y -= 118f;
+            if (Offers(group, UpgradeTrack.Special))
+                Track(row.transform, group, UpgradeTrack.Special, scout ? Loc.T("SIGHT") : Loc.T("REACH"), 600f);
         }
 
         void Track(Transform row, TroopGroup group, UpgradeTrack track, string label, float x)
@@ -345,16 +417,22 @@ namespace TheVeil.UI
 
             if (level >= RunEconomy.MaxTrackLevel)
             {
-                var capped = Widgets.Label(label, row, label + "\n" + level + "/5", Widgets.SmallSize - 6,
-                                           Theme.Gold);
-                capped.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(x, 0f), new Vector2(170f, 80f));
+                var capped = Widgets.Label(label, row,
+                                           label + " " + level + "/5\n" + Reading(group, track, level),
+                                           Widgets.SmallSize - 8, Theme.Gold);
+                capped.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(x, 0f), new Vector2(170f, 100f));
                 return;
             }
 
             int price = Run.PriceOf(group.Slot, track);
-            bool affordable = Run.Economy.Silver >= price && group.Alive;
+            bool affordable = Run.Economy.Silver >= price;
 
-            var button = Widgets.Plate(label, row, label + " " + level + "\u2192" + (level + 1) + "\n" + price,
+            // Three lines: which track and step, what the step changes, and what it costs.
+            // The middle one is the reason for the panel \u2014 a level number says the troop
+            // got better, "26 \u2192 31" says by how much, and only that is worth silver.
+            var button = Widgets.Plate(label, row,
+                                       label + " " + level + "\u2192" + (level + 1) + "\n"
+                                       + Gain(group, track, level) + "\n" + Loc.F("{0} silver", price),
                                        affordable ? ButtonRole.Secondary : ButtonRole.Disabled,
                                        () =>
                                        {
@@ -362,10 +440,40 @@ namespace TheVeil.UI
                                        });
 
             button.image.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(x, 0f),
-                                             new Vector2(170f, 84f));
+                                             new Vector2(170f, 116f));
 
             var text = button.GetComponentInChildren<Text>();
-            text.fontSize = Widgets.SmallSize - 6;
+            text.fontSize = Widgets.SmallSize - 10;
+        }
+
+        /// <summary>What the next step changes, in the unit it is read in. See TroopGroup.StatAt.</summary>
+        static string Gain(TroopGroup group, UpgradeTrack track, int level)
+        {
+            float now = group.StatAt(track, level);
+            float next = group.StatAt(track, level + 1);
+
+            switch (track)
+            {
+                case UpgradeTrack.Weapon: return Loc.F("{0:F0} \u2192 {1:F0} dmg", now, next);
+                case UpgradeTrack.Armour: return Loc.F("{0:F0} \u2192 {1:F0} hp", now, next);
+                default:
+                    return TroopTable.Scouts(group.Kind)
+                        ? Loc.F("{0:F0} \u2192 {1:F0} m", now, next)
+                        : Loc.F("{0:F1} \u2192 {1:F1} m", now, next);
+            }
+        }
+
+        /// <summary>Where a finished track stands, in the same unit.</summary>
+        static string Reading(TroopGroup group, UpgradeTrack track, int level)
+        {
+            float now = group.StatAt(track, level);
+
+            switch (track)
+            {
+                case UpgradeTrack.Weapon: return Loc.F("{0:F0} dmg", now);
+                case UpgradeTrack.Armour: return Loc.F("{0:F0} hp", now);
+                default: return TroopTable.Scouts(group.Kind) ? Loc.F("{0:F0} m", now) : Loc.F("{0:F1} m", now);
+            }
         }
 
         // ---- result ------------------------------------------------------------

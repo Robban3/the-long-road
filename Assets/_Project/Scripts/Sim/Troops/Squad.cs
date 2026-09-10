@@ -132,8 +132,42 @@ namespace TheVeil.Sim
 
                 // Her special track is her eyes: six metres a level in the field, and the
                 // shop's permanent track on top (TroopBoons.Sight).
-                if (Kind == TroopKind.Scout) sight += 6f * SpecialLevel + School.Sight(Kind);
+                if (Kind == TroopKind.Scout)
+                    sight += TroopUpgrades.ScoutSightPerLevel * SpecialLevel + School.Sight(Kind);
                 return sight;
+            }
+        }
+
+        /// <summary>
+        /// What a track is worth at a given level of it, in the unit the player reads it
+        /// in: damage a second at full strength for the weapon, health for armour, metres
+        /// of reach for a bow or a staff and of sight for the scout. Nought for a special
+        /// track that does nothing for this troop.
+        ///
+        /// For the smithy's "now → next", and built from the same multipliers the fight
+        /// uses, so the number on the button is the number the battle will use. Full
+        /// strength and open ground on purpose: a promise that moved every time a model
+        /// fell or the column entered a wood would be a promise nobody could weigh.
+        /// </summary>
+        public float StatAt(UpgradeTrack track, int level)
+        {
+            switch (track)
+            {
+                case UpgradeTrack.Weapon:
+                    return TroopTable.Dps(Kind) * TroopUpgrades.WeaponMultiplier(level) * School.Weapon(Kind);
+
+                case UpgradeTrack.Armour:
+                    return MaxHp * TroopUpgrades.ArmourHpMultiplier(level) * School.ArmourHealth(Kind);
+
+                default:
+                    if (TroopTable.HasRangedSpecial(Kind))
+                        return TroopUpgrades.EffectiveRange(TroopTable.Range(Kind), level) * School.Range(Kind);
+
+                    if (TroopTable.Scouts(Kind))
+                        return TroopTable.Sight(Kind) + TroopUpgrades.ScoutSightPerLevel * level
+                               + School.Sight(Kind);
+
+                    return 0f;
             }
         }
 
