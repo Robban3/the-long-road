@@ -12,7 +12,10 @@ namespace TheVeil.Sim
     {
         Guard = 0,
         Scattered = 1,
-        Repair = 2
+        Repair = 2,
+
+        /// <summary>Laid on the line of one route rather than on the ground around it.</summary>
+        OnRoute = 3
     }
 
     public struct EnemySpawn

@@ -227,6 +227,12 @@ namespace TheVeil.Gen
             TallySilver(layout, recipe);
             VerifyAndRepair(grid, band, corridors, recipe, rng, layout, occupied,
                             startIndex, goalIndex);
+
+            // After everything, so everything above is untouched by it. It moves a trap
+            // rather than adding one, so the points and the silver are what they were and
+            // nothing needs counting again. See MineARoute.
+            MineARoute(grid, corridors, layout, mined, startIndex, goalIndex);
+
             return layout;
         }
 
@@ -588,6 +594,160 @@ namespace TheVeil.Gen
                            (int)(allowance * (1f - ThroatShare)));
 
             return spent;
+        }
+
+        /// <summary>
+        /// Where along a route its trap may be laid, as a share of the journey.
+        ///
+        /// The middle stretch. At the start the column has not settled into the route it
+        /// was drawn and the player is still looking at the map; at the very end a trap
+        /// is a toll on a level already won. Between a fifth and four fifths is ground
+        /// the caravan is committed to and still has somewhere to go afterwards.
+        /// </summary>
+        public const float RouteTrapFrom = 0.2f;
+        public const float RouteTrapTo = 0.8f;
+
+        /// <summary>Mixed into a route trap's seed so it draws from a stream of its own.</summary>
+        const int RouteMineSalt = 0x5A1D;
+
+        /// <summary>
+        /// Moves one trap onto the line of one route, and says whether it did.
+        ///
+        /// <b>Why it exists.</b> Everything else here aims at ground <i>around</i> where a
+        /// caravan goes rather than at the line it drives: the throats are where corridors
+        /// converge, and the strewn third is open country. Measured on 1-1, the three
+        /// traps sat 0, 28 and 48 m from the route actually driven, and the level was
+        /// played to the end without one of them firing. The nearest was not near enough:
+        /// a trap fires inside <see cref="TrapField.TriggerRadius"/>, three metres, and
+        /// the swathe a caravan covers is eight either side — so a trap can sit squarely
+        /// in the lane and still be five metres too far to go off. Not a trap avoided; a
+        /// trap missed while driving over its tile.
+        ///
+        /// <b>One, not one per route.</b> Three trapped routes is not a choice between
+        /// them, it is a toll, and the player would learn to stop reading the ground
+        /// because reading it changes nothing. Which route gets it is drawn rather than
+        /// fixed — always mining the fast one would teach the lesson once and then be a
+        /// checklist, the objection <see cref="ThroatShare"/> already makes about fords.
+        ///
+        /// <b>Moved, not added — and moved last.</b> The first version laid a new trap at
+        /// the head of <see cref="LayTraps"/>, drawing from the shared generator and
+        /// spending from the shared allowance, so every trap, group and repair after it
+        /// moved on every map; and since which of up to twelve terrain attempts a level
+        /// keeps depends on where its groups stand, it could swap the landscape too. 1-5's
+        /// fast route stopped meeting anything and two tests went red. The second added
+        /// it after everything, outside the budget, and 1-2 came out 123 points of 120 —
+        /// the ceiling that exists because repairs which once <i>added</i> put chapter 1
+        /// as much as 71 percent over.
+        ///
+        /// Moving one of the traps already placed keeps the count and the cost exactly as
+        /// they were, so the ceiling cannot be crossed by construction, and doing it after
+        /// everything else leaves every draw upstream where it was. The one moved is the
+        /// trap farthest from any route — the one most likely to be sitting in the woods
+        /// where nothing will ever drive — and a level that already has a trap on a
+        /// route's line is left exactly as it was.
+        /// </summary>
+        static bool MineARoute(TileGrid grid, IReadOnlyList<Corridor> corridors,
+                               EncounterLayout layout, HashSet<int> mined,
+                               int startIndex, int goalIndex)
+        {
+            if (corridors == null || corridors.Count == 0 || layout.Traps.Count == 0) return false;
+
+            var onRoutes = new HashSet<int>();
+            foreach (var corridor in corridors)
+                if (corridor?.Tiles != null) onRoutes.UnionWith(corridor.Tiles);
+
+            // Already true of this level, so nothing about it changes.
+            foreach (var trap in layout.Traps)
+                if (onRoutes.Contains(trap.Tile)) return false;
+
+            int victim = FarthestFromRoutes(grid, layout.Traps, onRoutes);
+
+            // Seeded from where the level starts and ends, which the map already fixes,
+            // so the choice is as deterministic as the rest and touches nobody's draws.
+            var rng = new DeterministicRandom(
+                unchecked(startIndex * 73856093 ^ goalIndex * 19349663 ^ RouteMineSalt));
+
+            var route = corridors[rng.Range(0, corridors.Count)];
+            if (route?.Tiles == null || route.Tiles.Count < 3) return false;
+
+            int from = Math.Max(1, Math.Min(route.Tiles.Count - 2,
+                                            (int)(route.Tiles.Count * RouteTrapFrom)));
+            int to = Math.Max(from + 1, Math.Min(route.Tiles.Count - 1,
+                                                 (int)(route.Tiles.Count * RouteTrapTo)));
+
+            // A group already stands where it stands; a trap under it is the one overlap
+            // the placer refuses, and it is refused here too.
+            var standing = new HashSet<int>();
+            foreach (var enemy in layout.Enemies) standing.Add(enemy.Tile);
+
+            // The spacing every trap keeps from every other, kept against all of them
+            // but the one being moved.
+            var others = new List<int>();
+            for (int i = 0; i < layout.Traps.Count; i++)
+                if (i != victim) others.Add(layout.Traps[i].Tile);
+
+            // Walked outward from one drawn point rather than retried at random, so a
+            // route whose middle is crowded still gets its trap somewhere sensible
+            // instead of losing it to ten unlucky draws.
+            int wanted = rng.Range(from, to);
+
+            for (int step = 0; step < to - from; step++)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    if (step == 0 && side > 0) break;   // the drawn point itself, once
+
+                    int at = wanted + step * side;
+                    if (at < from || at >= to) continue;
+
+                    int tile = route.Tiles[at];
+                    if (standing.Contains(tile)) continue;
+                    if (!SpacedEnough(grid, tile, others, TrapSpacingTiles)) continue;
+
+                    // Same kind, so the same cost and the same disarm silver: the level's
+                    // totals are exactly what they were.
+                    var moved = layout.Traps[victim];
+                    mined.Remove(moved.Tile);
+                    moved.Tile = tile;
+                    moved.Origin = PlacementOrigin.OnRoute;
+                    layout.Traps[victim] = moved;
+                    mined.Add(tile);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>The index of the trap whose nearest route tile is farthest away.</summary>
+        static int FarthestFromRoutes(TileGrid grid, List<TrapPlacement> traps,
+                                      HashSet<int> onRoutes)
+        {
+            int worst = 0;
+            float worstDistance = -1f;
+
+            for (int i = 0; i < traps.Count; i++)
+            {
+                grid.ToCoords(traps[i].Tile, out int tx, out int ty);
+                float nearest = float.MaxValue;
+
+                foreach (int tile in onRoutes)
+                {
+                    grid.ToCoords(tile, out int rx, out int ry);
+                    float dx = rx - tx, dy = ry - ty;
+                    float squared = dx * dx + dy * dy;
+                    if (squared < nearest) nearest = squared;
+                }
+
+                // Strictly greater, so a tie keeps the earlier trap and the choice is fixed.
+                if (nearest > worstDistance)
+                {
+                    worstDistance = nearest;
+                    worst = i;
+                }
+            }
+
+            return worst;
         }
 
         /// <summary>
