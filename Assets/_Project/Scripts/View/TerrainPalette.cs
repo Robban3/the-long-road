@@ -55,6 +55,34 @@ namespace TheVeil.View
             new Color(0.33f, 0.31f, 0.29f)  // Cliff         — stone
         };
 
+        /// <summary>
+        /// The same ground in winter: snow over it, and what shows through.
+        ///
+        /// Not white, and that is arithmetic rather than taste. The ground shader takes
+        /// every bit of its colour from these values and multiplies grain on top — up to
+        /// nearly twice as bright in the lightest patches before the light is added — so a
+        /// snow entered at 1.0 would burn out to flat white across whole tiles and lose
+        /// both the grain and the shading that make it read as a surface. These sit in
+        /// the upper-middle, with room above them for the sun.
+        ///
+        /// The differences between types are kept, just moved up the scale: a road is
+        /// trodden snow with earth in it and reads as a track; a pass is wind-scoured and
+        /// shows rock; a wood is snow in shade. Water is the one that must still stand
+        /// apart, for the reason it does in summer — a river the player cannot see is a
+        /// river they cannot plan round — so it is ice, bluer and darker than any snow.
+        /// </summary>
+        static readonly Color[] WinterGroundColors =
+        {
+            new Color(0.62f, 0.60f, 0.58f), // Road          — trodden snow, earth in it
+            new Color(0.80f, 0.82f, 0.85f), // Plains        — open snow
+            new Color(0.74f, 0.77f, 0.80f), // Forest        — snow in shade
+            new Color(0.66f, 0.69f, 0.70f), // Marsh         — frozen bog
+            new Color(0.60f, 0.66f, 0.71f), // Ford          — ice at the edges
+            new Color(0.64f, 0.64f, 0.66f), // MountainPass  — scoured rock and drift
+            new Color(0.40f, 0.55f, 0.70f), // Water         — ice, and must read as not-ground
+            new Color(0.40f, 0.40f, 0.43f)  // Cliff         — stone the snow will not hold
+        };
+
         public static readonly Color Start = new Color(0.35f, 0.95f, 0.45f);
         public static readonly Color Goal = new Color(0.98f, 0.82f, 0.25f);
 
@@ -66,5 +94,9 @@ namespace TheVeil.View
         public static Color Of(TerrainType t) => Colors[(int)t];
 
         public static Color OfGround(TerrainType t) => GroundColors[(int)t];
+
+        /// <summary>The ground colour for a tile in the country the chapter is set in.</summary>
+        public static Color OfGround(TerrainType t, Biome biome)
+            => (biome == Biome.Winter ? WinterGroundColors : GroundColors)[(int)t];
     }
 }

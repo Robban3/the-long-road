@@ -125,7 +125,7 @@ namespace TheVeil.Editor
             var runner = runnerGo.AddComponent<LevelRunner>();
             runner.Decor = LoadForestDecor();
             runner.Models = LoadModels();
-            FitWater(out runner.WaterMaterial, out runner.MarshWaterMaterial);
+            FitWaterAndWinter(runner);
 
             EditorSceneManager.SaveScene(scene, PlayScenePath);
             RegisterScenes();
@@ -551,6 +551,188 @@ namespace TheVeil.Editor
             var asset = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (asset == null) Debug.LogWarning($"[The Veil] Model not found, falling back to a primitive: {path}");
             return asset;
+        }
+
+        /// <summary>Where the snowed copies setup makes of the nature pack's models are kept.</summary>
+        const string WinterPrefabDir = "Assets/_Project/Prefabs/Winter";
+
+        /// <summary>
+        /// The sets whose models are living, leafy things. In winter these keep only what
+        /// got snow on it: a green bush or a tuft of summer grass standing in a snowfield
+        /// is the one thing that would say "this is the forest with the colour turned
+        /// down", so those are left out rather than left as they are.
+        /// </summary>
+        static readonly System.Collections.Generic.HashSet<string> LeafySets =
+            new System.Collections.Generic.HashSet<string>
+            {
+                "Pines", "Trees", "Birch", "Willows", "Bushes",
+                "GroundCover", "MarshPlants", "Lilypads"
+            };
+
+        /// <summary>
+        /// The forest under snow, for the chapter <see cref="Biomes"/> says is winter.
+        ///
+        /// Derived from the forest rather than written out beside it. Two hand-kept lists
+        /// of the same country drift the first time one of them is edited, and the forest
+        /// list is edited often — every fix this project has made to a prop set would have
+        /// had to be made twice, and the one that was missed would be the winter.
+        ///
+        /// Two kinds of snow, because the two packs ship it differently. The knights pack
+        /// has a twin for much of its kit — SM_Prop_Cart_01 beside SM_Prop_Cart_01_Snow —
+        /// so a model is swapped for its twin wherever one exists. The nature pack has no
+        /// snow models at all, only snow <i>materials</i>: its rock atlas with Synty's
+        /// snow-on-top shader, and pine needles with snow on them. So its models are
+        /// copied with those materials put in, once, into <see cref="WinterPrefabDir"/>.
+        ///
+        /// Everything else keeps its summer model, which is right for most of it: a stump,
+        /// a skeleton or a dead trunk looks the same under a light snow. The leafy sets are
+        /// the exception — see <see cref="LeafySets"/>.
+        /// </summary>
+        static BiomeDecor LoadWinterDecor()
+        {
+            var decor = LoadForestDecor();
+            var swaps = WinterMaterialSwaps();
+
+            foreach (var field in typeof(BiomeDecor).GetFields())
+            {
+                if (field.FieldType != typeof(PropSet)) continue;
+                var set = (PropSet)field.GetValue(decor);
+                field.SetValue(decor, WinterSet(set, swaps, LeafySets.Contains(field.Name)));
+            }
+
+            // The building kit, part for part. Index-matched sets stay index-matched: a
+            // part with no snow twin keeps its summer model rather than dropping out, so
+            // foundation 3 still goes under room 3.
+            if (decor.Kit != null)
+            {
+                foreach (var field in typeof(BuildingKit).GetFields())
+                {
+                    if (field.FieldType != typeof(PropSet)) continue;
+                    var set = (PropSet)field.GetValue(decor.Kit);
+                    field.SetValue(decor.Kit, WinterSet(set, swaps, false));
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            return decor;
+        }
+
+        /// <summary>One set, snowed. <paramref name="snowedOnly"/> drops what got no snow.</summary>
+        static PropSet WinterSet(PropSet set, System.Collections.Generic.Dictionary<Material, Material> swaps,
+                                 bool snowedOnly)
+        {
+            if (set == null || !set.Any) return set;
+
+            var models = new System.Collections.Generic.List<GameObject>();
+            foreach (var model in set.Models)
+            {
+                if (model == null) continue;
+
+                var twin = SnowTwinOf(model);
+                var snowed = twin != model ? twin : SnowedVariant(model, swaps);
+
+                if (snowedOnly && snowed == model) continue;
+                models.Add(snowed);
+            }
+
+            return new PropSet(set.ZUp, models.ToArray());
+        }
+
+        /// <summary>The pack's own snow twin of a model, or the model itself if it has none.</summary>
+        static GameObject SnowTwinOf(GameObject model)
+        {
+            string path = AssetDatabase.GetAssetPath(model);
+            if (string.IsNullOrEmpty(path)) return model;
+
+            string extension = System.IO.Path.GetExtension(path);
+            string twinPath = path.Substring(0, path.Length - extension.Length) + "_Snow" + extension;
+
+            var twin = AssetDatabase.LoadAssetAtPath<GameObject>(twinPath);
+            return twin != null ? twin : model;
+        }
+
+        /// <summary>
+        /// A copy of a model with its materials swapped for their snow versions, saved as
+        /// a prefab — or the model itself, if none of its materials has one.
+        ///
+        /// Unpacked before saving, so the copy is its own prefab rather than a variant
+        /// with overrides: a variant would follow the original the next time the pack is
+        /// updated, and quietly lose its snow.
+        /// </summary>
+        static GameObject SnowedVariant(GameObject model,
+                                        System.Collections.Generic.Dictionary<Material, Material> swaps)
+        {
+            bool touches = false;
+            foreach (var renderer in model.GetComponentsInChildren<Renderer>(true))
+            {
+                foreach (var material in renderer.sharedMaterials)
+                    if (material != null && swaps.ContainsKey(material)) { touches = true; break; }
+                if (touches) break;
+            }
+            if (!touches) return model;
+
+            MakeFolder(WinterPrefabDir);
+            string path = $"{WinterPrefabDir}/{model.name}_Snow.prefab";
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(model);
+            try
+            {
+                PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely,
+                                                   InteractionMode.AutomatedAction);
+
+                foreach (var renderer in instance.GetComponentsInChildren<Renderer>(true))
+                {
+                    var materials = renderer.sharedMaterials;
+                    for (int i = 0; i < materials.Length; i++)
+                        if (materials[i] != null && swaps.TryGetValue(materials[i], out var snow))
+                            materials[i] = snow;
+                    renderer.sharedMaterials = materials;
+                }
+
+                instance.name = model.name + "_Snow";
+                return PrefabUtility.SaveAsPrefabAsset(instance, path);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>
+        /// Each nature material that has a snow version, paired with it.
+        ///
+        /// The rock atlas and the moss-covered one both go to the snow atlas, which is the
+        /// same Synty shader that lays moss on upward faces, given snow instead. Pine
+        /// needles go to the pack's snowed needles, at both levels of detail — swapping
+        /// only the near one makes a tree lose its snow as the camera pulls away.
+        /// </summary>
+        static System.Collections.Generic.Dictionary<Material, Material> WinterMaterialSwaps()
+        {
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+
+            void Pair(string from, string to)
+            {
+                var a = AssetDatabase.LoadAssetAtPath<Material>($"{SyntyNaturePack}/Materials/{from}.mat");
+                var b = AssetDatabase.LoadAssetAtPath<Material>($"{SyntyNaturePack}/Materials/{to}.mat");
+                if (a != null && b != null) swaps[a] = b;
+                else Debug.LogWarning($"[The Veil] No snow for {from}: one of the two materials is missing.");
+            }
+
+            Pair("Alts/PolygonNature_01", "Alts/PolygonNature_Snow_01");
+            Pair("Alts/PolygonNature_Moss_01", "Alts/PolygonNature_Snow_01");
+            Pair("Leaves/Leaves_Pine_01", "Leaves/Leaves_Pine_01_Snow");
+            Pair("LODS/Leaves_Pine_LOD_01", "LODS/Alts/Leaves_Pine_LOD_01_Snow");
+
+            return swaps;
+        }
+
+        static void MakeFolder(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path)) return;
+
+            string parent = System.IO.Path.GetDirectoryName(path)?.Replace('\\', '/');
+            if (!string.IsNullOrEmpty(parent)) MakeFolder(parent);
+            AssetDatabase.CreateFolder(parent, System.IO.Path.GetFileName(path));
         }
 
         /// <summary>
@@ -1053,6 +1235,42 @@ namespace TheVeil.Editor
             return decor;
         }
 
+        /// <summary>The plan's decor for a winter chapter: the winter, minus the skyline, for the same reason.</summary>
+        static BiomeDecor LoadPlanWinterDecor()
+        {
+            var decor = LoadWinterDecor();
+
+            decor.Horizon = new PropSet();
+
+            return decor;
+        }
+
+        const string SnowFxPath = SyntyNaturePack + "/Prefabs/FX/FX_Snow_01.prefab";
+
+        /// <summary>
+        /// The water, and everything a winter chapter needs besides the forest.
+        ///
+        /// It stands wherever a bare FitWater call stood, so the two setup paths — building
+        /// the scene from nothing and refreshing an existing one — cannot disagree about
+        /// whether a runner knows winter exists. They did disagree once about the recipe a
+        /// level is generated from, and a route drawn on one map landed in a lake on the
+        /// other.
+        /// </summary>
+        static void FitWaterAndWinter(LevelRunner runner)
+        {
+            FitWater(river: out runner.WaterMaterial, marsh: out runner.MarshWaterMaterial);
+            runner.WinterDecor = LoadWinterDecor();
+            runner.IceMaterial = EnsureIceMaterial();
+            runner.SnowFx = One(SnowFxPath);
+        }
+
+        static void FitWaterAndWinter(LevelPreview preview)
+        {
+            FitWater(river: out preview.WaterMaterial, marsh: out preview.MarshWaterMaterial);
+            preview.WinterDecor = LoadPlanWinterDecor();
+            preview.IceMaterial = EnsureIceMaterial();
+        }
+
         static PropSet Synty(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyNatureDir}/{group}", names));
 
@@ -1405,6 +1623,51 @@ namespace TheVeil.Editor
             return material;
         }
 
+        const string IceMaterialPath = MaterialsDir + "/WinterIce.mat";
+        const string IceSourcePath = SyntyNaturePack + "/Materials/Misc/Ice_01.mat";
+
+        /// <summary>
+        /// The project's own ice, made from the pack's and then darkened.
+        ///
+        /// The pack's Ice_01 is nearly white — 0.88, 0.94, 0.97 — and laid on a river in a
+        /// snowfield it disappears. That is the one thing water may not do: the ground
+        /// palette keeps water apart from every other terrain in both seasons because a
+        /// river the player cannot see is a river they cannot plan a route round. So it
+        /// is copied rather than used, and pushed bluer and darker than any snow in
+        /// TerrainPalette's winter table, and polished, since that is most of what makes
+        /// ice look like ice rather than like a blue floor.
+        ///
+        /// Values set every time rather than on creation, for the reason the ground
+        /// material gives: an asset keeps what it was born with.
+        /// </summary>
+        static Material EnsureIceMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(IceMaterialPath);
+
+            if (material == null)
+            {
+                var source = AssetDatabase.LoadAssetAtPath<Material>(IceSourcePath);
+                if (source == null)
+                {
+                    Debug.LogWarning("[The Veil] The pack's ice material is missing, so winter "
+                                     + $"keeps its summer water: {IceSourcePath}");
+                    return null;
+                }
+
+                material = new Material(source) { name = "WinterIce" };
+                AssetDatabase.CreateAsset(material, IceMaterialPath);
+            }
+
+            var ice = new Color(0.52f, 0.66f, 0.80f, 1f);
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", ice);
+            if (material.HasProperty("_Color")) material.SetColor("_Color", ice);
+            if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.6f);
+            if (material.HasProperty("_Glossiness")) material.SetFloat("_Glossiness", 0.6f);
+
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         static Material EnsureGroundMaterial()
         {
             var material = AssetDatabase.LoadAssetAtPath<Material>(GroundMaterialPath);
@@ -1525,7 +1788,7 @@ namespace TheVeil.Editor
 
             var preview = terrainGo.AddComponent<LevelPreview>();
             preview.Decor = LoadPlanDecor();
-            FitWater(out preview.WaterMaterial, out preview.MarshWaterMaterial);
+            FitWaterAndWinter(preview);
 
             // The cast, for the eagle. The plan draws one actor and only one: the bird
             // flying the scouting ability's own flight over the ground it scouts.
@@ -2617,7 +2880,7 @@ namespace TheVeil.Editor
             {
                 runner.Models = LoadModels();
                 runner.Decor = LoadForestDecor();
-                FitWater(out runner.WaterMaterial, out runner.MarshWaterMaterial);
+                FitWaterAndWinter(runner);
                 EditorUtility.SetDirty(runner);
                 touched++;
 
@@ -2640,7 +2903,7 @@ namespace TheVeil.Editor
             {
                 preview.Models = LoadModels();
                 preview.Decor = LoadPlanDecor();
-                FitWater(out preview.WaterMaterial, out preview.MarshWaterMaterial);
+                FitWaterAndWinter(preview);
 
                 // The hand that draws the road, added to scenes saved before it existed.
                 var drawing = preview.GetComponent<RouteDrawing>()

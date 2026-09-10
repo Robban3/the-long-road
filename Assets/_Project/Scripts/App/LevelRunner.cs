@@ -154,6 +154,24 @@ namespace TheVeil.App
         [Header("Scenery")]
         public BiomeDecor Decor = new BiomeDecor();
 
+        /// <summary>
+        /// The same country under snow, used when <see cref="Biomes.Of"/> says the chapter
+        /// is winter. A second set rather than a swap applied to the first, so the forest
+        /// is never touched to make the winter and a level in one never borrows from the
+        /// other.
+        /// </summary>
+        public BiomeDecor WinterDecor = new BiomeDecor();
+
+        /// <summary>
+        /// What the rivers and pools are in winter. Used for both, since a bog freezes the
+        /// same way a river does. Null keeps the summer water, which is the safe way to be
+        /// wrong: a river that should be frozen still reads as a river.
+        /// </summary>
+        public Material IceMaterial;
+
+        /// <summary>Falling snow, hung on the camera in winter. Null leaves the sky still.</summary>
+        public GameObject SnowFx;
+
         [Header("Escort")]
         /// <summary>
         /// The fallback escort, in formation-slot order, for opening this scene directly.
@@ -293,8 +311,13 @@ namespace TheVeil.App
             // The skirt carries the ground on past the boundary: the caravan forms up on
             // road behind the start line, and the world stopping dead at the edge read
             // as the edge of a board in any case.
+            // The country this chapter is set in, asked once and used for everything
+            // below it: the ground, what stands on it, the water and the sky. Asked of
+            // Biomes rather than decided here, so the planning map shows the same one.
+            var biome = Biomes.Of(Chapter);
+
             _mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize,
-                null, -1, -1, HeightScale, TerrainMeshBuilder.SkirtWidth);
+                null, -1, -1, HeightScale, TerrainMeshBuilder.SkirtWidth, biome);
             GetComponent<MeshFilter>().sharedMesh = _mesh;
 
             _markerRoot = new GameObject("Markers").transform;
@@ -309,9 +332,20 @@ namespace TheVeil.App
             // in the planning view and not here, so a player read "something went wrong
             // on this ground" while drawing the route and then drove through country
             // that said nothing — which is the half where the signal was meant to work.
-            TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, Decor,
+            //
+            // Winter changes what stands on the ground and what the water is made of;
+            // everything else about the call is the same in both. A winter set or an ice
+            // material that setup never filled falls back to the forest's, so a scene
+            // built before winter existed still plays — as forest, rather than as bare
+            // ground over a river the player cannot see.
+            bool winter = biome == Biome.Winter;
+            var decor = winter && WinterDecor != null && !WinterDecor.IsEmpty ? WinterDecor : Decor;
+            var water = winter && IceMaterial != null ? IceMaterial : WaterMaterial;
+            var marshWater = winter && IceMaterial != null ? IceMaterial : MarshWaterMaterial;
+
+            TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
-                waterMaterial: WaterMaterial, marshWaterMaterial: MarshWaterMaterial,
+                waterMaterial: water, marshWaterMaterial: marshWater,
 
                 // The two places the wood outside the map must not close in: the ground
                 // the column musters on behind the start line, and the ground it arrives
@@ -353,6 +387,23 @@ namespace TheVeil.App
 
             _camera = Camera.main;
             AimCamera();
+
+            // Falling snow in a winter chapter, hung on the camera so it is always falling
+            // where the player is looking rather than over one corner of the map. The
+            // pack's effect is a 50 x 10 x 50 m box of slow flakes built for a close
+            // shot; this camera sits some 46 m back and 32 m up, so the box is pushed out
+            // in front of the lens and scaled to cover the view. Both numbers are first
+            // guesses and are named as such — they are the two to change after looking.
+            if (winter && SnowFx != null && _camera != null)
+            {
+                const float snowfallAhead = 36f;  // metres in front of the lens
+                const float snowfallScale = 1.8f; // times the pack's box
+
+                var snow = Instantiate(SnowFx, _camera.transform);
+                snow.name = "Snowfall";
+                snow.transform.localPosition = new Vector3(0f, 0f, snowfallAhead);
+                snow.transform.localScale = Vector3.one * snowfallScale;
+            }
 
             if (_hud != null) _hud.Run = _run;
         }

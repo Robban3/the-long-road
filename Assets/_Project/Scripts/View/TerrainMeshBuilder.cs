@@ -81,10 +81,27 @@ namespace TheVeil.View
         /// begins, so bare ground is all it has to be — 252 quads on a 64×64 map against
         /// the 2 960 tiles that widening the grid by ten would have cost.
         /// </param>
+        /// <summary>
+        /// The country the ground being built belongs to. Set on the way into
+        /// <see cref="Build"/> and read by the corner colours.
+        ///
+        /// Static for the reason TerrainDecorator gives for its landmark scale: Build is
+        /// the one entry point and sets it on the way in, and the alternative is threading
+        /// it through six signatures and thirteen calls — Build, the skirt, both kinds of
+        /// apron and both corner-colour functions — for a value that is the same for every
+        /// one of them. Written down rather than hidden: it is state.
+        /// </summary>
+        static Biome _biome;
+
+        /// <summary>The ground colour of one terrain type in the biome being built.</summary>
+        static Color Ground(TerrainType terrain) => TerrainPalette.OfGround(terrain, _biome);
+
         public static Mesh Build(TileGrid grid, float tileSize, IReadOnlyList<RouteOverlay> overlays = null,
                                  int startIndex = -1, int goalIndex = -1, float heightScale = 0f,
-                                 float skirt = 0f)
+                                 float skirt = 0f, Biome biome = Biome.Forest)
         {
+            _biome = biome;
+
             int tiles = grid.TileCount;
             var vertices = new Vector3[tiles * 4];
             var normals = new Vector3[tiles * 4];
@@ -487,7 +504,7 @@ namespace TheVeil.View
                     if (terrain == TerrainType.Road) road = true;
                     if (terrain == TerrainType.Ford) ford = true;
 
-                    var c = TerrainPalette.OfGround(terrain);
+                    var c = Ground(terrain);
                     r += c.r; g += c.g; b += c.b;
                 }
             }
@@ -499,9 +516,9 @@ namespace TheVeil.View
             // road to half grass — a road that vanishes into the meadow it crosses.
             // Claiming the corner widens it by half a tile each side, which is exactly
             // what a track needs to stay continuous.
-            if (road) return TerrainPalette.OfGround(TerrainType.Road);
+            if (road) return Ground(TerrainType.Road);
 
-            var deep = TerrainPalette.OfGround(TerrainType.Water);
+            var deep = Ground(TerrainType.Water);
             if (water == tiles) return deep;
 
             int land = tiles - water;

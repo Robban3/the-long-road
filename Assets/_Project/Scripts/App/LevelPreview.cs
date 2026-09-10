@@ -96,6 +96,16 @@ namespace TheVeil.App
 
         public BiomeDecor Decor = new BiomeDecor();
 
+        /// <summary>
+        /// The plan's decor for a winter chapter. The planning map must show the country
+        /// the run will be played in — see <see cref="Biomes"/> for why that is one
+        /// function and not two decisions.
+        /// </summary>
+        public BiomeDecor WinterDecor = new BiomeDecor();
+
+        /// <summary>Frozen water for a winter chapter. Null keeps the summer water.</summary>
+        public Material IceMaterial;
+
         [Header("Scouting")]
         /// <summary>
         /// Flies the scouting eagle over the plan (docs/GDD.md §3.6).
@@ -1350,7 +1360,8 @@ namespace TheVeil.App
             // ground instead. Start and goal stay painted: those are two single tiles,
             // and a marker is meant to be a patch.
             var mesh = TerrainMeshBuilder.Build(
-                map.Grid, TileGrid.TileSize, null, map.StartIndex, map.GoalIndex, HeightScale);
+                map.Grid, TileGrid.TileSize, null, map.StartIndex, map.GoalIndex, HeightScale,
+                biome: Biomes.Of(Chapter));
 
             GetComponent<MeshFilter>().sharedMesh = mesh;
 
@@ -1441,7 +1452,15 @@ namespace TheVeil.App
                                  + "scene load and saved back into the scene — see "
                                  + "LevelPreview.Clear.");
 
-            if (Decor == null || Decor.IsEmpty) return;
+            // The same choice the run makes, from the same function, so the country the
+            // player plans in is the country they drive through. A winter set setup never
+            // filled falls back to the forest rather than to an empty map.
+            bool winter = Biomes.Of(Chapter) == Biome.Winter;
+            var decor = winter && WinterDecor != null && !WinterDecor.IsEmpty ? WinterDecor : Decor;
+            var water = winter && IceMaterial != null ? IceMaterial : WaterMaterial;
+            var marshWater = winter && IceMaterial != null ? IceMaterial : MarshWaterMaterial;
+
+            if (decor == null || decor.IsEmpty) return;
 
             _props = new GameObject("Props").transform;
             _props.SetParent(transform, false);
@@ -1451,10 +1470,10 @@ namespace TheVeil.App
             // what it was already deciding.
             _landmarks = new List<Landmark>();
 
-            int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, Decor,
+            int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, decor,
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
                 maxProps: MaxProps, densityScale: DensityScale,
-                waterMaterial: WaterMaterial, marshWaterMaterial: MarshWaterMaterial,
+                waterMaterial: water, marshWaterMaterial: marshWater,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
                 campSites: CampSignal.Tiles(map), travelled: Travelled(map),
                 found: _landmarks,
