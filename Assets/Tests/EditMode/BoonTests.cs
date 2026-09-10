@@ -164,6 +164,37 @@ namespace TheVeil.Tests
         }
 
         [Test]
+        public void TheScoutIsHiredOnceAndKept()
+        {
+            var campaign = new Campaign();
+            campaign.Earn(1000000);
+
+            Assert.IsFalse(campaign.Boons().HasScout, "a new campaign started with the scout");
+            Assert.IsTrue(campaign.TryBuy(Boon.Scout, out _));
+            Assert.IsTrue(campaign.Boons().HasScout);
+            Assert.IsFalse(campaign.TryBuy(Boon.Scout, out _), "the scout was hired twice");
+
+            Assert.IsTrue(Campaign.Load(campaign.Save()).Boons().HasScout,
+                "the hire did not survive the save");
+        }
+
+        [Test]
+        public void TheScoutsSightIsSoldAndSeen()
+        {
+            Assert.IsTrue(TroopBoonTable.Sells(TroopKind.Scout, UpgradeTrack.Special),
+                "the scout's sight is not for sale");
+
+            var school = new TroopBoons();
+            school.Set(TroopKind.Scout, UpgradeTrack.Special, TroopBoonTable.Steps);
+
+            var bought = new TroopGroup(TroopKind.Scout, FormationSlot.Van, school);
+            var plain = new TroopGroup(TroopKind.Scout, FormationSlot.Van);
+
+            Assert.Greater(bought.SightRadius, plain.SightRadius + 15f,
+                "a full sight track barely changed what the scout sees");
+        }
+
+        [Test]
         public void ADeepTrackHasThirtyStepsAndTinyOnes()
         {
             // Five steps was never a balance decision — it was the only depth that felt

@@ -213,12 +213,12 @@ Position 0 och 3 tar merparten av skadan. Flankerna är rätt plats för räckvi
 | **Bågskyttar** | 4 | 3 | 70 | 22 | 22 m | 18 m | Kräver skottlinje; −40 % räckvidd i skog |
 | **Kavalleri** | 5 | 3 | 180 | 34 | 2.2 m | 16 m | Charge ×2.5 första träffen; −50 % i skog, −70 % i kärr |
 | **Trollkarl** | 6 | 1 | 90 | 40 (AoE 6 m) | 18 m | 14 m | Mana 100, 35/kast, regen 4/s |
-| **Spejare** | 2 | 2 | 60 | 10 | 12 m | **34 m** | Avslöjar fällor inom 10 m |
+| **Spejare** | 2 | 2 | 60 | 0 | — | **34 m** | Slåss inte. Avslöjar fällor inom 10 m. Köps en gång i butiken, en per eskort |
 | **Sköldbärare** | 4 | 3 | 220 | 12 | 1.8 m | 12 m | −40 % inkommande skada; absorberar fällskada |
 | **Präst** | 5 | 1 | 80 | — | 12 m | 12 m | Läker 15 HP/s till en trupp; ×3 utanför strid |
 | **Ingenjör** | 4 | 2 | 90 | 8 | 8 m | 14 m | Desarmerar fälla på 2 s; reparerar vagn 20 HP/s |
 
-Designprincip: **ingen trupp är bäst överallt.** Kavalleri dominerar på slätt och är nästan värdelöst i kärr. Bågskyttar är starka på öppen mark och svaga i skog. Spejaren har nästan ingen stridskraft alls men gör hela resten av armén effektivare. Terrängvalet i vägritningen ska styra armévalet — det är kopplingen som får de två besluten att hänga ihop.
+Designprincip: **ingen trupp är bäst överallt.** Kavalleri dominerar på slätt och är nästan värdelöst i kärr. Bågskyttar är starka på öppen mark och svaga i skog. Spejaren slåss inte alls men gör hela resten av armén effektivare. Terrängvalet i vägritningen ska styra armévalet — det är kopplingen som får de två besluten att hänga ihop.
 
 ### 4.4 Aktiva förmågor
 
@@ -304,7 +304,7 @@ Special-spåren är det som gör truppvalet meningsfullt även mitt i en bana:
 | Bågskyttar | +15 % räckvidd; pilar penetrerar första målet |
 | Kavalleri | Starkare charge, kortare omladdning mellan anfall |
 | Trollkarl | −20 % manakostnad, +1 m AoE-radie |
-| Spejare | +6 m sikt, avslöjar fällor längre bort |
+| Spejare | +6 m sikt per nivå i fält; butikens permanenta siktspår ger upp till +22 m till |
 | Sköldbärare | Provokationsaura — drar fiender bort från vagnarna |
 | Präst | Läker hela formationen i stället för en trupp |
 | Ingenjör | Desarmerar dubbelt så snabbt, reparerar även under strid |

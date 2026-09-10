@@ -113,10 +113,9 @@ namespace TheVeil.UI
         /// <summary>
         /// The escort the player put together, by formation slot, carried into the run.
         ///
-        /// Null in a slot means an empty post. Index 6 is the scouting post, which only
-        /// a scout may hold (see FormationSlot.Scouting).
+        /// Null in a slot means an empty post.
         /// </summary>
-        public static readonly TroopKind?[] Escort = new TroopKind?[TroopTable.LinePosts + 1];
+        public static readonly TroopKind?[] Escort = new TroopKind?[TroopTable.LinePosts];
 
         /// <summary>Whether anything was chosen. An empty escort is a caravan travelling alone.</summary>
         public static bool HasEscort

@@ -13,7 +13,7 @@ namespace TheVeil.Tests
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
-            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
             squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
             squad.TryPlace(FormationSlot.LeftRear, TroopKind.Priest);
             return squad;
@@ -87,7 +87,7 @@ namespace TheVeil.Tests
 
             Assert.AreEqual(1, squad.PointsRemaining);
             Assert.IsFalse(squad.TryPlace(FormationSlot.LeftVan, TroopKind.Archers), "the squad overspent");
-            Assert.IsFalse(squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout), "the squad overspent");
+            Assert.IsFalse(squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout), "the squad overspent");
 
             // Nothing costs a single point: an expensive pair leaves a post empty, which
             // is the trade-off the budget exists to force.
@@ -140,10 +140,25 @@ namespace TheVeil.Tests
 
             var scouted = new Squad();
             scouted.TryPlace(FormationSlot.Van, TroopKind.Swordsmen);
-            scouted.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
+            scouted.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
 
             Assert.Greater(scouted.BestSight, plain.BestSight * 2f,
                 "adding a scout barely changed what the column can see");
+        }
+
+        [Test]
+        public void TheScoutDoesNotFight()
+        {
+            // She is eyes and nothing else: no damage against anything, anywhere, and no
+            // reach for a ring to be drawn at.
+            var scout = new TroopGroup(TroopKind.Scout, FormationSlot.Van);
+
+            foreach (EnemyKind enemy in System.Enum.GetValues(typeof(EnemyKind)))
+                foreach (TerrainType terrain in System.Enum.GetValues(typeof(TerrainType)))
+                    Assert.AreEqual(0f, scout.DamageAgainst(enemy, terrain),
+                        $"the scout struck a {enemy} on {terrain}");
+
+            Assert.AreEqual(0f, TroopTable.Range(TroopKind.Scout));
         }
 
         // --- troop statistics -------------------------------------------------------
@@ -335,7 +350,7 @@ namespace TheVeil.Tests
             {
                 var squad = new Squad(18);
                 squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
-                squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
+                squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
                 squad.TryPlace(FormationSlot.RightVan, TroopKind.Engineer);
 
                 var run = Run(1, level, squad);
@@ -358,11 +373,15 @@ namespace TheVeil.Tests
             // Alone it does not get to the traps: 1-8 destroys a one-man escort at seven
             // percent of the route, twenty metres from the nearest pit, and the test then
             // reports on a trap system it never reached.
+            //
+            // A spear on the left flank rather than the scout, who does not fight: with her
+            // there the column was a sword short, and the shieldbearer on point fell before
+            // the traps did — which tested the fighting, not the traps.
             var squad = new Squad(18);
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
-            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
 
             var run = Run(1, 8, squad);

@@ -38,17 +38,28 @@ namespace TheVeil.Sim
         public const float ArmourReductionCap = 0.08f;
         public const float RangeCap = 0.25f;
 
+        /// <summary>
+        /// Metres of sight the scout's special track is worth when finished: 34 to about 54
+        /// at thirty steps. Metres rather than a share because sight is what the scout is,
+        /// and "20 m further" is the sentence a player can weigh against its price.
+        /// </summary>
+        public const float SightCap = 22f;
+
         public static readonly UpgradeTrack[] Tracks =
         {
             UpgradeTrack.Weapon, UpgradeTrack.Armour, UpgradeTrack.Special
         };
 
-        /// <summary>Whether this track does anything for this troop, and so may be sold.</summary>
+        /// <summary>
+        /// Whether this track does anything for this troop, and so may be sold. The special
+        /// track is reach for a bow or a staff, sight for the scout, and nothing for
+        /// anybody else.
+        /// </summary>
         public static bool Sells(TroopKind kind, UpgradeTrack track)
         {
             if (track != UpgradeTrack.Special) return true;
 
-            return TroopTable.HasRangedSpecial(kind);
+            return TroopTable.HasRangedSpecial(kind) || TroopTable.Scouts(kind);
         }
 
         public static int MaxLevel(TroopKind kind, UpgradeTrack track)
@@ -119,6 +130,10 @@ namespace TheVeil.Sim
 
         public float Range(TroopKind kind)
             => 1f + TroopBoonTable.RangeCap * Share(kind, UpgradeTrack.Special);
+
+        /// <summary>Metres of sight bought for the scout. Nought for anybody else.</summary>
+        public float Sight(TroopKind kind)
+            => TroopTable.Scouts(kind) ? TroopBoonTable.SightCap * Share(kind, UpgradeTrack.Special) : 0f;
 
         public bool Any
         {

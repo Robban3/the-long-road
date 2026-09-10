@@ -184,6 +184,7 @@ namespace TheVeil.UI
 
                 case Boon.Watch:
                 case Boon.Tracking:
+                case Boon.Scout:
                     return Tab.Scouting;
 
                 default:
@@ -254,9 +255,9 @@ namespace TheVeil.UI
                 int owned = campaign.TroopLevel(_troop, track);
                 var chosen = track;
 
-                Card(content, ref y, TrackName(track), TrackWhat(track),
+                Card(content, ref y, TrackName(_troop, track), TrackWhat(_troop, track),
                      owned, TroopBoonTable.Steps,
-                     TrackNow(track, owned), TrackNext(track, owned),
+                     TrackNow(_troop, track, owned), TrackNext(_troop, track, owned),
                      campaign.PriceOf(_troop, track), campaign.Gold,
                      () =>
                      {
@@ -380,6 +381,7 @@ namespace TheVeil.UI
                 case Boon.Tracking: return "Spårsinne";
                 case Boon.Exchange: return "Växelkontor";
                 case Boon.Repair: return "Fältreparation";
+                case Boon.Scout: return "Spejare";
                 default: return "Lastsäkring";
             }
         }
@@ -416,6 +418,9 @@ namespace TheVeil.UI
                 case Boon.Repair:
                     return "Vagnarna lagas medan kolonnen rullar — men inte medan det "
                            + "slåss. En lugn sträcka blir värd något.";
+                case Boon.Scout:
+                    return "Går före kolonnen och ser fiender långt innan de vaknar. Slåss "
+                           + "inte, och tar en av eskortens platser. Köps en gång.";
                 default:
                     return "Skattvagnen tar mindre skada. Dess skick avgör guldet du får "
                            + "ut, så det är en uppgradering av lönen lika mycket.";
@@ -426,6 +431,9 @@ namespace TheVeil.UI
 
         static string Next(Boon boon, int level)
         {
+            // Not a step on a curve but a door: what the one purchase opens.
+            if (boon == Boon.Scout) return "följer med när du vill";
+
             float step = BoonTable.Effect(boon, level + 1) - BoonTable.Effect(boon, level);
             return "+" + Reading(boon, step);
         }
@@ -442,6 +450,7 @@ namespace TheVeil.UI
                 case Boon.Tracking: return $"{value:F1} m";
                 case Boon.Exchange: return $"{value:F1} silver/guld";
                 case Boon.Repair: return $"{value:F2} hp/s";
+                case Boon.Scout: return value >= 1f ? "anställd" : "inte anställd";
                 default: return $"{value * 100f:F1} %";
             }
         }
@@ -478,18 +487,25 @@ namespace TheVeil.UI
             }
         }
 
-        static string TrackName(UpgradeTrack track)
+        // The special track is reach for a bow or a staff and sight for the scout, so its
+        // words depend on whose it is.
+
+        static string TrackName(TroopKind kind, UpgradeTrack track)
         {
             switch (track)
             {
                 case UpgradeTrack.Weapon: return "Vapen";
                 case UpgradeTrack.Armour: return "Rustning";
-                default: return "Räckvidd";
+                default: return TroopTable.Scouts(kind) ? "Sikt" : "Räckvidd";
             }
         }
 
-        static string TrackWhat(UpgradeTrack track)
+        static string TrackWhat(TroopKind kind, UpgradeTrack track)
         {
+            if (track == UpgradeTrack.Special && TroopTable.Scouts(kind))
+                return "Spejaren ser längre, så fiender upptäcks ännu tidigare. Gäller varje "
+                       + "uppdrag, ovanpå det du köper med silver ute i fält.";
+
             switch (track)
             {
                 case UpgradeTrack.Weapon:
@@ -504,15 +520,18 @@ namespace TheVeil.UI
             }
         }
 
-        static string TrackNow(UpgradeTrack track, int level)
-            => TrackReading(track, TroopBoonTable.Share(level));
+        static string TrackNow(TroopKind kind, UpgradeTrack track, int level)
+            => TrackReading(kind, track, TroopBoonTable.Share(level));
 
-        static string TrackNext(UpgradeTrack track, int level)
-            => "+" + TrackReading(track,
+        static string TrackNext(TroopKind kind, UpgradeTrack track, int level)
+            => "+" + TrackReading(kind, track,
                                   TroopBoonTable.Share(level + 1) - TroopBoonTable.Share(level));
 
-        static string TrackReading(UpgradeTrack track, float share)
+        static string TrackReading(TroopKind kind, UpgradeTrack track, float share)
         {
+            if (track == UpgradeTrack.Special && TroopTable.Scouts(kind))
+                return $"{share * TroopBoonTable.SightCap:F1} m sikt";
+
             switch (track)
             {
                 case UpgradeTrack.Weapon:

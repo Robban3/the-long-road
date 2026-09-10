@@ -150,7 +150,7 @@ namespace TheVeil.Tests
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
-            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
             return squad;
         }
 

@@ -129,7 +129,10 @@ namespace TheVeil.Sim
             get
             {
                 float sight = TroopTable.Sight(Kind);
-                if (Kind == TroopKind.Scout) sight += 6f * SpecialLevel;
+
+                // Her special track is her eyes: six metres a level in the field, and the
+                // shop's permanent track on top (TroopBoons.Sight).
+                if (Kind == TroopKind.Scout) sight += 6f * SpecialLevel + School.Sight(Kind);
                 return sight;
             }
         }
@@ -274,7 +277,7 @@ namespace TheVeil.Sim
         /// </summary>
         public bool ScoutsAhead = true;
 
-        readonly TroopGroup[] _slots = new TroopGroup[TroopTable.LinePosts + 1];
+        readonly TroopGroup[] _slots = new TroopGroup[TroopTable.LinePosts];
 
         public int Budget { get; }
 
@@ -292,8 +295,7 @@ namespace TheVeil.Sim
         /// in step with the budget that has to fill them. An empty post is now an empty
         /// post because you spent your points elsewhere.
         ///
-        /// The scouting post is not one of these and is always open. She costs two, she
-        /// stands outside the line, and she is the cheapest thing in the game to bring.
+        /// The scout takes one of these like anybody else — see FormationSlot.
         /// </summary>
         public int Posts { get; }
 
@@ -313,8 +315,6 @@ namespace TheVeil.Sim
         /// <summary>Whether this post is open at this point in the campaign.</summary>
         public bool Open(FormationSlot slot)
         {
-            if (slot == FormationSlot.Scouting) return true;
-
             for (int i = 0; i < Posts && i < TroopTable.Line.Length; i++)
                 if (TroopTable.Line[i] == slot) return true;
 
@@ -348,20 +348,19 @@ namespace TheVeil.Sim
         public TroopGroup this[FormationSlot slot] => _slots[(int)slot];
 
         /// <summary>
-        /// Places a troop if the post is open and free, the kind belongs there, and the
-        /// budget allows.
+        /// Places a troop if the post is open and free and the budget allows — and, for a
+        /// scout, if the escort has none yet.
         ///
-        /// A scout goes in the scouting post and nowhere else, and nothing else goes in
-        /// it. Two rules rather than one, because both halves have been wrong: she used
-        /// to take a place in the line she does not stand in, and letting anything else
-        /// take the post out in front would put a shieldbearer fourteen metres ahead of
-        /// the van with the sight of a man looking at his own boots.
+        /// One scout, because there is one: she is hired once in the shop and comes along
+        /// when asked, not recruited by the dozen. Whether she has been hired at all is the
+        /// campaign's to know and the troop screen's to ask; a squad only knows who is in
+        /// it, which keeps every test and the headless capture free to field her.
         /// </summary>
         public bool TryPlace(FormationSlot slot, TroopKind kind)
         {
             if (!Open(slot)) return false;
             if (_slots[(int)slot] != null) return false;
-            if (TroopTable.Scouts(kind) != (slot == FormationSlot.Scouting)) return false;
+            if (TroopTable.Scouts(kind) && HasScout) return false;
             if (TroopTable.Cost(kind) > PointsRemaining) return false;
 
             _slots[(int)slot] = new TroopGroup(kind, slot, School);
@@ -371,8 +370,6 @@ namespace TheVeil.Sim
         /// <summary>The post a troop of this kind would go in, given what is free.</summary>
         public bool TryPlace(TroopKind kind)
         {
-            if (TroopTable.Scouts(kind)) return TryPlace(FormationSlot.Scouting, kind);
-
             for (int i = 0; i < Posts && i < TroopTable.Line.Length; i++)
                 if (_slots[(int)TroopTable.Line[i]] == null)
                     return TryPlace(TroopTable.Line[i], kind);
@@ -387,15 +384,8 @@ namespace TheVeil.Sim
             return true;
         }
 
-        /// <summary>
-        /// Swaps two posts. The Regroup order, which costs three seconds in play.
-        ///
-        /// Refused between the line and the scouting post: that is not a regroup, it is
-        /// sending the scout to hold a corner and a swordsman out to scout.
-        /// </summary>
-        public bool CanSwap(FormationSlot a, FormationSlot b)
-            => Open(a) && Open(b)
-               && (a == FormationSlot.Scouting) == (b == FormationSlot.Scouting);
+        /// <summary>Swaps two posts. The Regroup order, which costs three seconds in play.</summary>
+        public bool CanSwap(FormationSlot a, FormationSlot b) => Open(a) && Open(b);
 
         public void Swap(FormationSlot a, FormationSlot b)
         {
@@ -431,6 +421,17 @@ namespace TheVeil.Sim
                     if (sight > best) best = sight;
                 }
                 return best;
+            }
+        }
+
+        /// <summary>Whether the escort already has its one scout. See TryPlace.</summary>
+        public bool HasScout
+        {
+            get
+            {
+                foreach (var group in _slots)
+                    if (group != null && TroopTable.Scouts(group.Kind)) return true;
+                return false;
             }
         }
 
@@ -528,12 +529,7 @@ namespace TheVeil.Sim
                 case 2: return new Vec2(-half * 0.5f, FlankOffset);       // RightRear
                 case 3: return new Vec2(-half - RearTrail, 0f);           // Rear
                 case 4: return new Vec2(-half * 0.5f, -FlankOffset);      // LeftVan's mirror
-                case 5: return new Vec2(half * 0.5f, -FlankOffset);       // LeftVan
-
-                // The scouting post, when she is not scouting. Called back into the ranks
-                // she takes the left of the van, which is where she used to be posted
-                // before she was given a place of her own.
-                default: return new Vec2(half * 0.5f, -FlankOffset);
+                default: return new Vec2(half * 0.5f, -FlankOffset);      // LeftVan
             }
         }
 

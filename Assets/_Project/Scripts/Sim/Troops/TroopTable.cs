@@ -21,16 +21,12 @@ namespace TheVeil.Sim
     /// The six posts around the caravan (docs/GDD.md §4.2), clockwise from the front.
     /// The van and the rear take most of the damage; the flanks are where reach earns
     /// its keep.
-    /// </summary>
-    /// <summary>
-    /// Where a troop stands. Six posts round the column, and one out in front.
     ///
-    /// <see cref="Scouting"/> is not one of the six and is deliberately outside them.
-    /// The scout does not stand in the formation any more — she walks ahead of the van
-    /// wherever she is placed — so a post in the line was a licence to exist rather than
-    /// a position, and it made her compete for a corner with a shieldbearer who would
-    /// actually have stood in it. It is hers alone: nothing else may be put there, and
-    /// she may not be put anywhere else.
+    /// The scout takes one of them like anybody else. She had a seventh post of her own
+    /// for a while, out in front, and that made her free: a troop that costs nothing but
+    /// two points is a troop everybody brings. Taking a place in the line is her price —
+    /// the corner she holds is a corner nobody with a sword is holding. She still walks
+    /// ahead of the van whichever post she is given (see Squad.PostFor).
     /// </summary>
     public enum FormationSlot : byte
     {
@@ -39,8 +35,7 @@ namespace TheVeil.Sim
         RightRear = 2,
         Rear = 3,
         LeftRear = 4,
-        LeftVan = 5,
-        Scouting = 6
+        LeftVan = 5
     }
 
     /// <summary>
@@ -48,9 +43,14 @@ namespace TheVeil.Sim
     ///
     /// The governing principle is that no troop is best everywhere. Cavalry rules the
     /// open plain and is nearly useless in a fen; archers reach across a field and are
-    /// blind among trees; the scout barely fights at all but makes everyone else
+    /// blind among trees; the scout does not fight at all but makes everyone else
     /// effective. That is what forces the army choice and the route choice to be made
     /// together rather than one after the other.
+    ///
+    /// <b>The scout's damage and reach are nought.</b> What she is for is seeing trouble
+    /// before it stirs, and that is all she does: a scout with a blade was a weak
+    /// swordsman with good eyes, and got used as one. With no reach she draws no ring on
+    /// the ground either. She can still be struck, so her armour track still matters.
     /// </summary>
     public static class TroopTable
     {
@@ -58,8 +58,8 @@ namespace TheVeil.Sim
         static readonly int[] _cost = { 3, 3, 4, 5, 6, 2, 4, 5, 4 };
         static readonly int[] _models = { 4, 4, 3, 3, 1, 2, 3, 1, 2 };
         static readonly float[] _hpPerModel = { 120f, 150f, 70f, 180f, 90f, 60f, 220f, 80f, 90f };
-        static readonly float[] _dps = { 18f, 26f, 22f, 34f, 40f, 10f, 12f, 0f, 8f };
-        static readonly float[] _range = { 2.5f, 1.8f, 22f, 2.2f, 18f, 12f, 1.8f, 12f, 8f };
+        static readonly float[] _dps = { 18f, 26f, 22f, 34f, 40f, 0f, 12f, 0f, 8f };
+        static readonly float[] _range = { 2.5f, 1.8f, 22f, 2.2f, 18f, 0f, 1.8f, 12f, 8f };
         static readonly float[] _sight = { 12f, 12f, 18f, 16f, 14f, 34f, 12f, 12f, 14f };
 
         /// <summary>Fraction of incoming damage ignored. The shieldbearer's whole purpose.</summary>
@@ -88,8 +88,8 @@ namespace TheVeil.Sim
         public static bool CanDisarmTraps(TroopKind k) => k == TroopKind.Engineer;
 
         /// <summary>
-        /// Troops that belong out in front rather than in the line, and which therefore
-        /// take the scouting post instead of one of the six.
+        /// Troops that walk out in front of the column rather than at their post, and of
+        /// which an escort may bring only one. Bought once in the shop (Boon.Scout).
         /// </summary>
         public static bool Scouts(TroopKind k) => k == TroopKind.Scout;
 

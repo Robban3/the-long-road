@@ -15,6 +15,12 @@ namespace TheVeil.Tests
         /// An escort that spends its budget, as a player would. An earlier version left
         /// a third of the points unspent and then failed levels the design had every
         /// right to expect it to survive.
+        ///
+        /// Every blade and no scout. She does not fight, and what these tests promise is
+        /// that a level can be fought through: with her on the left flank 1-5 kept one
+        /// survivable road where it owes two, and the shieldbearer on point on 1-8 fell
+        /// before the traps did. That is the trade she is — eyes for a sword — and the
+        /// tests about eyes use their own escorts.
         /// </summary>
         static Squad Escort(int budget = 18)
         {
@@ -22,7 +28,7 @@ namespace TheVeil.Tests
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
-            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
             squad.TryPlace(FormationSlot.LeftRear, TroopKind.Priest);
             return squad;
@@ -36,6 +42,29 @@ namespace TheVeil.Tests
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
             squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
+            return squad;
+        }
+
+        /// <summary>
+        /// An escort built to fight its way through: two bows, two spears and a sword,
+        /// as much as the budget allows.
+        ///
+        /// For the promise that every level can be crossed, which is a promise about
+        /// fighting. Measured across chapter one, a column that brings the scout keeps a
+        /// single survivable road on 1-5 whatever else it brings — she is eyes bought with
+        /// a sword, and on that level the sword is what counts. The promise is that a
+        /// player who reads the level and brings blades gets through; whether the scout's
+        /// warning is worth her post is the player's own trade.
+        /// </summary>
+        static Squad Bowmen(int budget)
+        {
+            var squad = new Squad(budget);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Archers);
+            squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
+            squad.TryPlace(FormationSlot.LeftRear, TroopKind.Spearmen);
             return squad;
         }
 
@@ -286,7 +315,7 @@ namespace TheVeil.Tests
                 foreach (var corridor in map.Corridors)
                 {
                     var run = new LevelRun(map, corridor.Tiles,
-                                           Escort(recipe.SquadBudget), recipe.EnemyStrength);
+                                           Bowmen(recipe.SquadBudget), recipe.EnemyStrength);
                     if (run.RunToCompletion() == RunOutcome.Arrived) survivable++;
                 }
 

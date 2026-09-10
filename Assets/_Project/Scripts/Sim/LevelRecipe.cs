@@ -26,8 +26,7 @@ namespace TheVeil.Sim
         public int Height = 64;
 
         /// <summary>
-        /// How many posts of the line are open. The scouting post is always open and is
-        /// not one of these. See <see cref="Squad.Posts"/>.
+        /// How many posts of the line are open. See <see cref="Squad.Posts"/>.
         /// </summary>
         public int Posts = TroopTable.LinePosts;
 

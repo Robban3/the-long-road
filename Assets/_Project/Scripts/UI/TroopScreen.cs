@@ -63,14 +63,14 @@ namespace TheVeil.UI
         /// An escort already in the posts, rather than an empty formation and a shrug.
         ///
         /// A player opening this for the first time should see a working column they can
-        /// argue with — that is a far better teacher than six empty sockets. Cheap first,
-        /// so the suggestion fits any budget the chapter hands it: the scout at two, then
-        /// the line filled front to back in the order the posts open.
+        /// argue with — that is a far better teacher than six empty sockets. The line is
+        /// filled front to back in the order the posts open.
+        ///
+        /// Never the scout. She takes a post somebody with a sword would otherwise hold,
+        /// and whether that trade is worth it is the player's to make, not ours.
         /// </summary>
         static void Suggest(Squad squad)
         {
-            squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout);
-
             foreach (var kind in new[]
                      {
                          TroopKind.Spearmen, TroopKind.Swordsmen, TroopKind.Archers,
@@ -113,13 +113,11 @@ namespace TheVeil.UI
         }
 
         // Where each post sits on the diagram, in the same shape as the real formation:
-        // the scout out in front, the van behind her, the flanks either side, the
-        // rearguard at the back.
+        // the van in front, the flanks either side, the rearguard at the back.
         static Vector2 Spot(FormationSlot slot)
         {
             switch (slot)
             {
-                case FormationSlot.Scouting: return new Vector2(0f, 300f);
                 case FormationSlot.Van: return new Vector2(0f, 150f);
                 case FormationSlot.RightVan: return new Vector2(268f, 40f);
                 case FormationSlot.LeftVan: return new Vector2(-268f, 40f);
@@ -153,9 +151,8 @@ namespace TheVeil.UI
 
         static readonly FormationSlot[] AllSlots =
         {
-            FormationSlot.Scouting, FormationSlot.Van, FormationSlot.RightVan,
-            FormationSlot.LeftVan, FormationSlot.RightRear, FormationSlot.LeftRear,
-            FormationSlot.Rear
+            FormationSlot.Van, FormationSlot.RightVan, FormationSlot.LeftVan,
+            FormationSlot.RightRear, FormationSlot.LeftRear, FormationSlot.Rear
         };
 
         static void Post(MenuShell shell, Transform board, FormationSlot slot)
@@ -226,8 +223,10 @@ namespace TheVeil.UI
         {
             Widgets.Scrim("Scrim", root, 0.7f);
 
+            // Tall enough for all nine troops above the cancel button, now that the scout
+            // is chosen for a post of the line like the other eight.
             var panel = Widgets.Panel("Picker", root, Theme.Frame, Color.white);
-            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Widgets.SafeWidth, 1180f));
+            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Widgets.SafeWidth, 1300f));
 
             var ribbon = Widgets.Ribbon("Ribbon", panel.transform, PostName(_picking));
             ribbon.transform.parent.GetComponent<RectTransform>()
@@ -237,32 +236,40 @@ namespace TheVeil.UI
 
             foreach (var kind in TroopTable.All)
             {
-                // Only what belongs in this post: the scouting post takes a scout and
-                // nothing else, and the line takes everything but.
-                if (TroopTable.Scouts(kind) != (_picking == FormationSlot.Scouting)) continue;
-
                 int cost = TroopTable.Cost(kind);
                 bool affordable = cost <= _squad.PointsRemaining;
+
+                // The scout is hired once, in the shop, and comes whenever she is asked
+                // after that — one of her, in any post. Shown either way, so a player who
+                // has not hired her yet can see she exists and where to get her.
+                bool scout = TroopTable.Scouts(kind);
+                bool hired = !scout || Session.Campaign.Boons().HasScout;
+                bool spare = !scout || !_squad.HasScout;
+                bool choosable = affordable && hired && spare;
                 var chosen = kind;
 
                 var row = Widgets.Plate($"Pick{kind}", panel.transform,
                     $"{Name(kind).ToUpperInvariant()}   {cost} p",
-                    affordable ? ButtonRole.Secondary : ButtonRole.Disabled,
+                    choosable ? ButtonRole.Secondary : ButtonRole.Disabled,
                     () =>
                     {
+                        if (!choosable) return;
+
                         _squad.TryPlace(_picking, chosen);
                         _open = false;
                         shell.Show(Build);
                     });
 
                 row.image.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y),
-                                              new Vector2(Widgets.SafeWidth - 100f, 104f));
+                                              new Vector2(Widgets.SafeWidth - 100f, 100f));
 
-                var role = Widgets.Label("Role", row.image.transform, Role(kind),
+                string note = !hired ? "köps i butiken" : (!spare ? "redan med" : Role(kind));
+
+                var role = Widgets.Label("Role", row.image.transform, note,
                                          Widgets.SmallSize - 8, Theme.Muted, TextAnchor.MiddleRight);
                 role.rectTransform.Fill(24f, 0f, 24f, 0f);
 
-                y -= 116f;
+                y -= 112f;
             }
 
             var close = Widgets.Plate("Close", panel.transform, "AVBRYT", ButtonRole.Primary,
@@ -293,7 +300,7 @@ namespace TheVeil.UI
                                          new Vector2(560f, Widgets.ButtonHeight));
         }
 
-        /// <summary>Swedish names for the posts. The scouting post is not one of the six.</summary>
+        /// <summary>Swedish names for the six posts.</summary>
         static string PostName(FormationSlot slot)
         {
             switch (slot)
@@ -303,8 +310,7 @@ namespace TheVeil.UI
                 case FormationSlot.LeftVan: return "VÄNSTER FRAM";
                 case FormationSlot.RightRear: return "HÖGER BAK";
                 case FormationSlot.LeftRear: return "VÄNSTER BAK";
-                case FormationSlot.Rear: return "EFTERTRUPP";
-                default: return "SPEJARE";
+                default: return "EFTERTRUPP";
             }
         }
 
@@ -342,7 +348,7 @@ namespace TheVeil.UI
                 case TroopKind.Archers: return "22 m räckvidd, sämre i skog";
                 case TroopKind.Cavalry: return "stark på slätt, svag i träsk";
                 case TroopKind.Mage: return "18 m, dyr";
-                case TroopKind.Scout: return "34 m sikt, går före";
+                case TroopKind.Scout: return "34 m sikt, går före, slåss inte";
                 case TroopKind.Shieldbearer: return "tar 40 % mindre skada";
                 case TroopKind.Priest: return "helar den mest sargade";
                 case TroopKind.Engineer: return "desarmerar fällor";

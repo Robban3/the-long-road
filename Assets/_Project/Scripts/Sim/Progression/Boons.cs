@@ -37,7 +37,13 @@ namespace TheVeil.Sim
         Repair = 9,
 
         /// <summary>The treasure cart takes less of what gets through.</summary>
-        Lashings = 10
+        Lashings = 10,
+
+        /// <summary>
+        /// The scout, hired for good. One step: once bought she may be brought on any
+        /// level, in any post of the line, and is never bought again.
+        /// </summary>
+        Scout = 11
     }
 
     /// <summary>
@@ -71,7 +77,8 @@ namespace TheVeil.Sim
         public static readonly Boon[] All =
         {
             Boon.Purse, Boon.Muster, Boon.Hardened, Boon.Smithy, Boon.Outriders,
-            Boon.Trade, Boon.Watch, Boon.Tracking, Boon.Exchange, Boon.Repair, Boon.Lashings
+            Boon.Trade, Boon.Watch, Boon.Tracking, Boon.Exchange, Boon.Repair, Boon.Lashings,
+            Boon.Scout
         };
 
         /// <summary>Steps on a continuous track.</summary>
@@ -92,8 +99,8 @@ namespace TheVeil.Sim
         public const float Falloff = 0.925f;
 
         // All indexed by (int)Boon.
-        static readonly int[] _maxLevel = { 30, 5, 30, 30, 2, 30, 30, 30, 20, 30, 30 };
-        static readonly int[] _basePrice = { 40, 220, 50, 60, 400, 50, 60, 40, 60, 70, 50 };
+        static readonly int[] _maxLevel = { 30, 5, 30, 30, 2, 30, 30, 30, 20, 30, 30, 1 };
+        static readonly int[] _basePrice = { 40, 220, 50, 60, 400, 50, 60, 40, 60, 70, 50, 300 };
 
         /// <summary>
         /// What the track is worth when it is finished — the number the curve above
@@ -112,7 +119,8 @@ namespace TheVeil.Sim
             8f,     // Tracking: metres of trap sight
             2f,     // Exchange: silver per gold taken off the rate of 4
             1.8f,   // Repair: wagon hit points a second
-            0.35f   // Lashings: share off damage to the treasure cart
+            0.35f,  // Lashings: share off damage to the treasure cart
+            1f      // Scout: hired or not
         };
 
         /// <summary>
@@ -125,7 +133,7 @@ namespace TheVeil.Sim
         /// </summary>
         static readonly bool[] _deep =
         {
-            true, false, true, true, false, true, true, true, true, true, true
+            true, false, true, true, false, true, true, true, true, true, true, false
         };
 
         public static int MaxLevel(Boon boon) => _maxLevel[(int)boon];
@@ -240,6 +248,9 @@ namespace TheVeil.Sim
 
         /// <summary>Share of damage the treasure cart is spared.</summary>
         public float TreasureGuard => Of(Boon.Lashings);
+
+        /// <summary>Whether the scout has been hired, and so may be brought.</summary>
+        public bool HasScout => Level(Boon.Scout) > 0;
 
         /// <summary>
         /// Multiplier on what a field upgrade costs. Floored well above zero: a track the

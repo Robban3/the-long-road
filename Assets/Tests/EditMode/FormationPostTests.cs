@@ -4,37 +4,38 @@ using NUnit.Framework;
 namespace TheVeil.Tests
 {
     /// <summary>
-    /// The shape of the escort: six posts in the line that open as a chapter goes on, and
-    /// one out in front that is the scout's alone.
+    /// The shape of the escort: six posts in the line that open as a chapter goes on, one
+    /// of which the scout may take.
     /// </summary>
     public class FormationPostTests
     {
         [Test]
-        public void TheScoutTakesHerOwnPostAndNotOneOfTheSix()
+        public void TheScoutTakesOneOfTheSix()
         {
-            // She does not stand in the formation — she walks ahead of the van wherever
-            // she is placed — so a post in the line was a licence to exist rather than a
-            // position, and it made her compete for a corner with somebody who would have
-            // stood in it.
-            var squad = new Squad(20);
+            // She had a seventh post of her own, and a troop that costs a place in the
+            // line nobody else wanted was a troop everybody brought. The corner she holds
+            // is now a corner nobody with a sword is holding.
+            var squad = new Squad(30);
 
-            Assert.IsTrue(squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout));
-            Assert.IsFalse(squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout),
-                "a scout took a post in the line");
+            Assert.IsTrue(squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout));
 
+            int line = 0;
             for (int i = 0; i < TroopTable.LinePosts; i++)
-                Assert.IsTrue(squad.TryPlace(TroopTable.Line[i], TroopKind.Spearmen),
-                    $"the scout cost the line its {TroopTable.Line[i]} post");
+                if (squad.TryPlace(TroopTable.Line[i], TroopKind.Spearmen)) line++;
+
+            Assert.AreEqual(TroopTable.LinePosts - 1, line, "the scout did not cost the line a post");
         }
 
         [Test]
-        public void NothingButAScoutMayStandOutInFront()
+        public void AnEscortBringsOneScout()
         {
-            var squad = new Squad(20);
+            // There is one of her: hired once in the shop, not recruited by the dozen.
+            var squad = new Squad(30);
 
-            Assert.IsFalse(squad.TryPlace(FormationSlot.Scouting, TroopKind.Shieldbearer),
-                "a shieldbearer was sent out to scout");
-            Assert.IsFalse(squad.TryPlace(FormationSlot.Scouting, TroopKind.Archers));
+            Assert.IsTrue(squad.TryPlace(FormationSlot.Van, TroopKind.Scout));
+            Assert.IsFalse(squad.TryPlace(FormationSlot.Rear, TroopKind.Scout), "a second scout came along");
+            Assert.IsFalse(squad.TryPlace(TroopKind.Scout));
+            Assert.IsTrue(squad.HasScout);
         }
 
         [Test]
@@ -50,11 +51,9 @@ namespace TheVeil.Tests
                 Assert.IsFalse(squad.Open(TroopTable.Line[i]));
                 Assert.IsFalse(squad.TryPlace(TroopTable.Line[i], TroopKind.Spearmen),
                     $"{TroopTable.Line[i]} took a troop while closed");
+                Assert.IsFalse(squad.TryPlace(TroopTable.Line[i], TroopKind.Scout),
+                    $"{TroopTable.Line[i]} took the scout while closed");
             }
-
-            // And the scouting post is never one of them.
-            Assert.IsTrue(squad.Open(FormationSlot.Scouting));
-            Assert.IsTrue(squad.TryPlace(FormationSlot.Scouting, TroopKind.Scout));
         }
 
         [Test]
@@ -95,8 +94,7 @@ namespace TheVeil.Tests
             Assert.IsTrue(squad.TryPlace(TroopKind.Spearmen));
             Assert.IsTrue(squad.TryPlace(TroopKind.Swordsmen));
             Assert.IsFalse(squad.TryPlace(TroopKind.Swordsmen), "a third troop found a post in a line of two");
-
-            Assert.IsTrue(squad.TryPlace(TroopKind.Scout), "the scouting post was counted as part of the line");
+            Assert.IsFalse(squad.TryPlace(TroopKind.Scout), "the scout found a post outside the line");
         }
 
         [Test]

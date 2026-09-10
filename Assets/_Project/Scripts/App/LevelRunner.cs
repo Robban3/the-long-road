@@ -176,10 +176,8 @@ namespace TheVeil.App
         /// <summary>
         /// The fallback escort, in formation-slot order, for opening this scene directly.
         ///
-        /// The seventh entry is the scouting post and takes a scout or nothing; the first
-        /// six are the line, and only as many of them as the level has opened are used.
-        /// What the player actually brings comes from the troop screen — see TheVeil.UI —
-        /// and overrides this.
+        /// Only as many posts as the level has opened are used. What the player actually
+        /// brings comes from the troop screen — see TheVeil.UI — and overrides this.
         /// </summary>
         public SlotAssignment[] Formation =
         {
@@ -188,8 +186,7 @@ namespace TheVeil.App
             new SlotAssignment { Occupied = false, Kind = TroopKind.Swordsmen },   // RightRear
             new SlotAssignment { Occupied = true, Kind = TroopKind.Swordsmen },    // Rear
             new SlotAssignment { Occupied = false, Kind = TroopKind.Shieldbearer },// LeftRear
-            new SlotAssignment { Occupied = false, Kind = TroopKind.Swordsmen },   // LeftVan
-            new SlotAssignment { Occupied = true, Kind = TroopKind.Scout }         // Scouting
+            new SlotAssignment { Occupied = true, Kind = TroopKind.Scout }         // LeftVan
         };
 
         LevelRun _run;
@@ -297,7 +294,7 @@ namespace TheVeil.App
             }
             else
             {
-                for (int i = 0; i < Formation.Length && i <= TroopTable.LinePosts; i++)
+                for (int i = 0; i < Formation.Length && i < TroopTable.LinePosts; i++)
                     if (Formation[i].Occupied) squad.TryPlace((FormationSlot)i, Formation[i].Kind);
             }
 

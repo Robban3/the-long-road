@@ -80,8 +80,8 @@ namespace TheVeil.Sim
     ///
     /// When sight exceeds detection the player sees trouble before it stirs and has
     /// time to reposition. That gap is the entire reason to spend one of six troop
-    /// slots on a scout who barely fights — and the reason spotting pays silver, so a
-    /// kill-driven economy does not make the scout unaffordable.
+    /// slots on a scout who does not fight at all — and the reason spotting pays silver,
+    /// so a kill-driven economy does not make the scout unaffordable.
     ///
     /// Updated four times a second rather than every frame. Detection needs no more
     /// precision than that and the cost falls by about eighty percent.
