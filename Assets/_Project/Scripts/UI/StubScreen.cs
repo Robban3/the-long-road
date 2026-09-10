@@ -29,7 +29,7 @@ namespace TheVeil.UI
             body.Wrap();
             body.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -140f), new Vector2(Widgets.SafeWidth - 100f, 260f));
 
-            var ok = Widgets.Plate("Back", panel.transform, "TILLBAKA", ButtonRole.Primary, shell.ShowMain);
+            var ok = Widgets.Plate("Back", panel.transform, Loc.T("BACK"), ButtonRole.Primary, shell.ShowMain);
             ok.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 44f),
                                          new Vector2(Widgets.SafeWidth - 320f, Widgets.ButtonHeight));
         }

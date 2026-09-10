@@ -224,25 +224,9 @@ namespace TheVeil.UI
             _silver.text = Run.Economy.Silver.ToString();
 
             _bar.fillAmount = Mathf.Clamp01(Run.Caravan.Progress);
-            _progress.text = $"{Run.Caravan.Progress:P0} av vägen   ·   {Ground(Run.Caravan.CurrentTerrain)}" +
-                             $"   ·   {Run.TravelSeconds:F0} s (par {Run.ParSeconds:F0} s)";
-        }
-
-        /// <summary>Swedish for the ground underfoot. The rest of the interface is.</summary>
-        static string Ground(TerrainType terrain)
-        {
-            switch (terrain)
-            {
-                case TerrainType.Road: return "väg";
-                case TerrainType.Plains: return "slätt";
-                case TerrainType.Forest: return "skog";
-                case TerrainType.Marsh: return "träsk";
-                case TerrainType.Ford: return "vadställe";
-                case TerrainType.MountainPass: return "bergspass";
-                case TerrainType.Water: return "vatten";
-                case TerrainType.Cliff: return "brant";
-                default: return terrain.ToString();
-            }
+            _progress.text = Loc.F("{0:P0} of the way   ·   {1}   ·   {2:F0} s (par {3:F0} s)",
+                                   Run.Caravan.Progress, Names.Ground(Run.Caravan.CurrentTerrain),
+                                   Run.TravelSeconds, Run.ParSeconds);
         }
 
         // ---- pause -------------------------------------------------------------
@@ -254,18 +238,18 @@ namespace TheVeil.UI
             _paused = true;
             Time.timeScale = 0f;
 
-            var sheet = Sheet("Paus");
+            var sheet = Sheet(Loc.T("Paused"));
             var panel = (RectTransform)sheet.transform.GetChild(1);
 
             float y = -150f;
-            Row(panel, ref y, "FORTSÄTT", ButtonRole.Resume, Resume);
-            Row(panel, ref y, "BÖRJA OM", ButtonRole.Restart, () => { Resume(); Restart?.Invoke(); });
-            Row(panel, ref y, "RITA OM VÄGEN", ButtonRole.Secondary, () =>
+            Row(panel, ref y, Loc.T("RESUME"), ButtonRole.Resume, Resume);
+            Row(panel, ref y, Loc.T("RESTART"), ButtonRole.Restart, () => { Resume(); Restart?.Invoke(); });
+            Row(panel, ref y, Loc.T("REDRAW THE ROAD"), ButtonRole.Secondary, () =>
             {
                 Resume();
                 SceneManager.LoadScene(Session.PlanScene);
             });
-            Row(panel, ref y, "AVSLUTA", ButtonRole.Exit, GoHome);
+            Row(panel, ref y, Loc.T("QUIT"), ButtonRole.Exit, GoHome);
         }
 
         public void Resume()
@@ -298,11 +282,11 @@ namespace TheVeil.UI
             _paused = true;
             Time.timeScale = 0f;
 
-            var sheet = Sheet("Smedjan");
+            var sheet = Sheet(Loc.T("Smithy"));
             var panel = (RectTransform)sheet.transform.GetChild(1);
 
             var purse = Widgets.Counter("Purse", panel, Theme.CoinIcon, Theme.Coin,
-                                        Run.Economy.Silver + " silver", null, 320f);
+                                        Loc.F("{0} silver", Run.Economy.Silver), null, 320f);
             purse.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, -130f), new Vector2(320f, 72f));
 
@@ -314,7 +298,7 @@ namespace TheVeil.UI
                 Post(panel, group, ref y);
             }
 
-            var close = Widgets.Plate("Close", panel, "TILLBAKA", ButtonRole.Primary, Resume);
+            var close = Widgets.Plate("Close", panel, Loc.T("BACK"), ButtonRole.Primary, Resume);
             close.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 40f),
                                             new Vector2(Widgets.SafeWidth - 220f, Widgets.ButtonHeight));
         }
@@ -324,7 +308,7 @@ namespace TheVeil.UI
             var row = Widgets.Panel("Post" + group.Slot, panel, Theme.SoftFrame, Color.white);
             row.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(Widgets.SafeWidth - 60f, 108f));
 
-            var name = Widgets.Label("Name", row.transform, Name(group.Kind), Widgets.SmallSize,
+            var name = Widgets.Label("Name", row.transform, Names.Troop(group.Kind), Widgets.SmallSize,
                                      group.Alive ? Theme.Parchment : Theme.Dim, TextAnchor.MiddleLeft);
             name.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(18f, 6f), new Vector2(210f, 46f));
 
@@ -336,20 +320,21 @@ namespace TheVeil.UI
             float reach = Run.Combat.Reach(group, Run.Caravan.CurrentTerrain);
 
             var span = Widgets.Label("Reach", row.transform,
-                                     scout ? $"sikt {group.SightRadius:F0} m" : $"räckvidd {reach:F0} m",
+                                     scout ? Loc.F("sight {0:F0} m", group.SightRadius) : Loc.F("reach {0:F0} m", reach),
                                      Widgets.SmallSize - 8, Theme.Muted, TextAnchor.MiddleLeft);
             span.rectTransform.Place(new Vector2(0f, 0.5f), new Vector2(18f, -26f),
                                      new Vector2(210f, 34f));
 
             // No weapon to sharpen on a troop that does not fight.
-            if (!scout) Track(row.transform, group, UpgradeTrack.Weapon, "VAPEN", 240f);
-            Track(row.transform, group, UpgradeTrack.Armour, "SKYDD", 420f);
+            if (!scout) Track(row.transform, group, UpgradeTrack.Weapon, Loc.T("WEAPON"), 240f);
+            Track(row.transform, group, UpgradeTrack.Armour, Loc.T("ARMOUR"), 420f);
 
             // A bow's special track *is* its reach, and a scout's is her sight. Saying so
             // on the button is the difference between an upgrade the player understands
             // and one they buy last.
             Track(row.transform, group, UpgradeTrack.Special,
-                  TroopTable.HasRangedSpecial(group.Kind) ? "RÄCKV" : (scout ? "SIKT" : "SPEC"), 600f);
+                  TroopTable.HasRangedSpecial(group.Kind) ? Loc.T("REACH")
+                  : scout ? Loc.T("SIGHT") : Loc.T("SPEC"), 600f);
 
             y -= 118f;
         }
@@ -383,24 +368,6 @@ namespace TheVeil.UI
             text.fontSize = Widgets.SmallSize - 6;
         }
 
-        /// <summary>Swedish names for the posts, so the panel reads like the rest of the game.</summary>
-        static string Name(TroopKind kind)
-        {
-            switch (kind)
-            {
-                case TroopKind.Spearmen: return "Spjutmän";
-                case TroopKind.Swordsmen: return "Svärdsmän";
-                case TroopKind.Archers: return "Bågskyttar";
-                case TroopKind.Shieldbearer: return "Sköldbärare";
-                case TroopKind.Scout: return "Spejare";
-                case TroopKind.Engineer: return "Ingenjör";
-                case TroopKind.Cavalry: return "Ryttare";
-                case TroopKind.Mage: return "Magiker";
-                case TroopKind.Priest: return "Präst";
-                default: return kind.ToString();
-            }
-        }
-
         // ---- result ------------------------------------------------------------
 
         /// <summary>
@@ -420,28 +387,28 @@ namespace TheVeil.UI
             Session.Choose(Chapter, Level);
             Session.Finish(stars, gold);
 
-            var sheet = Sheet(won ? "Seger" : "Nederlag",
+            var sheet = Sheet(won ? Loc.T("Victory") : Loc.T("Defeat"),
                               won ? Backdrops.Victory : Backdrops.Defeat);
             var panel = (RectTransform)sheet.transform.GetChild(1);
 
             var row = Widgets.Stars("Stars", panel, stars, Campaign.MaxStars, 128f, 18f);
             row.Place(new Vector2(0.5f, 1f), new Vector2(0f, -190f), new Vector2(460f, 130f));
 
-            string verdict = !won ? "Karavanen gick förlorad."
-                           : Session.LastWasBest ? "Bästa resultatet hittills!"
-                           : "Klarat — ditt rekord står kvar.";
+            string verdict = !won ? Loc.T("The caravan was lost.")
+                           : Session.LastWasBest ? Loc.T("Your best result yet!")
+                           : Loc.T("Cleared — your record stands.");
 
             var note = Widgets.Label("Note", panel, verdict, Widgets.SmallSize, Theme.Muted);
             note.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -330f), new Vector2(Widgets.SafeWidth - 140f, 40f));
 
-            Reward(panel, -230f, Theme.CoinIcon, Theme.Coin, gold.ToString(), "GULD");
-            Reward(panel, 0f, Theme.SkullIcon, Theme.Bone, Beaten() + "", "SLAGNA");
-            Reward(panel, 230f, Theme.HeartIcon, Theme.Heart, Standing() + "", "VAGNAR");
+            Reward(panel, -230f, Theme.CoinIcon, Theme.Coin, gold.ToString(), Loc.T("GOLD"));
+            Reward(panel, 0f, Theme.SkullIcon, Theme.Bone, Beaten() + "", Loc.T("BEATEN"));
+            Reward(panel, 230f, Theme.HeartIcon, Theme.Heart, Standing() + "", Loc.T("WAGONS"));
 
             float y = -640f;
             if (won && Session.HasNext(out int nextChapter, out int nextLevel))
             {
-                Row(panel, ref y, "NÄSTA NIVÅ", ButtonRole.Primary, () =>
+                Row(panel, ref y, Loc.T("NEXT LEVEL"), ButtonRole.Primary, () =>
                 {
                     Session.Choose(nextChapter, nextLevel);
                     Session.Forget();
@@ -454,19 +421,19 @@ namespace TheVeil.UI
             // was reachable before only by leaving the flow — result screen, map, front
             // page, shop — so the natural run of presses never passed it and the player
             // was never once asked to spend what they had earned.
-            Row(panel, ref y, "UPPGRADERA", ButtonRole.Secondary, () =>
+            Row(panel, ref y, Loc.T("UPGRADE"), ButtonRole.Secondary, () =>
             {
                 Session.OpenShop = true;
                 GoHome();
             });
 
-            Row(panel, ref y, won ? "SPELA OM" : "FÖRSÖK IGEN", ButtonRole.Secondary, () =>
+            Row(panel, ref y, won ? Loc.T("PLAY AGAIN") : Loc.T("TRY AGAIN"), ButtonRole.Secondary, () =>
             {
                 if (Restart == null) SceneManager.LoadScene(Session.PlanScene);
                 else { Destroy(_sheet); _resultShown = false; Restart(); }
             });
 
-            Row(panel, ref y, "TILL KARTAN", ButtonRole.Secondary, GoHome);
+            Row(panel, ref y, Loc.T("TO THE MAP"), ButtonRole.Secondary, GoHome);
         }
 
         int Beaten()

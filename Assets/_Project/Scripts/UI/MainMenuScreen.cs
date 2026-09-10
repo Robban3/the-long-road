@@ -17,7 +17,7 @@ namespace TheVeil.UI
         public static void Build(MenuShell shell, RectTransform root)
         {
             var gear = Widgets.Chip("Settings", root, Theme.Gear,
-                () => shell.ShowStub("Inställningar", "Ljud, språk och grafik hör hemma här."));
+                () => shell.ShowStub(Loc.T("Settings"), Loc.T("Sound, language and graphics belong here.")));
             gear.image.rectTransform.Place(new Vector2(1f, 1f),
                 new Vector2(-Widgets.Margin, -Widgets.Margin), new Vector2(96f, 96f));
 
@@ -53,21 +53,20 @@ namespace TheVeil.UI
             float y = 0f;
             float step = Widgets.ButtonHeight + 24f;
 
-            Entry(column, ref y, step, "SPELA", ButtonRole.Primary, () => shell.ShowRoadmap());
+            Entry(column, ref y, step, Loc.T("PLAY"), ButtonRole.Primary, () => shell.ShowRoadmap());
 
-            Entry(column, ref y, step, "UPPGRADERA", ButtonRole.Secondary,
-                  () => shell.ShowStub("Uppgradera",
-                      "Trupperna uppgraderas i dag med silver mitt i ett uppdrag. " +
-                      "Här ska guldet mellan uppdragen spenderas."));
+            Entry(column, ref y, step, Loc.T("UPGRADE"), ButtonRole.Secondary,
+                  () => shell.ShowStub(Loc.T("Upgrade"),
+                      Loc.T("Troops are upgraded with silver in the middle of a mission. This is where the gold between missions is meant to be spent.")));
 
-            Entry(column, ref y, step, "BUTIK", ButtonRole.Secondary,
+            Entry(column, ref y, step, Loc.T("SHOP"), ButtonRole.Secondary,
                   shell.ShowShop);
 
-            Entry(column, ref y, step, "BRAGDER", ButtonRole.Secondary,
-                  () => shell.ShowStub("Bragder", "Inga bragder är skrivna ännu."));
+            Entry(column, ref y, step, Loc.T("ACHIEVEMENTS"), ButtonRole.Secondary,
+                  () => shell.ShowStub(Loc.T("Achievements"), Loc.T("No achievements have been written yet.")));
 
-            Entry(column, ref y, step, "INSTÄLLNINGAR", ButtonRole.Secondary,
-                  () => shell.ShowStub("Inställningar", "Ljud, språk och grafik hör hemma här."));
+            Entry(column, ref y, step, Loc.T("SETTINGS"), ButtonRole.Secondary,
+                  () => shell.ShowStub(Loc.T("Settings"), Loc.T("Sound, language and graphics belong here.")));
         }
 
         static void Entry(RectTransform column, ref float y, float step, string text,
@@ -85,12 +84,12 @@ namespace TheVeil.UI
             var row = Widgets.Node("Chips", root);
             row.Place(new Vector2(0.5f, 0f), new Vector2(0f, Widgets.Margin), new Vector2(Widgets.SafeWidth, 210f));
 
-            Chip(shell, row, -272f, "DAGLIG\nBELÖNING", Theme.CoinIcon, "!",
-                 "Kom tillbaka i morgon för guld. Ännu inte byggt.");
-            Chip(shell, row, 0f, "UPPDRAG", Theme.Star, "2",
-                 "Dagliga uppdrag ska ge guld och ädelstenar. Ännu inte byggt.");
-            Chip(shell, row, 272f, "TOPPLISTA", Theme.SkullIcon, null,
-                 "Topplistan kräver en server. Ännu inte byggd.");
+            Chip(shell, row, -272f, Loc.T("DAILY\nREWARD"), Theme.CoinIcon, "!",
+                 Loc.T("Come back tomorrow for gold. Not built yet."));
+            Chip(shell, row, 0f, Loc.T("QUESTS"), Theme.Star, "2",
+                 Loc.T("Daily quests will give gold and gems. Not built yet."));
+            Chip(shell, row, 272f, Loc.T("LEADERBOARD"), Theme.SkullIcon, null,
+                 Loc.T("The leaderboard needs a server. Not built yet."));
         }
 
         static void Chip(MenuShell shell, RectTransform row, float x, string text, Sprite icon,

@@ -131,7 +131,7 @@ namespace TheVeil.UI
             panel.rectTransform.Place(new Vector2(1f, 1f), new Vector2(-Widgets.Margin, -190f),
                                       new Vector2(460f, 470f));
 
-            var heading = Widgets.Ribbon("Ribbon", panel.transform, "Din väg");
+            var heading = Widgets.Ribbon("Ribbon", panel.transform, Loc.T("Your road"));
             heading.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, 26f), new Vector2(360f, 84f));
 
@@ -159,17 +159,17 @@ namespace TheVeil.UI
         void Footer()
         {
             var hint = Widgets.Label("Hint", _screen,
-                "Tryck på kartan för att lägga ut vägpunkter. Dra för att flytta.",
+                Loc.T("Tap the map to place waypoints. Drag to move them."),
                 Widgets.SmallSize, Theme.Muted);
             hint.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 200f),
                                      new Vector2(Widgets.SafeWidth, 44f));
 
-            var undo = Widgets.Plate("Undo", _screen, "ÅNGRA", ButtonRole.Secondary,
+            var undo = Widgets.Plate("Undo", _screen, Loc.T("UNDO"), ButtonRole.Secondary,
                                      () => Undo?.Invoke());
             undo.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(-300f, Widgets.Margin),
                                            new Vector2(280f, Widgets.ButtonHeight));
 
-            _play = Widgets.Plate("Play", _screen, "SPELA DENNA VÄG", ButtonRole.Primary,
+            _play = Widgets.Plate("Play", _screen, Loc.T("PLAY THIS ROAD"), ButtonRole.Primary,
                                   () => Play?.Invoke());
             _play.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(120f, Widgets.Margin),
                                             new Vector2(560f, Widgets.ButtonHeight));
@@ -212,8 +212,8 @@ namespace TheVeil.UI
             var label = _scout.GetComponentInChildren<UnityEngine.UI.Text>();
             if (label != null)
                 label.text = Session.ScoutFlights == 0
-                    ? $"EAGLE-EYE  ·  {price} G"
-                    : $"EAGLE-EYE IGEN  ·  {price} G";
+                    ? Loc.F("EAGLE-EYE  ·  {0} G", price)
+                    : Loc.F("EAGLE-EYE AGAIN  ·  {0} G", price);
 
             _scout.interactable = afford;
             _scout.image.color = Theme.Fill(afford ? ButtonRole.Secondary : ButtonRole.Disabled);
@@ -224,7 +224,7 @@ namespace TheVeil.UI
             Chapter = chapter;
             Level = level;
 
-            if (_title != null) _title.text = $"KAPITEL {chapter}  ·  NIVÅ {level}";
+            if (_title != null) _title.text = Loc.F("CHAPTER {0}  ·  LEVEL {1}", chapter, level);
         }
 
         /// <summary>
@@ -237,23 +237,23 @@ namespace TheVeil.UI
         {
             if (_points == null) return;
 
-            _points.text = $"Vägpunkter  {waypoints} av {maxWaypoints}";
+            _points.text = Loc.F("Waypoints  {0} of {1}", waypoints, maxWaypoints);
 
             if (!valid)
             {
-                _time.text = "Ingen framkomlig väg.";
-                _terrain.text = $"Etapp {failedLeg + 1} går inte att gå.";
+                _time.text = Loc.T("No passable road.");
+                _terrain.text = Loc.F("Leg {0} cannot be walked.", failedLeg + 1);
                 _cover.text = "";
                 _fords.text = "";
-                _warning.text = "Flytta punkten till fastare mark.";
+                _warning.text = Loc.T("Move the point to firmer ground.");
             }
             else
             {
-                _time.text = $"Restid  {seconds:F0} s";
-                _terrain.text = $"Skog {forest:P0}   träsk {marsh:P0}   väg {road:P0}";
-                _cover.text = $"Skydd åt ett bakhåll  {exposure:F2}";
-                _fords.text = $"Vadställen  {fords}";
-                _warning.text = detours > 0 ? $"{detours} etapp(er) går långt runt." : "";
+                _time.text = Loc.F("Travel time  {0:F0} s", seconds);
+                _terrain.text = Loc.F("Forest {0:P0}   marsh {1:P0}   road {2:P0}", forest, marsh, road);
+                _cover.text = Loc.F("Cover for an ambush  {0:F2}", exposure);
+                _fords.text = Loc.F("Fords  {0}", fords);
+                _warning.text = detours > 0 ? Loc.F("{0} leg(s) go far around.", detours) : "";
             }
 
             if (_play == null) return;

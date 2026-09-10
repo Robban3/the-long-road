@@ -95,7 +95,7 @@ namespace TheVeil.UI
 
         static void Header(MenuShell shell, RectTransform root, Campaign campaign)
         {
-            var ribbon = Widgets.Ribbon("Ribbon", root, "Välj nivå");
+            var ribbon = Widgets.Ribbon("Ribbon", root, Loc.T("Choose a level"));
             ribbon.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(Widgets.SafeWidth - 120f, 100f));
 
@@ -119,7 +119,7 @@ namespace TheVeil.UI
                 var role = !open ? ButtonRole.Disabled
                          : here ? ButtonRole.Primary : ButtonRole.Secondary;
 
-                var tab = Widgets.Plate("Chapter" + chapter, row, "KAPITEL " + chapter, role,
+                var tab = Widgets.Plate("Chapter" + chapter, row, Loc.F("CHAPTER {0}", chapter), role,
                     () => { _shown = number; shell.ShowRoadmap(); },
                     open ? null : Theme.Padlock);
 
@@ -134,8 +134,9 @@ namespace TheVeil.UI
             if (campaign.ChapterOpen(_shown)) return;
 
             var locked = Widgets.Label("Gate", root,
-                $"Behöver {Campaign.StarsToOpenNextChapter} stjärnor i kapitel {_shown - 1}" +
-                $" — du har {campaign.StarsIn(_shown - 1)}", Widgets.SmallSize, Theme.Danger);
+                Loc.F("Needs {0} stars in chapter {1} — you have {2}",
+                      Campaign.StarsToOpenNextChapter, _shown - 1, campaign.StarsIn(_shown - 1)),
+                Widgets.SmallSize, Theme.Danger);
             locked.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -462f), new Vector2(Widgets.SafeWidth, 48f));
         }
 
@@ -147,10 +148,10 @@ namespace TheVeil.UI
         {
             switch (chapter)
             {
-                case 1: return "GRÄNSLANDEN";
-                case 2: return "KUNGSVÄGEN";
-                case 3: return "DE VÅTA MARKERNA";
-                default: return "KAPITEL " + chapter;
+                case 1: return Loc.T("THE BORDERLANDS");
+                case 2: return Loc.T("THE KING'S ROAD");
+                case 3: return Loc.T("THE WETLANDS");
+                default: return Loc.F("CHAPTER {0}", chapter);
             }
         }
 
@@ -278,7 +279,7 @@ namespace TheVeil.UI
                 // vignette so the darkening at the edges cannot swallow the one line
                 // that explains the screen.
                 var note = Widgets.Label("Missing", frame,
-                    $"{Backdrops.Roadmap}.png hittades inte — {Backdrops.Inventory()}",
+                    $"{Backdrops.Roadmap}.png not found — {Backdrops.Inventory()}",
                     Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.85f));
 
                 note.Wrap();
@@ -638,14 +639,14 @@ namespace TheVeil.UI
             bar.rectTransform.offsetMax = new Vector2(0f, 0f);
             bar.rectTransform.sizeDelta = new Vector2(0f, NavHeight);
 
-            Tab(shell, bar.transform, -336f, "BUTIK", Theme.CoinIcon, false, null, shell.ShowShop);
-            Tab(shell, bar.transform, -168f, "TRUPPER", Theme.HeartIcon, false, null,
+            Tab(shell, bar.transform, -336f, Loc.T("SHOP"), Theme.CoinIcon, false, null, shell.ShowShop);
+            Tab(shell, bar.transform, -168f, Loc.T("TROOPS"), Theme.HeartIcon, false, null,
                 shell.ShowTroops);
-            Tab(shell, bar.transform, 0f, "STRID", Theme.Star, true, null);
-            Tab(shell, bar.transform, 168f, "SMEDJA", Theme.GemIcon, false,
-                "Uppgraderingar köps i dag med silver mitt i ett uppdrag.");
-            Tab(shell, bar.transform, 336f, "KARTA", Theme.SkullIcon, false,
-                "Världskartan över kapitlen är inte byggd.");
+            Tab(shell, bar.transform, 0f, Loc.T("BATTLE"), Theme.Star, true, null);
+            Tab(shell, bar.transform, 168f, Loc.T("SMITHY"), Theme.GemIcon, false,
+                Loc.T("Upgrades are bought with silver in the middle of a mission."));
+            Tab(shell, bar.transform, 336f, Loc.T("MAP"), Theme.SkullIcon, false,
+                Loc.T("The world map of the chapters is not built yet."));
         }
 
         static void Tab(MenuShell shell, Transform bar, float x, string text, Sprite icon,

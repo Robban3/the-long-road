@@ -254,7 +254,7 @@ namespace TheVeil.UI
         public static string Inventory()
         {
 #if UNITY_EDITOR
-            if (!System.IO.Directory.Exists(Folder)) return "mappen finns inte";
+            if (!System.IO.Directory.Exists(Folder)) return "folder does not exist";
 
             var listed = new List<string>();
 
@@ -262,7 +262,7 @@ namespace TheVeil.UI
                 listed.Add(System.IO.Path.GetFileName(
                     UnityEditor.AssetDatabase.GUIDToAssetPath(guid)));
 
-            return listed.Count == 0 ? "mappen är tom" : "mappen innehåller: " + string.Join(", ", listed);
+            return listed.Count == 0 ? "folder is empty" : "folder holds: " + string.Join(", ", listed);
 #else
             return string.Empty;
 #endif

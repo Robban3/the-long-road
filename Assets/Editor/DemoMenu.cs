@@ -21,14 +21,14 @@ namespace TheVeil.Editor
     {
         const string Root = "The Veil/Demo/";
 
-        [MenuItem(Root + "Kapitel 1")]
+        [MenuItem(Root + "Chapter 1")]
         static void ChapterOne() => Enter(1);
 
-        [MenuItem(Root + "Kapitel 2")]
+        [MenuItem(Root + "Chapter 2")]
         static void ChapterTwo() => Enter(2);
 
-        [MenuItem(Root + "Kapitel 1", true)]
-        [MenuItem(Root + "Kapitel 2", true)]
+        [MenuItem(Root + "Chapter 1", true)]
+        [MenuItem(Root + "Chapter 2", true)]
         static bool Playing() => EditorApplication.isPlaying;
 
         static void Enter(int chapter)

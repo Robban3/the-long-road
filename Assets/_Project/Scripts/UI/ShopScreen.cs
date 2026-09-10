@@ -47,13 +47,13 @@ namespace TheVeil.UI
             back.image.rectTransform.Place(new Vector2(0f, 1f),
                 new Vector2(Widgets.Margin, -Widgets.Margin), new Vector2(96f, 96f));
 
-            var ribbon = Widgets.Ribbon("Ribbon", root, "Butiken");
+            var ribbon = Widgets.Ribbon("Ribbon", root, Loc.T("Shop"));
             ribbon.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, -Widgets.Margin),
                        new Vector2(520f, 100f));
 
             var gold = Widgets.Counter("Gold", root, Theme.CoinIcon, Theme.Coin,
-                                       campaign.Gold + " guld", null, 300f);
+                                       Loc.F("{0} gold", campaign.Gold), null, 300f);
             gold.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, -170f), new Vector2(300f, 76f));
 
@@ -75,10 +75,10 @@ namespace TheVeil.UI
 
         static void Tabs(MenuShell shell, RectTransform root)
         {
-            Chooser(shell, root, -312f, "KARAVAN", Tab.Caravan);
-            Chooser(shell, root, -104f, "TRUPPER", Tab.Troops);
-            Chooser(shell, root, 104f, "SILVER", Tab.Silver);
-            Chooser(shell, root, 312f, "SPANING", Tab.Scouting);
+            Chooser(shell, root, -312f, Loc.T("CARAVAN"), Tab.Caravan);
+            Chooser(shell, root, -104f, Loc.T("TROOPS"), Tab.Troops);
+            Chooser(shell, root, 104f, Loc.T("SILVER"), Tab.Silver);
+            Chooser(shell, root, 312f, Loc.T("SCOUTING"), Tab.Scouting);
         }
 
         static void Chooser(MenuShell shell, RectTransform root, float x, string text, Tab tab)
@@ -220,7 +220,7 @@ namespace TheVeil.UI
 
             // Which troop, then its tracks. Twenty tracks laid out flat is a wall; nine
             // names and three cards is a choice followed by a choice.
-            var heading = Widgets.Label("Heading", content, "PERMANENTA TRUPPNIVÅER",
+            var heading = Widgets.Label("Heading", content, Loc.T("PERMANENT TROOP LEVELS"),
                                         Widgets.SmallSize - 4, Theme.Gold);
             heading.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y - 10f),
                                         new Vector2(Widgets.SafeWidth, 40f));
@@ -235,7 +235,7 @@ namespace TheVeil.UI
                 bool here = kind == _troop;
                 var chosen = kind;
 
-                var chip = Widgets.Plate("Pick" + kind, picker, Short(kind),
+                var chip = Widgets.Plate("Pick" + kind, picker, Names.TroopShort(kind),
                     here ? ButtonRole.Primary : ButtonRole.Secondary,
                     () => { _troop = chosen; shell.Show(Build); });
 
@@ -271,8 +271,9 @@ namespace TheVeil.UI
             if (!TroopBoonTable.Sells(_troop, UpgradeTrack.Special))
             {
                 var note = Widgets.Label("NoRange", content,
-                    $"{Name(_troop)} har ingen räckvidd att köpa — bara bågskyttar och "
-                    + "magiker skjuter på avstånd.", Widgets.SmallSize - 6, Theme.Dim);
+                    Loc.F("{0} have no reach to buy — only archers and mages shoot from afar.",
+                          Names.Troop(_troop)),
+                    Widgets.SmallSize - 6, Theme.Dim);
 
                 note.Wrap();
                 note.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y - 10f),
@@ -320,14 +321,14 @@ namespace TheVeil.UI
             Bar(plate.transform, owned, max);
 
             var reading = Widgets.Label("Now", plate.transform,
-                finished ? $"nu {now}" : $"nu {now}   ·   nästa steg {next}",
+                finished ? Loc.F("now {0}", now) : Loc.F("now {0}   ·   next step {1}", now, next),
                 Widgets.SmallSize - 8, finished ? Theme.Gold : Theme.Dim, TextAnchor.MiddleLeft);
             reading.rectTransform.Place(new Vector2(0f, 0f), new Vector2(28f, 22f),
                                         new Vector2(520f, 34f));
 
             if (finished)
             {
-                var done = Widgets.Label("Done", plate.transform, "FULLT UTBYGGT",
+                var done = Widgets.Label("Done", plate.transform, Loc.T("FULLY BUILT"),
                                          Widgets.SmallSize - 4, Theme.Gold);
                 done.rectTransform.Place(new Vector2(1f, 0.5f), new Vector2(-40f, -10f),
                                          new Vector2(250f, 60f));
@@ -335,7 +336,7 @@ namespace TheVeil.UI
                 return;
             }
 
-            var button = Widgets.Plate("Buy", plate.transform, price + " GULD",
+            var button = Widgets.Plate("Buy", plate.transform, Loc.F("{0} GOLD", price),
                                        affordable ? ButtonRole.Primary : ButtonRole.Disabled,
                                        () => buy());
 
@@ -359,7 +360,7 @@ namespace TheVeil.UI
             fill.fillAmount = max > 0 ? owned / (float)max : 0f;
             fill.rectTransform.Fill(2f, 2f, 2f, 2f);
 
-            var count = Widgets.Label("Count", plate, $"steg {owned} / {max}",
+            var count = Widgets.Label("Count", plate, Loc.F("step {0} / {1}", owned, max),
                                       Widgets.SmallSize - 8, Theme.Muted, TextAnchor.MiddleLeft);
             count.rectTransform.Place(new Vector2(0f, 0f), new Vector2(442f, 74f),
                                       new Vector2(200f, 30f));
@@ -371,18 +372,18 @@ namespace TheVeil.UI
         {
             switch (boon)
             {
-                case Boon.Purse: return "Handelskassa";
-                case Boon.Muster: return "Värvning";
-                case Boon.Hardened: return "Härdade vagnar";
-                case Boon.Smithy: return "Fältsmedja";
-                case Boon.Outriders: return "Förridare";
-                case Boon.Trade: return "Köpmannaskap";
-                case Boon.Watch: return "Vaksamhet";
-                case Boon.Tracking: return "Spårsinne";
-                case Boon.Exchange: return "Växelkontor";
-                case Boon.Repair: return "Fältreparation";
-                case Boon.Scout: return "Spejare";
-                default: return "Lastsäkring";
+                case Boon.Purse: return Loc.T("Trading purse");
+                case Boon.Muster: return Loc.T("Muster");
+                case Boon.Hardened: return Loc.T("Hardened wagons");
+                case Boon.Smithy: return Loc.T("Field smithy");
+                case Boon.Outriders: return Loc.T("Outriders");
+                case Boon.Trade: return Loc.T("Merchantry");
+                case Boon.Watch: return Loc.T("Vigilance");
+                case Boon.Tracking: return Loc.T("Tracking");
+                case Boon.Exchange: return Loc.T("Exchange office");
+                case Boon.Repair: return Loc.T("Field repair");
+                case Boon.Scout: return Loc.T("Scout");
+                default: return Loc.T("Lashings");
             }
         }
 
@@ -391,39 +392,29 @@ namespace TheVeil.UI
             switch (boon)
             {
                 case Boon.Purse:
-                    return "Silver i kassan redan när uppdraget börjar, så första "
-                           + "uppgraderingen kan köpas före striden i stället för efter.";
+                    return Loc.T("Silver in the purse as soon as the mission starts, so the first upgrade can be bought before the fight instead of after it.");
                 case Boon.Muster:
-                    return "Fler poäng att sätta ihop eskorten för. En poäng är en hel "
-                           + "sak, därför få och dyra steg.";
+                    return Loc.T("More points to build the escort with. A point is a whole thing, hence few and costly steps.");
                 case Boon.Hardened:
-                    return "Vagnarna tål mer stryk innan de går sönder. Går alla tre "
-                           + "sönder är uppdraget förlorat.";
+                    return Loc.T("The wagons take more punishment before they break. If all three break, the mission is lost.");
                 case Boon.Smithy:
-                    return "Billigare att uppgradera trupperna mitt i ett uppdrag.";
+                    return Loc.T("Cheaper to upgrade the troops in the middle of a mission.");
                 case Boon.Outriders:
-                    return "En post i ledet öppnas tidigare än kapitlet annars ger den.";
+                    return Loc.T("A post in the line opens earlier than the chapter would otherwise give it.");
                 case Boon.Trade:
-                    return "Mer silver för varje fiendegrupp som fälls, hela uppdraget "
-                           + "igenom.";
+                    return Loc.T("More silver for every enemy group brought down, all mission long.");
                 case Boon.Watch:
-                    return "Karavanen ser längre, så fiender avslöjas tidigare — och man "
-                           + "kan bara skjuta på det som avslöjats.";
+                    return Loc.T("The caravan sees further, so enemies are revealed earlier — and only what has been revealed can be shot at.");
                 case Boon.Tracking:
-                    return "Fällor upptäcks längre fram, vilket ger ingenjören tid att "
-                           + "desarmera dem innan hjulen är där.";
+                    return Loc.T("Traps are spotted further ahead, giving the engineer time to disarm them before the wheels get there.");
                 case Boon.Exchange:
-                    return "Bättre kurs när silver som blev över växlas till guld efter "
-                           + "uppdraget. Att spendera i fält är fortfarande bättre.";
+                    return Loc.T("A better rate when leftover silver is changed into gold after the mission. Spending it in the field is still better.");
                 case Boon.Repair:
-                    return "Vagnarna lagas medan kolonnen rullar — men inte medan det "
-                           + "slåss. En lugn sträcka blir värd något.";
+                    return Loc.T("The wagons are mended while the column rolls — but not while it fights. A quiet stretch becomes worth something.");
                 case Boon.Scout:
-                    return "Går före kolonnen och ser fiender långt innan de vaknar. Slåss "
-                           + "inte, och tar en av eskortens platser. Köps en gång.";
+                    return Loc.T("Walks ahead of the column and spots enemies long before they wake. Does not fight, and takes one of the escort's posts. Bought once.");
                 default:
-                    return "Skattvagnen tar mindre skada. Dess skick avgör guldet du får "
-                           + "ut, så det är en uppgradering av lönen lika mycket.";
+                    return Loc.T("The treasure wagon takes less damage. Its state decides the gold you bring home, so it is as much a raise in pay.");
             }
         }
 
@@ -432,7 +423,7 @@ namespace TheVeil.UI
         static string Next(Boon boon, int level)
         {
             // Not a step on a curve but a door: what the one purchase opens.
-            if (boon == Boon.Scout) return "följer med när du vill";
+            if (boon == Boon.Scout) return Loc.T("comes along whenever you like");
 
             float step = BoonTable.Effect(boon, level + 1) - BoonTable.Effect(boon, level);
             return "+" + Reading(boon, step);
@@ -443,47 +434,15 @@ namespace TheVeil.UI
         {
             switch (boon)
             {
-                case Boon.Purse: return $"{value:F0} silver";
-                case Boon.Muster: return $"{value:F0} poäng";
-                case Boon.Outriders: return $"{value:F0} poster";
+                case Boon.Purse: return Loc.F("{0:F0} silver", value);
+                case Boon.Muster: return Loc.F("{0:F0} points", value);
+                case Boon.Outriders: return Loc.F("{0:F0} posts", value);
                 case Boon.Watch:
-                case Boon.Tracking: return $"{value:F1} m";
-                case Boon.Exchange: return $"{value:F1} silver/guld";
-                case Boon.Repair: return $"{value:F2} hp/s";
-                case Boon.Scout: return value >= 1f ? "anställd" : "inte anställd";
-                default: return $"{value * 100f:F1} %";
-            }
-        }
-
-        static string Short(TroopKind kind)
-        {
-            switch (kind)
-            {
-                case TroopKind.Spearmen: return "SPJUT";
-                case TroopKind.Swordsmen: return "SVÄRD";
-                case TroopKind.Archers: return "BÅGE";
-                case TroopKind.Cavalry: return "RYTTARE";
-                case TroopKind.Mage: return "MAGIKER";
-                case TroopKind.Scout: return "SPEJARE";
-                case TroopKind.Shieldbearer: return "SKÖLD";
-                case TroopKind.Priest: return "PRÄST";
-                default: return "INGENJÖR";
-            }
-        }
-
-        static string Name(TroopKind kind)
-        {
-            switch (kind)
-            {
-                case TroopKind.Spearmen: return "Spjutmän";
-                case TroopKind.Swordsmen: return "Svärdsmän";
-                case TroopKind.Archers: return "Bågskyttar";
-                case TroopKind.Cavalry: return "Ryttare";
-                case TroopKind.Mage: return "Magiker";
-                case TroopKind.Scout: return "Spejare";
-                case TroopKind.Shieldbearer: return "Sköldbärare";
-                case TroopKind.Priest: return "Präst";
-                default: return "Ingenjör";
+                case Boon.Tracking: return Loc.F("{0:F1} m", value);
+                case Boon.Exchange: return Loc.F("{0:F1} silver/gold", value);
+                case Boon.Repair: return Loc.F("{0:F2} hp/s", value);
+                case Boon.Scout: return value >= 1f ? Loc.T("hired") : Loc.T("not hired");
+                default: return Loc.F("{0:F1} %", value * 100f);
             }
         }
 
@@ -494,29 +453,25 @@ namespace TheVeil.UI
         {
             switch (track)
             {
-                case UpgradeTrack.Weapon: return "Vapen";
-                case UpgradeTrack.Armour: return "Rustning";
-                default: return TroopTable.Scouts(kind) ? "Sikt" : "Räckvidd";
+                case UpgradeTrack.Weapon: return Loc.T("Weapon");
+                case UpgradeTrack.Armour: return Loc.T("Armour");
+                default: return TroopTable.Scouts(kind) ? Loc.T("Sight") : Loc.T("Reach");
             }
         }
 
         static string TrackWhat(TroopKind kind, UpgradeTrack track)
         {
             if (track == UpgradeTrack.Special && TroopTable.Scouts(kind))
-                return "Spejaren ser längre, så fiender upptäcks ännu tidigare. Gäller varje "
-                       + "uppdrag, ovanpå det du köper med silver ute i fält.";
+                return Loc.T("The scout sees further, so enemies are spotted even earlier. Applies to every mission, on top of what you buy with silver in the field.");
 
             switch (track)
             {
                 case UpgradeTrack.Weapon:
-                    return "Mer skada. Gäller varje uppdrag, ovanpå det du köper med "
-                           + "silver ute i fält.";
+                    return Loc.T("More damage. Applies to every mission, on top of what you buy with silver in the field.");
                 case UpgradeTrack.Armour:
-                    return "Mer hälsa och en större andel av skadan avvärjd. Trupperna "
-                           + "rycker ut med den extra hälsan redan från början.";
+                    return Loc.T("More health and a larger share of every blow turned aside. The troops march out with the extra health from the start.");
                 default:
-                    return "Längre skotthåll. Kom ihåg att inget kan skjutas innan det "
-                           + "avslöjats — räckvidd och sikt hör ihop.";
+                    return Loc.T("Longer range. Remember that nothing can be shot before it has been revealed — reach and sight go together.");
             }
         }
 
@@ -530,16 +485,16 @@ namespace TheVeil.UI
         static string TrackReading(TroopKind kind, UpgradeTrack track, float share)
         {
             if (track == UpgradeTrack.Special && TroopTable.Scouts(kind))
-                return $"{share * TroopBoonTable.SightCap:F1} m sikt";
+                return Loc.F("{0:F1} m sight", share * TroopBoonTable.SightCap);
 
             switch (track)
             {
                 case UpgradeTrack.Weapon:
-                    return $"{share * TroopBoonTable.WeaponCap * 100f:F1} % skada";
+                    return Loc.F("{0:F1} % damage", share * TroopBoonTable.WeaponCap * 100f);
                 case UpgradeTrack.Armour:
-                    return $"{share * TroopBoonTable.ArmourHealthCap * 100f:F1} % hälsa";
+                    return Loc.F("{0:F1} % health", share * TroopBoonTable.ArmourHealthCap * 100f);
                 default:
-                    return $"{share * TroopBoonTable.RangeCap * 100f:F1} % räckvidd";
+                    return Loc.F("{0:F1} % reach", share * TroopBoonTable.RangeCap * 100f);
             }
         }
     }

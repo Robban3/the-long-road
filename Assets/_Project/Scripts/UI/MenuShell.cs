@@ -159,7 +159,7 @@ namespace TheVeil.UI
         {
 #if UNITY_EDITOR
             var note = Widgets.Label("Missing", _backdrop,
-                $"{backdrop}.png hittades inte — {Backdrops.Inventory()}",
+                $"{backdrop}.png not found — {Backdrops.Inventory()}",
                 Widgets.SmallSize - 8, new Color(1f, 0.85f, 0.55f, 0.85f));
 
             note.Wrap();

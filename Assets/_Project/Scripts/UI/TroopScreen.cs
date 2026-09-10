@@ -87,26 +87,27 @@ namespace TheVeil.UI
             back.image.rectTransform.Place(new Vector2(0f, 1f),
                 new Vector2(Widgets.Margin, -Widgets.Margin), new Vector2(96f, 96f));
 
-            var ribbon = Widgets.Ribbon("Ribbon", root, "Eskort");
+            var ribbon = Widgets.Ribbon("Ribbon", root, Loc.T("Escort"));
             ribbon.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, -Widgets.Margin),
                        new Vector2(480f, 100f));
 
             var level = Widgets.Label("Level", root,
-                $"KAPITEL {Session.Chapter}  ·  NIVÅ {Session.Level}", Widgets.SmallSize, Theme.Muted);
+                Loc.F("CHAPTER {0}  ·  LEVEL {1}", Session.Chapter, Session.Level), Widgets.SmallSize, Theme.Muted);
             level.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -172f),
                                       new Vector2(Widgets.SafeWidth - 120f, 44f));
 
             // The two numbers that bind, said plainly. Points run out long before posts
             // do at the start of a chapter, and the other way round at the end of one.
             var purse = Widgets.Counter("Points", root, Theme.Star, Theme.BrightGold,
-                $"{_squad.PointsRemaining} av {_squad.Budget} poäng kvar", null, 460f);
+                Loc.F("{0} of {1} points left", _squad.PointsRemaining, _squad.Budget), null, 460f);
             purse.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, -230f), new Vector2(460f, 76f));
 
             var posts = Widgets.Label("Posts", root,
-                $"{_squad.Posts} av {TroopTable.LinePosts} poster öppna i ledet"
-                + (recipe.Posts < TroopTable.LinePosts ? "  ·  fler öppnas längre fram" : ""),
+                recipe.Posts < TroopTable.LinePosts
+                    ? Loc.F("{0} of {1} posts open in the line  ·  more open later", _squad.Posts, TroopTable.LinePosts)
+                    : Loc.F("{0} of {1} posts open in the line", _squad.Posts, TroopTable.LinePosts),
                 Widgets.SmallSize - 4, Theme.Dim);
             posts.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -318f),
                                       new Vector2(Widgets.SafeWidth, 40f));
@@ -141,7 +142,7 @@ namespace TheVeil.UI
             road.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0f, -20f),
                                      new Vector2(120f, 560f));
 
-            var heading = Widgets.Label("Heading", board.transform, "▲  FÄRDRIKTNING",
+            var heading = Widgets.Label("Heading", board.transform, Loc.T("▲  DIRECTION OF TRAVEL"),
                                         Widgets.SmallSize - 6, Theme.Dim);
             heading.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -14f),
                                         new Vector2(400f, 34f));
@@ -173,7 +174,7 @@ namespace TheVeil.UI
                 padlock.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -18f),
                                             new Vector2(54f, 54f));
 
-                var shut = Widgets.Label("Shut", plate.transform, "STÄNGD", Widgets.SmallSize - 6,
+                var shut = Widgets.Label("Shut", plate.transform, Loc.T("CLOSED"), Widgets.SmallSize - 6,
                                          Theme.Dim);
                 shut.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 20f),
                                          new Vector2(250f, 36f));
@@ -192,7 +193,7 @@ namespace TheVeil.UI
                 shell.Show(Build);
             });
 
-            var name = Widgets.Label("Name", plate.transform, PostName(slot), Widgets.SmallSize - 6,
+            var name = Widgets.Label("Name", plate.transform, Names.Post(slot), Widgets.SmallSize - 6,
                                      Theme.Dim);
             name.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -12f),
                                      new Vector2(250f, 34f));
@@ -206,7 +207,7 @@ namespace TheVeil.UI
                 return;
             }
 
-            var troop = Widgets.Label("Troop", plate.transform, Name(group.Kind), Widgets.BodySize - 4,
+            var troop = Widgets.Label("Troop", plate.transform, Names.Troop(group.Kind), Widgets.BodySize - 4,
                                       Theme.Parchment);
             troop.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0f, 2f),
                                       new Vector2(250f, 48f));
@@ -228,7 +229,7 @@ namespace TheVeil.UI
             var panel = Widgets.Panel("Picker", root, Theme.Frame, Color.white);
             panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Widgets.SafeWidth, 1300f));
 
-            var ribbon = Widgets.Ribbon("Ribbon", panel.transform, PostName(_picking));
+            var ribbon = Widgets.Ribbon("Ribbon", panel.transform, Names.Post(_picking));
             ribbon.transform.parent.GetComponent<RectTransform>()
                 .Place(new Vector2(0.5f, 1f), new Vector2(0f, 40f), new Vector2(Widgets.SafeWidth - 240f, 100f));
 
@@ -249,7 +250,7 @@ namespace TheVeil.UI
                 var chosen = kind;
 
                 var row = Widgets.Plate($"Pick{kind}", panel.transform,
-                    $"{Name(kind).ToUpperInvariant()}   {cost} p",
+                    $"{Names.Troop(kind).ToUpperInvariant()}   {cost} p",
                     choosable ? ButtonRole.Secondary : ButtonRole.Disabled,
                     () =>
                     {
@@ -263,7 +264,7 @@ namespace TheVeil.UI
                 row.image.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y),
                                               new Vector2(Widgets.SafeWidth - 100f, 100f));
 
-                string note = !hired ? "köps i butiken" : (!spare ? "redan med" : Role(kind));
+                string note = !hired ? Loc.T("bought in the shop") : !spare ? Loc.T("already along") : Role(kind);
 
                 var role = Widgets.Label("Role", row.image.transform, note,
                                          Widgets.SmallSize - 8, Theme.Muted, TextAnchor.MiddleRight);
@@ -272,7 +273,7 @@ namespace TheVeil.UI
                 y -= 112f;
             }
 
-            var close = Widgets.Plate("Close", panel.transform, "AVBRYT", ButtonRole.Primary,
+            var close = Widgets.Plate("Close", panel.transform, Loc.T("CANCEL"), ButtonRole.Primary,
                 () => { _open = false; shell.Show(Build); });
 
             close.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 40f),
@@ -281,7 +282,7 @@ namespace TheVeil.UI
 
         static void Footer(MenuShell shell, RectTransform root)
         {
-            var clear = Widgets.Plate("Clear", root, "TÖM", ButtonRole.Secondary, () =>
+            var clear = Widgets.Plate("Clear", root, Loc.T("CLEAR"), ButtonRole.Secondary, () =>
             {
                 _squad = new Squad(_squad.Budget, _squad.Posts);
                 shell.Show(Build);
@@ -290,7 +291,7 @@ namespace TheVeil.UI
             clear.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(-290f, Widgets.Margin),
                                             new Vector2(220f, Widgets.ButtonHeight));
 
-            var go = Widgets.Plate("Go", root, "RITA VÄGEN", ButtonRole.Primary, () =>
+            var go = Widgets.Plate("Go", root, Loc.T("DRAW THE ROAD"), ButtonRole.Primary, () =>
             {
                 Session.SetEscort(_squad);
                 shell.Draw(Session.Chapter, Session.Level);
@@ -298,37 +299,6 @@ namespace TheVeil.UI
 
             go.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(130f, Widgets.Margin),
                                          new Vector2(560f, Widgets.ButtonHeight));
-        }
-
-        /// <summary>Swedish names for the six posts.</summary>
-        static string PostName(FormationSlot slot)
-        {
-            switch (slot)
-            {
-                case FormationSlot.Van: return "FÖRTRUPP";
-                case FormationSlot.RightVan: return "HÖGER FRAM";
-                case FormationSlot.LeftVan: return "VÄNSTER FRAM";
-                case FormationSlot.RightRear: return "HÖGER BAK";
-                case FormationSlot.LeftRear: return "VÄNSTER BAK";
-                default: return "EFTERTRUPP";
-            }
-        }
-
-        static string Name(TroopKind kind)
-        {
-            switch (kind)
-            {
-                case TroopKind.Spearmen: return "Spjutmän";
-                case TroopKind.Swordsmen: return "Svärdsmän";
-                case TroopKind.Archers: return "Bågskyttar";
-                case TroopKind.Cavalry: return "Ryttare";
-                case TroopKind.Mage: return "Magiker";
-                case TroopKind.Scout: return "Spejare";
-                case TroopKind.Shieldbearer: return "Sköldbärare";
-                case TroopKind.Priest: return "Präst";
-                case TroopKind.Engineer: return "Ingenjör";
-                default: return kind.ToString();
-            }
         }
 
         /// <summary>
@@ -343,15 +313,15 @@ namespace TheVeil.UI
         {
             switch (kind)
             {
-                case TroopKind.Spearmen: return "dubbelt mot vargar";
-                case TroopKind.Swordsmen: return "hårdast i närstrid";
-                case TroopKind.Archers: return "22 m räckvidd, sämre i skog";
-                case TroopKind.Cavalry: return "stark på slätt, svag i träsk";
-                case TroopKind.Mage: return "18 m, dyr";
-                case TroopKind.Scout: return "34 m sikt, går före, slåss inte";
-                case TroopKind.Shieldbearer: return "tar 40 % mindre skada";
-                case TroopKind.Priest: return "helar den mest sargade";
-                case TroopKind.Engineer: return "desarmerar fällor";
+                case TroopKind.Spearmen: return Loc.T("double against wolves");
+                case TroopKind.Swordsmen: return Loc.T("hardest in close combat");
+                case TroopKind.Archers: return Loc.T("22 m reach, worse in forest");
+                case TroopKind.Cavalry: return Loc.T("strong on plains, weak in marsh");
+                case TroopKind.Mage: return Loc.T("18 m, expensive");
+                case TroopKind.Scout: return Loc.T("34 m sight, walks ahead, does not fight");
+                case TroopKind.Shieldbearer: return Loc.T("takes 40 % less damage");
+                case TroopKind.Priest: return Loc.T("heals the most wounded");
+                case TroopKind.Engineer: return Loc.T("disarms traps");
                 default: return "";
             }
         }
