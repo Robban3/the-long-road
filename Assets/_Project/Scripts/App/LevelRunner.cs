@@ -370,7 +370,8 @@ namespace TheVeil.App
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale)
             {
                 Library = Models,
-                ShowReach = ShowReach
+                ShowReach = ShowReach,
+                TracksInSnow = winter
             };
             _visuals.FindBridges(_markerRoot);
 

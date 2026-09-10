@@ -16,6 +16,9 @@ namespace TheVeil.View
     {
         public VisualLibrary Library = new VisualLibrary();
 
+        /// <summary>Whether the wagons cut ruts behind them. Winter only; see SnowTracks.</summary>
+        public bool TracksInSnow;
+
         readonly Transform _root;
         readonly TileGrid _grid;
         readonly float _heightScale;
@@ -33,6 +36,10 @@ namespace TheVeil.View
         /// in a fight has wheels that are genuinely still rather than idling.
         /// </summary>
         readonly List<Vector3?> _wagonWere = new List<Vector3?>();
+
+        /// <summary>One per wagon, in the same order, when there is snow to cut. Else empty.</summary>
+        readonly List<SnowTracks> _tracks = new List<SnowTracks>();
+        Material _trackMaterial;
 
         /// <summary>Every horse in harness, across all the wagons, for animating.</summary>
         readonly List<Transform> _draught = new List<Transform>();
@@ -257,6 +264,14 @@ namespace TheVeil.View
                 _wagons.Add(cart);
                 _wagonWere.Add(null);
                 _wheels.Add(WagonWheels.Fit(cart));
+
+                if (TracksInSnow)
+                {
+                    // The reach rings' material: unlit, transparent, vertex-coloured, and
+                    // drawn from both sides. See RangeRing.Material.
+                    if (_trackMaterial == null) _trackMaterial = RangeRing.Material();
+                    _tracks.Add(new SnowTracks(_root, cart.name, _wheels[_wheels.Count - 1], _trackMaterial));
+                }
             }
 
             // Said once, and worth saying: if the pack ships its carts as one welded
@@ -562,7 +577,11 @@ namespace TheVeil.View
             {
                 var wagon = run.Caravan.Wagons[i];
                 _wagons[i].gameObject.SetActive(!wagon.Destroyed);
-                if (wagon.Destroyed) continue;
+                if (wagon.Destroyed)
+                {
+                    if (i < _tracks.Count) _tracks[i].Stop();
+                    continue;
+                }
 
                 var position = run.Caravan.WagonPosition(i);
                 var here = new Vector3(position.X, GroundAt(position), position.Y);
@@ -576,6 +595,7 @@ namespace TheVeil.View
                 var mine = Quaternion.LookRotation(new Vector3(along.X, 0f, along.Y), Vector3.up);
 
                 Place(_wagons[i], here, mine);
+                if (i < _tracks.Count) _tracks[i].Follow(_wagons[i], this);
 
                 // Across the ground rather than through it. Including the climb would
                 // add the terrain sampler's own jitter to the roll, and on a slope of

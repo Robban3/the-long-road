@@ -162,6 +162,29 @@ namespace TheVeil.View
             }
         }
 
+        /// <summary>
+        /// Where the wheels meet the ground, in the wagon's own space: how far out to
+        /// either side, and how far back the rearmost axle is.
+        ///
+        /// One line per side rather than one per wheel. The front and back wheels of a
+        /// side run in the same rut, and two ribbons laid on top of each other only
+        /// double its darkness where they happen to part on a bend.
+        /// </summary>
+        public bool Track(out float halfTrack, out float rearZ)
+        {
+            halfTrack = 0f;
+            rearZ = float.MaxValue;
+
+            foreach (var wheel in _wheels)
+            {
+                halfTrack = Mathf.Max(halfTrack, Mathf.Abs(wheel.Hub.x));
+                rearZ = Mathf.Min(rearZ, wheel.Hub.z);
+            }
+
+            if (_wheels.Count == 0) rearZ = 0f;
+            return _wheels.Count > 0;
+        }
+
         /// <summary>The part names under a wagon, for when none of them was a wheel.</summary>
         public static string Parts(Transform wagon)
         {
