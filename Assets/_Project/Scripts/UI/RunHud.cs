@@ -493,7 +493,7 @@ namespace TheVeil.UI
             int gold = Run.GoldEarned();
 
             Session.Choose(Chapter, Level);
-            Session.Finish(stars, gold);
+            Session.Finish(stars, gold, Run.Tally());
 
             var sheet = Sheet(won ? Loc.T("Victory") : Loc.T("Defeat"),
                               won ? Backdrops.Victory : Backdrops.Defeat);

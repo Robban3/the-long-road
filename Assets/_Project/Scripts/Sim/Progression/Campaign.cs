@@ -56,6 +56,12 @@ namespace TheVeil.Sim
 
         static int TroopKey(TroopKind kind, UpgradeTrack track) => (int)kind * 8 + (int)track;
 
+        /// <summary>Running totals across the campaign, by <see cref="Tally"/>.</summary>
+        readonly int[] _tallies = new int[(int)Tally.GoldEarned + 1];
+
+        /// <summary>Achievements whose reward has been collected, by number.</summary>
+        readonly HashSet<int> _claimed = new HashSet<int>();
+
         /// <summary>Gold, the between-levels currency. Silver is spent inside a run.</summary>
         public int Gold { get; private set; }
 
@@ -262,20 +268,115 @@ namespace TheVeil.Sim
             return true;
         }
 
+        // ---- achievements ------------------------------------------------------------
+
+        public int TallyOf(Tally tally) => _tallies[(int)tally];
+
+        /// <summary>
+        /// Adds one finished run to the campaign's totals. Its stars and gold are filed by
+        /// <see cref="Record"/>; this is the rest of what it did.
+        ///
+        /// The gold counted here is the run's and never an achievement's own reward, which
+        /// is paid through <see cref="Earn"/> — otherwise the gold achievements would pay
+        /// themselves, one collected reward earning the next.
+        /// </summary>
+        public void Count(RunTally run)
+        {
+            _tallies[(int)Tally.GroupsBeaten] += run.GroupsBeaten > 0 ? run.GroupsBeaten : 0;
+            _tallies[(int)Tally.TrapsDisarmed] += run.TrapsDisarmed > 0 ? run.TrapsDisarmed : 0;
+            _tallies[(int)Tally.GoldEarned] += run.Gold > 0 ? run.Gold : 0;
+
+            if (run.Flawless) _tallies[(int)Tally.FlawlessArrivals]++;
+        }
+
+        /// <summary>How far along an achievement is, never past its target.</summary>
+        public int Progress(Achievement achievement)
+        {
+            int target = AchievementTable.Target(achievement);
+            int have = Measured(AchievementTable.MeasureOf(achievement));
+            return have > target ? target : have;
+        }
+
+        /// <summary>
+        /// The campaign's own answer to what an achievement counts. Levels and chapters are
+        /// read off the stars, which already say which levels are cleared, rather than
+        /// counted a second time; a second count of one thing can disagree with the first.
+        /// </summary>
+        int Measured(Measure measure)
+        {
+            switch (measure)
+            {
+                case Measure.LevelsCleared:
+                    return _stars.Count;
+
+                case Measure.LevelsAtThreeStars:
+                {
+                    int perfect = 0;
+                    foreach (var pair in _stars) if (pair.Value >= MaxStars) perfect++;
+                    return perfect;
+                }
+
+                case Measure.ChaptersCleared:
+                {
+                    int chapters = 0;
+                    for (int chapter = 1; chapter <= HighestChapter; chapter++)
+                    {
+                        bool every = true;
+                        for (int level = 1; level <= LevelsPerChapter && every; level++)
+                            every = Cleared(chapter, level);
+
+                        if (every) chapters++;
+                    }
+                    return chapters;
+                }
+
+                case Measure.GroupsBeaten: return _tallies[(int)Tally.GroupsBeaten];
+                case Measure.TrapsDisarmed: return _tallies[(int)Tally.TrapsDisarmed];
+                case Measure.FlawlessArrivals: return _tallies[(int)Tally.FlawlessArrivals];
+                default: return _tallies[(int)Tally.GoldEarned];
+            }
+        }
+
+        public bool Achieved(Achievement achievement)
+            => Progress(achievement) >= AchievementTable.Target(achievement);
+
+        public bool Claimed(Achievement achievement) => _claimed.Contains((int)achievement);
+
+        /// <summary>Whether a finished achievement is waiting to be collected. The menu's red dot.</summary>
+        public bool AnythingToClaim
+        {
+            get
+            {
+                foreach (var achievement in AchievementTable.All)
+                    if (Achieved(achievement) && !Claimed(achievement)) return true;
+                return false;
+            }
+        }
+
+        /// <summary>Collects an achievement's reward. Once, and only when it is done.</summary>
+        public bool TryClaim(Achievement achievement)
+        {
+            if (!Achieved(achievement) || Claimed(achievement)) return false;
+
+            _claimed.Add((int)achievement);
+            Earn(AchievementTable.Gold(achievement), AchievementTable.Gems(achievement));
+            return true;
+        }
+
         /// <summary>
         /// The save string:
-        /// <c>3|gold|gems|chapter.level.stars,…|boon.level,…|troop.track.level,…</c>
+        /// <c>4|gold|gems|chapter.level.stars,…|boon.level,…|troop.track.level,…|tally.count,…|achievement,…</c>
         ///
         /// A line of text rather than JSON because TheVeil.Sim may not touch the engine and
         /// therefore has no JsonUtility, and because a save this small is easier to read
         /// in a bug report as text than as anything else. The leading number is the format
-        /// version: version 1 had no boons and version 2 no troop levels. Both still
-        /// load, as campaigns without what they never had.
+        /// version: version 1 had no boons, version 2 no troop levels and version 3 no
+        /// achievements. All still load, as campaigns without what they never had.
         /// </summary>
         public string Save()
         {
             var text = new StringBuilder();
-            text.Append('3').Append('|').Append(Gold).Append('|').Append(Gems).Append('|');
+            text.Append('4').Append('|').Append(Gold).Append('|').Append(Gems).Append('|');
 
             bool first = true;
             for (int chapter = 1; chapter <= HighestChapter; chapter++)
@@ -319,6 +420,30 @@ namespace TheVeil.Sim
                 }
             }
 
+            text.Append('|');
+
+            leading = true;
+            for (int i = 0; i < _tallies.Length; i++)
+            {
+                if (_tallies[i] <= 0) continue;
+
+                if (!leading) text.Append(',');
+                text.Append(i).Append('.').Append(_tallies[i]);
+                leading = false;
+            }
+
+            text.Append('|');
+
+            leading = true;
+            foreach (var achievement in AchievementTable.All)
+            {
+                if (!Claimed(achievement)) continue;
+
+                if (!leading) text.Append(',');
+                text.Append((int)achievement);
+                leading = false;
+            }
+
             return text.ToString();
         }
 
@@ -337,7 +462,7 @@ namespace TheVeil.Sim
 
             // Version 1 is the same save without the boons on the end, and is read as a
             // campaign that has bought nothing — which is exactly what it was.
-            if (parts[0] != "1" && parts[0] != "2" && parts[0] != "3") return campaign;
+            if (parts[0] != "1" && parts[0] != "2" && parts[0] != "3" && parts[0] != "4") return campaign;
 
             if (int.TryParse(parts[1], out int gold) && gold > 0) campaign.Gold = gold;
             if (int.TryParse(parts[2], out int gems) && gems > 0) campaign.Gems = gems;
@@ -400,6 +525,35 @@ namespace TheVeil.Sim
 
                     if (level > TroopBoonTable.Steps) level = TroopBoonTable.Steps;
                     campaign._troops[TroopKey((TroopKind)kind, (UpgradeTrack)track)] = level;
+                }
+            }
+
+            if (parts.Length > 6)
+            {
+                foreach (var entry in parts[6].Split(','))
+                {
+                    if (entry.Length == 0) continue;
+
+                    var field = entry.Split('.');
+                    if (field.Length != 2) continue;
+
+                    if (!int.TryParse(field[0], out int tally) ||
+                        !int.TryParse(field[1], out int count)) continue;
+
+                    if (tally < 0 || tally >= campaign._tallies.Length || count < 1) continue;
+
+                    campaign._tallies[tally] = count;
+                }
+            }
+
+            if (parts.Length > 7)
+            {
+                foreach (var entry in parts[7].Split(','))
+                {
+                    if (!int.TryParse(entry, out int achievement)) continue;
+                    if (achievement < 0 || achievement >= AchievementTable.All.Length) continue;
+
+                    campaign._claimed.Add(achievement);
                 }
             }
 

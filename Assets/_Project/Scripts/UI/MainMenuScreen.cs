@@ -62,20 +62,37 @@ namespace TheVeil.UI
             Entry(column, ref y, step, Loc.T("SHOP"), ButtonRole.Secondary,
                   shell.ShowShop);
 
-            Entry(column, ref y, step, Loc.T("ACHIEVEMENTS"), ButtonRole.Secondary,
-                  () => shell.ShowStub(Loc.T("Achievements"), Loc.T("No achievements have been written yet.")));
+            var feats = Entry(column, ref y, step, Loc.T("ACHIEVEMENTS"), ButtonRole.Secondary,
+                              shell.ShowAchievements);
+
+            // A reward waiting to be collected is worth a mark on the way in, or it waits
+            // for a player who has no reason to look.
+            if (Session.Campaign.AnythingToClaim) Badge(feats.transform);
 
             Entry(column, ref y, step, Loc.T("SETTINGS"), ButtonRole.Secondary,
                   () => shell.ShowSettings());
         }
 
-        static void Entry(RectTransform column, ref float y, float step, string text,
-                          ButtonRole role, UnityEngine.Events.UnityAction clicked)
+        static Button Entry(RectTransform column, ref float y, float step, string text,
+                            ButtonRole role, UnityEngine.Events.UnityAction clicked)
         {
             var button = Widgets.Plate(text, column, text, role, clicked);
             button.image.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -y),
                                              new Vector2(Widgets.SafeWidth - 80f, Widgets.ButtonHeight));
             y += step;
+            return button;
+        }
+
+        /// <summary>A red mark on a button: something behind it is waiting for the player.</summary>
+        static void Badge(Transform on)
+        {
+            var dot = Widgets.Panel("Badge", on, Theme.Round, Theme.Danger);
+            dot.rectTransform.Place(new Vector2(1f, 1f), new Vector2(10f, 10f), new Vector2(48f, 48f));
+            dot.raycastTarget = false;
+
+            var mark = Widgets.Label("Mark", dot.transform, "!", Widgets.SmallSize, Color.white);
+            mark.rectTransform.Fill();
+            mark.raycastTarget = false;
         }
 
         /// <summary>The three chips along the bottom, badge and all.</summary>

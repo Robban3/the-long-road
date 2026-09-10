@@ -395,6 +395,27 @@ namespace TheVeil.Sim
             }
         }
 
+        /// <summary>What this run adds to the campaign's totals. See Campaign.Count.</summary>
+        public RunTally Tally()
+        {
+            int beaten = 0;
+            foreach (var enemy in Detection.Enemies)
+                if (Combat.IsDefeated(enemy)) beaten++;
+
+            int lost = 0;
+            foreach (var wagon in Caravan.Wagons)
+                if (wagon.Destroyed) lost++;
+
+            return new RunTally
+            {
+                Arrived = Outcome == RunOutcome.Arrived,
+                GroupsBeaten = beaten,
+                TrapsDisarmed = Traps.DisarmedCount,
+                WagonsLost = lost,
+                Gold = GoldEarned()
+            };
+        }
+
         /// <summary>Result rating, 0 if the caravan never arrived (docs/GDD.md §8.4).</summary>
         public int Stars
         {

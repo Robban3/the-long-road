@@ -199,11 +199,14 @@ namespace TheVeil.UI
         /// over, the stars are earned, and nothing about showing them should be able to
         /// take that back.
         /// </summary>
-        public static void Finish(int stars, int gold)
+        public static void Finish(int stars, int gold, RunTally tally = default)
         {
             LastStars = stars;
             LastGold = gold;
             LastWasBest = Campaign.Record(Chapter, Level, stars, gold);
+
+            // What else the run did, for the achievements to count.
+            Campaign.Count(tally);
 
             Save();
         }

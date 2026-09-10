@@ -204,6 +204,7 @@ namespace TheVeil.UI
 
         public void ShowTroops() => Show(TroopScreen.Build, Backdrops.Menu);
         public void ShowSettings() => SettingsScreen.Open(this);
+        public void ShowAchievements() => Show(AchievementsScreen.Build, Backdrops.Menu);
         public void ShowShop() => Show(ShopScreen.Build, Backdrops.Shop);
 
         public void Quit()
