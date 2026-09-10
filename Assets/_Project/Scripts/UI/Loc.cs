@@ -111,17 +111,7 @@ namespace TheVeil.UI
             ["ACHIEVEMENTS"] = "BRAGDER",
             ["SETTINGS"] = "INSTÄLLNINGAR",
             ["Settings"] = "Inställningar",
-            ["Upgrade"] = "Uppgradera",
-            ["Troops are upgraded with silver in the middle of a mission. This is where the gold between missions is meant to be spent."]
-                = "Trupperna uppgraderas i dag med silver mitt i ett uppdrag. Här ska guldet mellan uppdragen spenderas.",
             ["Achievements"] = "Bragder",
-            ["DAILY\nREWARD"] = "DAGLIG\nBELÖNING",
-            ["Come back tomorrow for gold. Not built yet."] = "Kom tillbaka i morgon för guld. Ännu inte byggt.",
-            ["QUESTS"] = "UPPDRAG",
-            ["Daily quests will give gold and gems. Not built yet."]
-                = "Dagliga uppdrag ska ge guld och ädelstenar. Ännu inte byggt.",
-            ["LEADERBOARD"] = "TOPPLISTA",
-            ["The leaderboard needs a server. Not built yet."] = "Topplistan kräver en server. Ännu inte byggd.",
 
             // ---- settings ------------------------------------------------------------
             ["LANGUAGE"] = "SPRÅK",
@@ -171,11 +161,6 @@ namespace TheVeil.UI
             ["THE WETLANDS"] = "DE VÅTA MARKERNA",
             ["Needs {0} stars in chapter {1} — you have {2}"] = "Behöver {0} stjärnor i kapitel {1} — du har {2}",
             ["BATTLE"] = "STRID",
-            ["SMITHY"] = "SMEDJA",
-            ["Upgrades are bought with silver in the middle of a mission."]
-                = "Uppgraderingar köps i dag med silver mitt i ett uppdrag.",
-            ["MAP"] = "KARTA",
-            ["The world map of the chapters is not built yet."] = "Världskartan över kapitlen är inte byggd.",
 
             // ---- troop screen ----------------------------------------------------------
             ["Escort"] = "Eskort",

@@ -626,8 +626,13 @@ namespace TheVeil.UI
         }
 
         /// <summary>
-        /// The bottom bar from the mock-up. Strid is where the player is; the rest name
-        /// the sections the design expects and say so when pressed.
+        /// The bottom bar from the mock-up: the battle in the middle, where the player is,
+        /// with the shop and the escort either side of it.
+        ///
+        /// The smithy and the world map had tabs here that led to a page saying they were
+        /// not built. For agreeing the shape of a menu that was the point; in front of
+        /// anybody playing it a button that goes nowhere reads as broken, so they come
+        /// back when there is something behind them.
         /// </summary>
         static void Nav(MenuShell shell, RectTransform root)
         {
@@ -639,14 +644,10 @@ namespace TheVeil.UI
             bar.rectTransform.offsetMax = new Vector2(0f, 0f);
             bar.rectTransform.sizeDelta = new Vector2(0f, NavHeight);
 
-            Tab(shell, bar.transform, -336f, Loc.T("SHOP"), Theme.CoinIcon, false, null, shell.ShowShop);
-            Tab(shell, bar.transform, -168f, Loc.T("TROOPS"), Theme.HeartIcon, false, null,
-                shell.ShowTroops);
+            Tab(shell, bar.transform, -220f, Loc.T("SHOP"), Theme.CoinIcon, false, null, shell.ShowShop);
             Tab(shell, bar.transform, 0f, Loc.T("BATTLE"), Theme.Star, true, null);
-            Tab(shell, bar.transform, 168f, Loc.T("SMITHY"), Theme.GemIcon, false,
-                Loc.T("Upgrades are bought with silver in the middle of a mission."));
-            Tab(shell, bar.transform, 336f, Loc.T("MAP"), Theme.SkullIcon, false,
-                Loc.T("The world map of the chapters is not built yet."));
+            Tab(shell, bar.transform, 220f, Loc.T("TROOPS"), Theme.HeartIcon, false, null,
+                shell.ShowTroops);
         }
 
         static void Tab(MenuShell shell, Transform bar, float x, string text, Sprite icon,

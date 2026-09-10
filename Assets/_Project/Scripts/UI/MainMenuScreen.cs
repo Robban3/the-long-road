@@ -4,13 +4,14 @@ using UnityEngine.UI;
 namespace TheVeil.UI
 {
     /// <summary>
-    /// The front page: the title, the five ways in, and the three chips along the bottom.
+    /// The front page: the title and the four ways in — play, the shop, the achievements
+    /// and the settings.
     ///
-    /// Only two of them lead anywhere yet — Spela to the roadmap, Inställningar to the
-    /// save. The rest are drawn in full and say so when pressed, which is a deliberate
-    /// choice over hiding them: the shape of the menu is part of the design being agreed,
-    /// and a screen that shows three buttons today and eight later is a different screen
-    /// to judge.
+    /// There were eight, and five of them led to a page saying they were not built: an
+    /// upgrade screen that was the shop again, a daily reward, quests and a leaderboard.
+    /// Drawing them in full was right while the shape of the menu was being agreed; in
+    /// front of anybody playing, a button that goes nowhere reads as broken. They come
+    /// back when there is something behind them — StubScreen is still there for that.
     /// </summary>
     public static class MainMenuScreen
     {
@@ -23,7 +24,6 @@ namespace TheVeil.UI
 
             Title(root);
             Choices(shell, root);
-            Chips(shell, root);
         }
 
         static void Title(RectTransform root)
@@ -54,10 +54,6 @@ namespace TheVeil.UI
             float step = Widgets.ButtonHeight + 24f;
 
             Entry(column, ref y, step, Loc.T("PLAY"), ButtonRole.Primary, () => shell.ShowRoadmap());
-
-            Entry(column, ref y, step, Loc.T("UPGRADE"), ButtonRole.Secondary,
-                  () => shell.ShowStub(Loc.T("Upgrade"),
-                      Loc.T("Troops are upgraded with silver in the middle of a mission. This is where the gold between missions is meant to be spent.")));
 
             Entry(column, ref y, step, Loc.T("SHOP"), ButtonRole.Secondary,
                   shell.ShowShop);
@@ -95,43 +91,5 @@ namespace TheVeil.UI
             mark.raycastTarget = false;
         }
 
-        /// <summary>The three chips along the bottom, badge and all.</summary>
-        static void Chips(MenuShell shell, RectTransform root)
-        {
-            var row = Widgets.Node("Chips", root);
-            row.Place(new Vector2(0.5f, 0f), new Vector2(0f, Widgets.Margin), new Vector2(Widgets.SafeWidth, 210f));
-
-            Chip(shell, row, -272f, Loc.T("DAILY\nREWARD"), Theme.CoinIcon, "!",
-                 Loc.T("Come back tomorrow for gold. Not built yet."));
-            Chip(shell, row, 0f, Loc.T("QUESTS"), Theme.Star, "2",
-                 Loc.T("Daily quests will give gold and gems. Not built yet."));
-            Chip(shell, row, 272f, Loc.T("LEADERBOARD"), Theme.SkullIcon, null,
-                 Loc.T("The leaderboard needs a server. Not built yet."));
-        }
-
-        static void Chip(MenuShell shell, RectTransform row, float x, string text, Sprite icon,
-                         string badge, string explanation)
-        {
-            var plate = Widgets.Panel(text, row, Theme.Frame, Theme.Secondary);
-            plate.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(x, 0f), new Vector2(256f, 200f));
-
-            var button = plate.gameObject.AddComponent<Button>();
-            button.targetGraphic = plate;
-            button.onClick.AddListener(() => shell.ShowStub(text.Replace("\n", " "), explanation));
-
-            var glyph = Widgets.Icon("Glyph", plate.transform, icon, Theme.BrightGold, 76f);
-            glyph.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, -26f), new Vector2(76f, 76f));
-
-            var label = Widgets.Label("Text", plate.transform, text, Widgets.SmallSize, Theme.Muted);
-            label.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0f, 14f), new Vector2(240f, 74f));
-
-            if (badge == null) return;
-
-            var dot = Widgets.Panel("Badge", plate.transform, Theme.Round, Theme.Danger);
-            dot.rectTransform.Place(new Vector2(1f, 1f), new Vector2(10f, 10f), new Vector2(56f, 56f));
-
-            var count = Widgets.Label("Count", dot.transform, badge, Widgets.SmallSize, Color.white);
-            count.rectTransform.Fill();
-        }
     }
 }
