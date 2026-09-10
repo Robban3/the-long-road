@@ -390,19 +390,16 @@ namespace TheVeil.App
 
             // Falling snow in a winter chapter, hung on the camera so it is always falling
             // where the player is looking rather than over one corner of the map. The
-            // pack's effect is a 50 x 10 x 50 m box of slow flakes built for a close
-            // shot; this camera sits some 46 m back and 32 m up, so the box is pushed out
-            // in front of the lens and scaled to cover the view. Both numbers are first
-            // guesses and are named as such — they are the two to change after looking.
+            // effect's box is 50 m deep (TheVeilSetup.EnsureSnowfall); centred this far
+            // in front of the lens, its nearest flakes are 15 m off, where they still
+            // read as snow rather than as blots on the glass.
             if (winter && SnowFx != null && _camera != null)
             {
-                const float snowfallAhead = 36f;  // metres in front of the lens
-                const float snowfallScale = 1.8f; // times the pack's box
+                const float snowfallAhead = 40f; // metres in front of the lens
 
                 _snowfall = Instantiate(SnowFx, _camera.transform);
                 _snowfall.name = "Snowfall";
                 _snowfall.transform.localPosition = new Vector3(0f, 0f, snowfallAhead);
-                _snowfall.transform.localScale = Vector3.one * snowfallScale;
             }
 
             if (_hud != null) _hud.Run = _run;

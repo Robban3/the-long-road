@@ -1278,6 +1278,185 @@ namespace TheVeil.Editor
         }
 
         const string SnowFxPath = SyntyNaturePack + "/Prefabs/FX/FX_Snow_01.prefab";
+        const string SnowfallPath = WinterPrefabDir + "/Snowfall.prefab";
+        const string SnowflakeTexturePath = MaterialsDir + "/Snowflake.png";
+        const string SnowflakeMaterialPath = MaterialsDir + "/Snowflake.mat";
+
+        /// <summary>
+        /// The project's own snowfall, made from the pack's and then refitted for this camera.
+        ///
+        /// The pack's FX_Snow_01 draws nothing here. Its Snow_01 material clips at alpha 0.5
+        /// with no texture in any slot, and its flakes are three centimetres across — about
+        /// a fifth of a pixel from a camera 55 m off the ground. Scaled up on the pack's
+        /// material they turned into orange squares. So the effect is copied and given a
+        /// round, soft flake of the project's own, white, a size that reads from up here,
+        /// and a fall steady enough to look like weather rather than dust hanging in the air.
+        ///
+        /// The emitter box is laid out in the camera's frame, since LevelRunner hangs the
+        /// effect on the lens: 80 m across, 50 m up the screen and 50 m deep. LevelRunner
+        /// puts its centre 40 m ahead, so the nearest flake is 15 m off — any closer and it
+        /// fills a tenth of the screen.
+        ///
+        /// Rebuilt every time, like the snow twins, so a changed number here reaches the
+        /// asset.
+        /// </summary>
+        static GameObject EnsureSnowfall()
+        {
+            var source = One(SnowFxPath);
+            var material = EnsureSnowflakeMaterial();
+            if (source == null || material == null) return null;
+
+            MakeFolder(WinterPrefabDir);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(source);
+            try
+            {
+                PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely,
+                                                   InteractionMode.AutomatedAction);
+
+                var snow = instance.GetComponentInChildren<ParticleSystem>();
+                if (snow == null)
+                {
+                    Debug.LogWarning($"[The Veil] The pack's snow has no particle system: {SnowFxPath}");
+                    return null;
+                }
+
+                var main = snow.main;
+                // Big for snow, but the soft edge eats half of each one, and 0.07–0.14 m
+                // came out at three pixels: there, and not seen.
+                main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.35f);
+                main.startColor = new Color(1f, 1f, 1f, 0.9f);
+                main.startSpeed = 0f;
+                main.gravityModifier = 0f;
+                main.startLifetime = 5f;
+                main.maxParticles = 10000;
+                main.simulationSpace = ParticleSystemSimulationSpace.World;
+                main.scalingMode = ParticleSystemScalingMode.Shape;
+                main.prewarm = true;
+
+                var emission = snow.emission;
+                emission.rateOverTime = 2000f;
+
+                var shape = snow.shape;
+                shape.shapeType = ParticleSystemShapeType.Box;
+                shape.scale = new Vector3(80f, 50f, 50f);
+
+                // Down in the world, not down the screen: the camera looks down at 47
+                // degrees, and snow that fell along it would seem to rise off the ground.
+                var velocity = snow.velocityOverLifetime;
+                velocity.enabled = true;
+                velocity.space = ParticleSystemSimulationSpace.World;
+                velocity.x = new ParticleSystem.MinMaxCurve(-0.4f, 0.4f);
+                velocity.y = new ParticleSystem.MinMaxCurve(-3.5f, -2.5f);
+                velocity.z = new ParticleSystem.MinMaxCurve(-0.4f, 0.4f);
+
+                // The pack's own size and colour curves shrink the flakes to nothing and
+                // tint them; a short fade at each end is all that is kept.
+                var size = snow.sizeOverLifetime;
+                size.enabled = false;
+
+                var fade = new Gradient();
+                fade.SetKeys(
+                    new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                    new[]
+                    {
+                        new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.15f),
+                        new GradientAlphaKey(1f, 0.85f), new GradientAlphaKey(0f, 1f)
+                    });
+                var colour = snow.colorOverLifetime;
+                colour.enabled = true;
+                colour.color = fade;
+
+                var renderer = snow.GetComponent<ParticleSystemRenderer>();
+                renderer.renderMode = ParticleSystemRenderMode.Billboard;
+                renderer.sharedMaterial = material;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+
+                instance.name = "Snowfall";
+                return PrefabUtility.SaveAsPrefabAsset(instance, SnowfallPath);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>
+        /// A soft white disc on URP's unlit particle shader, alpha-blended. The texture is
+        /// drawn here rather than shipped: it is a radial falloff and nothing more.
+        /// </summary>
+        static Material EnsureSnowflakeMaterial()
+        {
+            var texture = EnsureSnowflakeTexture();
+
+            var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader == null)
+            {
+                Debug.LogWarning("[The Veil] URP's particle shader is missing, so winter has no snowfall.");
+                return null;
+            }
+
+            var material = AssetDatabase.LoadAssetAtPath<Material>(SnowflakeMaterialPath);
+            if (material == null)
+            {
+                material = new Material(shader) { name = "Snowflake" };
+                AssetDatabase.CreateAsset(material, SnowflakeMaterialPath);
+            }
+
+            material.shader = shader;
+            material.SetTexture("_BaseMap", texture);
+            material.SetColor("_BaseColor", Color.white);
+
+            // Transparent, alpha-blended, no depth write: what the inspector sets when
+            // Surface Type is switched to Transparent.
+            material.SetFloat("_Surface", 1f);
+            material.SetFloat("_Blend", 0f);
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (material.HasProperty("_SrcBlendAlpha"))
+                material.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            if (material.HasProperty("_DstBlendAlpha"))
+                material.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        static Texture2D EnsureSnowflakeTexture()
+        {
+            if (!File.Exists(SnowflakeTexturePath))
+            {
+                const int side = 64;
+                var texture = new Texture2D(side, side, TextureFormat.RGBA32, false);
+                float half = side * 0.5f;
+                for (int y = 0; y < side; y++)
+                    for (int x = 0; x < side; x++)
+                    {
+                        float dx = (x + 0.5f - half) / half, dy = (y + 0.5f - half) / half;
+                        float r = Mathf.Sqrt(dx * dx + dy * dy);
+                        float alpha = Mathf.Clamp01(1f - r);
+                        texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha * alpha * (3f - 2f * alpha)));
+                    }
+                File.WriteAllBytes(SnowflakeTexturePath, texture.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(texture);
+                AssetDatabase.ImportAsset(SnowflakeTexturePath);
+            }
+
+            if (AssetImporter.GetAtPath(SnowflakeTexturePath) is TextureImporter importer
+                && (!importer.alphaIsTransparency || importer.wrapMode != TextureWrapMode.Clamp))
+            {
+                importer.alphaIsTransparency = true;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(SnowflakeTexturePath);
+        }
 
         /// <summary>
         /// The water, and everything a winter chapter needs besides the forest.
@@ -1293,7 +1472,7 @@ namespace TheVeil.Editor
             FitWater(river: out runner.WaterMaterial, marsh: out runner.MarshWaterMaterial);
             runner.WinterDecor = LoadWinterDecor();
             runner.IceMaterial = EnsureIceMaterial();
-            runner.SnowFx = One(SnowFxPath);
+            runner.SnowFx = EnsureSnowfall();
         }
 
         static void FitWaterAndWinter(LevelPreview preview)
