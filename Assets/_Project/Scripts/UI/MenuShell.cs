@@ -27,6 +27,10 @@ namespace TheVeil.UI
 
         void Start()
         {
+            // The player's switches before anything can make a sound. The listener's
+            // volume outlives the scene, so this once covers the levels as well.
+            GameSettings.Apply();
+
             _canvas = Widgets.Screen("Menu", transform);
 
             // Its own layer, made before the screen so it is behind it, and rebuilt when
@@ -199,6 +203,7 @@ namespace TheVeil.UI
         }
 
         public void ShowTroops() => Show(TroopScreen.Build, Backdrops.Menu);
+        public void ShowSettings() => SettingsScreen.Open(this);
         public void ShowShop() => Show(ShopScreen.Build, Backdrops.Shop);
 
         public void Quit()

@@ -17,7 +17,7 @@ namespace TheVeil.UI
         public static void Build(MenuShell shell, RectTransform root)
         {
             var gear = Widgets.Chip("Settings", root, Theme.Gear,
-                () => shell.ShowStub(Loc.T("Settings"), Loc.T("Sound, language and graphics belong here.")));
+                () => shell.ShowSettings());
             gear.image.rectTransform.Place(new Vector2(1f, 1f),
                 new Vector2(-Widgets.Margin, -Widgets.Margin), new Vector2(96f, 96f));
 
@@ -66,7 +66,7 @@ namespace TheVeil.UI
                   () => shell.ShowStub(Loc.T("Achievements"), Loc.T("No achievements have been written yet.")));
 
             Entry(column, ref y, step, Loc.T("SETTINGS"), ButtonRole.Secondary,
-                  () => shell.ShowStub(Loc.T("Settings"), Loc.T("Sound, language and graphics belong here.")));
+                  () => shell.ShowSettings());
         }
 
         static void Entry(RectTransform column, ref float y, float step, string text,

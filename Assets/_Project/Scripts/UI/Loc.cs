@@ -111,7 +111,6 @@ namespace TheVeil.UI
             ["ACHIEVEMENTS"] = "BRAGDER",
             ["SETTINGS"] = "INSTÄLLNINGAR",
             ["Settings"] = "Inställningar",
-            ["Sound, language and graphics belong here."] = "Ljud, språk och grafik hör hemma här.",
             ["Upgrade"] = "Uppgradera",
             ["Troops are upgraded with silver in the middle of a mission. This is where the gold between missions is meant to be spent."]
                 = "Trupperna uppgraderas i dag med silver mitt i ett uppdrag. Här ska guldet mellan uppdragen spenderas.",
@@ -124,6 +123,17 @@ namespace TheVeil.UI
                 = "Dagliga uppdrag ska ge guld och ädelstenar. Ännu inte byggt.",
             ["LEADERBOARD"] = "TOPPLISTA",
             ["The leaderboard needs a server. Not built yet."] = "Topplistan kräver en server. Ännu inte byggd.",
+
+            // ---- settings ------------------------------------------------------------
+            ["LANGUAGE"] = "SPRÅK",
+            ["SOUND"] = "LJUD",
+            ["ON"] = "PÅ",
+            ["OFF"] = "AV",
+            ["PROGRESS"] = "FRAMSTEG",
+            ["RESET PROGRESS"] = "NOLLSTÄLL FRAMSTEG",
+            ["TAP AGAIN TO ERASE EVERYTHING"] = "TRYCK IGEN FÖR ATT RADERA ALLT",
+            ["Stars, gold and everything bought are gone for good."]
+                = "Stjärnor, guld och allt som köpts försvinner för gott.",
 
             // ---- roadmap -------------------------------------------------------------
             ["Choose a level"] = "Välj nivå",
