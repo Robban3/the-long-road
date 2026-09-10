@@ -593,6 +593,18 @@ namespace TheVeil.Editor
             var decor = LoadForestDecor();
             var swaps = WinterMaterialSwaps();
 
+            // Two sets that have no winter at all, snowed or not. Nothing grows up through
+            // snow, so the ground cover is buried; and nothing floats on ice, so the
+            // lilypads go. Both came through the first time — the pads and three
+            // mushrooms share the nature atlas, the atlas has a snow version, and "keep
+            // what got snow" kept a snowed lilypad lying on a frozen river.
+            //
+            // Emptied before the sets are snowed rather than after. Done after, every
+            // setup run made a snowed copy of each pad and mushroom and then threw it
+            // away, and the copies were left in the winter folder for nobody.
+            decor.GroundCover = new PropSet();
+            decor.Lilypads = new PropSet();
+
             foreach (var field in typeof(BiomeDecor).GetFields())
             {
                 if (field.FieldType != typeof(PropSet)) continue;
@@ -638,17 +650,37 @@ namespace TheVeil.Editor
             return new PropSet(set.ZUp, models.ToArray());
         }
 
-        /// <summary>The pack's own snow twin of a model, or the model itself if it has none.</summary>
+        /// <summary>
+        /// The pack's own snow twin of a model, or the model itself if it has none.
+        ///
+        /// Looked for in a Snow folder beside the original first, which is where the
+        /// knights pack keeps all but two of its hundred and twenty-one — Props/Snow,
+        /// Buildings/Snow, Environments/Snow. The first version looked only beside the
+        /// original and found none of them: every cart, tent, gravestone and house part in
+        /// the first winter was the summer one, and the only snow anywhere was on the
+        /// nature models, which get theirs by material. Beside the original is still
+        /// tried, for the two that do sit there.
+        /// </summary>
         static GameObject SnowTwinOf(GameObject model)
         {
             string path = AssetDatabase.GetAssetPath(model);
             if (string.IsNullOrEmpty(path)) return model;
 
+            string folder = System.IO.Path.GetDirectoryName(path)?.Replace('\\', '/');
+            string name = System.IO.Path.GetFileNameWithoutExtension(path);
             string extension = System.IO.Path.GetExtension(path);
-            string twinPath = path.Substring(0, path.Length - extension.Length) + "_Snow" + extension;
 
-            var twin = AssetDatabase.LoadAssetAtPath<GameObject>(twinPath);
-            return twin != null ? twin : model;
+            foreach (string candidate in new[]
+                     {
+                         $"{folder}/Snow/{name}_Snow{extension}",
+                         $"{folder}/{name}_Snow{extension}"
+                     })
+            {
+                var twin = AssetDatabase.LoadAssetAtPath<GameObject>(candidate);
+                if (twin != null) return twin;
+            }
+
+            return model;
         }
 
         /// <summary>

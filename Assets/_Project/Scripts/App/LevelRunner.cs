@@ -399,10 +399,10 @@ namespace TheVeil.App
                 const float snowfallAhead = 36f;  // metres in front of the lens
                 const float snowfallScale = 1.8f; // times the pack's box
 
-                var snow = Instantiate(SnowFx, _camera.transform);
-                snow.name = "Snowfall";
-                snow.transform.localPosition = new Vector3(0f, 0f, snowfallAhead);
-                snow.transform.localScale = Vector3.one * snowfallScale;
+                _snowfall = Instantiate(SnowFx, _camera.transform);
+                _snowfall.name = "Snowfall";
+                _snowfall.transform.localPosition = new Vector3(0f, 0f, snowfallAhead);
+                _snowfall.transform.localScale = Vector3.one * snowfallScale;
             }
 
             if (_hud != null) _hud.Run = _run;
@@ -601,9 +601,27 @@ namespace TheVeil.App
         /// Also runs outside play mode, so a level can be built and rendered from a
         /// headless editor session. Destroy is play-mode only, hence the split.
         /// </summary>
+        /// <summary>
+        /// The falling snow hung on the camera in a winter chapter, kept so it can be taken
+        /// down again. See Cleanup.
+        /// </summary>
+        GameObject _snowfall;
+
         void Cleanup()
         {
             _reportedStall = false;
+
+            // The snow hangs on the camera rather than under the level's own root, so taking
+            // the level down does not take the snow with it. Restart is the player's restart
+            // button as well as the editor's: without this, every restart of a winter level
+            // hung another snowfall beside the last — twice the snow, then three times — and
+            // restarting into a forest chapter left it snowing in summer.
+            if (_snowfall != null)
+            {
+                if (Application.isPlaying) Destroy(_snowfall);
+                else DestroyImmediate(_snowfall);
+                _snowfall = null;
+            }
 
             if (_markerRoot != null)
             {
