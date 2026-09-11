@@ -146,6 +146,29 @@ namespace TheVeil.Editor
 
         const string ArcherName = "ArmyArcher";
 
+        /// <summary>
+        /// The crossbowmen's controller: a crossbow held, levelled and loosed.
+        ///
+        /// Its clips live in <see cref="CrossbowClips"/> and nowhere else, and that is the
+        /// point of the folder. Match takes the first wanted name that is merely
+        /// *contained* in a clip's, and BowNames starts with "Bow" — which
+        /// "FireCrossBow" contains. Dropped in with the other borrowed clips, a crossbow
+        /// would have taken the bowmen's draw from them. Kept apart, it is asked for by
+        /// this controller alone; the walk and the death still come from the shared pool.
+        /// </summary>
+        public const string CrossbowController = OutputDir + "/" + CrossbowName + ".controller";
+
+        const string CrossbowName = "ArmyCrossbow";
+
+        /// <summary>A crossbow set from outside (Mixamo-style files), humanoid like the borrowed clips.</summary>
+        const string CrossbowClips = OutputDir + "/Crossbow";
+
+        /// <summary>What a crossbowman does when he fights: the shot, then anything like it.</summary>
+        static readonly string[] CrossbowNames = { "FireCrossBow", "Fire", "Shoot", "Crossbow" };
+
+        /// <summary>And standing: the crossbow held at rest rather than a soldier's empty hands.</summary>
+        static readonly string[] CrossbowIdleNames = { "IdleCrossBow" };
+
         /// <summary>Where to drop humanoid clips brought in from outside.</summary>
         // Anything here is tried before the packs, because the packs cannot supply what
         // is wanted. Every animated character in this project is a Quaternius rig, and
@@ -343,6 +366,10 @@ namespace TheVeil.Editor
             // what answers here is the folder rather than any file in it.
             int borrowed = MakeHumanoid(BorrowedClips);
 
+            // The crossbow set, humanoid too, but never in the pools above: see
+            // CrossbowController for why it has a folder of its own.
+            int crossbow = MakeHumanoid(CrossbowClips);
+
             string source = null;
             var refused = new List<string>();
 
@@ -460,6 +487,15 @@ namespace TheVeil.Editor
 
             BuildFromFolders(ArmyName, pools);
             BuildFromFolders(ArcherName, pools, BowNames);
+
+            // The crossbow's own clips first, so its shot and its stance win; the shared
+            // pools after, for the walk and the death a crossbow set does not have.
+            if (crossbow > 0)
+            {
+                var withCrossbow = new List<string> { CrossbowClips };
+                withCrossbow.AddRange(pools);
+                BuildFromFolders(CrossbowName, withCrossbow, CrossbowNames, CrossbowIdleNames);
+            }
 
             // The source's own models still play its own controller, under its own name.
             if (source != null) Build(source);
@@ -777,7 +813,8 @@ namespace TheVeil.Editor
         /// state it was downloaded for and the pack fills the rest.
         /// </summary>
         public static AnimatorController BuildFromFolders(string name, IList<string> folders,
-                                                          string[] prefer = null)
+                                                          string[] prefer = null,
+                                                          string[] preferIdle = null)
         {
             var clips = new List<AnimationClip>();
             var seen = new HashSet<string>();
@@ -821,16 +858,20 @@ namespace TheVeil.Editor
             // here lasts as long as something is in contact: the state is entered when
             // the group has a target and left when it has none, and what happens in
             // between is the clip repeating.
+            // And whichever attack and stance were asked for by name, which are the ones
+            // that will actually be played.
             if (Looped(Match(clips, IdleNames)) | Looped(Match(clips, WalkNames))
-                                                 | Looped(Match(clips, AttackNames)))
-                return BuildFromFolders(name, folders, prefer);
+                                                 | Looped(Match(clips, AttackNames))
+                                                 | Looped(prefer == null ? null : Match(clips, prefer))
+                                                 | Looped(preferIdle == null ? null : Match(clips, preferIdle)))
+                return BuildFromFolders(name, folders, prefer, preferIdle);
 
             var names = new List<string>();
             foreach (var clip in clips) names.Add(Label(clip));
 
             Debug.Log($"[The Veil] {clips.Count} clip(s) under {folder0}: {string.Join(", ", names)}");
 
-            return Assemble(name, $"{folder0} (folder)", clips, prefer);
+            return Assemble(name, $"{folder0} (folder)", clips, prefer, preferIdle);
         }
 
         /// <summary>Every clip under a folder, wherever in a file it lives.</summary>
@@ -939,9 +980,11 @@ namespace TheVeil.Editor
         /// gets exactly the controller it got before.
         /// </param>
         static AnimatorController Assemble(string name, string source, List<AnimationClip> clips,
-                                           string[] prefer = null)
+                                           string[] prefer = null, string[] preferIdle = null)
         {
-            var idle = Match(clips, IdleNames);
+            // A stance asked for by name first — a crossbowman stands holding his
+            // crossbow — and the ordinary idle when there is none.
+            var idle = (preferIdle == null ? null : Match(clips, preferIdle)) ?? Match(clips, IdleNames);
             var walk = Match(clips, WalkNames);
             var death = Match(clips, DeathNames);
 

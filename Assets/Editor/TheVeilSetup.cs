@@ -144,7 +144,7 @@ namespace TheVeil.Editor
         /// captain as somebody you would rather not meet on the road. At the camera
         /// distance this game uses, silhouette and colour are all that carry.
         /// </summary>
-        static VisualLibrary LoadModels()
+        internal static VisualLibrary LoadModels()
         {
             var library = new VisualLibrary
             {
@@ -173,7 +173,7 @@ namespace TheVeil.Editor
                 // On the bow's controller: a crossbow is spanned and loosed rather than
                 // drawn, but at forty-seven metres the difference is the weapon's shape,
                 // not the arm's.
-                Crossbowmen = Archer("MC_CrossbowMan_01"),
+                Crossbowmen = Crossbow("MC_CrossbowMan_01"),
 
                 // No mage in a medieval army pack, and that is not a gap to paper over
                 // with a knight. A robed figure with no helmet is the one silhouette
@@ -196,12 +196,16 @@ namespace TheVeil.Editor
                 // wrong of the things it could do — see the draught horse below.
                 Mounted = Army("MC_Cavalry_LightCavalry"),
 
-                // The three dearer horses, one model each in rising weight of armour: mail,
-                // a nobleman's trappings, and the lance with its pennon for the knights.
-                // They stand as still as the light cavalry does, for the same reason.
-                HeavyCavalry = Army("MC_Cavalry_HeavyCavalry"),
+                // The three dearer horses, each carrying more than the one below it: plate
+                // on the horse and nothing over it, then plate under the nobleman's
+                // chequered trapper, then the knights — the barded horse and a man in
+                // full plate and a closed helm. The pack's own MC_Cavalry put the dearest
+                // troop on a bare horse under a light rider, so the top of the ladder
+                // looked like its bottom. Two of the four are re-dressed here; see
+                // HeavyCavalryPrefab and KnightsPrefab. Their legs are HorseGait's.
+                HeavyCavalry = ArmyAt(HeavyCavalryPrefab() ?? $"{ArmyDir}/MC_Cavalry_HeavyCavalry.prefab"),
                 NobleCavalry = Army("MC_Cavalry_NobleCavalry"),
-                MountedKnights = Army("MC_Cavalry"),
+                MountedKnights = ArmyAt(KnightsPrefab() ?? $"{ArmyDir}/MC_Cavalry.prefab"),
 
                 // **The old horse, not the pack's.**
                 //
@@ -471,6 +475,183 @@ namespace TheVeil.Editor
         static ActorModel Archer(string name)
             => Actor($"{ArmyDir}/{name}.prefab", animator: AnimatorBuilder.ArcherController,
                      borrowed: true);
+
+        /// <summary>
+        /// A crossbowman, on the controller that levels a crossbow and looses it.
+        ///
+        /// The bowmen's controller until that one has been built — a crossbowman
+        /// drawing a bow is wrong, and one standing still in his bind pose is worse.
+        /// See AnimatorBuilder.CrossbowController.
+        /// </summary>
+        static ActorModel Crossbow(string name)
+        {
+            bool own = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(AnimatorBuilder.CrossbowController) != null;
+
+            return Actor($"{ArmyDir}/{name}.prefab",
+                         animator: own ? AnimatorBuilder.CrossbowController : AnimatorBuilder.ArcherController,
+                         borrowed: true);
+        }
+
+        /// <summary>An army-pack figure setup has saved somewhere of its own, on the soldiers' controller.</summary>
+        static ActorModel ArmyAt(string path)
+            => Actor(path, animator: AnimatorBuilder.ArmyController, borrowed: true);
+
+        /// <summary>Where setup keeps the cavalry it re-dresses out of the army pack's.</summary>
+        const string CavalryPrefabDir = "Assets/_Project/Prefabs/Cavalry";
+
+        public const string HeavyCavalryPath = CavalryPrefabDir + "/TheVeil_HeavyCavalry.prefab";
+        public const string KnightsPath = CavalryPrefabDir + "/TheVeil_Knights.prefab";
+
+        /// <summary>
+        /// The heavy cavalry with the cloth taken off its horse: plate and nothing over it.
+        ///
+        /// The pack dresses its heavy and its noble horse alike — plate under a trapper —
+        /// so two rungs of the ladder read as one. Iron without the cloth is the step
+        /// between the light horse's bare saddle and the nobleman's colours, and it is
+        /// the same horse file, only with its four trapper pieces switched off.
+        ///
+        /// Null, and the pack's own heavy cavalry used, when the pack has moved on and
+        /// there is no trapper left to take off.
+        /// </summary>
+        static string HeavyCavalryPrefab()
+        {
+            var source = One($"{ArmyDir}/MC_Cavalry_HeavyCavalry.prefab");
+            if (source == null) return null;
+
+            MakeFolder(CavalryPrefabDir);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(source);
+            try
+            {
+                PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely,
+                                                   InteractionMode.AutomatedAction);
+
+                int hidden = 0;
+                foreach (var part in instance.GetComponentsInChildren<Transform>(true))
+                {
+                    if (!part.name.StartsWith("HorseTrapper")) continue;
+                    part.gameObject.SetActive(false);
+                    hidden++;
+                }
+
+                if (hidden == 0)
+                {
+                    Debug.LogWarning("[The Veil] The heavy cavalry's horse has no trapper to take off; "
+                                     + "keeping the pack's own.");
+                    return null;
+                }
+
+                instance.name = "TheVeil_HeavyCavalry";
+                return PrefabUtility.SaveAsPrefabAsset(instance, HeavyCavalryPath) != null ? HeavyCavalryPath : null;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>
+        /// The knights: the barded horse, and on it Knight 02 — full plate, a closed helm.
+        ///
+        /// The pack has no such rider, only Knight 02 standing. So the heavy cavalry is
+        /// taken, horse, lance, pennon and shield, and its rider's body is exchanged:
+        /// Knight 02's three meshes are bound to the <b>seated rider's own bones</b>, name
+        /// for name. That is the whole trick, and it is why this rides rather than
+        /// stands — the skeleton underneath is still the one in the saddle, the one the
+        /// soldiers' controller animates and HorseGait holds down. The two share the
+        /// pack's rig, so every bone has its match; one that did not would be a man
+        /// torn in half, and that ships nothing rather than that.
+        ///
+        /// Looked for inside the rider only. The horse has a Main, a Middle, a Neck and a
+        /// Head of its own, and a knight bound to those would wear the horse's neck.
+        ///
+        /// The rider's old body is switched off and left where it was, first in the
+        /// hierarchy, because <see cref="AvatarFor"/> takes the avatar of the first body
+        /// it meets — so the knights keep exactly the avatar the heavy cavalry has.
+        /// </summary>
+        static string KnightsPrefab()
+        {
+            var source = One($"{ArmyDir}/MC_Cavalry_HeavyCavalry.prefab");
+            var knight = One($"{ArmyDir}/MC_Knight_02.prefab");
+            if (source == null || knight == null) return null;
+
+            MakeFolder(CavalryPrefabDir);
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(source);
+            var dresser = (GameObject)UnityEngine.Object.Instantiate(knight);
+            try
+            {
+                PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely,
+                                                   InteractionMode.AutomatedAction);
+
+                var rider = DescendantNamed(instance.transform, "MC_Knight_01");
+                if (rider == null)
+                {
+                    Debug.LogWarning("[The Veil] No rider called MC_Knight_01 on the heavy cavalry; "
+                                     + "the knights keep the pack's MC_Cavalry.");
+                    return null;
+                }
+
+                var bones = new Dictionary<string, Transform>();
+                foreach (var bone in rider.GetComponentsInChildren<Transform>(true))
+                    if (!bones.ContainsKey(bone.name)) bones[bone.name] = bone;
+
+                var oldBody = rider.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+
+                foreach (var piece in dresser.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    var mapped = new Transform[piece.bones.Length];
+                    for (int i = 0; i < mapped.Length; i++)
+                    {
+                        if (piece.bones[i] != null && bones.TryGetValue(piece.bones[i].name, out mapped[i])) continue;
+
+                        Debug.LogWarning($"[The Veil] Knight 02's {piece.name} is bound to a bone the rider "
+                                         + $"has not got ({piece.bones[i]?.name}); the knights keep the pack's MC_Cavalry.");
+                        return null;
+                    }
+
+                    var part = new GameObject("Knight02_" + piece.name);
+                    part.transform.SetParent(rider, false);
+
+                    var skin = part.AddComponent<SkinnedMeshRenderer>();
+                    skin.sharedMesh = piece.sharedMesh;
+                    skin.sharedMaterials = piece.sharedMaterials;
+                    skin.bones = mapped;
+                    skin.rootBone = piece.rootBone != null && bones.TryGetValue(piece.rootBone.name, out var root)
+                        ? root : mapped[0];
+                    skin.localBounds = piece.localBounds;
+                    skin.shadowCastingMode = piece.shadowCastingMode;
+                }
+
+                // Off rather than gone: see the note on AvatarFor above. The mesh objects
+                // are leaves; a renderer that sat on a bone is only disabled, since
+                // switching its object off would take the bones below it too.
+                foreach (var skin in oldBody)
+                {
+                    if (skin.transform.childCount == 0) skin.gameObject.SetActive(false);
+                    else skin.enabled = false;
+                }
+
+                instance.name = "TheVeil_Knights";
+                return PrefabUtility.SaveAsPrefabAsset(instance, KnightsPath) != null ? KnightsPath : null;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+                UnityEngine.Object.DestroyImmediate(dresser);
+            }
+        }
+
+        static Transform DescendantNamed(Transform root, string name)
+        {
+            if (root.name == name) return root;
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var found = DescendantNamed(root.GetChild(i), name);
+                if (found != null) return found;
+            }
+
+            return null;
+        }
 
         static ActorModel Actor(string path, string weaponPath = null, float weaponLength = 0f,
                                 string[] hide = null, string[] unsized = null,
