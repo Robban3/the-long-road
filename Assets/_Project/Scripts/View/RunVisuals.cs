@@ -84,6 +84,12 @@ namespace TheVeil.View
         /// <summary>How far each model's origin sits above its own feet, after scaling.</summary>
         readonly Dictionary<Transform, float> _standing = new Dictionary<Transform, float>();
 
+        /// <summary>
+        /// The army pack's horses, whose legs are moved in code because the pack has no
+        /// clips for them. Keyed like the animators.
+        /// </summary>
+        readonly Dictionary<Transform, HorseGait> _gaits = new Dictionary<Transform, HorseGait>();
+
         static readonly int SpeedParam = Animator.StringToHash("Speed");
         static readonly int AttackParam = Animator.StringToHash("Attack");
         static readonly int DeadParam = Animator.StringToHash("Dead");
@@ -95,6 +101,10 @@ namespace TheVeil.View
         /// </summary>
         void Animate(Transform marker, float speed, bool attacking, bool dead)
         {
+            // The horse under a rider steps to the same pace. See HorseGait.
+            if (marker != null && _gaits.TryGetValue(marker, out var gait) && gait != null)
+                gait.Speed = dead ? 0f : speed;
+
             if (marker == null || !_animators.TryGetValue(marker, out var animator)) return;
             if (animator == null) return;
 
@@ -1526,6 +1536,14 @@ namespace TheVeil.View
         {
             var marker = Spawn(model.Prefab, fallback, name, color, targetHeight, parent,
                                model.Hide, model.Unsized, byWidth);
+
+            // Before the animator, which a horse may not have: the gait is there for the
+            // legs no clip moves, and finds nothing to hold on anything that is not one.
+            if (model.Prefab != null)
+            {
+                var gait = HorseGait.Fit(marker);
+                if (gait != null) _gaits[marker] = gait;
+            }
 
             if (model.Prefab == null || model.Animator == null) return marker;
 
