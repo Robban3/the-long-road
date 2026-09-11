@@ -46,6 +46,21 @@ namespace TheVeil.UI
         /// medallion off the right edge, so this is as large as the table allows.
         /// </summary>
         const float Zoom = 1.7f;
+
+        /// <summary>
+        /// The winter painting's zoom, and why it is not the same.
+        ///
+        /// Its road runs out to the edges — the start at 0.84 of the width, the last
+        /// levels at 0.09 to 0.17 — where 1.7 crops a fifth off each side and would hide
+        /// four medallions. The picture is the same shape as chapter one's, so 1.2 shows
+        /// 0.08 to 0.92 of the width and still leaves some 210 units between medallions
+        /// up the page against the 194 one takes.
+        /// </summary>
+        const float WinterZoom = 1.2f;
+
+        /// <summary>The zoom and the medallion places of the painting on screen. See Path.</summary>
+        static float _zoom = Zoom;
+        static Vector2[] _waypoints;
         const float Step = 260f;
         const float Swing = 300f;
         const float TopPad = 120f;
@@ -193,6 +208,15 @@ namespace TheVeil.UI
 
             var painting = Painting();
 
+            // The places belong to the painting, not to the chapter: chapter two draws its
+            // own winter picture when there is one and falls back to chapter one's, and the
+            // medallions have to follow whichever road is actually on screen.
+            // By reference rather than by name: a picture read in as a plain texture comes
+            // back as a sprite with no name at all.
+            bool winter = _shown == 2 && painting != null && painting != Backdrops.Find(Backdrops.Roadmap);
+            _waypoints = winter ? WinterWaypoints : Waypoints;
+            _zoom = winter ? WinterZoom : Zoom;
+
             Debug.Log(painting != null
                 ? $"[The Veil] Roadmap painting {painting.rect.width:0}×{painting.rect.height:0} px "
                   + $"for chapter {_shown}."
@@ -209,7 +233,7 @@ namespace TheVeil.UI
                 content.anchorMin = new Vector2(0.5f, 1f);
                 content.anchorMax = new Vector2(0.5f, 1f);
                 content.anchoredPosition = Vector2.zero;
-                content.sizeDelta = new Vector2(BoardWidth * Zoom, 0f);
+                content.sizeDelta = new Vector2(BoardWidth * _zoom, 0f);
 
                 // The fitter reads that width and works the height out from it every
                 // layout pass, so the painting is never stretched — and it has to be the
@@ -359,6 +383,33 @@ namespace TheVeil.UI
             // two stand side by side, the tenth to the right, which is the way the
             // road bends towards the gate anyway.
             new Vector2(0.733f, 0.145f)    // 10 — the castle road
+        };
+
+        /// <summary>
+        /// Where each level sits on chapter two's winter painting, read off the road the
+        /// same way as <see cref="Waypoints"/>: level one where the road leaves the bottom
+        /// of the picture, the fifth on the stone bridge, the ninth by the farmstead and
+        /// the tenth where the road runs out of the top left.
+        ///
+        /// Read from the painting at its own size, so the pairs are a first placing; the
+        /// numbers under each medallion in the editor are there to move one that has
+        /// landed off the road.
+        /// </summary>
+        static readonly Vector2[] WinterWaypoints =
+        {
+            new Vector2(0.80f, 0.94f),   // 1  — where the road comes in, bottom right
+            new Vector2(0.66f, 0.845f),  // 2  — below the raiders' camp
+            new Vector2(0.66f, 0.74f),   // 3  — the bend above it
+            new Vector2(0.77f, 0.64f),   // 4  — climbing to the river
+            new Vector2(0.67f, 0.545f),  // 5  — the stone bridge
+            new Vector2(0.46f, 0.49f),   // 6  — west of the bridge
+            new Vector2(0.24f, 0.40f),   // 7  — the S-bend
+            new Vector2(0.26f, 0.30f),   // 8  — through the pines
+            // The last two sit a little east of the road: a medallion is a tenth of the
+            // painting wide and the screen stops at 0.083, so any further west and the
+            // edge would take a bite out of it. The ring still covers the road.
+            new Vector2(0.19f, 0.20f),   // 9  — by the farmstead
+            new Vector2(0.19f, 0.09f)    // 10 — where the road runs out, top left
         };
 
         /// <summary>
@@ -602,7 +653,8 @@ namespace TheVeil.UI
         /// </summary>
         static void Pin(RectTransform medallion, int level)
         {
-            var at = Waypoints[Mathf.Clamp(level - 1, 0, Waypoints.Length - 1)];
+            var places = _waypoints ?? Waypoints;
+            var at = places[Mathf.Clamp(level - 1, 0, places.Length - 1)];
             var anchor = new Vector2(at.x, 1f - at.y);
 
             medallion.anchorMin = anchor;
@@ -616,7 +668,8 @@ namespace TheVeil.UI
         static void Coordinate(Transform medallion, int level)
         {
 #if UNITY_EDITOR
-            var at = Waypoints[Mathf.Clamp(level - 1, 0, Waypoints.Length - 1)];
+            var places = _waypoints ?? Waypoints;
+            var at = places[Mathf.Clamp(level - 1, 0, places.Length - 1)];
 
             var label = Widgets.Label("At", medallion, $"{at.x:F3}, {at.y:F3}",
                                       Widgets.SmallSize - 10, new Color(1f, 0.9f, 0.6f, 0.7f));
