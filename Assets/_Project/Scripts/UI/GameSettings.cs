@@ -29,6 +29,27 @@ namespace TheVeil.UI
             }
         }
 
+        const string DemoKey = "theveil.demo";
+
+        /// <summary>
+        /// Every chapter and level open, for showing the game (see Campaign.OpenAll).
+        /// Offered only where <see cref="DemoAvailable"/> says, and read as off anywhere
+        /// else, so a store build can never have it on.
+        /// </summary>
+        public static bool Demo
+        {
+            get => DemoAvailable && PlayerPrefs.GetInt(DemoKey, 0) != 0;
+            set
+            {
+                PlayerPrefs.SetInt(DemoKey, value ? 1 : 0);
+                PlayerPrefs.Save();
+                Session.Campaign.OpenAll = Demo;
+            }
+        }
+
+        /// <summary>The editor and development builds: where somebody is showing the game.</summary>
+        public static bool DemoAvailable => Debug.isDebugBuild;
+
         /// <summary>
         /// Puts the switches into effect. The listener's volume is global and outlives a
         /// scene load, so the menu applying it once as it opens covers the whole session.

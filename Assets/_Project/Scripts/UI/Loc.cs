@@ -119,6 +119,7 @@ namespace TheVeil.UI
             ["ON"] = "PÅ",
             ["OFF"] = "AV",
             ["PROGRESS"] = "FRAMSTEG",
+            ["DEMO: EVERY CHAPTER AND LEVEL OPEN"] = "DEMO: ALLA KAPITEL OCH NIVÅER ÖPPNA",
             ["RESET PROGRESS"] = "NOLLSTÄLL FRAMSTEG",
             ["TAP AGAIN TO ERASE EVERYTHING"] = "TRYCK IGEN FÖR ATT RADERA ALLT",
             ["Stars, gold and everything bought are gone for good."]

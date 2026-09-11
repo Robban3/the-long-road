@@ -51,6 +51,16 @@ namespace TheVeil.UI
                  Loc.T("ON"), GameSettings.Sound, () => { GameSettings.Sound = true; shell.Show(Build); },
                  Loc.T("OFF"), !GameSettings.Sound, () => { GameSettings.Sound = false; shell.Show(Build); });
 
+            // Only where somebody is showing the game: the editor and development builds.
+            if (GameSettings.DemoAvailable)
+            {
+                Heading(root, ref y, Loc.T("DEMO: EVERY CHAPTER AND LEVEL OPEN"));
+
+                Pair(shell, root, ref y,
+                     Loc.T("ON"), GameSettings.Demo, () => { GameSettings.Demo = true; shell.Show(Build); },
+                     Loc.T("OFF"), !GameSettings.Demo, () => { GameSettings.Demo = false; shell.Show(Build); });
+            }
+
             Heading(root, ref y, Loc.T("PROGRESS"));
 
             // Asked twice, as Session.Wipe promises. The second press is a different button

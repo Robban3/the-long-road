@@ -59,7 +59,12 @@ namespace TheVeil.UI
         {
             get
             {
-                if (_campaign == null) _campaign = Campaign.Load(Carried());
+                if (_campaign == null)
+                {
+                    _campaign = Campaign.Load(Carried());
+                    _campaign.OpenAll = GameSettings.Demo;
+                }
+
                 return _campaign;
             }
         }
@@ -235,7 +240,7 @@ namespace TheVeil.UI
         /// <summary>Wipes the save. Reachable from Settings, and asked twice before it fires.</summary>
         public static void Wipe()
         {
-            _campaign = new Campaign();
+            _campaign = new Campaign { OpenAll = GameSettings.Demo };
             PlayerPrefs.DeleteKey(SaveKey);
 
             // And every old one. A wipe that leaves any of them behind would be undone by

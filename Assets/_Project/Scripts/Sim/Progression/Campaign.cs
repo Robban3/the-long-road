@@ -70,6 +70,15 @@ namespace TheVeil.Sim
 
         public int HighestChapter { get; private set; } = 1;
 
+        /// <summary>
+        /// Every chapter and every level open, for showing the game rather than playing it.
+        ///
+        /// A demo has to reach the snow without anybody earning twenty stars in chapter one
+        /// first. Not saved: it is a switch on the device, not a fact about the campaign,
+        /// and a save written during a demo must not open the gates for good.
+        /// </summary>
+        public bool OpenAll { get; set; }
+
         static int Key(int chapter, int level) => chapter * 100 + level;
 
         /// <summary>Best stars ever scored on this level, 0 if it has never been beaten.</summary>
@@ -104,7 +113,7 @@ namespace TheVeil.Sim
         /// <see cref="StarsToOpenNextChapter"/>.
         /// </summary>
         public bool ChapterOpen(int chapter)
-            => chapter <= 1 || StarsIn(chapter - 1) >= StarsToOpenNextChapter;
+            => OpenAll || chapter <= 1 || StarsIn(chapter - 1) >= StarsToOpenNextChapter;
 
         /// <summary>
         /// Whether this level can be played.
@@ -116,6 +125,7 @@ namespace TheVeil.Sim
         public bool Unlocked(int chapter, int level)
         {
             if (level < 1 || level > LevelsPerChapter) return false;
+            if (OpenAll) return true;
             if (!ChapterOpen(chapter)) return false;
 
             return level == 1 || Cleared(chapter, level - 1);
