@@ -95,6 +95,16 @@ namespace TheVeil.Sim
         /// <summary>Whether the level has been finished at least once. Cleared levels stay replayable.</summary>
         public bool Cleared(int chapter, int level) => Stars(chapter, level) > 0;
 
+        /// <summary>Levels finished at least once, across every chapter.</summary>
+        public int LevelsCleared => _stars.Count;
+
+        /// <summary>
+        /// Whether a troop may be brought yet: once enough levels are behind the player
+        /// (see TroopTable.LevelsToUnlock), or always in a demo.
+        /// </summary>
+        public bool TroopOpen(TroopKind kind)
+            => OpenAll || LevelsCleared >= TroopTable.LevelsToUnlock(kind);
+
         /// <summary>Stars collected in one chapter, out of <see cref="LevelsPerChapter"/> × 3.</summary>
         public int StarsIn(int chapter)
         {

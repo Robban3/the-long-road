@@ -225,8 +225,12 @@ namespace TheVeil.UI
                                         new Vector2(Widgets.SafeWidth, 40f));
             y -= 60f;
 
+            // Three chips a row, as many rows as there are troops — thirteen now, which
+            // is five rows where nine fitted in three.
+            int rows = (TroopTable.All.Length + 2) / 3;
+
             var picker = Widgets.Node("Picker", content);
-            picker.Place(new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(Widgets.SafeWidth, 190f));
+            picker.Place(new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(Widgets.SafeWidth, rows * 66f));
 
             float x = 0f, row = 0f;
             foreach (var kind in TroopTable.All)
@@ -245,7 +249,7 @@ namespace TheVeil.UI
                 if (x + 268f > Widgets.SafeWidth) { x = 0f; row -= 66f; }
             }
 
-            y -= 210f;
+            y -= rows * 66f + 12f;
 
             foreach (var track in TroopBoonTable.Tracks)
             {
@@ -270,7 +274,7 @@ namespace TheVeil.UI
             if (!TroopBoonTable.Sells(_troop, UpgradeTrack.Special))
             {
                 var note = Widgets.Label("NoRange", content,
-                    Loc.F("{0} have no reach to buy — only archers and mages shoot from afar.",
+                    Loc.F("{0} have no reach to buy — only bows, crossbows and staves shoot from afar.",
                           Names.Troop(_troop)),
                     Widgets.SmallSize - 6, Theme.Dim);
 

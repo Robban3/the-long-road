@@ -24,6 +24,10 @@ namespace TheVeil.UI
                 case TroopKind.Shieldbearer: return Loc.T("Shieldbearers");
                 case TroopKind.Priest: return Loc.T("Priest");
                 case TroopKind.Engineer: return Loc.T("Engineer");
+                case TroopKind.Crossbowmen: return Loc.T("Crossbowmen");
+                case TroopKind.HeavyCavalry: return Loc.T("Heavy Cavalry");
+                case TroopKind.NobleCavalry: return Loc.T("Noble Cavalry");
+                case TroopKind.Knights: return Loc.T("Knights");
                 default: return kind.ToString();
             }
         }
@@ -41,6 +45,10 @@ namespace TheVeil.UI
                 case TroopKind.Scout: return Loc.T("SCOUT");
                 case TroopKind.Shieldbearer: return Loc.T("SHIELD");
                 case TroopKind.Priest: return Loc.T("PRIEST");
+                case TroopKind.Crossbowmen: return Loc.T("CROSSBOW");
+                case TroopKind.HeavyCavalry: return Loc.T("HEAVY CAV.");
+                case TroopKind.NobleCavalry: return Loc.T("NOBLE CAV.");
+                case TroopKind.Knights: return Loc.T("KNIGHTS");
                 default: return Loc.T("ENGINEER");
             }
         }

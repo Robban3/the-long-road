@@ -14,7 +14,21 @@ namespace TheVeil.Sim
         Scout = 5,
         Shieldbearer = 6,
         Priest = 7,
-        Engineer = 8
+        Engineer = 8,
+
+        // Appended, never reordered: the save keys permanent troop levels by this number.
+
+        /// <summary>Bows' harder-hitting, dearer cousins. Opened by levels cleared.</summary>
+        Crossbowmen = 9,
+
+        /// <summary>
+        /// The three mounted tiers above plain cavalry, each dearer, tougher and harder
+        /// hitting than the last, and each opened by levels cleared. All of them charge
+        /// like cavalry — see <see cref="TroopTable.IsMounted"/>.
+        /// </summary>
+        HeavyCavalry = 10,
+        NobleCavalry = 11,
+        Knights = 12
     }
 
     /// <summary>
@@ -55,21 +69,35 @@ namespace TheVeil.Sim
     public static class TroopTable
     {
         // Indexed by (int)TroopKind.
-        static readonly int[] _cost = { 3, 3, 4, 5, 6, 2, 4, 5, 4 };
-        static readonly int[] _models = { 4, 4, 3, 3, 1, 2, 3, 1, 2 };
-        static readonly float[] _hpPerModel = { 120f, 150f, 70f, 180f, 90f, 60f, 220f, 80f, 90f };
-        static readonly float[] _dps = { 18f, 26f, 22f, 34f, 40f, 0f, 12f, 0f, 8f };
-        static readonly float[] _range = { 2.5f, 1.8f, 22f, 2.2f, 18f, 0f, 1.8f, 12f, 8f };
-        static readonly float[] _sight = { 12f, 12f, 18f, 16f, 14f, 34f, 12f, 12f, 14f };
+        //                                 spear sword bow  cav  mage scout shld prst eng  xbow heavy noble knight
+        static readonly int[] _cost =        { 3,   3,   4,   5,   6,   2,    4,   5,   4,   5,   7,    8,    10 };
+        static readonly int[] _models =      { 4,   4,   3,   3,   1,   2,    3,   1,   2,   3,   3,    3,    3 };
+        static readonly float[] _hpPerModel = { 120f, 150f, 70f, 180f, 90f, 60f, 220f, 80f, 90f, 80f, 240f, 260f, 320f };
+        static readonly float[] _dps =        { 18f, 26f, 22f, 34f, 40f, 0f, 12f, 0f, 8f, 32f, 44f, 52f, 60f };
+        static readonly float[] _range =      { 2.5f, 1.8f, 22f, 2.2f, 18f, 0f, 1.8f, 12f, 8f, 20f, 2.2f, 2.2f, 2.4f };
+        static readonly float[] _sight =      { 12f, 12f, 18f, 16f, 14f, 34f, 12f, 12f, 14f, 16f, 16f, 16f, 16f };
 
-        /// <summary>Fraction of incoming damage ignored. The shieldbearer's whole purpose.</summary>
-        static readonly float[] _damageReduction = { 0f, 0f, 0f, 0f, 0f, 0f, 0.40f, 0f, 0f };
+        /// <summary>
+        /// Fraction of incoming damage ignored. The shieldbearer's whole purpose — and the
+        /// better half of what a dearer horse buys: mail, then plate, then barding.
+        /// </summary>
+        static readonly float[] _damageReduction = { 0f, 0f, 0f, 0f, 0f, 0f, 0.40f, 0f, 0f, 0f, 0.15f, 0.20f, 0.25f };
 
         /// <summary>Healing per second applied to the most wounded troop in reach.</summary>
-        static readonly float[] _healPerSecond = { 0f, 0f, 0f, 0f, 0f, 0f, 0f, 15f, 0f };
+        static readonly float[] _healPerSecond = { 0f, 0f, 0f, 0f, 0f, 0f, 0f, 15f, 0f, 0f, 0f, 0f, 0f };
 
         /// <summary>Extra range at which this troop notices traps.</summary>
-        static readonly float[] _trapSight = { 0f, 0f, 0f, 0f, 0f, 10f, 0f, 0f, 8f };
+        static readonly float[] _trapSight = { 0f, 0f, 0f, 0f, 0f, 10f, 0f, 0f, 8f, 0f, 0f, 0f, 0f };
+
+        /// <summary>
+        /// Levels cleared before a troop may be brought, anywhere in the campaign.
+        ///
+        /// The newer troops are earned rather than handed out: the crossbow once the
+        /// player has some road behind them, and each heavier horse a chapter's worth of
+        /// levels after the last. Counted by levels cleared rather than stars, so going
+        /// back for a third star is its own reward and not a toll gate.
+        /// </summary>
+        static readonly int[] _levelsToUnlock = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 10, 15, 20 };
 
         public static int Cost(TroopKind k) => _cost[(int)k];
         public static int Models(TroopKind k) => _models[(int)k];
@@ -81,9 +109,20 @@ namespace TheVeil.Sim
         public static float DamageReduction(TroopKind k) => _damageReduction[(int)k];
         public static float HealPerSecond(TroopKind k) => _healPerSecond[(int)k];
         public static float TrapSight(TroopKind k) => _trapSight[(int)k];
+        public static int LevelsToUnlock(TroopKind k) => _levelsToUnlock[(int)k];
 
         /// <summary>True for troops whose special upgrade buys reach, and is priced accordingly.</summary>
-        public static bool HasRangedSpecial(TroopKind k) => k == TroopKind.Archers || k == TroopKind.Mage;
+        public static bool HasRangedSpecial(TroopKind k)
+            => k == TroopKind.Archers || k == TroopKind.Mage || k == TroopKind.Crossbowmen;
+
+        /// <summary>
+        /// Troops on horseback. They share the charge and its limits — strong on open
+        /// ground, bogged down in a fen, blind to a charge among trees — and the rider's
+        /// height; what separates the tiers is the price and what it buys.
+        /// </summary>
+        public static bool IsMounted(TroopKind k)
+            => k == TroopKind.Cavalry || k == TroopKind.HeavyCavalry
+               || k == TroopKind.NobleCavalry || k == TroopKind.Knights;
 
         public static bool CanDisarmTraps(TroopKind k) => k == TroopKind.Engineer;
 
@@ -111,7 +150,8 @@ namespace TheVeil.Sim
         {
             TroopKind.Spearmen, TroopKind.Swordsmen, TroopKind.Archers, TroopKind.Cavalry,
             TroopKind.Mage, TroopKind.Scout, TroopKind.Shieldbearer, TroopKind.Priest,
-            TroopKind.Engineer
+            TroopKind.Engineer, TroopKind.Crossbowmen,
+            TroopKind.HeavyCavalry, TroopKind.NobleCavalry, TroopKind.Knights
         };
 
         /// <summary>
@@ -124,27 +164,29 @@ namespace TheVeil.Sim
         /// </summary>
         public static float TerrainDamageMultiplier(TroopKind kind, TerrainType terrain)
         {
-            switch (kind)
+            // Every horse, whatever it cost: a destrier in plate gets no more room to
+            // charge among trees than a hobbler does.
+            if (IsMounted(kind))
             {
-                case TroopKind.Cavalry:
-                    if (terrain == TerrainType.Forest) return 0.5f;
-                    if (terrain == TerrainType.Marsh) return 0.3f;
-                    if (terrain == TerrainType.Plains) return 1.25f;
-                    return 1f;
-
-                case TroopKind.Archers:
-                    if (terrain == TerrainType.Forest) return 0.7f;
-                    return 1f;
-
-                default:
-                    return 1f;
+                if (terrain == TerrainType.Forest) return 0.5f;
+                if (terrain == TerrainType.Marsh) return 0.3f;
+                if (terrain == TerrainType.Plains) return 1.25f;
+                return 1f;
             }
+
+            // A crossbow needs the same clear line a bow does.
+            if (kind == TroopKind.Archers || kind == TroopKind.Crossbowmen)
+                return terrain == TerrainType.Forest ? 0.7f : 1f;
+
+            return 1f;
         }
 
         /// <summary>Reach multiplier for terrain. Dense cover shortens a bowshot badly.</summary>
         public static float TerrainRangeMultiplier(TroopKind kind, TerrainType terrain)
         {
-            if (kind != TroopKind.Archers && kind != TroopKind.Mage) return 1f;
+            if (kind != TroopKind.Archers && kind != TroopKind.Mage && kind != TroopKind.Crossbowmen)
+                return 1f;
+
             return terrain == TerrainType.Forest ? 0.6f : 1f;
         }
 

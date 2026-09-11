@@ -170,6 +170,11 @@ namespace TheVeil.Editor
 
                 Archers = Archer("MC_Archer_01"),
 
+                // On the bow's controller: a crossbow is spanned and loosed rather than
+                // drawn, but at forty-seven metres the difference is the weapon's shape,
+                // not the arm's.
+                Crossbowmen = Archer("MC_CrossbowMan_01"),
+
                 // No mage in a medieval army pack, and that is not a gap to paper over
                 // with a knight. A robed figure with no helmet is the one silhouette
                 // here that is unmistakably not a soldier, and the nobles are the only
@@ -190,6 +195,13 @@ namespace TheVeil.Editor
                 // than as two things to assemble. It stands still, and that is the least
                 // wrong of the things it could do — see the draught horse below.
                 Mounted = Army("MC_Cavalry_LightCavalry"),
+
+                // The three dearer horses, one model each in rising weight of armour: mail,
+                // a nobleman's trappings, and the lance with its pennon for the knights.
+                // They stand as still as the light cavalry does, for the same reason.
+                HeavyCavalry = Army("MC_Cavalry_HeavyCavalry"),
+                NobleCavalry = Army("MC_Cavalry_NobleCavalry"),
+                MountedKnights = Army("MC_Cavalry"),
 
                 // **The old horse, not the pack's.**
                 //
@@ -365,7 +377,10 @@ namespace TheVeil.Editor
                 // The one arrow in either pack. PolygonKnights ships swords, shields and
                 // polearms and no ammunition at all, which is worth knowing before
                 // looking for it there.
-                Arrow = One($"{SyntyNatureDir}/Props/SM_Prop_Arrow_01.prefab")
+                Arrow = One($"{SyntyNatureDir}/Props/SM_Prop_Arrow_01.prefab"),
+
+                // The army pack does have ammunition after all: the crossbow's quarrel.
+                Bolt = One("Assets/Stylized_Medieval_Army_Pack/Prefabs - Weapons/Bolt.prefab")
             };
 
             ReportFactions(library);

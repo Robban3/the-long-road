@@ -266,10 +266,10 @@ namespace TheVeil.UI
         {
             Widgets.Scrim("Scrim", root, 0.7f);
 
-            // Tall enough for all nine troops above the cancel button, now that the scout
-            // is chosen for a post of the line like the other eight.
+            // Tall enough for all twelve troops a post can take above the cancel button —
+            // the crossbow and the three heavier horses among them, locked or not.
             var panel = Widgets.Panel("Picker", root, Theme.Frame, Color.white);
-            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Widgets.SafeWidth, 1300f));
+            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(Widgets.SafeWidth, 1500f));
 
             var ribbon = Widgets.Ribbon("Ribbon", panel.transform, Names.Post(_picking));
             ribbon.transform.parent.GetComponent<RectTransform>()
@@ -283,7 +283,11 @@ namespace TheVeil.UI
                 if (TroopTable.Scouts(kind)) continue;
 
                 int cost = TroopTable.Cost(kind);
-                bool choosable = cost <= _squad.PointsRemaining;
+
+                // Shown while locked, greyed and saying how far off it is, so the player
+                // knows what the road ahead is going to give them.
+                bool open = Session.Campaign.TroopOpen(kind);
+                bool choosable = open && cost <= _squad.PointsRemaining;
                 var chosen = kind;
 
                 var row = Widgets.Plate($"Pick{kind}", panel.transform,
@@ -299,13 +303,17 @@ namespace TheVeil.UI
                     });
 
                 row.image.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y),
-                                              new Vector2(Widgets.SafeWidth - 100f, 100f));
+                                              new Vector2(Widgets.SafeWidth - 100f, 92f));
 
-                var role = Widgets.Label("Role", row.image.transform, Role(kind),
+                string note = open
+                    ? Role(kind)
+                    : Loc.F("opens after {0} cleared levels", TroopTable.LevelsToUnlock(kind));
+
+                var role = Widgets.Label("Role", row.image.transform, note,
                                          Widgets.SmallSize - 8, Theme.Muted, TextAnchor.MiddleRight);
                 role.rectTransform.Fill(24f, 0f, 24f, 0f);
 
-                y -= 112f;
+                y -= 100f;
             }
 
             var close = Widgets.Plate("Close", panel.transform, Loc.T("CANCEL"), ButtonRole.Primary,
@@ -388,6 +396,10 @@ namespace TheVeil.UI
                 case TroopKind.Shieldbearer: return Loc.T("takes 40 % less damage");
                 case TroopKind.Priest: return Loc.T("heals the most wounded");
                 case TroopKind.Engineer: return Loc.T("disarms traps");
+                case TroopKind.Crossbowmen: return Loc.T("hits harder than a bow, 20 m");
+                case TroopKind.HeavyCavalry: return Loc.T("mailed horse, 15 % less damage");
+                case TroopKind.NobleCavalry: return Loc.T("hits harder, 20 % less damage");
+                case TroopKind.Knights: return Loc.T("the heaviest charge, 25 % less damage");
                 default: return "";
             }
         }

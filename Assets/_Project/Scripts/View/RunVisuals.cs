@@ -57,6 +57,9 @@ namespace TheVeil.View
             new Dictionary<TroopGroup, RangeRing>();
         readonly Dictionary<TroopGroup, float> _reload = new Dictionary<TroopGroup, float>();
         Volley _volley;
+
+        /// <summary>The crossbows' own volley, loosing quarrels rather than arrows.</summary>
+        Volley _bolts;
         Material _ringMaterial;
 
         readonly Dictionary<TroopGroup, List<Transform>> _troops =
@@ -317,6 +320,7 @@ namespace TheVeil.View
             }
 
             _volley = new Volley(_root, Library.Arrow, RingMaterial());
+            _bolts = new Volley(_root, Library.Bolt != null ? Library.Bolt : Library.Arrow, RingMaterial());
 
             ReportCast(run);
         }
@@ -841,6 +845,7 @@ namespace TheVeil.View
             if (_volley == null || run?.Squad == null) return;
 
             _volley.Advance(deltaTime);
+            _bolts?.Advance(deltaTime);
 
             var terrain = run.Caravan.CurrentTerrain;
 
@@ -887,12 +892,15 @@ namespace TheVeil.View
         /// </summary>
         void Volleys(TroopGroup group, Vector3 to)
         {
+            // Quarrels from the crossbows, arrows from everybody else.
+            var volley = group.Kind == TroopKind.Crossbowmen && _bolts != null ? _bolts : _volley;
+
             if (!_troops.TryGetValue(group, out var figures) || figures == null)
             {
                 var alone = new Vector3(group.Position.X,
                                         GroundAt(group.Position) + Volley.FromHeight,
                                         group.Position.Y);
-                _volley.Loose(alone, to);
+                volley.Loose(alone, to);
                 return;
             }
 
@@ -912,12 +920,12 @@ namespace TheVeil.View
                 float spread = (i - (figures.Count - 1) * 0.5f) * Volley.Fan;
                 var across = Vector3.Cross(Vector3.up, (to - from).normalized) * spread;
 
-                _volley.Loose(from, to + across);
+                volley.Loose(from, to + across);
                 shot++;
             }
 
             if (shot == 0)
-                _volley.Loose(new Vector3(group.Position.X,
+                volley.Loose(new Vector3(group.Position.X,
                                           GroundAt(group.Position) + Volley.FromHeight,
                                           group.Position.Y), to);
         }

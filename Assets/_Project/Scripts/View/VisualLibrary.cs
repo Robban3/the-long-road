@@ -123,6 +123,12 @@ namespace TheVeil.View
         public ActorModel Archers;
         public ActorModel Mage;
         public ActorModel Scout;
+
+        /// <summary>The crossbow, and the three horses above the plain cavalry. See TroopTable.</summary>
+        public ActorModel Crossbowmen;
+        public ActorModel HeavyCavalry;
+        public ActorModel NobleCavalry;
+        public ActorModel MountedKnights;
         public ActorModel Shieldbearer;
         public ActorModel Priest;
         public ActorModel Engineer;
@@ -422,6 +428,9 @@ namespace TheVeil.View
         /// </summary>
         public GameObject Arrow;
 
+        /// <summary>The crossbow's quarrel. Null falls back to the arrow.</summary>
+        public GameObject Bolt;
+
         public ActorModel For(TroopKind kind)
         {
             switch (kind)
@@ -434,6 +443,10 @@ namespace TheVeil.View
                 case TroopKind.Mage: return Or(Mage, Ranged);
 
                 case TroopKind.Cavalry: return Mounted;
+                case TroopKind.HeavyCavalry: return Or(HeavyCavalry, Mounted);
+                case TroopKind.NobleCavalry: return Or(NobleCavalry, Mounted);
+                case TroopKind.Knights: return Or(MountedKnights, Mounted);
+                case TroopKind.Crossbowmen: return Or(Crossbowmen, Ranged);
 
                 case TroopKind.Scout: return Or(Scout, Support);
                 case TroopKind.Priest: return Or(Priest, Support);
@@ -457,7 +470,7 @@ namespace TheVeil.View
         /// sits above the withers, so 2.7 puts the two on the same ruler.
         /// </summary>
         public static float HeightOf(TroopKind kind)
-            => kind == TroopKind.Cavalry ? CavalryHeight : TroopHeight;
+            => TroopTable.IsMounted(kind) ? CavalryHeight : TroopHeight;
 
         public const float CavalryHeight = 2.7f;
 
