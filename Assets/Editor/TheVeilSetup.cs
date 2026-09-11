@@ -258,17 +258,27 @@ namespace TheVeil.Editor
                 // was standing beside every bandit in the game.
                 // Bandits out of the same pack as the escort, and told apart two ways.
                 //
-                // **By rank first.** They are levy — the ragged end of the pack — where
-                // the player's line is man-at-arms and knight. That difference is body
-                // shape and helmet outline, which is what survives at 47 m; a pirate
-                // captain from another artist's pack read as *a different game*, not as
-                // a different side.
+                // **By rank first.** They are peasants and a few deserters — the ragged
+                // end of the pack — where the player's line is man-at-arms and knight.
+                // That difference is body shape and helmet outline, which is what
+                // survives at 47 m; a pirate captain from another artist's pack read as
+                // *a different game*, not as a different side.
                 //
                 // **By colour second.** See VisualLibrary.EnemyTint. Colour alone would
                 // not do it — the first thing a moving figure loses against a hillside in
                 // shadow is its hue — but colour on top of a silhouette that already
-                // differs is what makes the call instant.
-                Bandit = Army("MC_Levy_05"),
+                // differs is what makes the call instant. The peasants' clothes are not on
+                // the pack's palette and keep their own browns and greens, which are
+                // nothing like the escort's blue either.
+                //
+                // Mixed within a band rather than one face each: the three peasants for
+                // the hungry who took up whatever was to hand, and three levy in quilted
+                // coats for the men who walked off from some lord's muster. Chosen from a
+                // row of every candidate in the pack; the levy in heraldic reds and
+                // checks read as soldiers still in service and were left out.
+                Bandit = Army("MC_Peasant_02"),
+                Brigands = new[] { Army("MC_Peasant_02"), Army("MC_Peasant_03"), Army("MC_Peasant_04") },
+                Deserters = new[] { Army("MC_Levy_01"), Army("MC_Levy_04"), Army("MC_Levy_06") },
                 BanditArcher = Archer("MC_Levy_07"),
 
                 // The wildlife of GDD §3.5.
@@ -1017,8 +1027,12 @@ namespace TheVeil.Editor
                 // level came out 5.5 to 7.4 m tall and up to 9.6 m across against a
                 // four-metre budget — a shelter one man sleeps under, drawn larger than
                 // the tents it camps with. Three tents are a camp; a building is not.
-                Camps = Knights("Buildings", "SM_Bld_Tent_01", "SM_Bld_Tent_02",
-                                "SM_Bld_Tent_03"),
+                //
+                // The army pack's own tent now, not the Knights pack's purple ones. The
+                // raiders are drawn from the army pack, and a camp in another artist's
+                // colours beside them read as somebody else's camp. One model, fitted to
+                // CampHeight like the three before it.
+                Camps = new PropSet(false, Load(ArmyProps, new[] { "Tent" })),
 
                 // The one tree whose place is decided by water rather than by biome.
                 Willows = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",

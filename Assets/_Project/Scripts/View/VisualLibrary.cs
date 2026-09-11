@@ -234,6 +234,17 @@ namespace TheVeil.View
         public ActorModel Bandit;
         public ActorModel BanditArcher;
 
+        /// <summary>
+        /// The faces a band of raiders is drawn from.
+        ///
+        /// Mostly the hungry — peasants with whatever they could pick up — and now and then
+        /// a deserter in a soldier's quilted coat. Every raider used to be the same levy,
+        /// so a band of six was six twins; a band is people, and people do not match.
+        /// Empty falls back to <see cref="Bandit"/>. See <see cref="For(EnemyKind, int, int)"/>.
+        /// </summary>
+        public ActorModel[] Brigands;
+        public ActorModel[] Deserters;
+
         [Header("Wildlife")]
         /// <summary>
         /// Deer, foxes and boar (docs/GDD.md §3.5). They cannot be fought, so they are
@@ -457,6 +468,42 @@ namespace TheVeil.View
                 case EnemyKind.Wolf: return Wolf;
                 case EnemyKind.BanditArcher: return BanditArcher;
                 default: return Bandit;
+            }
+        }
+
+        /// <summary>
+        /// Which face one raider in a band wears: a deserter about one time in four, a
+        /// peasant otherwise.
+        ///
+        /// Fixed by the group and the figure's place in it rather than rolled, so a level
+        /// looks the same every time it is played and a band does not change faces when
+        /// it is drawn again. Only the plain raiders vary; a wolf is a wolf and the band's
+        /// archers keep their bows.
+        /// </summary>
+        public ActorModel For(EnemyKind kind, int group, int figure)
+        {
+            if (kind == EnemyKind.Wolf || kind == EnemyKind.BanditArcher) return For(kind);
+
+            uint mix = Mix(group, figure);
+            bool deserter = mix % 4 == 0 && Deserters != null && Deserters.Length > 0;
+
+            var pool = deserter ? Deserters : Brigands;
+            if (pool == null || pool.Length == 0) return Bandit;
+
+            var face = pool[(int)(mix / 4 % (uint)pool.Length)];
+            return face.HasModel ? face : Bandit;
+        }
+
+        /// <summary>A well-stirred number from a group and a figure, for choosing faces.</summary>
+        public static uint Mix(int group, int figure)
+        {
+            unchecked
+            {
+                uint mix = (uint)group * 0x9E3779B1u ^ (uint)(figure + 1) * 0x85EBCA77u;
+                mix ^= mix >> 15;
+                mix *= 0x2C1B3C6Du;
+                mix ^= mix >> 12;
+                return mix;
             }
         }
 

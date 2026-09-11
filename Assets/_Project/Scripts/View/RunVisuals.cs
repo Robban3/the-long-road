@@ -1013,13 +1013,16 @@ namespace TheVeil.View
 
                     for (int i = 0; i < size; i++)
                     {
-                        var figure = SpawnActor(model, PrimitiveType.Sphere,
+                        // Each figure its own face — see VisualLibrary.For(kind, group, figure).
+                        var face = Library.For(enemy.Kind, enemy.Tile, i);
+
+                        var figure = SpawnActor(face, PrimitiveType.Sphere,
                             $"Enemy_{enemy.Kind}_{i}", EnemyAwakeColor, height);
 
                         // Once, at spawn. A property block set every frame on every
                         // figure of every group is a per-frame cost for a colour that
                         // never changes.
-                        if (model.HasModel) Faction(figure);
+                        if (face.HasModel) Faction(figure);
 
                         pack.Add(figure);
                     }
