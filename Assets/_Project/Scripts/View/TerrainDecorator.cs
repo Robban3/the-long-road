@@ -1002,7 +1002,19 @@ namespace TheVeil.View
 
             if (decor == null || decor.IsEmpty) return 0;
 
-            var rng = new DeterministicRandom(seed ^ 0x5EED10);
+            // One stream per stage, each drawn from the seed and nothing else.
+            //
+            // <b>There was one stream for the whole map, and the planning map and the run
+            // each drew a different amount from it.</b> The run lays the skyline and the
+            // apron before the fords and the plan does not; the plan scatters its ground
+            // cover at a denser scale and so throws more dice. Everything placed after
+            // that — which crossing gets the bridge, which model, where the stones and the
+            // cliffs and the camps go — came out of a stream standing somewhere else in
+            // each, and the bridge the player planned their route over was on another
+            // crossing in the game. A stage with its own stream is the same stage in
+            // both, whatever else either of them did first.
+            DeterministicRandom Stream(int stage) => new DeterministicRandom(seed ^ (0x5EED10 + stage * 0x3C6EF35F));
+
             var clear = keepClear == null ? null : new HashSet<int>(keepClear);
 
             // A set, not the list it arrives as. IReadOnlyCollection has no Contains
@@ -1022,10 +1034,10 @@ namespace TheVeil.View
             // the scatter — otherwise a pine grows through the farmhouse roof and the
             // building, the thing the eye was meant to find, is the one that loses. A
             // castle is the largest of them by a long way, so it claims first.
-            placed += PlaceCastle(parent, grid, rng, decor, occupied, heightScale,
+            placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
                                   goalTile, travelled, found);
 
-            placed += PlaceLandmarks(parent, grid, rng, decor, clear, occupied, heightScale,
+            placed += PlaceLandmarks(parent, grid, Stream(1), decor, clear, occupied, heightScale,
                                      ruinSites, road,
                                      travelled == null ? null : new HashSet<int>(travelled),
                                      found);
@@ -1085,14 +1097,14 @@ namespace TheVeil.View
             if (horizon)
             {
                 placed += PlaceBackdrop(parent, grid, decor);
-                placed += PlaceHorizon(parent, grid, rng, decor);
+                placed += PlaceHorizon(parent, grid, Stream(2), decor);
 
                 // And the ground between the two: the apron the skirt draws outside the
                 // grid, which has been bare since it was added. Under the same flag as the
                 // skyline because it is the same job — what the map ends in — and the
                 // planning view turns both off, where a fringe of trees would only hide
                 // the corner of the map somebody is trying to read.
-                placed += PlaceApron(parent, grid, rng, decor, heightScale, apronOpenings);
+                placed += PlaceApron(parent, grid, Stream(3), decor, heightScale, apronOpenings);
             }
 
             // Bridges before anything scattered, and they claim the ground they cover.
@@ -1102,21 +1114,21 @@ namespace TheVeil.View
             // shore pass had already strewn with boulders. One of them came up through
             // the deck. Placed first and claiming its whole footprint, the stones go
             // round it.
-            placed += PlaceFords(parent, grid, rng, decor, occupied, heightScale, road, found);
+            placed += PlaceFords(parent, grid, seed, Stream(4), decor, occupied, heightScale, found);
 
-            placed += PlaceGroundCover(parent, grid, rng, decor, clear, occupied,
+            placed += PlaceGroundCover(parent, grid, Stream(5), decor, clear, occupied,
                                        heightScale, densityScale);
-            placed += PlaceShoreline(parent, grid, rng, decor, occupied, heightScale,
+            placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
                                      densityScale, road);
 
             // The water goes on last, over everything laid on its bed. Nothing claims
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
             placed += PlaceWater(parent, grid, heightScale, waterMaterial, marshWaterMaterial);
-            placed += PlaceCliffs(parent, grid, rng, decor, occupied, heightScale, road);
-            placed += PlaceWillows(parent, grid, rng, decor, occupied, heightScale,
+            placed += PlaceCliffs(parent, grid, Stream(7), decor, occupied, heightScale, road);
+            placed += PlaceWillows(parent, grid, Stream(8), decor, occupied, heightScale,
                                    densityScale, road);
-            placed += PlaceCamps(parent, grid, rng, decor, occupied, heightScale, campSites, road,
+            placed += PlaceCamps(parent, grid, Stream(9), decor, occupied, heightScale, campSites, road,
                                  found);
 
             Census(parent);
@@ -1308,41 +1320,19 @@ namespace TheVeil.View
         /// has never had anything on it. What the player sees is water that is somehow
         /// passable, with nothing to say why. A plank bridge says it.
         /// </summary>
-        static int PlaceFords(Transform parent, TileGrid grid, DeterministicRandom rng,
+        static int PlaceFords(Transform parent, TileGrid grid, int seed, DeterministicRandom rng,
                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                              HashSet<int> road, List<Landmark> found)
+                              List<Landmark> found)
         {
-            var crossings = new List<int>();
-
-            for (int i = 0; i < grid.TileCount; i++)
-            {
-                if (grid[i] != TerrainType.Ford) continue;
-                if (occupied.Contains(i)) continue;
-
-                // One entry per crossing. A ford is several tiles wide, and treating each
-                // of its tiles as a crossing of its own builds a pier.
-                if (!Apart(grid, i, crossings, 4f)) continue;
-                crossings.Add(i);
-            }
-
-            if (crossings.Count == 0) return 0;
+            int bridged = BridgeTile(grid, seed);
+            if (bridged < 0) return 0;
 
             int placed = 0;
 
-            // One bridge on the level, and the dice choose which crossing gets it.
-            //
-            // Every crossing used to get one, which made three bridges a level and a
-            // built structure the ordinary case. A bridge is somebody's work: it should
-            // be the exception, and where it happens to stand is worth something in
-            // itself. Sometimes it is the crossing the enemies are watching, sometimes
-            // one nobody has any reason to go near, and the player cannot know which
-            // until they look — the placer is not consulted and deliberately so.
-            //
-            // Drawn from the level's own stream, so a seed is still a level.
-            int bridged = crossings[rng.Range(0, crossings.Count)];
-
+            // Its own stream for the model, for the reason BridgeTile gives for the tile.
             if (decor.Fords.Any &&
-                Bridge(parent, grid, rng, decor, bridged, heightScale, occupied, road))
+                Bridge(parent, grid, new DeterministicRandom(seed ^ BridgeModelSalt), decor, bridged,
+                       heightScale, occupied))
             {
                 placed++;
 
@@ -1362,6 +1352,44 @@ namespace TheVeil.View
 
             return placed;
         }
+
+        /// <summary>
+        /// The ford the level's one bridge stands on, or -1 for a level with no ford.
+        ///
+        /// One bridge on the level, and the dice choose which crossing gets it. Every
+        /// crossing used to get one, which made three bridges a level and a built structure
+        /// the ordinary case. A bridge is somebody's work: it should be the exception, and
+        /// where it happens to stand is worth something in itself — sometimes the crossing
+        /// the enemies are watching, sometimes one nobody has reason to go near.
+        ///
+        /// <b>Asked of the terrain and the seed and nothing else.</b> It used to be drawn
+        /// from the stream the whole decoration shares, among crossings that other props
+        /// had not already covered — and the planning map and the run lay different
+        /// things before the fords, so each put the bridge on a different crossing. The
+        /// player drew their route over a bridge that was somewhere else in the game. A
+        /// function of the map alone cannot disagree with itself.
+        /// </summary>
+        public static int BridgeTile(TileGrid grid, int seed)
+        {
+            var crossings = new List<int>();
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] != TerrainType.Ford) continue;
+
+                // One entry per crossing. A ford is several tiles wide, and treating each
+                // of its tiles as a crossing of its own builds a pier.
+                if (!Apart(grid, i, crossings, 4f)) continue;
+                crossings.Add(i);
+            }
+
+            if (crossings.Count == 0) return -1;
+
+            return crossings[new DeterministicRandom(seed ^ BridgeTileSalt).Range(0, crossings.Count)];
+        }
+
+        const int BridgeTileSalt = 0x0B21D6E;
+        const int BridgeModelSalt = 0x0B21D6F;
 
         /// <summary>How wide a stepping stone is, in metres.</summary>
         // Knee height on a wagon's wheel. Big enough to break the water, small enough
@@ -1593,8 +1621,7 @@ namespace TheVeil.View
         /// the scatter deliberately randomises.
         /// </summary>
         static bool Bridge(Transform parent, TileGrid grid, DeterministicRandom rng,
-                           BiomeDecor decor, int tile, float heightScale, HashSet<int> occupied,
-                           HashSet<int> road)
+                           BiomeDecor decor, int tile, float heightScale, HashSet<int> occupied)
         {
             var prefab = Any(decor.Fords, rng);
             if (prefab == null) return false;
@@ -1618,22 +1645,17 @@ namespace TheVeil.View
             var bounds = ModelScaling.Measure(instance);
             bool longAlongX = bounds.size.x > bounds.size.z;
 
-            // And which way it has to lie is the way the caravan crosses.
+            // And which way it has to lie is square to its river, along the ford's own run.
             //
-            // <b>The ford's own run is the answer only when nobody is using it.</b> A
-            // crossing is cut square to its river, so a bridge laid along it is square to
-            // the river too — and the player draws their own line, which meets the water
-            // at whatever angle they drew. The column then came onto a bridge that was
-            // not pointing where it was going, crabbed across it, and straightened out on
-            // the far bank.
-            //
-            // So the lane is asked first. Where the route passes the crossing the bridge
-            // turns to match it and the column drives straight on; where it does not — the
-            // bridge falls on a random crossing and two of the three are usually unused —
-            // the ford's run is still the right answer, because a bridge nobody is
-            // crossing should still be square to the water.
-            float square = Crossing(grid, tile);
-            float across = Squared(square, RoadBearing(grid, road, tile, RoadReach));
+            // <b>It used to turn to meet the caravan's drawn lane, and that made it a
+            // different bridge on each map.</b> The planning map is where the lane is drawn,
+            // so it cannot know the lane before it has been drawn — it laid the bridge
+            // square, and the run then turned the same bridge up to thirty degrees to meet
+            // the line. The planning map has to show the country exactly as it will be
+            // crossed, so the bridge answers to the river alone. The column crabs a few
+            // degrees across the deck where the line meets the water at a slant; that is
+            // the lesser fault by far.
+            float across = Crossing(grid, tile);
 
             // The model's own length is turned onto that bearing. A prefab authored
             // along X is already a quarter turn from one authored along Z.
@@ -1883,79 +1905,6 @@ namespace TheVeil.View
             float bearing = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
             return 90f - bearing * 57.29578f;
         }
-
-        /// <summary>
-        /// Which way the caravan's own lane runs past a tile, or NaN where it does not.
-        ///
-        /// The same doubled-angle sum <see cref="Bearing"/> uses on terrain, over the
-        /// swept lane instead. Doubling is what makes it an axis rather than a direction:
-        /// a road has no front, and tiles on both sides of the crossing have to add up
-        /// rather than cancel.
-        /// </summary>
-        static float RoadBearing(TileGrid grid, HashSet<int> road, int tile, int radius)
-        {
-            if (road == null || road.Count == 0) return float.NaN;
-
-            grid.ToCoords(tile, out int x, out int y);
-
-            float sumSin = 0f, sumCos = 0f;
-
-            for (int dy = -radius; dy <= radius; dy++)
-            {
-                for (int dx = -radius; dx <= radius; dx++)
-                {
-                    if (dx == 0 && dy == 0) continue;
-                    if (!grid.InBounds(x + dx, y + dy)) continue;
-                    if (!road.Contains(grid.ToIndex(x + dx, y + dy))) continue;
-
-                    float angle = (float)System.Math.Atan2(dy, dx);
-                    float weight = 1f / Mathf.Sqrt(dx * dx + dy * dy);
-
-                    sumSin += weight * (float)System.Math.Sin(angle * 2f);
-                    sumCos += weight * (float)System.Math.Cos(angle * 2f);
-                }
-            }
-
-            if (sumSin * sumSin + sumCos * sumCos < 0.0001f) return float.NaN;
-
-            float bearing = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
-            return 90f - bearing * 57.29578f;
-        }
-
-        /// <summary>
-        /// How far the lane may pull a bridge off square to its river, in degrees.
-        ///
-        /// <b>Measured, and the limit is not academic.</b> The ford run is 90° on every
-        /// crossing in chapter one, and the drawn route meets it at 83° to 99° — four to
-        /// nine degrees off, which is the crabbing across the deck. But on 1-7 the route
-        /// runs at 22°, nearly *along* the river rather than over it, and turning a bridge
-        /// to match would lay it lengthwise in the water.
-        ///
-        /// Thirty degrees separates the two cases with room on both sides. Past it the
-        /// route is not really crossing here, and a bridge square to the water is the
-        /// right answer whatever the line on the map says.
-        /// </summary>
-        const float BridgeSkew = 30f;
-
-        /// <summary>
-        /// The lane's bearing where it is close enough to the crossing's own, and the
-        /// crossing's where it is not or where there is no lane.
-        /// </summary>
-        static float Squared(float square, float lane)
-        {
-            if (float.IsNaN(lane)) return square;
-
-            // Axes, not directions: 179° and 1° are two degrees apart, and a bridge laid
-            // either way round is the same bridge.
-            float off = Mathf.Abs(Mathf.DeltaAngle(square * 2f, lane * 2f)) * 0.5f;
-
-            return off <= BridgeSkew ? lane : square;
-        }
-
-        /// <summary>How far around the bridge the caravan's lane is read, in tiles.</summary>
-        // Four. Wide enough to average out the tile-by-tile jitter of a drawn line and
-        // short enough that a bend fifty metres away does not turn the bridge.
-        const int RoadReach = 4;
 
         /// <summary>How many tiles wide the crossing is, along its own run.</summary>
         static int FordWidth(TileGrid grid, int tile, float bearing)
