@@ -213,7 +213,7 @@ Position 0 och 3 tar merparten av skadan. Flankerna är rätt plats för räckvi
 | **Bågskyttar** | 4 | 3 | 70 | 22 | 22 m | 18 m | Kräver skottlinje; −40 % räckvidd i skog |
 | **Kavalleri** | 5 | 3 | 180 | 34 | 2.2 m | 16 m | Charge ×2.5 första träffen; −50 % i skog, −70 % i kärr |
 | **Trollkarl** | 6 | 1 | 90 | 40 (AoE 6 m) | 18 m | 14 m | Mana 100, 35/kast, regen 4/s |
-| **Spejare** | 2 | 2 | 60 | 0 | — | **34 m** | Slåss inte. Avslöjar fällor inom 10 m. Köps en gång i butiken, en per eskort |
+| **Spejare** | 2 | 2 | 60 | 0 | — | **34 m** | Slåss inte. Desarmerar fällorna hon ser. Hyrs per bana på eskortskärmen (50 guld) och går då först i kolonnen |
 | **Sköldbärare** | 4 | 3 | 220 | 12 | 1.8 m | 12 m | −40 % inkommande skada; absorberar fällskada |
 | **Präst** | 5 | 1 | 80 | — | 12 m | 12 m | Läker 15 HP/s till en trupp; ×3 utanför strid |
 | **Ingenjör** | 4 | 2 | 90 | 8 | 8 m | 14 m | Desarmerar fälla på 2 s; reparerar vagn 20 HP/s |

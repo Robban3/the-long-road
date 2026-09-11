@@ -42,6 +42,13 @@ namespace TheVeil.Sim
         /// </summary>
         public const int StarsToOpenNextChapter = 20;
 
+        /// <summary>
+        /// Gold handed back to a save that hired the scout for good, when that was still
+        /// sold. She is hired a level at a time now; see Boon.Scout. Refunded as the save
+        /// is read, and the next save no longer carries the purchase, so it is paid once.
+        /// </summary>
+        public const int RetiredScoutRefund = 300;
+
         /// <summary>Stars per level, keyed by <see cref="Key"/>. Absent means never cleared.</summary>
         readonly Dictionary<int, int> _stars = new Dictionary<int, int>();
 
@@ -507,6 +514,13 @@ namespace TheVeil.Sim
 
                     if (!int.TryParse(field[0], out int boon) ||
                         !int.TryParse(field[1], out int level)) continue;
+
+                    // The scout bought for good, which is no longer sold: her price back.
+                    if (boon == (int)Boon.Scout)
+                    {
+                        if (level > 0) campaign.Gold += RetiredScoutRefund;
+                        continue;
+                    }
 
                     if (boon < 0 || boon >= campaign._boons.Length || level < 1) continue;
 

@@ -175,8 +175,26 @@ namespace TheVeil.UI
         /// <summary>Books one flight. The gold has already been taken by the caller.</summary>
         public static void BuyScoutFlight() => ScoutFlights++;
 
+        /// <summary>
+        /// Whether a scout has been hired for the level being played.
+        ///
+        /// Hired a level at a time, on the troop screen, for gold. Kept while the player is
+        /// still on the same level — back from the map to the escort, or straight into
+        /// another try from the result screen — and gone once they leave it or finish it:
+        /// the next level, or this one played again later, is hired again.
+        /// </summary>
+        public static bool ScoutHired { get; private set; }
+
+        /// <summary>Books the scout for this level. The gold has already been taken by the caller.</summary>
+        public static void HireScout() => ScoutHired = true;
+
         public static void Choose(int chapter, int level)
         {
+            // Only on a different level, unlike the eagle below: the escort screen and the
+            // planning map both come through here, and a scout paid for on one must still
+            // be there on the other.
+            if (chapter != Chapter || level != Level) ScoutHired = false;
+
             // Always, because Choose *is* entering a level. What was bought for the last
             // crossing does not carry to the next, and re-entering the same one is a
             // fresh attempt for the same reason: that bird flew that ground and is down.
@@ -212,6 +230,9 @@ namespace TheVeil.UI
 
             // What else the run did, for the achievements to count.
             Campaign.Count(tally);
+
+            // The attempt is over; her hire was for it.
+            ScoutHired = false;
 
             Save();
         }

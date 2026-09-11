@@ -184,7 +184,6 @@ namespace TheVeil.UI
 
                 case Boon.Watch:
                 case Boon.Tracking:
-                case Boon.Scout:
                     return Tab.Scouting;
 
                 default:
@@ -382,7 +381,6 @@ namespace TheVeil.UI
                 case Boon.Tracking: return Loc.T("Tracking");
                 case Boon.Exchange: return Loc.T("Exchange office");
                 case Boon.Repair: return Loc.T("Field repair");
-                case Boon.Scout: return Loc.T("Scout");
                 default: return Loc.T("Lashings");
             }
         }
@@ -411,8 +409,6 @@ namespace TheVeil.UI
                     return Loc.T("A better rate when leftover silver is changed into gold after the mission. Spending it in the field is still better.");
                 case Boon.Repair:
                     return Loc.T("The wagons are mended while the column rolls — but not while it fights. A quiet stretch becomes worth something.");
-                case Boon.Scout:
-                    return Loc.T("Walks ahead of the column and spots enemies long before they wake. Does not fight, and takes one of the escort's posts. Bought once.");
                 default:
                     return Loc.T("The treasure wagon takes less damage. Its state decides the gold you bring home, so it is as much a raise in pay.");
             }
@@ -422,9 +418,6 @@ namespace TheVeil.UI
 
         static string Next(Boon boon, int level)
         {
-            // Not a step on a curve but a door: what the one purchase opens.
-            if (boon == Boon.Scout) return Loc.T("comes along whenever you like");
-
             float step = BoonTable.Effect(boon, level + 1) - BoonTable.Effect(boon, level);
             return "+" + Reading(boon, step);
         }
@@ -441,7 +434,6 @@ namespace TheVeil.UI
                 case Boon.Tracking: return Loc.F("{0:F1} m", value);
                 case Boon.Exchange: return Loc.F("{0:F1} silver/gold", value);
                 case Boon.Repair: return Loc.F("{0:F2} hp/s", value);
-                case Boon.Scout: return value >= 1f ? Loc.T("hired") : Loc.T("not hired");
                 default: return Loc.F("{0:F1} %", value * 100f);
             }
         }

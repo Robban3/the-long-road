@@ -164,18 +164,22 @@ namespace TheVeil.Tests
         }
 
         [Test]
-        public void TheScoutIsHiredOnceAndKept()
+        public void TheScoutIsNoLongerSoldForGood()
         {
-            var campaign = new Campaign();
-            campaign.Earn(1000000);
+            // She is hired a level at a time on the troop screen now, not bought once in
+            // the shop.
+            CollectionAssert.DoesNotContain(BoonTable.All, Boon.Scout);
+        }
 
-            Assert.IsFalse(campaign.Boons().HasScout, "a new campaign started with the scout");
-            Assert.IsTrue(campaign.TryBuy(Boon.Scout, out _));
-            Assert.IsTrue(campaign.Boons().HasScout);
-            Assert.IsFalse(campaign.TryBuy(Boon.Scout, out _), "the scout was hired twice");
+        [Test]
+        public void ASaveThatBoughtTheScoutGetsItsGoldBack()
+        {
+            var loaded = Campaign.Load("4|100|0|1.1.1|11.1|||");
 
-            Assert.IsTrue(Campaign.Load(campaign.Save()).Boons().HasScout,
-                "the hire did not survive the save");
+            Assert.AreEqual(100 + Campaign.RetiredScoutRefund, loaded.Gold);
+
+            // And only once: the next save no longer carries the purchase.
+            Assert.AreEqual(loaded.Gold, Campaign.Load(loaded.Save()).Gold);
         }
 
         [Test]

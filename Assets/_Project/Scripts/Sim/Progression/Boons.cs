@@ -40,8 +40,10 @@ namespace TheVeil.Sim
         Lashings = 10,
 
         /// <summary>
-        /// The scout, hired for good. One step: once bought she may be brought on any
-        /// level, in any post of the line, and is never bought again.
+        /// <b>Retired.</b> The scout was hired for good here, once; she is now hired for
+        /// one level at a time on the troop screen (Session.HireScout). The number stays
+        /// because saves are read by number — a save that bought her is refunded on load
+        /// (Campaign.RetiredScoutRefund) — and nothing may take it.
         /// </summary>
         Scout = 11
     }
@@ -77,8 +79,8 @@ namespace TheVeil.Sim
         public static readonly Boon[] All =
         {
             Boon.Purse, Boon.Muster, Boon.Hardened, Boon.Smithy, Boon.Outriders,
-            Boon.Trade, Boon.Watch, Boon.Tracking, Boon.Exchange, Boon.Repair, Boon.Lashings,
-            Boon.Scout
+            // Not Boon.Scout, which is retired — see its note.
+            Boon.Trade, Boon.Watch, Boon.Tracking, Boon.Exchange, Boon.Repair, Boon.Lashings
         };
 
         /// <summary>Steps on a continuous track.</summary>
@@ -248,9 +250,6 @@ namespace TheVeil.Sim
 
         /// <summary>Share of damage the treasure cart is spared.</summary>
         public float TreasureGuard => Of(Boon.Lashings);
-
-        /// <summary>Whether the scout has been hired, and so may be brought.</summary>
-        public bool HasScout => Level(Boon.Scout) > 0;
 
         /// <summary>
         /// Multiplier on what a field upgrade costs. Floored well above zero: a track the

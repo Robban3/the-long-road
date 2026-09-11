@@ -52,9 +52,10 @@ namespace TheVeil.UI
                 Suggest(_squad);
             }
 
-            // Every time, not only when the squad is new: a scout bought in the shop after
-            // this level's escort was put together still has to be standing in it.
-            EnsureScout(_squad);
+            // Every time, not only when the squad is new: the scout is hired and let go on
+            // this screen, and a squad kept from an earlier visit to the level must not
+            // bring along one nobody has paid for this time.
+            SyncScout(_squad);
 
             Header(shell, root, recipe);
             Formation(shell, root);
@@ -70,8 +71,8 @@ namespace TheVeil.UI
         /// argue with — that is a far better teacher than six empty sockets. The line is
         /// filled front to back in the order the posts open.
         ///
-        /// Never the scout here: a hired scout is put in by <see cref="EnsureScout"/>, and
-        /// one that has not been hired is not on offer.
+        /// Never the scout here: she is hired on this screen and put in by
+        /// <see cref="SyncScout"/>.
         /// </summary>
         static void Suggest(Squad squad)
         {
@@ -85,16 +86,26 @@ namespace TheVeil.UI
             }
         }
 
+        /// <summary>What hiring the scout for one level costs, in gold.</summary>
+        public const int ScoutHirePrice = 50;
+
         /// <summary>
-        /// Puts the hired scout at the head of the escort, where she always stands.
+        /// Puts the hired scout at the head of the escort, and takes an unpaid one out.
         ///
-        /// She is not chosen and she is not sent home: once bought she walks in the van
-        /// post of every escort. Whoever held the van moves to the next free post, or
-        /// stays behind when the line or the budget has no room left for both.
+        /// She is not chosen from the list: hired for this level she walks in the van
+        /// post, and whoever held it moves to the next free post, or stays behind when
+        /// the line or the budget has no room left for both.
         /// </summary>
-        static void EnsureScout(Squad squad)
+        static void SyncScout(Squad squad)
         {
-            if (!Session.Campaign.Boons().HasScout || squad.HasScout) return;
+            if (!Session.ScoutHired)
+            {
+                foreach (var group in squad.Slots)
+                    if (group != null && TroopTable.Scouts(group.Kind)) { squad.Remove(group.Slot); break; }
+                return;
+            }
+
+            if (squad.HasScout) return;
 
             var displaced = squad[FormationSlot.Van]?.Kind;
             if (displaced.HasValue) squad.Remove(FormationSlot.Van);
@@ -213,7 +224,7 @@ namespace TheVeil.UI
             button.targetGraphic = plate;
             button.onClick.AddListener(() =>
             {
-                // The scout's post is hers for good and does not empty.
+                // The scout's post is hers for the level she was hired for and does not empty.
                 if (_squad[here] != null && TroopTable.Scouts(_squad[here].Kind)) return;
 
                 // A post with somebody in it empties; an empty one opens the picker. Two
@@ -268,16 +279,11 @@ namespace TheVeil.UI
 
             foreach (var kind in TroopTable.All)
             {
-                int cost = TroopTable.Cost(kind);
-                bool affordable = cost <= _squad.PointsRemaining;
+                // Not the scout: she is hired with her own button and walks in the van.
+                if (TroopTable.Scouts(kind)) continue;
 
-                // The scout is hired once, in the shop, and comes whenever she is asked
-                // after that — one of her, in any post. Shown either way, so a player who
-                // has not hired her yet can see she exists and where to get her.
-                bool scout = TroopTable.Scouts(kind);
-                bool hired = !scout || Session.Campaign.Boons().HasScout;
-                bool spare = !scout || !_squad.HasScout;
-                bool choosable = affordable && hired && spare;
+                int cost = TroopTable.Cost(kind);
+                bool choosable = cost <= _squad.PointsRemaining;
                 var chosen = kind;
 
                 var row = Widgets.Plate($"Pick{kind}", panel.transform,
@@ -295,9 +301,7 @@ namespace TheVeil.UI
                 row.image.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0f, y),
                                               new Vector2(Widgets.SafeWidth - 100f, 100f));
 
-                string note = !hired ? Loc.T("bought in the shop") : !spare ? Loc.T("already along") : Role(kind);
-
-                var role = Widgets.Label("Role", row.image.transform, note,
+                var role = Widgets.Label("Role", row.image.transform, Role(kind),
                                          Widgets.SmallSize - 8, Theme.Muted, TextAnchor.MiddleRight);
                 role.rectTransform.Fill(24f, 0f, 24f, 0f);
 
@@ -332,6 +336,35 @@ namespace TheVeil.UI
 
             go.image.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(130f, Widgets.Margin),
                                          new Vector2(560f, Widgets.ButtonHeight));
+
+            HireButton(shell, root);
+        }
+
+        /// <summary>
+        /// Hires the scout for this level, above the footer where the eagle's button sits on
+        /// the planning map. Greyed out without the gold; once she is hired it says so.
+        /// </summary>
+        static void HireButton(MenuShell shell, RectTransform root)
+        {
+            bool hired = Session.ScoutHired;
+            bool afford = Session.Campaign.Gold >= ScoutHirePrice;
+
+            var hire = Widgets.Plate("HireScout", root,
+                hired ? Loc.T("SCOUT HIRED FOR THIS LEVEL")
+                      : Loc.F("HIRE A SCOUT  ·  {0} GOLD", ScoutHirePrice),
+                hired ? ButtonRole.Secondary : afford ? ButtonRole.Primary : ButtonRole.Disabled,
+                () =>
+                {
+                    if (Session.ScoutHired || !Session.Campaign.Spend(ScoutHirePrice)) return;
+
+                    Session.HireScout();
+                    Session.Save();
+                    shell.Show(Build);
+                });
+
+            hire.image.rectTransform.Place(new Vector2(0.5f, 0f),
+                new Vector2(0f, Widgets.Margin + Widgets.ButtonHeight + 16f),
+                new Vector2(Widgets.SafeWidth - 120f, Widgets.ButtonHeight));
         }
 
         /// <summary>
