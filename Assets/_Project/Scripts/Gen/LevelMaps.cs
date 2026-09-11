@@ -35,7 +35,7 @@ namespace TheVeil.Gen
     {
         /// <summary>The map for one level, as both the planning screen and the run see it.</summary>
         public static LevelMap For(int chapter, int level)
-            => TerrainGenerator.Generate(Recipe(level), DeterministicRandom.SeedFor(chapter, level));
+            => TerrainGenerator.Generate(Recipe(chapter, level), DeterministicRandom.SeedFor(chapter, level));
 
         /// <summary>
         /// The recipe that level is built from.
@@ -43,7 +43,10 @@ namespace TheVeil.Gen
         /// Exposed because the run needs the same object for what is *in* the level —
         /// enemy strength, the squad's budget and posts — and reading those off a second
         /// recipe is the same class of fault as generating off one.
+        ///
+        /// By chapter as well as level. It took the level alone once, and chapter two's
+        /// first level was chapter one's first level with snow on it.
         /// </summary>
-        public static LevelRecipe Recipe(int level) => new ChapterRecipe().ForLevel(level);
+        public static LevelRecipe Recipe(int chapter, int level) => ChapterRecipe.For(chapter).ForLevel(level);
     }
 }

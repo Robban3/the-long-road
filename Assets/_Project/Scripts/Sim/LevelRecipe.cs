@@ -141,6 +141,19 @@ namespace TheVeil.Sim
         public float EnemyStrength = 1f;
 
         /// <summary>
+        /// How strong the generator may assume the escort is, against chapter one's.
+        ///
+        /// The survivability gate reads enemy strength and nothing about the player, which
+        /// was right while there was one chapter. From chapter two on the enemies start
+        /// where the last chapter ended, and a gate that still pictured chapter one's
+        /// squad would find almost no road survivable — at four times the strength a
+        /// route could meet ten points of enemies — and ship the least-bad map instead.
+        /// So each chapter tells it that the player has kept pace with the chapter's own
+        /// start: one for chapter one, which is why its maps did not move.
+        /// </summary>
+        public float EscortStrength = 1f;
+
+        /// <summary>
         /// Which enemy types may appear. Restricting early levels to wolves and
         /// introducing archers later is a difficulty lever in its own right — the
         /// archer is not a stronger wolf, it is a problem melee cannot solve.

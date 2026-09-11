@@ -87,6 +87,9 @@ namespace TheVeil.Sim
         /// </summary>
         public int[] EnemyUnlockLevel = { 1, 2, 4 };
 
+        /// <summary>How strong the escort is assumed to be. See LevelRecipe.EscortStrength.</summary>
+        public float EscortStrength = 1f;
+
         public TerrainShare[] TerrainMix;
         public int Rivers = 1;
         public int FordsPerRiver = 3;
@@ -103,6 +106,7 @@ namespace TheVeil.Sim
             {
                 EnemyBudget = Lerp(EnemyBudgetStart, EnemyBudgetEnd, t),
                 EnemyStrength = EnemyStrengthStart + (EnemyStrengthEnd - EnemyStrengthStart) * t,
+                EscortStrength = EscortStrength,
                 TrapDensity = TrapDensityStart + (TrapDensityEnd - TrapDensityStart) * t,
                 MinRouteTiles = Lerp(RouteTilesStart, RouteTilesEnd, t),
                 SquadBudget = Lerp(SquadBudgetStart, SquadBudgetEnd, t),
@@ -138,5 +142,85 @@ namespace TheVeil.Sim
         }
 
         static int Lerp(int from, int to, float t) => (int)(from + (to - from) * t + 0.5f);
+
+        /// <summary>What chapter one's enemies gain in strength across its ten levels.</summary>
+        public const float StrengthPerChapter = 0.35f;
+
+        /// <summary>
+        /// Chapters over which the climb bends, past chapter two. See <see cref="StrengthAtEndOf"/>.
+        /// </summary>
+        public const float Knee = 3f;
+
+        /// <summary>
+        /// The recipe for any chapter: chapter one exactly as it always was, and every
+        /// chapter after it starting where the one before ended.
+        ///
+        /// Built for about a thousand levels, which is what shapes it. Chapter one's rise
+        /// kept up for a hundred chapters would put the last enemies at thirty-six times
+        /// their first strength, against a player whose every purchase has a cap — the
+        /// shop's tracks stop at thirty steps, the line at six posts. So the climb is
+        /// chapter one's for two chapters and then bends, and the player's budget grows
+        /// until it can field a line of knights and stops there.
+        ///
+        /// What stays put: the enemy count, which the map has no room to raise (see
+        /// ChapterProgressionTests), the route lengths, and the shape of a chapter — an
+        /// easier start, the escalation band, the tenth.
+        /// </summary>
+        public static ChapterRecipe For(int chapter)
+        {
+            var recipe = new ChapterRecipe();
+            if (chapter <= 1) return recipe;
+
+            recipe.EnemyStrengthStart = StrengthAtEndOf(chapter - 1);
+            recipe.EnemyStrengthEnd = StrengthAtEndOf(chapter);
+
+            // The generator pictures a player who has grown with the chapters before; the
+            // chapter's own rise is still theirs to meet.
+            recipe.EscortStrength = recipe.EnemyStrengthStart;
+
+            // Stronger enemies take longer to put down and the smithy's prices do not
+            // move, so the silver follows the strength — at its root, so that it helps
+            // without keeping pace.
+            recipe.SilverMultiplier = (float)System.Math.Sqrt(recipe.EnemyStrengthStart);
+
+            recipe.TrapDensityStart = 1.0f;
+            recipe.TrapDensityEnd = System.Math.Min(TrapCeiling, 1.6f + 0.05f * (chapter - 2));
+
+            // Four points a chapter, six across one, up to a line of knights.
+            recipe.SquadBudgetStart = System.Math.Min(SquadCeiling - 6, 12 + 4 * (chapter - 1));
+            recipe.SquadBudgetEnd = recipe.SquadBudgetStart + 6;
+
+            recipe.PostsStart = System.Math.Min(TroopTable.LinePosts, 3 + 2 * (chapter - 1));
+
+            // Every kind from the first level: the lessons were chapter one's. An empty
+            // table opens them all, as PoolForLevel reads a missing entry as level one.
+            recipe.EnemyUnlockLevel = System.Array.Empty<int>();
+
+            return recipe;
+        }
+
+        /// <summary>
+        /// Enemy strength at the end of a chapter; chapter zero is the start of the first.
+        ///
+        /// Straight for two chapters — 1.35 and 1.70, the rise chapter one already had —
+        /// then a logarithm that leaves at the same slope, so there is no step where the
+        /// two meet: 2.0 after chapter three, about 3.1 after ten, 4.7 after fifty and 5.4
+        /// after a hundred. Always rising, ever more slowly; the last fifty chapters add
+        /// about as much as chapters three and four did.
+        /// </summary>
+        public static float StrengthAtEndOf(int chapter)
+        {
+            if (chapter <= 0) return 1f;
+            if (chapter <= 2) return 1f + StrengthPerChapter * chapter;
+
+            return 1f + StrengthPerChapter * 2f
+                 + StrengthPerChapter * Knee * (float)System.Math.Log(1f + (chapter - 2) / Knee);
+        }
+
+        /// <summary>Squad points at which the budget stops: six knights, the dearest line there is.</summary>
+        public static int SquadCeiling => TroopTable.LinePosts * TroopTable.Cost(TroopKind.Knights);
+
+        /// <summary>Traps at the end of a chapter stop here; the scout and the engineer have to keep up.</summary>
+        public const float TrapCeiling = 2.0f;
     }
 }

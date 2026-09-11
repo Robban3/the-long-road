@@ -170,7 +170,9 @@ namespace TheVeil.Gen
                 foreach (int met in EncounterPlacer.MetGroups(grid, corridor.Tiles, encounters))
                     danger += EnemyTable.Points(encounters.Enemies[met].Kind);
 
-                if (danger * recipe.EnemyStrength <= SurvivableDanger) passable++;
+                // Measured against chapter one's squad; later chapters say how far the
+                // player has come since. See LevelRecipe.EscortStrength.
+                if (danger * recipe.EnemyStrength <= SurvivableDanger * recipe.EscortStrength) passable++;
             }
 
             return passable;

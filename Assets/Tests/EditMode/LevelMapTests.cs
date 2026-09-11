@@ -144,7 +144,7 @@ namespace TheVeil.Tests
         {
             var map = LevelMaps.For(1, 5);
 
-            var squad = new Squad(LevelMaps.Recipe(5).SquadBudget);
+            var squad = new Squad(LevelMaps.Recipe(1, 5).SquadBudget);
             squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);

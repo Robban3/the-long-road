@@ -35,7 +35,7 @@ namespace TheVeil.UI
 
         public static void Build(MenuShell shell, RectTransform root)
         {
-            var recipe = new ChapterRecipe().ForLevel(Session.Level);
+            var recipe = ChapterRecipe.For(Session.Chapter).ForLevel(Session.Level);
 
             var boons = Session.Campaign.Boons();
 

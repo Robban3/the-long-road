@@ -234,7 +234,7 @@ namespace TheVeil.App
 
             // Both from LevelMaps, so the map here is the map the planning screen drew on.
             // See LevelMaps for what having two of these cost.
-            var recipe = LevelMaps.Recipe(Level);
+            var recipe = LevelMaps.Recipe(Chapter, Level);
             var map = LevelMaps.For(Chapter, Level);
 
             // The route the player drew, when there is one.
