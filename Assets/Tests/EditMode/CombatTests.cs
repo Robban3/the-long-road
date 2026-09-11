@@ -162,6 +162,25 @@ namespace TheVeil.Tests
         }
 
         [Test]
+        public void TheScoutClearsTheTrapsSheSees()
+        {
+            // A trap the scout spots does no harm: she makes it safe before the column
+            // gets there. 1-8's fast road is the trapped one.
+            var squad = new Squad(18);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Archers);
+
+            var run = Run(1, 8, squad);
+            run.RunToCompletion();
+
+            if (run.Traps.Traps.Count == 0) Assert.Ignore("no traps on this road");
+
+            Assert.Greater(run.Traps.DisarmedCount, 0, "the scout walked past every trap on the road");
+        }
+
+        [Test]
         public void TheSmithyPromisesWhatTheFightWillUse()
         {
             // The "now" on a smithy button has to be the troop as it stands, or the "next"

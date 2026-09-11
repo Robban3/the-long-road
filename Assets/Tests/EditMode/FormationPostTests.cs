@@ -39,6 +39,32 @@ namespace TheVeil.Tests
         }
 
         [Test]
+        public void TheScoutIsNeverTheOneATrapStrikes()
+        {
+            // She holds the van and walks ahead of it clearing what she sees; one she
+            // missed lands on the first troop behind her, front to back.
+            var squad = new Squad(30);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+
+            Assert.AreSame(squad[FormationSlot.LeftVan], squad.PointTroop);
+        }
+
+        [Test]
+        public void OtherwiseTheVanTakesTheTrapAsItAlwaysDid()
+        {
+            var squad = new Squad(30);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Spearmen);
+
+            Assert.AreSame(squad[FormationSlot.Van], squad.PointTroop);
+
+            // An empty van lets it through to the wagons, as before.
+            Assert.IsNull(new Squad(30).PointTroop);
+        }
+
+        [Test]
         public void AClosedPostRefusesEverything()
         {
             var squad = new Squad(20, posts: 3);

@@ -228,6 +228,11 @@ namespace TheVeil.Editor
                 PlayerFaction = AssetDatabase.LoadAssetAtPath<Material>(
                     "Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColorsBlue.mat"),
 
+                // Green for the scout: apart from the escort's blue and the bandits' black
+                // at forty-seven metres, and the colour of somebody who lives in the wood.
+                ScoutFaction = AssetDatabase.LoadAssetAtPath<Material>(
+                    "Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColorsGreen.mat"),
+
                 // The old three are **not loaded**, and the empty fields are the point.
                 //
                 // They were left pointing at Quaternius as a safety net, and a safety net

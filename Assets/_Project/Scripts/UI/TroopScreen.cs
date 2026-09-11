@@ -52,6 +52,10 @@ namespace TheVeil.UI
                 Suggest(_squad);
             }
 
+            // Every time, not only when the squad is new: a scout bought in the shop after
+            // this level's escort was put together still has to be standing in it.
+            EnsureScout(_squad);
+
             Header(shell, root, recipe);
             Formation(shell, root);
             Footer(shell, root);
@@ -66,8 +70,8 @@ namespace TheVeil.UI
         /// argue with — that is a far better teacher than six empty sockets. The line is
         /// filled front to back in the order the posts open.
         ///
-        /// Never the scout. She takes a post somebody with a sword would otherwise hold,
-        /// and whether that trade is worth it is the player's to make, not ours.
+        /// Never the scout here: a hired scout is put in by <see cref="EnsureScout"/>, and
+        /// one that has not been hired is not on offer.
         /// </summary>
         static void Suggest(Squad squad)
         {
@@ -79,6 +83,30 @@ namespace TheVeil.UI
             {
                 if (!squad.TryPlace(kind)) break;
             }
+        }
+
+        /// <summary>
+        /// Puts the hired scout at the head of the escort, where she always stands.
+        ///
+        /// She is not chosen and she is not sent home: once bought she walks in the van
+        /// post of every escort. Whoever held the van moves to the next free post, or
+        /// stays behind when the line or the budget has no room left for both.
+        /// </summary>
+        static void EnsureScout(Squad squad)
+        {
+            if (!Session.Campaign.Boons().HasScout || squad.HasScout) return;
+
+            var displaced = squad[FormationSlot.Van]?.Kind;
+            if (displaced.HasValue) squad.Remove(FormationSlot.Van);
+
+            if (!squad.TryPlace(FormationSlot.Van, TroopKind.Scout))
+            {
+                // No room even with the van cleared: leave things as they were.
+                if (displaced.HasValue) squad.TryPlace(FormationSlot.Van, displaced.Value);
+                return;
+            }
+
+            if (displaced.HasValue) squad.TryPlace(displaced.Value);
         }
 
         static void Header(MenuShell shell, RectTransform root, LevelRecipe recipe)
@@ -185,6 +213,9 @@ namespace TheVeil.UI
             button.targetGraphic = plate;
             button.onClick.AddListener(() =>
             {
+                // The scout's post is hers for good and does not empty.
+                if (_squad[here] != null && TroopTable.Scouts(_squad[here].Kind)) return;
+
                 // A post with somebody in it empties; an empty one opens the picker. Two
                 // taps to change a post rather than a menu of nine every time.
                 if (_squad[here] != null) _squad.Remove(here);
@@ -284,7 +315,9 @@ namespace TheVeil.UI
         {
             var clear = Widgets.Plate("Clear", root, Loc.T("CLEAR"), ButtonRole.Secondary, () =>
             {
-                _squad = new Squad(_squad.Budget, _squad.Posts);
+                // Emptied of everybody the player chose — the scout was not chosen and
+                // comes straight back (see Build).
+                _squad = new Squad(_squad.Budget, _squad.Posts) { School = Session.Campaign.TroopBoons() };
                 shell.Show(Build);
             });
 

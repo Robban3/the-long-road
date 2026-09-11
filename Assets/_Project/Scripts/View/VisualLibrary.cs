@@ -211,6 +211,16 @@ namespace TheVeil.View
         public Material PlayerFaction;
 
         /// <summary>
+        /// The scout's own livery, in place of the escort's.
+        ///
+        /// She walks alone twenty metres ahead of the column and does not fight, and in the
+        /// escort's colours she read from above as a swordsman who had wandered off. A
+        /// colour of her own says at a glance which figure out there is the one watching.
+        /// Left null, she wears the escort's.
+        /// </summary>
+        public Material ScoutFaction;
+
+        /// <summary>
         /// What a faction material is called, so one can be recognised in a slot.
         ///
         /// `Unviersal` is the pack's own spelling. Correcting it here would mean matching

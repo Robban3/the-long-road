@@ -342,8 +342,8 @@ namespace TheVeil.Sim
             {
                 float damage = TrapTable.Damage(trap.Kind);
 
-                var point = Squad?[FormationSlot.Van];
-                if (point != null && point.Alive)
+                var point = Squad?.PointTroop;
+                if (point != null)
                 {
                     point.TakeDamage(damage);
                     TrapDamageToTroops += damage;
@@ -381,17 +381,31 @@ namespace TheVeil.Sim
         /// An engineer defuses revealed traps within reach as the column passes, and is
         /// paid for it — which is how a troop that kills almost nothing stays
         /// affordable in an economy driven by kills.
+        ///
+        /// <b>And the scout clears every trap she has seen.</b> She walks ahead of the
+        /// column and spots them first, so a trap she sees does no harm at all: she marks
+        /// it and the column goes round — anything revealed within her trap sight is made
+        /// safe before the wagons reach it, several in a step if she has seen several.
         /// </summary>
         void WorkTheEngineer()
         {
-            if (Squad == null || !Squad.HasEngineer) return;
+            if (Squad == null) return;
 
             foreach (var group in Squad.Slots)
             {
-                if (group == null || !group.Alive || !TroopTable.CanDisarmTraps(group.Kind)) continue;
+                if (group == null || !group.Alive) continue;
 
-                var disarmed = Traps.TryDisarmNearest(group.Position);
-                if (disarmed != null) Economy.AwardTrapDisarm(disarmed.Kind);
+                if (TroopTable.CanDisarmTraps(group.Kind))
+                {
+                    var disarmed = Traps.TryDisarmNearest(group.Position);
+                    if (disarmed != null) Economy.AwardTrapDisarm(disarmed.Kind);
+                }
+                else if (TroopTable.Scouts(group.Kind))
+                {
+                    TrackedTrap cleared;
+                    while ((cleared = Traps.TryDisarmNearest(group.Position, EffectiveTrapSight)) != null)
+                        Economy.AwardTrapDisarm(cleared.Kind);
+                }
             }
         }
 

@@ -307,7 +307,7 @@ namespace TheVeil.View
                     // Once, at spawn, as the enemies are. Both sides are dressed
                     // deliberately now — see OwnColours for why leaving one of them in
                     // the pack's own livery is what put two armies in the same colour.
-                    if (kit.HasModel) OwnColours(figure);
+                    if (kit.HasModel) OwnColours(figure, group.Kind);
 
                     figures.Add(figure);
                 }
@@ -1366,11 +1366,16 @@ namespace TheVeil.View
         /// player material means the escort keeps the livery it came in, which is exactly
         /// right for a project that does not have the pack.
         /// </summary>
-        void OwnColours(Transform figure)
+        void OwnColours(Transform figure, TroopKind kind)
         {
-            if (Library.PlayerFaction == null) return;
+            // The scout in her own, where there is one. See VisualLibrary.ScoutFaction.
+            var livery = TroopTable.Scouts(kind) && Library.ScoutFaction != null
+                ? Library.ScoutFaction
+                : Library.PlayerFaction;
 
-            Repaint(figure, Library.PlayerFaction);
+            if (livery == null) return;
+
+            Repaint(figure, livery);
         }
 
         /// <summary>

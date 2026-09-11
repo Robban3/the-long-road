@@ -458,6 +458,40 @@ namespace TheVeil.Sim
             }
         }
 
+        /// <summary>
+        /// The troop a trap that goes off strikes, or null to let it reach the wagons.
+        ///
+        /// The van, as it always was — which is what makes a shieldbearer on point the
+        /// answer to a trapped road. Except when the van is the scout: a hired scout holds
+        /// the van on every level, walks ahead of it and clears the traps she sees, so one
+        /// she missed lands on the first living troop behind her, front to back, and the
+        /// shieldbearer's answer moves to a front flank.
+        /// </summary>
+        public TroopGroup PointTroop
+        {
+            get
+            {
+                var van = _slots[(int)FormationSlot.Van];
+
+                if (van == null || !TroopTable.Scouts(van.Kind))
+                    return van != null && van.Alive ? van : null;
+
+                foreach (var slot in BehindTheScout)
+                {
+                    var group = _slots[(int)slot];
+                    if (group != null && group.Alive && !TroopTable.Scouts(group.Kind)) return group;
+                }
+
+                return null;
+            }
+        }
+
+        static readonly FormationSlot[] BehindTheScout =
+        {
+            FormationSlot.RightVan, FormationSlot.LeftVan,
+            FormationSlot.RightRear, FormationSlot.LeftRear, FormationSlot.Rear
+        };
+
         /// <summary>Whether the escort already has its one scout. See TryPlace.</summary>
         public bool HasScout
         {
