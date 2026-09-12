@@ -249,22 +249,51 @@ namespace TheVeil.Sim
             }
         }
 
-        /// <summary>Nearest living troop, at any distance. Null when the escort is gone.</summary>
+        /// <summary>
+        /// How much further off than the nearest troop a shieldbearer may stand and still
+        /// be the one an enemy goes for, in metres.
+        ///
+        /// Five: about one post's width of the formation. Near enough that an enemy
+        /// closing on the bows beside a shield wall turns into the wall, which is the
+        /// point of the wall; not so far that bandits come round the whole caravan to
+        /// reach it, which would be a magnet rather than a shield.
+        /// </summary>
+        public const float ShieldDraw = 5f;
+
+        /// <summary>Whether a shieldbearer this far off draws an enemy whose nearest troop is that far.</summary>
+        public static bool DrawnTo(float shieldDistance, float nearestDistance)
+            => shieldDistance <= nearestDistance + ShieldDraw;
+
+        /// <summary>
+        /// The troop an enemy closes on: the nearest living one, unless a shieldbearer is
+        /// nearly as near (see <see cref="ShieldDraw"/>). Null when the escort is gone.
+        /// </summary>
         TroopGroup NearestLivingTroop(TrackedEnemy enemy)
         {
-            TroopGroup found = null;
-            float best = float.MaxValue;
+            TroopGroup found = null, shield = null;
+            float best = float.MaxValue, bestShield = float.MaxValue;
 
             foreach (var group in _squad.Slots)
             {
                 if (group == null || !group.Alive) continue;
 
                 float distance = Vec2.DistanceSquared(enemy.Position, group.Position);
+
+                if (TroopTable.DrawsAttackers(group.Kind) && distance < bestShield)
+                {
+                    bestShield = distance;
+                    shield = group;
+                }
+
                 if (distance >= best) continue;
 
                 best = distance;
                 found = group;
             }
+
+            if (shield != null && DrawnTo((float)System.Math.Sqrt(bestShield), (float)System.Math.Sqrt(best)))
+                return shield;
+
             return found;
         }
 
@@ -524,23 +553,36 @@ namespace TheVeil.Sim
         /// swordsman who could not bite back — which on screen is a figure swinging at
         /// air, and in the numbers is a squad in contact with nothing to fight.
         /// </summary>
+        ///
+        /// A shieldbearer inside that reach is struck before anybody else inside it —
+        /// see <see cref="ShieldDraw"/>.
         TroopGroup NearestTroopInReach(TrackedEnemy enemy)
         {
             float reach = EnemyTable.AttackRange(enemy.Kind);
-            float best = reach * reach;
-            TroopGroup found = null;
+            float limit = reach * reach;
+            float best = limit, bestShield = limit;
+            TroopGroup found = null, shield = null;
 
             foreach (var group in _squad.Slots)
             {
                 if (group == null || !group.Alive) continue;
 
                 float distance = Vec2.DistanceSquared(enemy.Position, group.Position);
+                if (distance > limit) continue;
+
+                if (TroopTable.DrawsAttackers(group.Kind) && distance <= bestShield)
+                {
+                    bestShield = distance;
+                    shield = group;
+                }
+
                 if (distance > best) continue;
 
                 best = distance;
                 found = group;
             }
-            return found;
+
+            return shield ?? found;
         }
 
         /// <summary>

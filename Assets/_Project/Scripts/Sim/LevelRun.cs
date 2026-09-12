@@ -196,8 +196,12 @@ namespace TheVeil.Sim
             // through a battle would quietly undo the fighting; here it makes a quiet
             // stretch of road worth something, which is what the caravan has instead of
             // a rest between waves.
-            if (Boons.RepairPerSecond > 0f && (Combat == null || !Combat.InContact))
-                Caravan.Mend(Boons.RepairPerSecond * StepSeconds);
+            //
+            // The engineers are wheelwrights too, on the same terms: the shop's track and
+            // whatever engineers are still standing add up, and neither works under fire.
+            float mend = Boons.RepairPerSecond + (Squad != null ? Squad.RepairPerSecond : 0f);
+            if (mend > 0f && (Combat == null || !Combat.InContact))
+                Caravan.Mend(mend * StepSeconds);
 
             // The scout walks out in front while the road is quiet and falls back into
             // the ranks the moment anything is fighting. Set before the posts are worked

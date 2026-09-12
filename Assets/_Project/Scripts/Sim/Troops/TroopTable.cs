@@ -127,6 +127,27 @@ namespace TheVeil.Sim
         public static bool CanDisarmTraps(TroopKind k) => k == TroopKind.Engineer;
 
         /// <summary>
+        /// Wagon hit points a group of engineers mends a second at full strength, while
+        /// nothing is fighting.
+        ///
+        /// Their own job again. The hired scout clears traps now, and further ahead than
+        /// they see them, so an engineer who only disarmed traps was a post in the line
+        /// spent on what fifty gold buys without one. Mending is what their tools were
+        /// always for. Two thirds of the shop's finished Repair track (1.8), so the
+        /// purchase stays worth having and a pair of groups is not a bottomless cart.
+        /// </summary>
+        public const float EngineerRepair = 1.2f;
+
+        public static float RepairPerSecond(TroopKind k) => k == TroopKind.Engineer ? EngineerRepair : 0f;
+
+        /// <summary>
+        /// Whether enemies go for this troop before the others near it. The shieldbearers:
+        /// forty percent of every blow turned aside is worth most when the blows are
+        /// aimed at them rather than at the bows behind. See CombatSystem.ShieldDraw.
+        /// </summary>
+        public static bool DrawsAttackers(TroopKind k) => k == TroopKind.Shieldbearer;
+
+        /// <summary>
         /// Troops that walk out in front of the column rather than at their post, and of
         /// which an escort may bring only one. Bought once in the shop (Boon.Scout).
         /// </summary>

@@ -357,6 +357,31 @@ namespace TheVeil.Sim
 
         public IReadOnlyList<TroopGroup> Slots => _slots;
 
+        /// <summary>
+        /// Wagon hit points this escort's engineers mend a second while nothing is
+        /// fighting: each living group at its strength, so a group cut to half its men
+        /// mends at half the rate and a dead one not at all.
+        /// </summary>
+        public float RepairPerSecond
+        {
+            get
+            {
+                float rate = 0f;
+
+                foreach (var group in _slots)
+                {
+                    if (group == null || !group.Alive) continue;
+
+                    float full = TroopTable.RepairPerSecond(group.Kind);
+                    if (full <= 0f) continue;
+
+                    rate += full * group.ModelsAlive / (float)TroopTable.Models(group.Kind);
+                }
+
+                return rate;
+            }
+        }
+
         public int PointsSpent
         {
             get

@@ -391,11 +391,11 @@ namespace TheVeil.UI
                 case TroopKind.Swordsmen: return Loc.T("hardest in close combat");
                 case TroopKind.Archers: return Loc.T("22 m reach, worse in forest");
                 case TroopKind.Cavalry: return Loc.T("strong on plains, weak in marsh");
-                case TroopKind.Mage: return Loc.T("18 m, expensive");
+                case TroopKind.Mage: return Loc.T("fireballs, 18 m, expensive");
                 case TroopKind.Scout: return Loc.T("34 m sight, walks ahead, does not fight");
-                case TroopKind.Shieldbearer: return Loc.T("takes 40 % less damage");
+                case TroopKind.Shieldbearer: return Loc.T("takes 40 % less damage, draws attackers");
                 case TroopKind.Priest: return Loc.T("heals the most wounded");
-                case TroopKind.Engineer: return Loc.T("disarms traps");
+                case TroopKind.Engineer: return Loc.T("disarms traps, mends wagons");
                 case TroopKind.Crossbowmen: return Loc.T("hits harder than a bow, 20 m");
                 case TroopKind.HeavyCavalry: return Loc.T("mailed horse, 15 % less damage");
                 case TroopKind.NobleCavalry: return Loc.T("hits harder, 20 % less damage");
