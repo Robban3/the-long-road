@@ -159,13 +159,28 @@ namespace TheVeil.UI
         /// Chapter names, until there is a content asset to read them from. The first is
         /// the one the mock-up names; the rest follow the road east.
         /// </summary>
+        /// <summary>
+        /// What a chapter is called, which is the country it crosses.
+        ///
+        /// By biome rather than by number. The countries are a tour that begins again
+        /// (see <see cref="Biomes.Order"/>), so naming them one number at a time left
+        /// every chapter past the third called "CHAPTER 7" — and named the third for a
+        /// wetland it was not set in. The first three keep the names they shipped with.
+        /// </summary>
         static string ChapterName(int chapter)
         {
-            switch (chapter)
+            switch (Biomes.Of(chapter))
             {
-                case 1: return Loc.T("THE BORDERLANDS");
-                case 2: return Loc.T("THE KING'S ROAD");
-                case 3: return Loc.T("THE WETLANDS");
+                case Biome.Forest: return Loc.T("THE BORDERLANDS");
+                case Biome.Winter: return Loc.T("THE KING'S ROAD");
+                case Biome.Marsh: return Loc.T("THE WETLANDS");
+                case Biome.Plains: return Loc.T("THE OPEN PLAINS");
+                case Biome.Farmland: return Loc.T("THE FARMLANDS");
+                case Biome.Mountain: return Loc.T("THE HIGH PASSES");
+                case Biome.Coast: return Loc.T("THE SALT COAST");
+                case Biome.Desert: return Loc.T("THE BURNING SANDS");
+                case Biome.Enchanted: return Loc.T("THE ENCHANTED WOOD");
+                case Biome.Dead: return Loc.T("THE DEAD LAND");
                 default: return Loc.F("CHAPTER {0}", chapter);
             }
         }

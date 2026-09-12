@@ -196,8 +196,130 @@ namespace TheVeil.Sim
             // table opens them all, as PoolForLevel reads a missing entry as level one.
             recipe.EnemyUnlockLevel = System.Array.Empty<int>();
 
+            // The country last, so it has the final word on the ground it is made of.
+            // Applied after the climb because some of what it says is a change to what the
+            // climb just decided — the fens are trappier than the road behind them,
+            // whatever rung of the climb they are on.
+            Country(recipe, Biomes.Of(chapter));
+
             return recipe;
         }
+
+        /// <summary>
+        /// Dresses a chapter in its country: the terrain mix, the water across it, the
+        /// size of the land forms, and who is out there.
+        ///
+        /// <b>This is what makes a biome more than a change of models.</b> A marsh with
+        /// the forest's ten percent of bog is a wood with puddles; the plains with the
+        /// forest's forty-five percent of trees is a wood. The shares are the country,
+        /// and the models are what it looks like.
+        ///
+        /// Every mix is five shares of the same five terrains the default uses, summing to
+        /// one, because the generator hands them out by quantile: adding a sixth kind or
+        /// summing to something else silently reshapes all of them. Cliffs are not in it —
+        /// they are placed as river banks and map edges, not sown across the ground.
+        ///
+        /// Forest and winter are absent on purpose: they are the defaults, and a country
+        /// nobody has built scenery for is drawn as forest anyway (see Biomes.Order), so a
+        /// chapter set in a marsh plays over marsh ground under woodland trees until the
+        /// marsh is built. Wrong-looking is better than wrong to play.
+        /// </summary>
+        static void Country(ChapterRecipe recipe, Biome biome)
+        {
+            switch (biome)
+            {
+                case Biome.Marsh:
+                    // Bog and standing water, and two rivers with few crossings: what the
+                    // marsh does to a caravan is take away the choice of where to cross.
+                    recipe.TerrainMix = Mix(0.27f, 0.20f, 0.38f, 0.05f, 0.10f);
+                    recipe.Rivers = 2;
+                    recipe.FordsPerRiver = 2;
+                    Traps(recipe, 1.1f);
+                    break;
+
+                case Biome.Plains:
+                    // Open ground: the horse's country, and nowhere to hide from a bow.
+                    // Broader land forms too, so the openness reads as country rather than
+                    // as a missing forest.
+                    recipe.TerrainMix = Mix(0.22f, 0.58f, 0.07f, 0.06f, 0.07f);
+                    recipe.FordsPerRiver = 4;
+                    recipe.NoiseScale = 24f;
+                    break;
+
+                case Biome.Farmland:
+                    // Country somebody lives in: fields between woodlots, and water people
+                    // settled beside.
+                    recipe.TerrainMix = Mix(0.28f, 0.50f, 0.07f, 0.05f, 0.10f);
+                    break;
+
+                case Biome.Mountain:
+                    // Passes and tight land forms, and a road that has to go the long way
+                    // round rather than over.
+                    recipe.TerrainMix = Mix(0.26f, 0.26f, 0.05f, 0.34f, 0.09f);
+                    recipe.FordsPerRiver = 2;
+                    recipe.NoiseScale = 13f;
+                    recipe.RouteTilesStart += 8;
+                    recipe.RouteTilesEnd += 8;
+                    break;
+
+                case Biome.Coast:
+                    // Water on one hand and salt marsh behind the dunes, cut by two river
+                    // mouths.
+                    recipe.TerrainMix = Mix(0.25f, 0.33f, 0.15f, 0.05f, 0.22f);
+                    recipe.Rivers = 2;
+                    break;
+
+                case Biome.Desert:
+                    // Sand, rock and one thread of water. No wolves: nothing here hunts in
+                    // packs, and the danger is the men who know where the water is.
+                    recipe.TerrainMix = Mix(0.08f, 0.66f, 0.05f, 0.16f, 0.05f);
+                    recipe.FordsPerRiver = 2;
+                    recipe.NoiseScale = 26f;
+                    recipe.EnemyUnlockLevel = new[] { Never, 1, 1 };
+                    break;
+
+                case Biome.Enchanted:
+                    // Deep wood with bog in it, and more of it trapped: the wood does not
+                    // want the road. Its beasts meet the caravan first and its people late.
+                    recipe.TerrainMix = Mix(0.56f, 0.18f, 0.16f, 0.04f, 0.06f);
+                    Traps(recipe, 1.25f);
+                    recipe.EnemyUnlockLevel = new[] { 1, 4, 4 };
+                    break;
+
+                case Biome.Dead:
+                    // Ash and bare rock where a country used to be, and the most trapped
+                    // ground on the road: everything left here was left to catch somebody.
+                    recipe.TerrainMix = Mix(0.30f, 0.38f, 0.05f, 0.17f, 0.10f);
+                    recipe.FordsPerRiver = 2;
+                    Traps(recipe, 1.4f);
+                    break;
+            }
+        }
+
+        /// <summary>A level whose number no chapter reaches: an enemy kind this country has none of.</summary>
+        public const int Never = 999;
+
+        /// <summary>
+        /// More trapped ground than the climb asked for, or less, and never past the
+        /// ceiling: the scout and the engineer have to be able to keep up (see
+        /// <see cref="TrapCeiling"/>).
+        /// </summary>
+        static void Traps(ChapterRecipe recipe, float factor)
+        {
+            recipe.TrapDensityStart = System.Math.Min(TrapCeiling, recipe.TrapDensityStart * factor);
+            recipe.TrapDensityEnd = System.Math.Min(TrapCeiling, recipe.TrapDensityEnd * factor);
+        }
+
+        /// <summary>The five shares, in the order the default declares them.</summary>
+        static TerrainShare[] Mix(float forest, float plains, float marsh, float pass, float water)
+            => new[]
+            {
+                new TerrainShare(TerrainType.Forest, forest),
+                new TerrainShare(TerrainType.Plains, plains),
+                new TerrainShare(TerrainType.Marsh, marsh),
+                new TerrainShare(TerrainType.MountainPass, pass),
+                new TerrainShare(TerrainType.Water, water)
+            };
 
         /// <summary>
         /// Enemy strength at the end of a chapter; chapter zero is the start of the first.

@@ -160,6 +160,13 @@ namespace TheVeil.UI
             ["THE BORDERLANDS"] = "GRÄNSLANDEN",
             ["THE KING'S ROAD"] = "KUNGSVÄGEN",
             ["THE WETLANDS"] = "DE VÅTA MARKERNA",
+            ["THE OPEN PLAINS"] = "SLÄTTERNA",
+            ["THE FARMLANDS"] = "BYGDEN",
+            ["THE HIGH PASSES"] = "HÖGA PASSEN",
+            ["THE SALT COAST"] = "SALTKUSTEN",
+            ["THE BURNING SANDS"] = "BRINNANDE SANDEN",
+            ["THE ENCHANTED WOOD"] = "FÖRTROLLADE SKOGEN",
+            ["THE DEAD LAND"] = "DÖDA LANDET",
             ["Needs {0} stars in chapter {1} — you have {2}"] = "Behöver {0} stjärnor i kapitel {1} — du har {2}",
             ["BATTLE"] = "STRID",
 
