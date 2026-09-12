@@ -158,7 +158,7 @@ namespace TheVeil.Sim
         /// introducing archers later is a difficulty lever in its own right — the
         /// archer is not a stronger wolf, it is a problem melee cannot solve.
         /// </summary>
-        public EnemyKind[] EnemyPool = EnemyTable.All;
+        public EnemyKind[] EnemyPool = EnemyTable.Common;
 
         /// <summary>
         /// Silver a route must be able to yield — two upgrade levels for one troop

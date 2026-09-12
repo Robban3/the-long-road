@@ -297,6 +297,17 @@ namespace TheVeil.Editor
                 Deserters = new[] { Army("MC_Levy_01"), Army("MC_Levy_04"), Army("MC_Levy_06") },
                 BanditArcher = Archer("MC_Levy_07"),
 
+                // Raiders on horseback: the pack's scout, which is its lightest rider —
+                // a man on a saddle with no barding, which is what somebody who stole the
+                // horse would be on. Their legs are moved by HorseGait like the escort's.
+                BanditRider = Army("MC_Cavalry_Scout"),
+
+                // And the man they follow. A man-at-arms among peasants and deserters:
+                // the only figure in the band wearing proper harness, which is the whole
+                // tell. Not a knight — a knight in black at the head of a peasant band
+                // reads as the wrong faction rather than as its captain.
+                BanditLeader = Army("MC_ManAtArms_03"),
+
                 // The wildlife of GDD §3.5.
                 //
                 // The URP prefab for the materials, but the controller this project

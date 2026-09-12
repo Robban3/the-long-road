@@ -211,11 +211,19 @@ namespace TheVeil.Sim
             return terrain == TerrainType.Forest ? 0.6f : 1f;
         }
 
-        /// <summary>Anti-cavalry bonus. Spearmen exist to punish a charge.</summary>
+        /// <summary>
+        /// Anti-cavalry bonus. Spearmen exist to punish a charge.
+        ///
+        /// It was a bonus against wolves, because a wolf pack was the only thing on the
+        /// road that charged. Horsemen charge harder, and a spear against a horse is the
+        /// oldest answer there is — so it counts for both, which is also what makes the
+        /// cheapest troop in the game the one that answers the dearest raiders.
+        /// </summary>
         public static float DamageMultiplierAgainst(TroopKind kind, EnemyKind target)
         {
-            if (kind == TroopKind.Spearmen && target == EnemyKind.Wolf) return 2f;
-            return 1f;
+            if (kind != TroopKind.Spearmen) return 1f;
+
+            return target == EnemyKind.Wolf || EnemyTable.IsMounted(target) ? 2f : 1f;
         }
     }
 }

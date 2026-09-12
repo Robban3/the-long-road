@@ -345,8 +345,9 @@ namespace TheVeil.Sim
         {
             float damage = EnemyTable.Dps(enemy.Kind) * EnemyStrength * HealthFraction(enemy) * deltaTime;
 
-            // Bandits go for the treasure; everything else hits whatever it reached.
-            var wagon = enemy.Kind == EnemyKind.Bandit
+            // Raiders go for the treasure — on foot, on horseback, or leading the band;
+            // everything else hits whatever it reached. See EnemyTable.AfterTreasure.
+            var wagon = EnemyTable.AfterTreasure(enemy.Kind)
                 ? _caravan[WagonKind.Treasure]
                 : null;
 

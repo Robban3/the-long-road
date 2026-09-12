@@ -1023,9 +1023,7 @@ namespace TheVeil.View
 
                 if (!_enemies.TryGetValue(enemy, out var pack))
                 {
-                    float height = enemy.Kind == EnemyKind.Wolf
-                        ? VisualLibrary.WolfHeight
-                        : VisualLibrary.EnemyHeight;
+                    float height = VisualLibrary.HeightOf(enemy.Kind);
 
                     // One figure per animal or man the group is made of. A wolf pack is
                     // five wolves on the table and was one wolf on the screen, which is
@@ -1265,7 +1263,7 @@ namespace TheVeil.View
         public Transform ShowEnemy(EnemyKind kind, int group, int index, string name, Vector3 position)
         {
             var face = Library.For(kind, group, index);
-            float height = kind == EnemyKind.Wolf ? VisualLibrary.WolfHeight : VisualLibrary.EnemyHeight;
+            float height = VisualLibrary.HeightOf(kind);
             var figure = SpawnActor(face, PrimitiveType.Sphere, name, EnemyAwakeColor, height);
 
             if (face.HasModel) Faction(figure);

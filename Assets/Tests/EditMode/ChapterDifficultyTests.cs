@@ -55,8 +55,11 @@ namespace TheVeil.Tests
             Assert.AreEqual(5, first.Posts);
             Assert.AreEqual(TroopTable.LinePosts, last.Posts);
 
-            Assert.AreEqual(EnemyTable.All.Length, first.EnemyPool.Length,
-                "chapter two opened with the wolves-only lesson chapter one already taught");
+            // Everything chapter one taught is out from the first level; what chapter two
+            // adds of its own — horsemen, a captain — is paced inside it (RaiderTests).
+            foreach (var kind in EnemyTable.Common)
+                Assert.Contains(kind, first.EnemyPool,
+                    "chapter two opened with the wolves-only lesson chapter one already taught");
         }
 
         [Test]

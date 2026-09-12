@@ -85,7 +85,14 @@ namespace TheVeil.Sim
         /// itself: the archer is not merely stronger, it is a problem that melee
         /// cannot answer at all.
         /// </summary>
-        public int[] EnemyUnlockLevel = { 1, 2, 4 };
+        /// <summary>
+        /// ...and never, for the two the first chapter has no business meeting. A band on
+        /// horseback and a captain who takes four troops to put down are not a lesson for
+        /// the levels that teach what a wolf is; they ride in from chapter two (see
+        /// <see cref="For"/>). An entry past the end of this table reads as level one, so
+        /// leaving them out is the same as sending them at the opening caravan.
+        /// </summary>
+        public int[] EnemyUnlockLevel = { 1, 2, 4, Never, Never };
 
         /// <summary>How strong the escort is assumed to be. See LevelRecipe.EscortStrength.</summary>
         public float EscortStrength = 1f;
@@ -192,9 +199,11 @@ namespace TheVeil.Sim
 
             recipe.PostsStart = System.Math.Min(TroopTable.LinePosts, 3 + 2 * (chapter - 1));
 
-            // Every kind from the first level: the lessons were chapter one's. An empty
-            // table opens them all, as PoolForLevel reads a missing entry as level one.
-            recipe.EnemyUnlockLevel = System.Array.Empty<int>();
+            // The wolves, the raiders and their archers from the first level: those
+            // lessons were chapter one's. The horsemen and the captain are this chapter's
+            // own, and they are paced inside it — a band on horseback halfway through,
+            // the man who leads it late, where a worn escort meets him.
+            recipe.EnemyUnlockLevel = new[] { 1, 1, 1, 4, 7 };
 
             // The country last, so it has the final word on the ground it is made of.
             // Applied after the climb because some of what it says is a change to what the
@@ -275,7 +284,9 @@ namespace TheVeil.Sim
                     recipe.TerrainMix = Mix(0.08f, 0.66f, 0.05f, 0.16f, 0.05f);
                     recipe.FordsPerRiver = 2;
                     recipe.NoiseScale = 26f;
-                    recipe.EnemyUnlockLevel = new[] { Never, 1, 1 };
+                    // No wolves, and horsemen from the start: open sand is their country,
+                    // and a band that lives out here lives on horseback.
+                    recipe.EnemyUnlockLevel = new[] { Never, 1, 1, 1, 5 };
                     break;
 
                 case Biome.Enchanted:
@@ -283,7 +294,10 @@ namespace TheVeil.Sim
                     // want the road. Its beasts meet the caravan first and its people late.
                     recipe.TerrainMix = Mix(0.56f, 0.18f, 0.16f, 0.04f, 0.06f);
                     Traps(recipe, 1.25f);
-                    recipe.EnemyUnlockLevel = new[] { 1, 4, 4 };
+                    // Beasts first and people late, and no horsemen at all: nothing rides
+                    // through a wood this close, which is also what makes it safe to send
+                    // the wood's own captain early.
+                    recipe.EnemyUnlockLevel = new[] { 1, 4, 4, Never, 5 };
                     break;
 
                 case Biome.Dead:

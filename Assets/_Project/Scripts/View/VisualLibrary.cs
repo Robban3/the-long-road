@@ -241,6 +241,15 @@ namespace TheVeil.View
         public ActorModel BanditArcher;
 
         /// <summary>
+        /// The mounted raiders, and the man the band follows. One face each rather than a
+        /// mix: there are three horsemen in a band and one captain, and a captain who
+        /// looked like a different man each time he was drawn would not read as the
+        /// captain at all.
+        /// </summary>
+        public ActorModel BanditRider;
+        public ActorModel BanditLeader;
+
+        /// <summary>
         /// The faces a band of raiders is drawn from.
         ///
         /// Mostly the hungry — peasants with whatever they could pick up — and now and then
@@ -480,8 +489,21 @@ namespace TheVeil.View
             {
                 case EnemyKind.Wolf: return Wolf;
                 case EnemyKind.BanditArcher: return BanditArcher;
+                case EnemyKind.BanditRider: return BanditRider.HasModel ? BanditRider : Bandit;
+                case EnemyKind.BanditLeader: return BanditLeader.HasModel ? BanditLeader : Bandit;
                 default: return Bandit;
             }
+        }
+
+        /// <summary>
+        /// How tall an enemy is drawn, in metres: a wolf at the shoulder, a man on a horse
+        /// on the cavalry's ruler, everybody else a man.
+        /// </summary>
+        public static float HeightOf(EnemyKind kind)
+        {
+            if (kind == EnemyKind.Wolf) return WolfHeight;
+
+            return EnemyTable.IsMounted(kind) ? CavalryHeight : EnemyHeight;
         }
 
         /// <summary>
@@ -495,7 +517,7 @@ namespace TheVeil.View
         /// </summary>
         public ActorModel For(EnemyKind kind, int group, int figure)
         {
-            if (kind == EnemyKind.Wolf || kind == EnemyKind.BanditArcher) return For(kind);
+            if (kind != EnemyKind.Bandit) return For(kind);
 
             uint mix = Mix(group, figure);
             bool deserter = mix % 4 == 0 && Deserters != null && Deserters.Length > 0;
