@@ -60,6 +60,9 @@ namespace TheVeil.View
 
         /// <summary>The crossbows' own volley, loosing quarrels rather than arrows.</summary>
         Volley _bolts;
+
+        /// <summary>The mages' fireballs. See Volley.Fireballs.</summary>
+        Volley _fire;
         Material _ringMaterial;
 
         readonly Dictionary<TroopGroup, List<Transform>> _troops =
@@ -331,6 +334,7 @@ namespace TheVeil.View
 
             _volley = new Volley(_root, Library.Arrow, RingMaterial());
             _bolts = new Volley(_root, Library.Bolt != null ? Library.Bolt : Library.Arrow, RingMaterial());
+            _fire = Volley.Fireballs(_root, RingMaterial());
 
             ReportCast(run);
         }
@@ -856,6 +860,7 @@ namespace TheVeil.View
 
             _volley.Advance(deltaTime);
             _bolts?.Advance(deltaTime);
+            _fire?.Advance(deltaTime);
 
             var terrain = run.Caravan.CurrentTerrain;
 
@@ -902,8 +907,8 @@ namespace TheVeil.View
         /// </summary>
         void Volleys(TroopGroup group, Vector3 to)
         {
-            // Quarrels from the crossbows, arrows from everybody else.
-            var volley = group.Kind == TroopKind.Crossbowmen && _bolts != null ? _bolts : _volley;
+            // Quarrels from the crossbows, fire from the mages, arrows from everybody else.
+            var volley = Shots(group.Kind);
 
             if (!_troops.TryGetValue(group, out var figures) || figures == null)
             {
@@ -1116,6 +1121,9 @@ namespace TheVeil.View
                     Place(pack[i], new Vector3(spot.X, GroundAt(spot), spot.Y), turn);
                     Animate(pack[i], speed, enemy.Striking, false);
 
+                    // A wolf closes at fourteen metres a second; see Pace.
+                    Pace(pack[i], speed);
+
                     // Colour only survives on primitives; a model keeps its own materials.
                     if (!model.HasModel)
                         Tint(pack[i], enemy.Awake ? EnemyAwakeColor : EnemyAsleepColor);
@@ -1228,6 +1236,90 @@ namespace TheVeil.View
             Place(marker, position);
             Animate(marker, speed, false, false);
             return marker;
+        }
+
+        /// <summary>
+        /// The yaw each showcase figure's model was saved with. See <see cref="Stage"/>.
+        /// </summary>
+        readonly Dictionary<Transform, float> _showYaw = new Dictionary<Transform, float>();
+
+        /// <summary>
+        /// One of the escort's figures, dressed as the level dresses it, for a scene with
+        /// no level in it — see TheVeil.App.TroopShowcase. The same spawn path as Build:
+        /// the kind's model and height, its livery, its weapon, its animator and, under a
+        /// rider, the horse's gait.
+        /// </summary>
+        public Transform ShowTroop(TroopKind kind, string name, Vector3 position)
+        {
+            var kit = Library.For(kind);
+            var figure = SpawnActor(kit, PrimitiveType.Capsule, name, TroopColor, VisualLibrary.HeightOf(kind));
+
+            if (kit.HasModel) OwnColours(figure, kind);
+
+            _showYaw[figure] = kit.YawOffset;
+            Place(figure, position);
+            return figure;
+        }
+
+        /// <summary>A bandit dressed as the level dresses one. See <see cref="ShowTroop"/>.</summary>
+        public Transform ShowEnemy(EnemyKind kind, int group, int index, string name, Vector3 position)
+        {
+            var face = Library.For(kind, group, index);
+            float height = kind == EnemyKind.Wolf ? VisualLibrary.WolfHeight : VisualLibrary.EnemyHeight;
+            var figure = SpawnActor(face, PrimitiveType.Sphere, name, EnemyAwakeColor, height);
+
+            if (face.HasModel) Faction(figure);
+
+            _showYaw[figure] = face.YawOffset;
+            Place(figure, position);
+            return figure;
+        }
+
+        /// <summary>
+        /// Stands a showcase figure somewhere, facing a direction, doing something: its
+        /// pace, whether it is striking, whether it has fallen. The model's own yaw is
+        /// put on top, as the level does, so a figure saved facing sideways still walks
+        /// the way it is sent.
+        /// </summary>
+        public void Stage(Transform figure, Vector3 position, Vector3 facing, float speed,
+                          bool attacking, bool dead)
+        {
+            if (figure == null) return;
+
+            _showYaw.TryGetValue(figure, out float yaw);
+            Place(figure, position, Facing(facing, yaw));
+            Animate(figure, speed, attacking, dead);
+        }
+
+        /// <summary>
+        /// A shot from one point to another: a quarrel from a crossbow, an arrow from
+        /// anything else. The volleys are made on first use, because a showcase never
+        /// builds a level, which is where the level makes them.
+        /// </summary>
+        public void Loose(TroopKind kind, Vector3 from, Vector3 to)
+        {
+            if (_volley == null) _volley = new Volley(_root, Library.Arrow, RingMaterial());
+            if (_bolts == null)
+                _bolts = new Volley(_root, Library.Bolt != null ? Library.Bolt : Library.Arrow, RingMaterial());
+            if (_fire == null) _fire = Volley.Fireballs(_root, RingMaterial());
+
+            Shots(kind).Loose(from, to);
+        }
+
+        /// <summary>Which volley a troop shoots with: quarrels, fire, or arrows.</summary>
+        Volley Shots(TroopKind kind)
+        {
+            if (kind == TroopKind.Crossbowmen && _bolts != null) return _bolts;
+            if (kind == TroopKind.Mage && _fire != null) return _fire;
+            return _volley;
+        }
+
+        /// <summary>Moves the shots in flight on, for a showcase that has no LevelRun to hand to Advance.</summary>
+        public void AdvanceShots(float deltaTime)
+        {
+            _volley?.Advance(deltaTime);
+            _bolts?.Advance(deltaTime);
+            _fire?.Advance(deltaTime);
         }
 
         /// <summary>
@@ -1344,7 +1436,44 @@ namespace TheVeil.View
                 // grazing pace got the standing one — moving with nothing animating,
                 // which is the slide.
                 Animate(marker, animal.Speed, false, false);
+                Pace(marker, animal.Speed);
             }
+        }
+
+        /// <summary>Speeds the two gait clips are drawn for, in metres a second.</summary>
+        // A walk cycle is drawn for a stroll and a run for a canter; these are what the
+        // clips look right at, measured against the ground rather than taken from a file.
+        const float WalkStride = 1.5f;
+        const float RunStride = 7f;
+
+        /// <summary>Where the Run state takes over. Must match AnimatorBuilder.RunFrom, which is editor-only.</summary>
+        const float RunPace = 5f;
+
+        /// <summary>
+        /// How fast an animal's legs move, against how fast it is actually travelling.
+        ///
+        /// A clip is drawn at one pace and played back at one speed, so a deer bolting at
+        /// eleven metres a second paced a walk over the ground — which is the slide, and
+        /// no amount of picking the right clip fixes the last of it. The Run state
+        /// decides *which* gait plays; this decides how fast, from the speed the
+        /// simulation is actually moving the animal at.
+        ///
+        /// Clamped both ways: a grazing step should not crawl, and a bolt should not blur
+        /// into a flicker of legs.
+        /// </summary>
+        void Pace(Transform marker, float speed)
+        {
+            if (marker == null || !_animators.TryGetValue(marker, out var animator) || animator == null) return;
+
+            if (speed <= 0.15f)
+            {
+                animator.speed = 1f;
+                return;
+            }
+
+            animator.speed = speed >= RunPace
+                ? Mathf.Clamp(speed / RunStride, 0.8f, 1.8f)
+                : Mathf.Clamp(speed / WalkStride, 0.6f, 1.6f);
         }
 
         /// <summary>

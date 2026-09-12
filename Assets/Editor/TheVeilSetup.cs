@@ -427,17 +427,18 @@ namespace TheVeil.Editor
         /// <summary>
         /// Degrees the ForestAnimals models need turning so their noses lead.
         ///
-        /// They are modelled along X while the code turns an actor by pointing its +Z
-        /// at what it is heading for, so without this a wolf charges the caravan
-        /// broadside — which is what "the wolf slides sideways" was, and it looked like
-        /// a movement bug rather than an import one.
+        /// Nought, and measured rather than reasoned about: every one of these models
+        /// is built nose-along-+Z, which is the axis the code already points at what an
+        /// actor is heading for. Each was spawned through the game's own path, sent due
+        /// east with a marker in front of it, and photographed; at nought all five look
+        /// at the marker.
         ///
-        /// Ninety rather than minus ninety is a coin toss no file can settle: both put
-        /// the body the right way round and only one puts the head at the front. It is
-        /// a field on the model, so it can be flipped in the Inspector under
-        /// Level Runner > Models while the game runs, which beats reasoning about it.
+        /// It was ninety, from an earlier reading of a sliding wolf, and ninety is a
+        /// quarter turn: the animals travelled sideways. It showed up as deer that
+        /// "flee with their heads towards the caravan" — the flight was right and the
+        /// facing was across it.
         /// </summary>
-        const float ForestAnimalYaw = 90f;
+        const float ForestAnimalYaw = 0f;
 
         /// <summary>
         /// The medieval army pack's characters, which is where the troops come from now.

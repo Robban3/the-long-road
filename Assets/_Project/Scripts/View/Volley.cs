@@ -91,6 +91,23 @@ namespace TheVeil.View
         public static readonly Color TrailHead = new Color(1f, 0.97f, 0.88f, 0.45f);
         public static readonly Color TrailTail = new Color(1f, 0.94f, 0.80f, 0f);
 
+        /// <summary>
+        /// The mage's shot: a ball of fire rather than a shaft.
+        ///
+        /// A staff that looses arrows is a bowman in a robe, which is what the mage was.
+        /// So the same flight — same speed, same arc, same pool — carries a glowing ball
+        /// with a long hot tail instead, and it goes out where it lands rather than
+        /// standing in the ground. Sized like the shafts, by the camera and not by life:
+        /// at 62 m a fist of fire is a spark.
+        /// </summary>
+        public const float FireballSize = 0.8f;
+        public const float FireTrailSeconds = 0.25f;
+        public const float FireTrailWidth = 0.5f;
+
+        public static readonly Color FlameColor = new Color(1f, 0.55f, 0.15f);
+        public static readonly Color FireHead = new Color(1f, 0.78f, 0.35f, 0.6f);
+        public static readonly Color FireTail = new Color(0.85f, 0.18f, 0.04f, 0f);
+
         /// <summary>How far apart a rank's shafts land, per shooter, in metres.</summary>
         // A metre and a half. Enough that three arrows into one pack read as three, and
         // small enough that they are all plainly aimed at the same thing.
@@ -128,6 +145,9 @@ namespace TheVeil.View
             public Vector3 From, To;
             public float Flight, Flown;
             public bool Live;
+
+            /// <summary>The fireball itself, put out on landing while its tail fades. Null for a shaft.</summary>
+            public Renderer Body;
         }
 
         /// <summary>How thick the fallback dart is drawn, in metres.</summary>
@@ -143,6 +163,10 @@ namespace TheVeil.View
         readonly List<Shaft> _shafts = new List<Shaft>();
         readonly int _capacity;
 
+        /// <summary>Fireballs rather than shafts. See <see cref="Fireballs"/>.</summary>
+        readonly bool _fire;
+        static Material _flame;
+
         // Sixty-four rather than forty. Each shaft is alive for its flight plus Linger —
         // at the slower speed above that is a second and a bit — and every archer in a
         // rank now looses its own, so five ranged posts can have thirty-odd in the air at
@@ -156,13 +180,21 @@ namespace TheVeil.View
         /// one, so a caller that has none still gets tails.
         /// </param>
         public Volley(Transform parent, GameObject model, Material trail = null,
-                      int capacity = 64)
+                      int capacity = 64, bool fire = false)
         {
             _parent = parent;
             _model = model;
             _trail = trail != null ? trail : RangeRing.Material();
             _capacity = capacity;
+            _fire = fire;
         }
+
+        /// <summary>
+        /// The mages' volley: fireballs on the same flight as the arrows. Fewer in the
+        /// pool, because a mage is one figure and looses one at a time.
+        /// </summary>
+        public static Volley Fireballs(Transform parent, Material trail = null, int capacity = 32)
+            => new Volley(parent, null, trail, capacity, fire: true);
 
         public int Flying
         {
@@ -192,6 +224,9 @@ namespace TheVeil.View
             // white line straight through the caravan, once per reuse.
             shaft.Holder.position = from;
             shaft.Holder.gameObject.SetActive(true);
+
+            // Lit again: the last flight put it out where it landed.
+            if (shaft.Body != null) shaft.Body.enabled = true;
 
             if (shaft.Trail != null)
             {
@@ -227,10 +262,18 @@ namespace TheVeil.View
                 if (shaft.Trail != null && shaft.Flown >= shaft.Flight)
                     shaft.Trail.emitting = false;
 
+                // A fireball does not stick in the ground: it goes out where it lands,
+                // and only its tail is left to fade.
+                if (shaft.Body != null && shaft.Flown >= shaft.Flight)
+                    shaft.Body.enabled = false;
+
                 float t = Mathf.Clamp01(shaft.Flown / shaft.Flight);
 
                 var at = Along(shaft, t);
                 shaft.Holder.position = at;
+
+                // And it flickers: a flame that holds one size reads as a lamp.
+                if (_fire) shaft.Holder.localScale = Vector3.one * (1f + 0.15f * Mathf.Sin(shaft.Flown * 45f));
 
                 // Aimed a hair ahead of itself rather than at its target: an arrow points
                 // along its flight, and near the top of the arc that is not the same line.
@@ -267,7 +310,10 @@ namespace TheVeil.View
             if (_shafts.Count >= _capacity) return null;
 
             var holder = Build().transform;
-            var made = new Shaft { Holder = holder, Trail = Streak(holder) };
+            // The ball's own renderer, taken before the tail is added: a TrailRenderer is a
+            // Renderer too, and sits on the holder itself where it would be found first.
+            var body = _fire ? holder.GetComponentInChildren<MeshRenderer>(true) : null;
+            var made = new Shaft { Holder = holder, Trail = Streak(holder), Body = body };
             _shafts.Add(made);
 
             return made;
@@ -306,8 +352,10 @@ namespace TheVeil.View
             // out of the one passed in — the opposite of why it is passed in — and break
             // batching for every shaft in the air. RangeRing assigns the same way.
             trail.sharedMaterial = _trail;
-            trail.time = TrailSeconds;
-            trail.startWidth = TrailWidth;
+            // A fireball's tail is longer, wider and hot: the thing that makes it read as
+            // fire from 62 m is the smear of orange behind it, not the ball.
+            trail.time = _fire ? FireTrailSeconds : TrailSeconds;
+            trail.startWidth = _fire ? FireTrailWidth : TrailWidth;
             trail.endWidth = 0f;
             trail.emitting = false;
             trail.autodestruct = false;
@@ -321,17 +369,20 @@ namespace TheVeil.View
             trail.receiveShadows = false;
             trail.alignment = LineAlignment.View;
 
+            var head = _fire ? FireHead : TrailHead;
+            var tail = _fire ? FireTail : TrailTail;
+
             var gradient = new Gradient();
             gradient.SetKeys(
                 new[]
                 {
-                    new GradientColorKey(TrailHead, 0f),
-                    new GradientColorKey(TrailTail, 1f)
+                    new GradientColorKey(head, 0f),
+                    new GradientColorKey(tail, 1f)
                 },
                 new[]
                 {
-                    new GradientAlphaKey(TrailHead.a, 0f),
-                    new GradientAlphaKey(TrailTail.a, 1f)
+                    new GradientAlphaKey(head.a, 0f),
+                    new GradientAlphaKey(tail.a, 1f)
                 });
 
             trail.colorGradient = gradient;
@@ -344,6 +395,26 @@ namespace TheVeil.View
             var holder = new GameObject("Arrow");
             holder.transform.SetParent(_parent, false);
             holder.SetActive(false);
+
+            if (_fire)
+            {
+                holder.name = "Fireball";
+
+                var ball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Object.Destroy(ball.GetComponent<Collider>());
+
+                ball.transform.SetParent(holder.transform, false);
+                ball.transform.localScale = Vector3.one * FireballSize;
+
+                var skin = ball.GetComponent<Renderer>();
+                if (_flame == null) _flame = Flame(skin.sharedMaterial);
+
+                skin.sharedMaterial = _flame;
+                skin.shadowCastingMode = ShadowCastingMode.Off;
+                skin.receiveShadows = false;
+
+                return holder;
+            }
 
             if (_model == null)
             {
@@ -414,6 +485,25 @@ namespace TheVeil.View
                 Object.Destroy(collider);
 
             return holder;
+        }
+
+        /// <summary>
+        /// What a fireball is drawn with: unlit, so it glows the same orange on the shaded
+        /// side of a hill as in the sun — a lit ball in shadow is a brown pebble.
+        ///
+        /// Its own material, made once. Tinting the primitive's shared one would colour
+        /// every fallback sphere in the scene; see the dart above for that lesson.
+        /// </summary>
+        static Material Flame(Material fallback)
+        {
+            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
+            var flame = unlit != null ? new Material(unlit) : new Material(fallback);
+
+            flame.name = "Flame";
+            if (flame.HasProperty("_BaseColor")) flame.SetColor("_BaseColor", FlameColor);
+            flame.color = FlameColor;
+
+            return flame;
         }
     }
 }

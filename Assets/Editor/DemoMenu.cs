@@ -1,5 +1,7 @@
 using TheVeil.UI;
 using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace TheVeil.Editor
@@ -36,6 +38,37 @@ namespace TheVeil.Editor
             Session.Choose(chapter, 1);
             Session.Forget();
             SceneManager.LoadScene(Session.PlanScene);
+        }
+
+        /// <summary>
+        /// Every troop on one field, marching into bandits and fighting them. See
+        /// TheVeil.App.TroopShowcase.
+        ///
+        /// Built in a fresh scene rather than kept as one: the showcase is its own
+        /// component plus the setup's model library, and a scene asset would be one more
+        /// copy of that library to go stale every time a troop's model changes. Built
+        /// here, it is always the library setup would build now.
+        ///
+        /// Not play-mode-only, unlike the chapters: it makes its own scene and starts
+        /// play itself, and outside play mode is where a scene can be made.
+        /// </summary>
+        [MenuItem(Root + "Troop Showcase")]
+        static void TroopShowcase()
+        {
+            if (EditorApplication.isPlaying)
+            {
+                Debug.Log("[The Veil] Stop the game first, then run Troop Showcase — it builds a scene of its own.");
+                return;
+            }
+
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var showcase = new GameObject("Troop Showcase").AddComponent<TheVeil.App.TroopShowcase>();
+            showcase.Models = TheVeilSetup.LoadModels();
+
+            EditorApplication.isPlaying = true;
         }
     }
 }

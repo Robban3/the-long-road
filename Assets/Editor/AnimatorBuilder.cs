@@ -35,6 +35,26 @@ namespace TheVeil.Editor
         // them. See SortOutTheFlying, which measures them instead of reading their names.
         static readonly string[] IdleNames = { "Idle", "Idle_Neutral", "Idle_2", "Eat", "Graze", "Fly" };
         static readonly string[] WalkNames = { "Walk", "Walking", "Trot", "Run", "Running", "Gallop", "Fly" };
+
+        /// <summary>
+        /// A second gait, for speed: what an animal does when it bolts.
+        ///
+        /// The animals fled at eleven metres a second playing their walk, which is the
+        /// slide — legs pacing at a stroll under a body going flat out. Every one of the
+        /// forest animals ships a run (DeerMaleRun, Running, Running_Cycle), so the walk
+        /// stays the walk and this takes over above <see cref="RunFrom"/>. A pool without
+        /// one — the soldiers' — simply has no Run state and is built exactly as before.
+        /// </summary>
+        static readonly string[] RunNames = { "Running", "Run", "Gallop", "Sprint" };
+
+        /// <summary>
+        /// Metres a second above which Run takes over from Walk.
+        ///
+        /// Five: well above the caravan's pace, so the draught horses keep walking in the
+        /// traces, and well below a fleeing animal's eleven, so a bolt is a gallop from
+        /// its first stride.
+        /// </summary>
+        const float RunFrom = 5f;
         // The last few in each are for clips brought in from outside, which nobody here
         // named. A Mixamo file is called what the animation is called on the website —
         // "Sword And Shield Slash", "Walking", "Dying" — and the matcher falls back to
@@ -862,6 +882,7 @@ namespace TheVeil.Editor
             // that will actually be played.
             if (Looped(Match(clips, IdleNames)) | Looped(Match(clips, WalkNames))
                                                  | Looped(Match(clips, AttackNames))
+                                                 | Looped(Match(clips, RunNames))
                                                  | Looped(prefer == null ? null : Match(clips, prefer))
                                                  | Looped(preferIdle == null ? null : Match(clips, preferIdle)))
                 return BuildFromFolders(name, folders, prefer, preferIdle);
@@ -943,12 +964,13 @@ namespace TheVeil.Editor
             var walk = Match(clips, WalkNames);
             var attack = Match(clips, AttackNames);
             var death = Match(clips, DeathNames);
+            var run = Match(clips, RunNames);
 
             SortOutTheFlying(clips, ref idle, ref walk);
 
             // A reimport destroys the clip objects loaded above, so everything is chosen
             // again from the new ones.
-            if (EnsureLooping(modelPath, idle, walk, attack))
+            if (EnsureLooping(modelPath, idle, walk, attack, run))
             {
                 clips = LoadClips(modelPath);
                 if (clips.Count == 0) return null;
@@ -1019,10 +1041,16 @@ namespace TheVeil.Editor
             // Said out loud, because a controller built from the wrong clips and one
             // built from the right ones are the same file from the outside, and the
             // difference only shows up as an animal standing still in a running game.
-            Debug.Log($"[The Veil] {name}: idle={Name(idle)} walk={Name(walk)} "
+            // A run only when it is a different clip from the walk: WalkNames reaches for
+            // "Run" when a model has nothing better, and a Run state playing the walk is
+            // the slide with an extra state in it.
+            var run = Match(clips, RunNames);
+            if (run == walk) run = null;
+
+            Debug.Log($"[The Veil] {name}: idle={Name(idle)} walk={Name(walk)} run={Name(run)} "
                       + $"attack={Name(attack)} death={Name(death)}  ({clips.Count} clips)");
 
-            Loop(idle, walk, attack);
+            Loop(idle, walk, attack, run);
 
             AssetDatabase.DeleteAsset(path);
             var controller = AnimatorController.CreateAnimatorControllerAtPath(path);
@@ -1040,9 +1068,11 @@ namespace TheVeil.Editor
             idleState.speed = IsFlight(idle) ? FlightSpeed : 1f;
             machine.defaultState = idleState;
 
+            AnimatorState walkState = null;
+
             if (walk != null)
             {
-                var walkState = machine.AddState("Walk");
+                walkState = machine.AddState("Walk");
                 walkState.motion = walk;
                 walkState.speed = IsFlight(walk) ? FlightSpeed : 1f;
 
@@ -1050,6 +1080,24 @@ namespace TheVeil.Editor
                 // shuffle between idle and walk while creeping through a marsh.
                 Transition(idleState, walkState, AnimatorConditionMode.Greater, 0.15f, "Speed");
                 Transition(walkState, idleState, AnimatorConditionMode.Less, 0.15f, "Speed");
+            }
+
+            if (run != null)
+            {
+                var runState = machine.AddState("Run");
+                runState.motion = run;
+
+                // Straight from standing into a run as well as up from a walk: a startled
+                // deer does not take a step first, and the Idle > Walk transition fires on
+                // the same frame and would otherwise hold it in a walk for a beat.
+                Transition(idleState, runState, AnimatorConditionMode.Greater, RunFrom, "Speed");
+                Transition(runState, idleState, AnimatorConditionMode.Less, 0.15f, "Speed");
+
+                if (walkState != null)
+                {
+                    Transition(walkState, runState, AnimatorConditionMode.Greater, RunFrom, "Speed");
+                    Transition(runState, walkState, AnimatorConditionMode.Less, RunFrom, "Speed");
+                }
             }
 
             if (attack != null)
