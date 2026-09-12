@@ -91,12 +91,50 @@ namespace TheVeil.View
         public static readonly Color RouteSafe = new Color(0.40f, 0.85f, 0.98f);
         public static readonly Color RouteOdd = new Color(0.98f, 0.72f, 0.24f);
 
+        /// <summary>
+        /// The same ground in the fen: browner, wetter, and all of it closer together.
+        ///
+        /// A bog is not a forest with more marsh tiles in it, and the ground is where that
+        /// shows. Everything here is a shade of peat — the dry ground is rank rather than
+        /// green, the wood floor is dark and sodden, the track is mud — so the tile types
+        /// sit nearer each other than they do in summer, which is what a country with no
+        /// dry ground in it looks like from above.
+        ///
+        /// The water is the exception, as it is in every palette: it stays far darker than
+        /// its banks, because a player who cannot see where the water lies cannot plan a
+        /// route round it. Green-black rather than blue-black — peat water, not a river.
+        /// </summary>
+        static readonly Color[] MarshGroundColors =
+        {
+            new Color(0.40f, 0.36f, 0.28f), // Road          — mud track
+            new Color(0.38f, 0.42f, 0.26f), // Plains        — rank wet meadow
+            new Color(0.30f, 0.34f, 0.22f), // Forest        — sodden floor
+            new Color(0.28f, 0.30f, 0.22f), // Marsh         — peat
+            new Color(0.33f, 0.35f, 0.30f), // Ford          — churned crossing
+            new Color(0.42f, 0.41f, 0.36f), // MountainPass  — wet rock
+            new Color(0.14f, 0.20f, 0.17f), // Water         — peat water, and must read as deep
+            new Color(0.30f, 0.29f, 0.26f)  // Cliff         — damp stone
+        };
+
         public static Color Of(TerrainType t) => Colors[(int)t];
 
         public static Color OfGround(TerrainType t) => GroundColors[(int)t];
 
-        /// <summary>The ground colour for a tile in the country the chapter is set in.</summary>
+        /// <summary>
+        /// The ground colour for a tile in the country the chapter is set in.
+        ///
+        /// A country nobody has painted yet gets the forest's, which is the same fallback
+        /// its scenery gets (see BiomeLook): a chapter set in a desert plays over desert
+        /// ground in woodland colours until somebody paints the sand.
+        /// </summary>
         public static Color OfGround(TerrainType t, Biome biome)
-            => (biome == Biome.Winter ? WinterGroundColors : GroundColors)[(int)t];
+        {
+            switch (biome)
+            {
+                case Biome.Winter: return WinterGroundColors[(int)t];
+                case Biome.Marsh: return MarshGroundColors[(int)t];
+                default: return GroundColors[(int)t];
+            }
+        }
     }
 }

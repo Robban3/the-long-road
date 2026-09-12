@@ -1494,6 +1494,73 @@ namespace TheVeil.Editor
             return decor;
         }
 
+        /// <summary>
+        /// The fen: the forest's country with the water let into it.
+        ///
+        /// Built on the forest rather than from nothing, because most of a fen is the same
+        /// ground cover, the same rocks and the same distant trees — what makes it a fen is
+        /// which wood grows in it and how much of the wet stuff there is. So the sets that
+        /// say "wood" are replaced and the rest is left alone.
+        ///
+        /// The pack has four swamp trees, two swamp stumps, two swamp branches, three
+        /// willows, two kinds of root and three swamp growths, and the forest was already
+        /// using the swamp trees on its marsh tiles. Here they carry the canopy instead:
+        /// the pines keep one sparse model so the horizon is not bare, the round trees give
+        /// way to willows, and the birch is the dead one — a pale trunk with nothing on it
+        /// is the right light vertical line for a bog.
+        ///
+        /// Nobody farms a fen, so the fields go. The houses stay: somebody fishes here, and
+        /// a hut on the one dry rise is what a road through a bog is for.
+        ///
+        /// This is what the project's own art can do. A marsh pack would replace these
+        /// sets and nothing else — see Biomes.Order, where the countries that need one
+        /// bought for them are last on purpose.
+        /// </summary>
+        static BiomeDecor LoadMarshDecor()
+        {
+            var decor = LoadForestDecor();
+
+            decor.Pines = Synty("Trees", "SM_Tree_Swamp_01", "SM_Tree_Swamp_02",
+                                "SM_Tree_Swamp_03", "SM_Tree_Swamp_04",
+                                "SM_Tree_PolyPine_Sparse_01");
+
+            decor.Trees = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
+                                "SM_Tree_Willow_Large_01", "SM_Tree_Round_03");
+
+            decor.Birch = Synty("Trees", "SM_Tree_Birch_Dead_01", "SM_Tree_Birch_03");
+
+            decor.DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
+                                    "SM_Tree_Generic_Dead_01", "SM_Tree_Pine_Dead_01",
+                                    "SM_Tree_Swamp_Stump_01", "SM_Tree_Swamp_Stump_02");
+
+            // Wood on the floor, doubled: a fen is where trees fall and stay.
+            decor.Deadfall = Synty("Trees", "SM_Tree_Swamp_Branch_01", "SM_Tree_Swamp_Branch_02",
+                                   "SM_Tree_Log_01", "SM_Tree_Log_02");
+
+            // Reeds twice over for weight, and the pack's own swamp growth and roots,
+            // which the forest never used because the forest has no use for them.
+            decor.MarshPlants = Mixed(
+                Load($"{SyntyNatureDir}/Plants", new[]
+                {
+                    "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
+                    "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
+                    "SM_Plant_Fern_01", "SM_Plant_Fern_03"
+                }),
+                Load($"{SyntyNatureDir}/Terrain", new[]
+                {
+                    "SM_Terrain_Swamp_Growth_01", "SM_Terrain_Swamp_Growth_02",
+                    "SM_Terrain_Swamp_Growth_03", "SM_Swamp_Root_01", "SM_Swamp_Root_02"
+                }));
+
+            decor.Lilypads = Synty("Plants", "SM_Plant_Lillypad_Small_01",
+                                   "SM_Plant_Lillypad_Large_01", "SM_Plant_Lillypad_Large_02",
+                                   "SM_Plant_Lillypad_Large_03");
+
+            decor.Farms = new PropSet();
+
+            return decor;
+        }
+
         /// <summary>The plan's decor for a winter chapter: the winter, minus the skyline, for the same reason.</summary>
         static BiomeDecor LoadPlanWinterDecor()
         {
@@ -1697,16 +1764,61 @@ namespace TheVeil.Editor
         static void FitWaterAndWinter(LevelRunner runner)
         {
             FitWater(river: out runner.WaterMaterial, marsh: out runner.MarshWaterMaterial);
-            runner.WinterDecor = LoadWinterDecor();
-            runner.IceMaterial = EnsureIceMaterial();
-            runner.SnowFx = EnsureSnowfall();
+
+            runner.Looks = new[]
+            {
+                new BiomeLook
+                {
+                    Biome = Biome.Winter,
+                    Decor = LoadWinterDecor(),
+                    Water = EnsureIceMaterial(),
+                    Weather = EnsureSnowfall()
+                },
+                new BiomeLook
+                {
+                    Biome = Biome.Marsh,
+                    Decor = LoadMarshDecor(),
+
+                    // The fen's own water in its rivers as well as its pools. A brown bog
+                    // with a clear blue river running through it is two countries.
+                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath)
+                }
+            };
         }
 
         static void FitWaterAndWinter(LevelPreview preview)
         {
             FitWater(river: out preview.WaterMaterial, marsh: out preview.MarshWaterMaterial);
-            preview.WinterDecor = LoadPlanWinterDecor();
-            preview.IceMaterial = EnsureIceMaterial();
+
+            preview.Looks = new[]
+            {
+                new BiomeLook
+                {
+                    Biome = Biome.Winter,
+                    Decor = LoadPlanWinterDecor(),
+                    Water = EnsureIceMaterial()
+                },
+                new BiomeLook
+                {
+                    Biome = Biome.Marsh,
+                    Decor = WithoutSkyline(LoadMarshDecor()),
+                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath)
+                }
+            };
+        }
+
+        /// <summary>
+        /// The same country without the distant trees ringing the map.
+        ///
+        /// The skyline is drawn beyond the edge of the world to close a level in; a
+        /// planning map is looked at from straight above and the ring would be a hedge
+        /// round the drawing. LoadPlanDecor does this to the forest by hand, and this is
+        /// the same cut for every country after it.
+        /// </summary>
+        static BiomeDecor WithoutSkyline(BiomeDecor decor)
+        {
+            if (decor != null) decor.Horizon = new PropSet();
+            return decor;
         }
 
         static PropSet Synty(string group, params string[] names)

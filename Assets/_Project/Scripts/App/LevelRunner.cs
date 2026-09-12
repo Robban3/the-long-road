@@ -155,22 +155,26 @@ namespace TheVeil.App
         public BiomeDecor Decor = new BiomeDecor();
 
         /// <summary>
-        /// The same country under snow, used when <see cref="Biomes.Of"/> says the chapter
-        /// is winter. A second set rather than a swap applied to the first, so the forest
-        /// is never touched to make the winter and a level in one never borrows from the
-        /// other.
+        /// The countries setup has built scenery for, over and above the forest above:
+        /// their models, their water and their weather. See <see cref="BiomeLook"/> for
+        /// why this is a list and not three fields per country.
         /// </summary>
-        public BiomeDecor WinterDecor = new BiomeDecor();
+        public BiomeLook[] Looks = new BiomeLook[0];
 
         /// <summary>
-        /// What the rivers and pools are in winter. Used for both, since a bog freezes the
-        /// same way a river does. Null keeps the summer water, which is the safe way to be
-        /// wrong: a river that should be frozen still reads as a river.
+        /// The entry for a country, or null when nobody has built it yet — which is not a
+        /// fault: it is drawn as the forest, and a chapter set in a country that does not
+        /// exist yet still plays over that country's ground.
         /// </summary>
-        public Material IceMaterial;
+        public BiomeLook LookFor(Biome biome)
+        {
+            if (Looks == null) return null;
 
-        /// <summary>Falling snow, hung on the camera in winter. Null leaves the sky still.</summary>
-        public GameObject SnowFx;
+            foreach (var look in Looks)
+                if (look != null && look.Biome == biome) return look;
+
+            return null;
+        }
 
         [Header("Escort")]
         /// <summary>
@@ -330,15 +334,15 @@ namespace TheVeil.App
             // on this ground" while drawing the route and then drove through country
             // that said nothing — which is the half where the signal was meant to work.
             //
-            // Winter changes what stands on the ground and what the water is made of;
-            // everything else about the call is the same in both. A winter set or an ice
-            // material that setup never filled falls back to the forest's, so a scene
-            // built before winter existed still plays — as forest, rather than as bare
+            // The country changes what stands on the ground and what the water is made
+            // of; everything else about the call is the same in every one of them. A
+            // country setup has not built falls back to the forest's, so a scene built
+            // before that country existed still plays — as forest, rather than as bare
             // ground over a river the player cannot see.
-            bool winter = biome == Biome.Winter;
-            var decor = winter && WinterDecor != null && !WinterDecor.IsEmpty ? WinterDecor : Decor;
-            var water = winter && IceMaterial != null ? IceMaterial : WaterMaterial;
-            var marshWater = winter && IceMaterial != null ? IceMaterial : MarshWaterMaterial;
+            var look = LookFor(biome);
+            var decor = look != null && look.Dressed ? look.Decor : Decor;
+            var water = look != null && look.Water != null ? look.Water : WaterMaterial;
+            var marshWater = look != null && look.Water != null ? look.Water : MarshWaterMaterial;
 
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
@@ -368,7 +372,8 @@ namespace TheVeil.App
             {
                 Library = Models,
                 ShowReach = ShowReach,
-                TracksInSnow = winter
+                // Footprints behind the column, in the one country that takes a print.
+                TracksInSnow = biome == Biome.Winter
             };
             _visuals.FindBridges(_markerRoot);
 
@@ -386,18 +391,21 @@ namespace TheVeil.App
             _camera = Camera.main;
             AimCamera();
 
-            // Falling snow in a winter chapter, hung on the camera so it is always falling
-            // where the player is looking rather than over one corner of the map. The
-            // effect's box is 50 m deep (TheVeilSetup.EnsureSnowfall); centred this far
-            // in front of the lens, its nearest flakes are 15 m off, where they still
-            // read as snow rather than as blots on the glass.
-            if (winter && SnowFx != null && _camera != null)
-            {
-                const float snowfallAhead = 40f; // metres in front of the lens
+            // Whatever this country's sky is doing, hung on the camera so it happens where
+            // the player is looking rather than over one corner of the map. Snow, in the
+            // one country that has any. The effect's box is 50 m deep
+            // (TheVeilSetup.EnsureSnowfall); centred this far in front of the lens, its
+            // nearest flakes are 15 m off, where they still read as snow rather than as
+            // blots on the glass.
+            var weather = LookFor(biome)?.Weather;
 
-                _snowfall = Instantiate(SnowFx, _camera.transform);
-                _snowfall.name = "Snowfall";
-                _snowfall.transform.localPosition = new Vector3(0f, 0f, snowfallAhead);
+            if (weather != null && _camera != null)
+            {
+                const float weatherAhead = 40f; // metres in front of the lens
+
+                _snowfall = Instantiate(weather, _camera.transform);
+                _snowfall.name = weather.name;
+                _snowfall.transform.localPosition = new Vector3(0f, 0f, weatherAhead);
             }
 
             if (_hud != null) _hud.Run = _run;

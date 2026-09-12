@@ -97,14 +97,24 @@ namespace TheVeil.App
         public BiomeDecor Decor = new BiomeDecor();
 
         /// <summary>
-        /// The plan's decor for a winter chapter. The planning map must show the country
-        /// the run will be played in — see <see cref="Biomes"/> for why that is one
-        /// function and not two decisions.
+        /// The plan's scenery for the countries setup has built, over and above the forest
+        /// above. The planning map must show the country the run will be played in — see
+        /// <see cref="Biomes"/> for why that is one function and not two decisions — so
+        /// this is the same list the runner keeps, minus the skyline each entry does not
+        /// need on a map.
         /// </summary>
-        public BiomeDecor WinterDecor = new BiomeDecor();
+        public BiomeLook[] Looks = new BiomeLook[0];
 
-        /// <summary>Frozen water for a winter chapter. Null keeps the summer water.</summary>
-        public Material IceMaterial;
+        /// <summary>The entry for a country, or null when nobody has built it yet.</summary>
+        public BiomeLook LookFor(Biome biome)
+        {
+            if (Looks == null) return null;
+
+            foreach (var look in Looks)
+                if (look != null && look.Biome == biome) return look;
+
+            return null;
+        }
 
         [Header("Scouting")]
         /// <summary>
@@ -1455,10 +1465,10 @@ namespace TheVeil.App
             // The same choice the run makes, from the same function, so the country the
             // player plans in is the country they drive through. A winter set setup never
             // filled falls back to the forest rather than to an empty map.
-            bool winter = Biomes.Of(Chapter) == Biome.Winter;
-            var decor = winter && WinterDecor != null && !WinterDecor.IsEmpty ? WinterDecor : Decor;
-            var water = winter && IceMaterial != null ? IceMaterial : WaterMaterial;
-            var marshWater = winter && IceMaterial != null ? IceMaterial : MarshWaterMaterial;
+            var look = LookFor(Biomes.Of(Chapter));
+            var decor = look != null && look.Dressed ? look.Decor : Decor;
+            var water = look != null && look.Water != null ? look.Water : WaterMaterial;
+            var marshWater = look != null && look.Water != null ? look.Water : MarshWaterMaterial;
 
             if (decor == null || decor.IsEmpty) return;
 
