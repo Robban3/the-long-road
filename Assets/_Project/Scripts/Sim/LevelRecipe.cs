@@ -78,7 +78,35 @@ namespace TheVeil.Sim
         /// three crossings forces a decision.
         /// </summary>
         public int Rivers = 1;
+
+        /// <summary>
+        /// Crossings cut per river, which is not the same as crossings the level keeps:
+        /// the country is drawn around the fords afterwards and a lake grown over one
+        /// takes it away. What the level owes is <see cref="CrossingsOwed"/>, and the
+        /// generator makes the number up rather than re-rolling the whole map for it.
+        ///
+        /// Raising this instead was tried and reverted: it is an input to the noise, so
+        /// four fords redrew every map in chapters one and two — 1-4 lost a survivable
+        /// road and the traps on 1-8 moved off the fast route. The ford count is not a
+        /// dial that can be turned without rewriting content already balanced.
+        /// </summary>
         public int FordsPerRiver = 3;
+
+        /// <summary>
+        /// How many ways over the water a level owes the player, counted as crossings with
+        /// dry ground at both ends (see <see cref="Crossings"/>).
+        ///
+        /// Three, on every level. Fords per river says how many the generator cuts; this
+        /// says how many have to survive the country being drawn around them, which is not
+        /// the same number — a lake grown over a river swallows its fords, and on 3-1 that
+        /// left four cut and one usable, so all three routes queued for the same crossing
+        /// and the choice of road stopped being a choice. A map that cannot keep this is
+        /// re-rolled.
+        ///
+        /// One of the three carries the bridge and the rest are stone (TerrainDecorator),
+        /// so the three read as different crossings rather than as three of the same.
+        /// </summary>
+        public int CrossingsOwed = 3;
 
         // No roads yet, and their absence is load-bearing rather than an oversight.
         // Road is the fastest terrain in the game (docs/GDD.md §3.1) and settlements

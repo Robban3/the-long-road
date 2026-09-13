@@ -73,9 +73,17 @@ namespace TheVeil.Tests
             Assert.Greater(ShareOf(marsh, TerrainType.Marsh), 3f * ShareOf(forest, TerrainType.Marsh));
             Assert.Greater(ShareOf(marsh, TerrainType.Marsh), ShareOf(marsh, TerrainType.Forest));
 
-            // Two rivers, two crossings each: the marsh takes away the choice of where.
+            // Two rivers, where every other country has one: the fen is crossed twice.
+            //
+            // It used to say the marsh cut fewer fords per river than the forest, and that
+            // stopped being a statement about difficulty. Three ways over the water are
+            // owed on every level (LevelRecipe.CrossingsOwed) and the generator makes the
+            // number up either way, so what the fen takes away is not the count — it is
+            // the ground between the crossings, which is bog.
             Assert.AreEqual(2, marsh.Rivers);
-            Assert.Less(marsh.FordsPerRiver, forest.FordsPerRiver);
+            Assert.AreEqual(2 * forest.Rivers, marsh.Rivers);
+            Assert.LessOrEqual(marsh.FordsPerRiver, forest.FordsPerRiver,
+                               "the fen cuts more crossings per river than the woods do");
         }
 
         [Test]

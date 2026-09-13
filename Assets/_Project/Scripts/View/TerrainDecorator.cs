@@ -24,6 +24,21 @@ namespace TheVeil.View
         /// <summary>True when the pack was exported with Z up, as Blender does by default.</summary>
         public bool ZUp;
 
+        /// <summary>
+        /// What share of its own size every model in this set is buried by, when the place
+        /// it is put does not say otherwise. Zero rests it on the ground.
+        ///
+        /// <b>Because the models decide this, not the sites.</b> A sink was something a
+        /// placement asked for — the marsh buries its dead trees, a landmark buries its
+        /// stumps — which works while a set is the same kind of thing in every country.
+        /// The fen's trees are not: they are the pack's swamp trees, drawn with a root
+        /// flare spreading out from the trunk, and set on the surface like a pine they
+        /// stand on the flare as if on legs. A set that knows its own models have footings
+        /// can say so once, here, instead of every site having to know which country it is
+        /// dressing.
+        /// </summary>
+        public float Sink;
+
         public bool Any => Models != null && Models.Length > 0;
 
         public PropSet() { }
@@ -1371,16 +1386,20 @@ namespace TheVeil.View
         /// </summary>
         public static int BridgeTile(TileGrid grid, int seed)
         {
-            var crossings = new List<int>();
+            // Crossings with banks, counted the same way the generator counts them when it
+            // decides whether a map may ship — see TheVeil.Sim.Crossings. A bridge is a
+            // thing between two banks, and dropped on a ford that a lake has grown over it
+            // stands in open water with its ends in the air, which is what 3-1 did.
+            var crossings = Crossings.All(grid);
 
-            for (int i = 0; i < grid.TileCount; i++)
+            if (crossings.Count == 0)
             {
-                if (grid[i] != TerrainType.Ford) continue;
-
-                // One entry per crossing. A ford is several tiles wide, and treating each
-                // of its tiles as a crossing of its own builds a pier.
-                if (!Apart(grid, i, crossings, 4f)) continue;
-                crossings.Add(i);
+                // Nothing with banks. Rather than leave the water unbridged, take any
+                // ford: a bridge in an awkward place still says "cross here", and a level
+                // that reaches this line has already failed the generator's own check.
+                for (int i = 0; i < grid.TileCount; i++)
+                    if (grid[i] == TerrainType.Ford && Apart(grid, i, crossings, 4f))
+                        crossings.Add(i);
             }
 
             if (crossings.Count == 0) return -1;
@@ -3902,7 +3921,7 @@ namespace TheVeil.View
                            bool byWidth = false, float maxSpread = 0f, float sink = 0f) =>
             set != null && set.Any
                 ? new Choice(set, Any(set, rng), size, byWidth, low, high,
-                             maxSpread: maxSpread, sink: sink)
+                             maxSpread: maxSpread, sink: sink > 0f ? sink : set.Sink)
                 : default;
 
         /// <summary>A tree: the wide size spread a stand of them wants, and canopy rules.</summary>
@@ -3911,7 +3930,7 @@ namespace TheVeil.View
                            float sink = 0f, float maxSpread = 0f) =>
             set != null && set.Any
                 ? new Choice(set, Any(set, rng), size, false, low, high, canopy: true,
-                             maxSpread: maxSpread, sink: sink)
+                             maxSpread: maxSpread, sink: sink > 0f ? sink : set.Sink)
                 : default;
 
         static GameObject Any(PropSet set, DeterministicRandom rng) =>

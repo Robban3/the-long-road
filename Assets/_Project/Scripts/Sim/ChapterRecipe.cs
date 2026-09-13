@@ -240,9 +240,18 @@ namespace TheVeil.Sim
                 case Biome.Marsh:
                     // Bog and standing water, and two rivers with few crossings: what the
                     // marsh does to a caravan is take away the choice of where to cross.
-                    recipe.TerrainMix = Mix(0.27f, 0.20f, 0.38f, 0.05f, 0.10f);
+                    // <b>Bog rather than open water, and crossings the map can keep.</b>
+                    // At a tenth of the ground in open water — the forest's own share —
+                    // the lakes grew into the rivers and swallowed their fords: measured
+                    // on 3-1, 588 tiles of water against seven of crossing, so the three
+                    // routes all queued for the one ford left and the bridge stood in a
+                    // lake. Half the water, and two rivers cut three times each so six
+                    // crossings are laid where three have to survive. Fewer per river
+                    // than the forest still, so the fen is the wettest country on the
+                    // road and it is waded rather than bridged, which is what a fen is.
+                    recipe.TerrainMix = Mix(0.27f, 0.20f, 0.43f, 0.05f, 0.05f);
                     recipe.Rivers = 2;
-                    recipe.FordsPerRiver = 2;
+                    recipe.FordsPerRiver = 3;
                     Traps(recipe, 1.1f);
                     break;
 

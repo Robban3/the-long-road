@@ -61,7 +61,7 @@ namespace TheVeil.Gen
 
                 // Before the corridors are found, so none of them is ever offered a
                 // crossing that is about to stop being one.
-                CloseTheStrandedCrossings(grid, sx, sy);
+                CloseTheStrandedCrossings(grid, sx, sy, recipe.CrossingsOwed);
 
                 var corridors = CorridorFinder.Find(grid, sx, sy, gx, gy);
                 if (corridors.Count == 0) continue;
@@ -113,7 +113,12 @@ namespace TheVeil.Gen
                 bool kept = encounters.EncountersValidated;
                 bool passes = passable >= recipe.RoutesOwed;
 
-                if (valid && kept && passes) return map;
+                // And that the water can be got over in more than one place. The fords are
+                // cut before the country is drawn around them, so a level can be handed
+                // four crossings and ship with one: see LevelRecipe.CrossingsOwed.
+                bool crossable = Crossings.Count(grid) >= recipe.CrossingsOwed;
+
+                if (valid && kept && passes && crossable) return map;
 
                 // Keep the least-bad candidate: promise first, then a meaningful
                 // choice, then the corridors that differ most.
@@ -421,7 +426,7 @@ namespace TheVeil.Gen
         /// draws their own line and may cross anywhere, and a drawn route over a river
         /// with no bridge under it is the worse fault.
         /// </summary>
-        static void CloseTheStrandedCrossings(TileGrid grid, int startX, int startY)
+        static void CloseTheStrandedCrossings(TileGrid grid, int startX, int startY, int owed)
         {
             var reached = new bool[grid.TileCount];
             var queue = new Queue<int>();
@@ -455,26 +460,11 @@ namespace TheVeil.Gen
                     grid[i] = TerrainType.Water;
 
             // And cut new ones where the closed ones were lost. Closing alone was the
-            // cheap half of this fix and it took the level down with it — see
-            // MinCrossings.
-            MendTheCrossings(grid, reached);
+            // cheap half of this fix and it took the level down with it: it left 1-1 and
+            // 1-5 with two crossings apiece, a bridge and a single ford each. What the
+            // level owes is LevelRecipe.CrossingsOwed.
+            MendTheCrossings(grid, reached, owed);
         }
-
-        /// <summary>
-        /// How many separate crossings a level must end up with.
-        ///
-        /// <b>Three: one for the bridge and two to ford.</b> The recipe cuts
-        /// LevelRecipe.FordsPerRiver of them and that is three, but
-        /// CloseTheStrandedCrossings then deleted any the player could not walk to — and
-        /// deleting was only half a fix. Measured over chapter one it left 1-1 and 1-5
-        /// with two crossings apiece against everybody else's three, so those two levels
-        /// had a bridge and a single ford, and a player who did not like where the bridge
-        /// fell had one alternative instead of two.
-        ///
-        /// A crossing that cannot be reached should be moved, not removed. The river is
-        /// still there and it still has banks somebody can stand on.
-        /// </summary>
-        public const int MinCrossings = 3;
 
         /// <summary>How far apart two tiles must be to count as different crossings, in tiles.</summary>
         const int CrossingSpacing = 6;
@@ -490,28 +480,38 @@ namespace TheVeil.Gen
         const int CrossingMargin = 4;
 
         /// <summary>
-        /// Cuts fords until the level has <see cref="MinCrossings"/> of them.
+        /// Cuts fords until the level has the crossings it owes.
         ///
         /// Candidates are water with dry, walkable ground close on both sides, at least
         /// one of which the start can already reach — so the new crossing is a place
         /// somebody can walk to, which is the whole point of having closed the old one.
         /// Spaced apart, or a wide river answers with the same crossing three times.
         ///
+        /// <b>What already counts is counted the player's way</b> (<see cref="Crossings"/>):
+        /// a ford with dry land at both ends. It used to count any ford at all, which is
+        /// not the same thing once the country has been drawn around the river — a lake
+        /// grown over a ford leaves the tile wadeable and the banks a hundred metres off,
+        /// and that ford answered for a crossing here while the player could not use it.
+        /// Measured: 1-2 and 2-2 both shipped with two ways over the water and this was
+        /// satisfied that they had three. Cutting a fourth ford in the recipe instead was
+        /// tried and reverted — it is an input to the noise and redrew every map in the
+        /// first two chapters (see LevelRecipe.FordsPerRiver).
+        ///
         /// It does nothing when the level already has enough, which is most of them.
         /// </summary>
-        static void MendTheCrossings(TileGrid grid, bool[] reached)
+        static void MendTheCrossings(TileGrid grid, bool[] reached, int owed)
         {
             var crossings = new List<int>();
 
             for (int i = 0; i < grid.TileCount; i++)
-                if (grid[i] == TerrainType.Ford && Apart(grid, i, crossings))
+                if (grid[i] == TerrainType.Ford && Crossings.Spans(grid, i) && Apart(grid, i, crossings))
                     crossings.Add(i);
 
-            if (crossings.Count >= MinCrossings) return;
+            if (crossings.Count >= owed) return;
 
             bool cut = false;
 
-            for (int i = 0; i < grid.TileCount && crossings.Count < MinCrossings; i++)
+            for (int i = 0; i < grid.TileCount && crossings.Count < owed; i++)
             {
                 if (grid[i] != TerrainType.Water) continue;
                 if (!Inland(grid, i)) continue;
