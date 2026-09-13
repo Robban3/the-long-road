@@ -870,7 +870,10 @@ namespace TheVeil.Editor
                 models.Add(snowed);
             }
 
-            return new PropSet(set.ZUp, models.ToArray());
+            // Snow does not raise anything out of the ground. A set that had to be sunk in
+            // summer — anything drawn with a root flare, see Sunk — has to be sunk under
+            // snow too, and a rebuilt set starts at zero unless it is told otherwise.
+            return Sunk(new PropSet(set.ZUp, models.ToArray()), set.Sink);
         }
 
         /// <summary>
@@ -1109,7 +1112,12 @@ namespace TheVeil.Editor
                 Horizon = Synty("Terrain", "SM_Terrain_Mountain_01",
                                 "SM_Terrain_Mountain_02", "SM_Terrain_Mountain_03"),
 
-                MarshPlants = Mixed(
+                // Sunk, because of the roots below. Bog patches in the forest are placed
+                // on ordinary woodland ground, which buries nothing, and a root flare set
+                // down on it stands on its legs — the fault the fen was rebuilt to cure,
+                // still here in the country the fen was copied from. A twentieth is the
+                // flare and no more; the reeds it also covers only gain a bed to stand in.
+                MarshPlants = Sunk(Mixed(
                     Load($"{SyntyNatureDir}/Plants", new[]
                     {
                         "SM_Plant_Reeds_01", "SM_Plant_Reeds_02",
@@ -1131,7 +1139,7 @@ namespace TheVeil.Editor
                     Load($"{SyntyNatureDir}/Trees", new[]
                     {
                         "SM_Tree_Swamp_Root_01", "SM_Tree_Swamp_Root_02"
-                    })),
+                    })), 0.05f),
 
                 // Back on the water, and back in their own set. Note the pack's own
                 // spelling: two Ls. Loading these by the name they ought to have had is
@@ -1520,22 +1528,81 @@ namespace TheVeil.Editor
         {
             var decor = LoadForestDecor();
 
+            // Bare trunks carry the canopy, and there are a lot of them: the swamp trees
+            // twice over for weight, with the dead ones standing among them. A fen read
+            // from above is a thicket of verticals, not a green roof with holes in it.
             decor.Pines = Synty("Trees", "SM_Tree_Swamp_01", "SM_Tree_Swamp_02",
                                 "SM_Tree_Swamp_03", "SM_Tree_Swamp_04",
+                                "SM_Tree_Swamp_01", "SM_Tree_Swamp_02",
+                                "SM_Tree_Swamp_03", "SM_Tree_Swamp_04",
+                                "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
+                                "SM_Tree_Generic_Dead_01", "SM_Tree_Pine_Dead_01",
                                 "SM_Tree_PolyPine_Sparse_01");
 
+            // Willows, and little else: the only thing here with foliage to hang.
             decor.Trees = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
+                                "SM_Tree_Willow_Large_01", "SM_Tree_Willow_Medium_01",
                                 "SM_Tree_Willow_Large_01", "SM_Tree_Round_03");
 
-            decor.Birch = Synty("Trees", "SM_Tree_Birch_Dead_01", "SM_Tree_Birch_03");
+            decor.Birch = Synty("Trees", "SM_Tree_Birch_Dead_01", "SM_Tree_Birch_Dead_01",
+                                "SM_Tree_Birch_03");
 
+            // Every tree in this country is drawn with a root flare, so every tree set
+            // here buries a little of itself — and each buries what its own models
+            // actually have, which is the part the first attempt guessed at and got
+            // wrong. Measured off the meshes, radius against height from the foot up:
+            //
+            //   SM_Tree_Swamp_01   7,4 m tall, roots out to 1,36 m radius, narrowing to
+            //                      the 0,3 m trunk at 1,30 m up — a flare 18 % of the way
+            //   SM_Tree_Willow_*   9,6 m tall, the foot swells to 0,85 m radius and is
+            //                      down to 0,27 m by 1,44 m — a swell 8 % of the way
+            //   SM_Tree_Birch_Dead 4,5 m tall, 0,10 m at the foot and nothing above it: a
+            //                      pole, with no flare to hide at all
+            //
+            // A twentieth was what they all had, and a twentieth of the swamp trees is
+            // 0,37 m against 1,30 m of root. That is the picture that came back: trees
+            // standing on splayed roots like stools. Fifteen percent puts the flare under
+            // and leaves the trunk where the eye expects it.
+            decor.Pines.Sink = 0.15f;
+            decor.Trees.Sink = 0.08f;
+            decor.Birch.Sink = 0.04f;
+
+            // Stumps and roots where trees went over, which is most of what is left
+            // standing in a bog.
             decor.DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
                                     "SM_Tree_Generic_Dead_01", "SM_Tree_Pine_Dead_01",
-                                    "SM_Tree_Swamp_Stump_01", "SM_Tree_Swamp_Stump_02");
+                                    "SM_Tree_Birch_Dead_01",
+                                    "SM_Tree_Swamp_Stump_01", "SM_Tree_Swamp_Stump_02",
+                                    "SM_Tree_Swamp_Root_01", "SM_Tree_Swamp_Root_02",
+                                    "SM_Tree_Stump_01", "SM_Tree_Stump_02", "SM_Tree_Stump_03",
+                                    "SM_Tree_Stump_04");
 
-            // Wood on the floor, doubled: a fen is where trees fall and stay.
-            decor.Deadfall = Synty("Trees", "SM_Tree_Swamp_Branch_01", "SM_Tree_Swamp_Branch_02",
-                                   "SM_Tree_Log_01", "SM_Tree_Log_02");
+            // Wood on the floor, doubled: a fen is where trees fall and stay. Sunk a
+            // little, because it is lying down: the branches measured half a metre clear
+            // of the ground beside them, which is a log hovering rather than one that
+            // fell. Wood that has lain in a bog is half in it.
+            decor.Deadfall = Sunk(Synty("Trees", "SM_Tree_Swamp_Branch_01", "SM_Tree_Swamp_Branch_02",
+                                        "SM_Tree_Log_01", "SM_Tree_Log_02", "SM_Tree_Branch_01",
+                                        "SM_Tree_Swamp_Branch_01", "SM_Tree_Swamp_Branch_02"), 0.06f);
+
+            // More willows than the forest keeps, because the forest keeps them for its
+            // riverbanks and here the whole country is a riverbank.
+            decor.Willows = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
+                                  "SM_Tree_Willow_Large_01", "SM_Tree_Willow_Medium_01",
+                                  "SM_Tree_Willow_Large_01");
+
+            // The understorey: the pack's swamp growth rather than leafy bushes, which is
+            // what grows where the ground is water half the year.
+            decor.Bushes = Mixed(
+                Load($"{SyntyNatureDir}/Terrain", new[]
+                {
+                    "SM_Terrain_Swamp_Growth_01", "SM_Terrain_Swamp_Growth_02",
+                    "SM_Terrain_Swamp_Growth_03"
+                }),
+                Load($"{SyntyNatureDir}/Plants", new[]
+                {
+                    "SM_Plant_Fern_01", "SM_Plant_Fern_03", "SM_Plant_Bush_Leaves_01"
+                }));
 
             // Reeds twice over for weight, and the pack's own swamp growth and roots,
             // which the forest never used because the forest has no use for them.
@@ -1549,14 +1616,54 @@ namespace TheVeil.Editor
                 Load($"{SyntyNatureDir}/Terrain", new[]
                 {
                     "SM_Terrain_Swamp_Growth_01", "SM_Terrain_Swamp_Growth_02",
-                    "SM_Terrain_Swamp_Growth_03", "SM_Swamp_Root_01", "SM_Swamp_Root_02"
+                    "SM_Terrain_Swamp_Growth_03"
                 }));
+
+            // The roots are not in here. Marsh plants are laid on the surface — reeds
+            // stand in the shallows, growth mats float — and a root flare laid on the
+            // surface stands on its legs like a spider. They belong in Timber and the
+            // dead trees, which are the two sets the decorator buries.
+            decor.MarshPlants.Sink = 0.04f;
 
             decor.Lilypads = Synty("Plants", "SM_Plant_Lillypad_Small_01",
                                    "SM_Plant_Lillypad_Large_01", "SM_Plant_Lillypad_Large_02",
                                    "SM_Plant_Lillypad_Large_03");
 
             decor.Farms = new PropSet();
+
+            // No granite in a bog, and the pack has no mossy stone to put there instead:
+            // its rocks are clean pale slabs, and scattered through a fen they read as a
+            // quarry somebody flooded. So the boulders go entirely and only the small
+            // stones stay — a bog has pebbles where a stream has cut, and nothing else.
+            decor.Boulders = new PropSet();
+
+            // One small stone, and no more. The pale flecks were the last thing in the fen
+            // that still read as the forest's country.
+            decor.Rocks = Synty("Rocks", "SM_Rock_Small_01");
+
+            // Reeds at the waterline instead of a shingle bank, which is what a bog has.
+            decor.Shore = Synty("Plants", "SM_Plant_Reeds_01", "SM_Plant_Reeds_02");
+
+            // <b>Roots and stumps go here, not in the rocks.</b> Where a prop is placed
+            // decides how deep it is set, and only some sites bury anything: Timber and
+            // the marsh's dead trees are sunk by StumpSink, the rocks are laid on the
+            // surface because a stone rests on ground. Put a root flare through the
+            // stone's door and it stands on its roots like a stool, which is exactly what
+            // it did. Same models, right door.
+            decor.Timber = Synty("Trees", "SM_Tree_Swamp_Root_01", "SM_Tree_Swamp_Root_02",
+                                 "SM_Tree_Swamp_Stump_01", "SM_Tree_Swamp_Stump_02",
+                                 "SM_Tree_Stump_01", "SM_Tree_Stump_03",
+                                 "SM_Tree_Log_01", "SM_Tree_Log_02");
+
+            // What light there is in a fen, and it belongs to whoever lit it: the raiders'
+            // camps get a fire and torches rather than the country getting them, because a
+            // torch burning in an empty bog is a torch somebody is holding.
+            decor.Camps = Mixed(
+                Load(ArmyProps, new[] { "Tent" }),
+                Load($"{SyntyNatureDir}/Props", new[]
+                {
+                    "SM_Prop_CampFire_01", "SM_Prop_TorchStick_01", "SM_Prop_TorchStick_01"
+                }));
 
             return decor;
         }
@@ -1781,7 +1888,19 @@ namespace TheVeil.Editor
 
                     // The fen's own water in its rivers as well as its pools. A brown bog
                     // with a clear blue river running through it is two countries.
-                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath)
+                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath),
+
+                    // Half again as thick as the forest, and standing in its own air.
+                    //
+                    // The fireflies hang on the camera as the snow does. They are the one
+                    // light in a country with no sun in it, and they read at this camera
+                    // height where a torch on the ground does not.
+                    Density = 1.45f,
+                    Weather = One($"{SyntyNatureDir}/FX/FX_Fireflies_01.prefab"),
+                    Fog = true,
+                    FogColor = new Color(0.34f, 0.40f, 0.38f),
+                    FogDensity = 0.014f,
+                    SkyColor = new Color(0.40f, 0.46f, 0.44f)
                 }
             };
         }
@@ -1802,7 +1921,11 @@ namespace TheVeil.Editor
                 {
                     Biome = Biome.Marsh,
                     Decor = WithoutSkyline(LoadMarshDecor()),
-                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath)
+                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath),
+
+                    // The same thickening as the run, so the map is the country. No fog on
+                    // a map read from straight above: it would be a grey sheet over the plan.
+                    Density = 1.45f
                 }
             };
         }
@@ -1855,6 +1978,21 @@ namespace TheVeil.Editor
 
         static PropSet Generic(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyGenericDir}/{group}", names));
+
+        /// <summary>
+        /// The same set, seated into the ground rather than standing on it.
+        ///
+        /// Depth is normally the placement site's business — bog sinks what it is given,
+        /// woodland floor does not — and that is right for a reed. It is wrong for
+        /// anything drawn with a root flare or a footing, which needs burying wherever it
+        /// is put or it stands on its roots like a stool. See PropSet.Sink, and
+        /// PropSeatingTests, which is that rule written down.
+        /// </summary>
+        static PropSet Sunk(PropSet set, float depth)
+        {
+            set.Sink = depth;
+            return set;
+        }
 
         /// <summary>
         /// One set drawn from more than one folder.
