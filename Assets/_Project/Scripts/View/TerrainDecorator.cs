@@ -504,6 +504,40 @@ namespace TheVeil.View
         /// </summary>
         public const float StumpSink = 0.40f;
 
+        /// <summary>
+        /// The most of itself a prop may be buried, as a share of its own height.
+        ///
+        /// Half, and it is a floor under the whole idea rather than a number anybody
+        /// chose. A share of a height is only a flare while the height is right; get the
+        /// height wrong and the same share is a grave. That is what happened to the
+        /// timber — see <see cref="Bury"/> — and the ground it is standing on is another
+        /// way in, because a prop on a slope is pushed down by the fall as well.
+        ///
+        /// Anything asking for more than half of itself is asking to be invisible, and an
+        /// invisible prop is drawn, lit and paid for exactly like a visible one.
+        /// </summary>
+        const float MostOfItself = 0.5f;
+
+        /// <summary>
+        /// Seats a prop into the ground it is standing on.
+        ///
+        /// Called after the model has been fitted, and that is the whole point: the depth
+        /// is a share of what the model actually came out as, not of the height it was
+        /// asked for. The two agree for a tree, which is fitted by height, and part
+        /// company for anything the width cap has shrunk — which is every log, every
+        /// fallen branch and every low, broad clump of growth on the map.
+        /// </summary>
+        static void Bury(GameObject instance, float share, float slope)
+        {
+            float height = ModelScaling.Measure(instance).size.y;
+            if (height <= 0f) return;
+
+            float depth = height * share + slope;
+            float most = height * MostOfItself;
+
+            instance.transform.position += Vector3.down * (depth > most ? most : depth);
+        }
+
         public const float RuinWidth = 5f;
 
         /// <summary>
@@ -1007,7 +1041,9 @@ namespace TheVeil.View
                                    float landmarkScale = 1f,
                                    Material waterMaterial = null,
                                    Material marshWaterMaterial = null,
-                                   IReadOnlyCollection<int> apronOpenings = null)
+                                   IReadOnlyCollection<int> apronOpenings = null,
+                                   int village = -1,
+                                   bool settled = true)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -1052,10 +1088,17 @@ namespace TheVeil.View
             placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
                                   goalTile, travelled, found);
 
+            // And the village next, for the same reason and one more: it is the only
+            // built thing on the map whose position was decided before the decorator was
+            // called (Settlements.Site), so it cannot be moved out of the way of anything
+            // that got there first. It goes down while the ground is still empty.
+            placed += PlaceVillage(parent, grid, Stream(10), decor, occupied, heightScale,
+                                   village, road, found);
+
             placed += PlaceLandmarks(parent, grid, Stream(1), decor, clear, occupied, heightScale,
                                      ruinSites, road,
                                      travelled == null ? null : new HashSet<int>(travelled),
-                                     found);
+                                     found, settled);
 
             // Two passes over the same ground, and the order is half the fix. The scatter
             // walks tiles in index order, so a mountain reaching tile 500 cannot un-place
@@ -2592,17 +2635,20 @@ namespace TheVeil.View
                       : choice.Canopy ? 0f
                       : size * SpreadLimit;
 
-            // Seated below the surface when the model has a footing to bury. Taken off
-            // the fitted size rather than the table size, because jitter is what decides
-            // how big this one came out and a share of the wrong number buries the small
-            // ones to the neck and leaves the big ones on stilts.
-            float seated = choice.Sink > 0f
-                ? groundY - (size * choice.Sink + Fall(grid, tile, heightScale) * SlopeSink)
-                : groundY;
+            // Stood on the ground first, and buried afterwards — see Bury, which is where
+            // the depth is decided now. It used to be taken off `size`, which is what the
+            // model was *asked* to be rather than what it came out as, and the two are a
+            // different number whenever the width cap has had a word: a log is long and
+            // low, so it fits its width long before it fits its height and ends up a
+            // fraction of the height it was asked for. Forty percent of the asked-for
+            // height then put the whole log under the ground. Measured over chapter one,
+            // five to eight logs and branches a level were buried out of sight.
+            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
+            else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, groundY);
+            else ModelScaling.Fit(instance, size, groundY);
 
-            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, seated);
-            else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, seated);
-            else ModelScaling.Fit(instance, size, seated);
+            if (choice.Sink > 0f)
+                Bury(instance, choice.Sink, Fall(grid, tile, heightScale) * SlopeSink);
 
             if (signal) Mark(instance);
 
@@ -2904,7 +2950,7 @@ namespace TheVeil.View
                                   BiomeDecor decor, HashSet<int> clear, HashSet<int> occupied,
                                   float heightScale, IReadOnlyCollection<int> ruinSites,
                                   HashSet<int> road = null, HashSet<int> travelled = null,
-                                  List<Landmark> found = null)
+                                  List<Landmark> found = null, bool settled = true)
         {
             int placed = 0;
 
@@ -3004,7 +3050,7 @@ namespace TheVeil.View
                 // top; a ruin is what is left of one with its stone lying around it.
                 if (decor.Kit != null
                     && Built(parent, grid, rng, decor, i, heightScale, occupied, travelled,
-                             road, found))
+                             road, found, settled))
                 {
                     placed++;
                     continue;
@@ -3475,7 +3521,8 @@ namespace TheVeil.View
         static bool Built(Transform parent, TileGrid grid, DeterministicRandom rng,
                           BiomeDecor decor, int tile, float heightScale,
                           HashSet<int> occupied, HashSet<int> line,
-                          HashSet<int> road = null, List<Landmark> found = null)
+                          HashSet<int> road = null, List<Landmark> found = null,
+                          bool settled = true)
         {
             var kit = decor.Kit;
             var terrain = grid[tile];
@@ -3489,14 +3536,20 @@ namespace TheVeil.View
 
             // Somewhere a building could stand: open ground, near enough to the road the
             // caravan is taking to be *on* it, and flat enough to have been built on.
-            bool settled = terrain == TerrainType.Plains
+            // And whether anybody lives in this country at all (Settlements.Settled). A
+            // kit house went up in the fen on 3-8 because the fen inherits the forest's
+            // building kit and nothing asked whether a bog is somewhere to live. The
+            // ruins below are not gated: what is left of a house is exactly what those
+            // countries should have.
+            bool plot = settled
+                        && terrain == TerrainType.Plains
                         && Beside(grid, line, x, y, SettlementReach)
                         && Fall(grid, tile, heightScale) < BuildableFall;
 
             // The height follows what was actually stacked — see UpperStoreyRise. Asking
             // for the building first and its height second is the whole point: a cottage
             // and a two-storey house are the same call with a different die roll.
-            if (settled && kit.CanBuildHouse && rng.Chance(HouseChance))
+            if (plot && kit.CanBuildHouse && rng.Chance(HouseChance))
             {
                 var house = BuildingBuilder.House(parent, kit, rng, out bool upstairs);
                 return Note(found, LandmarkKind.House, tile,
@@ -3504,7 +3557,7 @@ namespace TheVeil.View
                                   Storeys(HouseHeight, upstairs), heightScale, occupied, road));
             }
 
-            if (settled && kit.CanBuildHouse && rng.Chance(FarmChance))
+            if (plot && kit.CanBuildHouse && rng.Chance(FarmChance))
             {
                 var farm = BuildingBuilder.House(parent, kit, rng, out bool upstairs);
                 return Note(found, LandmarkKind.Farm, tile,
@@ -3656,6 +3709,116 @@ namespace TheVeil.View
         /// Every building here may point wherever it likes except one: a castle's gate
         /// has to face the road, or the caravan arrives at a wall.
         /// </param>
+        /// <summary>How many houses stand in a village.</summary>
+        const int VillageLow = 5;
+        const int VillageHigh = 9;
+
+        /// <summary>
+        /// How far the houses stand from the village's middle, in metres.
+        ///
+        /// A ring rather than a row, and a loose one: the well is the middle of a village
+        /// because that is what everybody walks to, and the houses face it. Near enough
+        /// that the whole place reads as one settlement from the caravan's height, far
+        /// enough that two of them are not one building with two roofs.
+        /// </summary>
+        const float VillageNear = 15f;
+        const float VillageFar = 26f;
+
+        /// <summary>How tall the well in the middle stands.</summary>
+        const float WellHeight = 2.6f;
+
+        /// <summary>
+        /// Builds the village, if this level has one.
+        ///
+        /// <b>Why a village exists at all as its own thing.</b> Houses were placed by the
+        /// same die roll as every other landmark — plains, near a way through, flat, and
+        /// then eight chances in a thousand — which put about one house on a level, alone
+        /// in a field. Nobody lives alone in a field on a road with bandits on it; that
+        /// reads as a house somebody left, and it was not meant to. Settlements picks one
+        /// site per level instead, and everything that makes a village is built around it.
+        ///
+        /// Houses that will not fit are simply not built. The ring is a wish, not a plan:
+        /// a tree, a rock or the road itself may already hold the ground a house wanted,
+        /// and Raise turns all three down on its own. A village of four is still a
+        /// village; a house standing in the road is not.
+        /// </summary>
+        static int PlaceVillage(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                                int site, HashSet<int> road, List<Landmark> found)
+        {
+            if (site < 0 || site >= grid.TileCount) return 0;
+            if (decor.Kit == null || !decor.Kit.CanBuildHouse) return 0;
+
+            var middle = Vec2.FromTile(grid, site);
+            int placed = 0;
+
+            // The well first, in the middle, because it is what the houses are turned
+            // towards and the one piece whose position is not negotiable.
+            //
+            // Scattered rather than placed, and that is not a detail. Place is the
+            // landmark path and it lifts anything under the plan's legibility floor — a
+            // well is 2,6 m, which is under it, so the first village had a well the size
+            // of a house standing in the middle of the houses. A well is life-size or it
+            // is not a well.
+            if (decor.Houses.Any
+                && Scatter(parent, grid, rng,
+                           new Choice(decor.Houses, Any(decor.Houses, rng), WellHeight,
+                                      byWidth: false),
+                           site, heightScale, spread: 0f, occupied))
+            {
+                Landmark.Note(found, LandmarkKind.House, site);
+                placed++;
+            }
+
+            int houses = rng.Range(VillageLow, VillageHigh);
+
+            // The ring is walked from a random bearing so the gap the road makes through
+            // it falls somewhere different on every level.
+            float turn = rng.Range(0f, 360f);
+
+            for (int i = 0; i < houses; i++)
+            {
+                float bearing = (turn + i * 360f / houses + rng.Range(-14f, 14f)) * Mathf.Deg2Rad;
+                float reach = rng.Range(VillageNear, VillageFar);
+
+                float x = middle.X + Mathf.Cos(bearing) * reach;
+                float z = middle.Y + Mathf.Sin(bearing) * reach;
+
+                int tile = Tile(grid, x, z);
+                if (tile < 0) continue;
+
+                var terrain = grid[tile];
+                if (terrain == TerrainType.Water || terrain == TerrainType.Ford
+                    || terrain == TerrainType.Cliff) continue;
+
+                var house = BuildingBuilder.House(parent, decor.Kit, rng, out bool upstairs);
+
+                // Turned to the well, in quarter turns like every other building: the
+                // bearing decides which of the four it gets, so a house on the east side
+                // of the ring faces west and the village has a middle rather than a
+                // scatter of buildings all facing the same way.
+                float yaw = Mathf.Round((bearing * Mathf.Rad2Deg + 180f) / 90f) * 90f;
+
+                if (Raise(grid, tile, rng, house, Storeys(HouseHeight, upstairs),
+                          heightScale, occupied, road, yaw))
+                {
+                    Landmark.Note(found, LandmarkKind.House, tile);
+                    placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>The tile a world position falls on, or -1 when it is off the map.</summary>
+        static int Tile(TileGrid grid, float x, float z)
+        {
+            int tx = (int)(x / TileGrid.TileSize);
+            int ty = (int)(z / TileGrid.TileSize);
+
+            return grid.InBounds(tx, ty) ? grid.ToIndex(tx, ty) : -1;
+        }
+
         static bool Raise(TileGrid grid, int tile, DeterministicRandom rng, GameObject building,
                           float height, float heightScale, HashSet<int> occupied,
                           HashSet<int> road = null, float yaw = -1f)

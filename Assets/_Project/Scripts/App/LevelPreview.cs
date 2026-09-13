@@ -1490,6 +1490,11 @@ namespace TheVeil.App
                 ruinSites: TrapSigns.Sites(map), horizon: false,
                 campSites: CampSignal.Tiles(map), travelled: Travelled(map),
                 found: _landmarks,
+
+                // The same village the run builds, in the same field: Settlements decides
+                // it, and a plan that disagrees with the ground is worse than no plan.
+                village: Settlements.Site(map, Chapter, Level),
+                settled: Settlements.Settled(Biomes.Of(Chapter)),
                 // The castle only at the end of a chapter, and the caller decides that
                 // because the decorator only knows there is a goal. Standing one on every
                 // level made ten keeps in a chapter and turned the thing the roadmap
@@ -1554,8 +1559,12 @@ namespace TheVeil.App
         /// Every tile any corridor crosses — the country's natural ways through, which is
         /// where people build. Unlike <see cref="CorridorTiles"/> this is not gated on
         /// ShowCorridors: the corridors stay hidden, the houses standing along them do not.
+        ///
+        /// Public rather than internal so the smoke test can build a level the way the run
+        /// builds it. A tool that decorates with different arguments is measuring a
+        /// world nobody plays.
         /// </summary>
-        internal static HashSet<int> Travelled(LevelMap map)
+        public static HashSet<int> Travelled(LevelMap map)
         {
             var tiles = new HashSet<int>();
             if (map?.Corridors == null) return tiles;

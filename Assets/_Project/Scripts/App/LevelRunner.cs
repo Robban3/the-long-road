@@ -371,7 +371,15 @@ namespace TheVeil.App
                 // How thickly this country grows. See BiomeLook.Density: a fen is a
                 // thicket, and the forest's scatter rate in it reads as a wood that has
                 // lost its leaves.
-                densityScale: look != null ? look.Density : 1f);
+                densityScale: look != null ? look.Density : 1f,
+
+                // Where people live on this level, if anybody does. Decided in Sim so the
+                // plan map and the run put the village in the same field.
+                village: Settlements.Site(map, Chapter, Level),
+
+                // And whether this is country anybody lives in at all, which decides
+                // whether the odd house may stand outside the village.
+                settled: Settlements.Settled(biome));
 
             // And the air it stands in. Set either way rather than only when a country
             // wants it, because the setting belongs to the scene and would otherwise
