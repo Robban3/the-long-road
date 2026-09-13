@@ -120,27 +120,54 @@ namespace TheVeil.View
             var host = new GameObject("House");
             host.transform.SetParent(parent, false);
 
-            // One style, carried across the sets. The pack numbers its foundations, rooms
-            // and roofs in parallel, so drawing separately would put a round roof on a
-            // square room about six times in seven.
-            int style = rng.Range(0, Length(kit.Rooms));
-            float top = 0f;
+            // <b>One model. The pack's houses are whole houses, not courses.</b>
+            //
+            // This used to stack them: a foundation, a room, sometimes an upper room, and
+            // a roof, each seated on the one below. The names say that is what they are —
+            // Foundation, Room, TopRoomSmall, RoomTop — and they are not. Every one of
+            // those four is a finished house with its own walls, windows and red roof,
+            // and stacking them put three complete houses on top of each other, the
+            // upper one standing on the lower one's roof, 16.9 m of it. Measured off the
+            // prefabs: foundation 2.8 m, room 5.1, upper room 4.3, roof 4.7 — four
+            // storeys of separate cottages.
+            //
+            // It was reported over and over as houses stacked on houses, which is exactly
+            // what it was, and every measurement made of it looked for two *buildings*
+            // sharing ground. They never did. The stack was inside one.
+            //
+            // So a house is one house. The four sets are four shelves of the same shop,
+            // and drawing across all of them is what gives a village more than one shape
+            // of building.
+            var model = Any(Shelf(kit, rng), rng);
+            if (model == null) return host;
 
-            Stack(host.transform, Pick(kit.Foundations, style), ref top, kit.Foundations.ZUp);
-            Stack(host.transform, Pick(kit.Rooms, style), ref top, kit.Rooms.ZUp);
+            var piece = Object.Instantiate(model, host.transform);
+            piece.transform.localRotation = Quaternion.identity;
 
-            if (kit.UpperRooms.Any && rng.Chance(UpperStorey))
-            {
-                Stack(host.transform, Pick(kit.UpperRooms, style), ref top, kit.UpperRooms.ZUp);
-                twoStorey = true;
-            }
-
-            var roof = Stack(host.transform, Pick(kit.Roofs, style), ref top, kit.Roofs.ZUp);
-
-            if (roof != null && kit.Chimneys.Any && rng.Chance(HasChimney))
-                Chimney(host.transform, kit, rng, roof);
+            // Centred on the host's own origin with its foot on the ground plane, which is
+            // what Raise expects to be handed.
+            var bounds = ModelScaling.Measure(piece);
+            piece.transform.position += new Vector3(-bounds.center.x, -bounds.min.y, -bounds.center.z);
 
             return host;
+        }
+
+        /// <summary>
+        /// Which of the kit's shelves this house is drawn from.
+        ///
+        /// Weighted towards the rooms and roofs, which are the full-sized cottages; the
+        /// foundations are squatter and the small upper rooms are smaller still, and a
+        /// village of nothing but those reads as a hamlet of sheds.
+        /// </summary>
+        static PropSet Shelf(BuildingKit kit, DeterministicRandom rng)
+        {
+            float roll = rng.Value01();
+
+            if (roll < 0.40f && kit.Rooms.Any) return kit.Rooms;
+            if (roll < 0.75f && kit.Roofs.Any) return kit.Roofs;
+            if (roll < 0.90f && kit.Foundations.Any) return kit.Foundations;
+
+            return kit.UpperRooms.Any ? kit.UpperRooms : kit.Rooms;
         }
 
         /// <summary>

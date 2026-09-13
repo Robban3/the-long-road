@@ -157,6 +157,16 @@ namespace TheVeil.Sim
         // a difficulty decision wearing a bug fix's clothes.
         public int EnemyBudget = 120;
 
+        /// <summary>
+        /// Whether this level is the walled town (see Towns).
+        ///
+        /// On the recipe because the generator has to know before it lays any ground: the
+        /// walls are impassable terrain and they go down before the ways through are
+        /// looked for. Everything else about a town — what it looks like, where its gates
+        /// are — follows from the stamp.
+        /// </summary>
+        public bool Town;
+
         public int SquadBudget = 12;
         public float TrapDensity = 1f;
         public float SilverMultiplier = 1f;

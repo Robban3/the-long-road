@@ -99,10 +99,17 @@ namespace TheVeil.Editor
         const int ShotWidth = 520;
         const int ShotHeight = 340;
 
-        /// <summary>Builds one level, measures what stands in it, and returns its picture.</summary>
-        static Texture2D Level(LevelRunner runner, int chapter, int level, List<string> faults)
+        /// <summary>
+        /// Stands one level up in the open scene, exactly as LevelRunner stands it up.
+        ///
+        /// Shared rather than copied, because the whole worth of this tool is that what
+        /// it measures and photographs is the world the player drives through. A second
+        /// build with its own arguments would drift from the first the day either one is
+        /// changed, and then the tool is reporting on a world nobody plays.
+        /// </summary>
+        internal static GameObject Build(LevelRunner runner, int chapter, int level, out LevelMap map)
         {
-            var map = LevelMaps.For(chapter, level);
+            map = LevelMaps.For(chapter, level);
             var biome = Biomes.Of(chapter);
             var look = runner.LookFor(biome);
             var decor = look != null && look.Dressed ? look.Decor : runner.Decor;
@@ -138,14 +145,25 @@ namespace TheVeil.Editor
                 landmarkScale: runner.LandmarkScale,
                 densityScale: look != null ? look.Density : 1f,
                 village: Settlements.Site(map, chapter, level),
-                settled: Settlements.Settled(biome));
+                settled: Settlements.Settled(biome),
+                town: LevelMaps.Recipe(chapter, level).Town
+                          ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed)
+                          : Towns.None);
 
-            Measure(map, props.transform, runner.HeightScale, chapter, level, faults);
+            return root;
+        }
 
-            var shot = Shoot(map, runner, look, Settlements.Site(map, chapter, level));
+        /// <summary>Builds one level, measures what stands in it, and returns its picture.</summary>
+        static Texture2D Level(LevelRunner runner, int chapter, int level, List<string> faults)
+        {
+            var root = Build(runner, chapter, level, out var map);
+            var look = runner.LookFor(Biomes.Of(chapter));
+
+            Measure(map, root.transform.Find("Props"), runner.HeightScale, chapter, level, faults);
+
+            var shot = Shoot(map, runner, look, Settlements.Site(map, chapter, level), chapter, level);
 
             Object.DestroyImmediate(root);
-            Object.DestroyImmediate(mesh);
             return shot;
         }
 
@@ -239,7 +257,8 @@ namespace TheVeil.Editor
         /// tree from overhead, and only a camera down where the player's eye is shows the
         /// gap under it.
         /// </summary>
-        static Texture2D Shoot(LevelMap map, LevelRunner runner, BiomeLook look, int village)
+        static Texture2D Shoot(LevelMap map, LevelRunner runner, BiomeLook look, int village,
+                               int chapter, int level)
         {
             map.Grid.ToCoords(map.StartIndex, out int sx, out int sy);
             map.Grid.ToCoords(map.GoalIndex, out int gx, out int gy);
@@ -259,6 +278,16 @@ namespace TheVeil.Editor
                 at = new Vector3(vx * TileGrid.TileSize, 0f, vy * TileGrid.TileSize);
             }
 
+            // And the town, which is the largest thing on any map and the one most worth
+            // looking at on the level it stands on.
+            var walls = LevelMaps.Recipe(chapter, level).Town
+                ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed)
+                : Towns.None;
+
+            if (walls.Any)
+                at = new Vector3((walls.West + walls.East) * 0.5f * TileGrid.TileSize, 0f,
+                                 (walls.North + walls.South) * 0.5f * TileGrid.TileSize);
+
             at.y = map.Grid.SurfaceElevation(at.x, at.z) * runner.HeightScale;
 
             var go = new GameObject("Smoke camera");
@@ -266,7 +295,9 @@ namespace TheVeil.Editor
 
             // Further back and higher for a village: the whole place has to fit, and what
             // is being judged is whether it reads as a settlement rather than as houses.
-            var eye = at + (village >= 0 ? new Vector3(-38f, 28f, -38f) : new Vector3(-26f, 17f, -26f));
+            var eye = at + (walls.Any ? new Vector3(-135f, 100f, -135f)
+                         : village >= 0 ? new Vector3(-38f, 28f, -38f)
+                         : new Vector3(-26f, 17f, -26f));
             camera.transform.position = eye;
             camera.transform.LookAt(at + Vector3.up * 3f);
             camera.fieldOfView = 50f;

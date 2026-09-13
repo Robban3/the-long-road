@@ -224,6 +224,40 @@ namespace TheVeil.View
         /// </summary>
         public BuildingKit Kit = new BuildingKit();
 
+        /// <summary>
+        /// What makes a village a place somebody lives rather than a row of houses.
+        ///
+        /// <b>Houses alone do not read as a village.</b> Five buildings in a field is a
+        /// building site; what says people live here is the ground between them being
+        /// used — a fence round a plot, a cart standing where it was left, a shed against
+        /// a gable, a wheel turning in the river. None of it is a landmark and none of it
+        /// is scenery either: it is the difference between somewhere and something.
+        ///
+        /// Kept as sets of their own rather than folded into Wreckage or Ruins, which is
+        /// where the cart and the crate already live. Those two mean *something went
+        /// wrong here*, and a village is the opposite claim.
+        /// </summary>
+        public PropSet Fences = new PropSet();
+
+        /// <summary>A shed, a lean-to: the small buildings that lean on the big ones.</summary>
+        public PropSet Sheds = new PropSet();
+
+        /// <summary>A cart left standing, hay, crates — a yard in use.</summary>
+        public PropSet Yard = new PropSet();
+
+        /// <summary>
+        /// The mill wheel and the frame it turns in, which are two models and one thing.
+        ///
+        /// Index-matched with <see cref="MillSupports"/>: the wheel goes in the water and
+        /// the support stands on the bank, and a wheel without its frame hangs in the
+        /// river.
+        /// </summary>
+        public PropSet Mills = new PropSet();
+        public PropSet MillSupports = new PropSet();
+
+        /// <summary>Tied up where the water is deep enough to tie one up.</summary>
+        public PropSet Boats = new PropSet();
+
         public PropSet Wreckage = new PropSet();
 
         public PropSet Ruins = new PropSet();
@@ -1043,7 +1077,8 @@ namespace TheVeil.View
                                    Material marshWaterMaterial = null,
                                    IReadOnlyCollection<int> apronOpenings = null,
                                    int village = -1,
-                                   bool settled = true)
+                                   bool settled = true,
+                                   Towns.Plan town = default)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -1087,6 +1122,12 @@ namespace TheVeil.View
             // castle is the largest of them by a long way, so it claims first.
             placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
                                   goalTile, travelled, found);
+
+            // The town before any of it, because its walls are the largest built thing
+            // on any map and they are not negotiable: the ground they stand on was made
+            // impassable before the ways through were found, so nothing else may take it.
+            placed += PlaceTown(parent, grid, Stream(11), decor, occupied, heightScale,
+                                town, found);
 
             // And the village next, for the same reason and one more: it is the only
             // built thing on the map whose position was decided before the decorator was
@@ -1183,7 +1224,7 @@ namespace TheVeil.View
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
             placed += PlaceWater(parent, grid, heightScale, waterMaterial, marshWaterMaterial);
-            placed += PlaceCliffs(parent, grid, Stream(7), decor, occupied, heightScale, road);
+            placed += PlaceCliffs(parent, grid, Stream(7), decor, occupied, heightScale, road, town);
             placed += PlaceWillows(parent, grid, Stream(8), decor, occupied, heightScale,
                                    densityScale, road);
             placed += PlaceCamps(parent, grid, Stream(9), decor, occupied, heightScale, campSites, road,
@@ -1517,7 +1558,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceCliffs(Transform parent, TileGrid grid, DeterministicRandom rng,
                                BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                               HashSet<int> road = null)
+                               HashSet<int> road = null, Towns.Plan town = default)
         {
             if (!decor.Cliffs.Any) return 0;
 
@@ -1527,6 +1568,17 @@ namespace TheVeil.View
             for (int i = 0; i < grid.TileCount && placed < MaxLandmarks * 3; i++)
             {
                 if (grid[i] != TerrainType.Cliff) continue;
+
+                // The town is built of impassable ground too — its walls and the block
+                // in its middle — and what stands on those is masonry, not rock. Cliff
+                // is the terrain the stamp had to hand; it was never a statement that
+                // there is a crag here.
+                if (town.Any)
+                {
+                    grid.ToCoords(i, out int tx, out int ty);
+                    if (town.Holds(tx, ty)) continue;
+                }
+
                 if (occupied.Contains(i)) continue;
                 if (road != null && road.Contains(i)) continue;
                 if (!Apart(grid, i, stood, 2f)) continue;
@@ -2746,11 +2798,20 @@ namespace TheVeil.View
         /// Asked only of the big props. Below a tile's width, overlap is what a forest
         /// looks like — spruce canopies touch, and a tile of air around every tree would
         /// give an orchard.
+        ///
+        /// <b>Unless it is a building, and that exemption is a bug that shipped.</b> The
+        /// reasoning above is about foliage and it was applied to everything: a house
+        /// narrower than four metres never asked, so it was raised straight through the
+        /// one already standing there. It had reserved its ground — reserving was never
+        /// the half that was missing — and the next house simply did not look. Two roofs
+        /// growing out of each other in the town street is what it looks like, and it is
+        /// what was reported. Masonry always asks; a spruce still does not.
         /// </summary>
         static bool FootprintClear(TileGrid grid, HashSet<int> occupied, float x, float z,
-                                   float radius)
+                                   float radius, bool always = false)
         {
-            if (occupied == null || radius <= TileGrid.TileSize) return true;
+            if (occupied == null) return true;
+            if (!always && radius <= TileGrid.TileSize) return true;
 
             bool clear = true;
             ForEachTileUnder(grid, x, z, radius,
@@ -3511,6 +3572,16 @@ namespace TheVeil.View
         public const float SlopeSink = 0.6f;
 
         /// <summary>
+        /// How far a whole cottage is set into the ground, in metres.
+        ///
+        /// A hand's width, and it is there for one reason: a building laid exactly on the
+        /// surface shows a line of daylight under its sill wherever the ground is not
+        /// perfectly flat. It is not a share of the model's height, because a cottage has
+        /// no taper and no foundation course to bury — see the note in Raise.
+        /// </summary>
+        public const float CottageSink = 0.12f;
+
+        /// <summary>
         /// Builds whatever this tile has earned out of the kit, or nothing.
         ///
         /// Where they stand is unchanged and the reasons are the old ones: people build
@@ -3709,9 +3780,234 @@ namespace TheVeil.View
         /// Every building here may point wherever it likes except one: a castle's gate
         /// has to face the road, or the caravan arrives at a wall.
         /// </param>
+        /// <summary>
+        /// How wide one length of town wall is drawn, in metres.
+        ///
+        /// One tile, because the wall is made of tiles: each impassable tile the stamp
+        /// laid down gets one piece, fitted to the tile's width rather than to a height,
+        /// so the run closes instead of coming out as a row of posts with daylight
+        /// between them. Fitting a wall by height is what leaves the gaps — the piece is
+        /// as long as the model happens to be, and the model was not authored to the
+        /// grid.
+        /// </summary>
+        const float TownWallSpan = TileGrid.TileSize;
+
+        /// <summary>
+        /// How tall a town wall stands, in metres.
+        ///
+        /// Fitted by height rather than to the tile, and the pieces overlap because of
+        /// it. Fitted to the tile instead — four metres wide, which is what closes the
+        /// run — a curtain piece authored ten metres by six comes out two and a half
+        /// metres tall, and a wall a man can see over is a garden wall. Overlapping
+        /// stone reads as thickness; a low wall reads as a mistake.
+        /// </summary>
+        const float TownWallHeight = 7f;
+
+        /// <summary>How tall a corner tower and a gatehouse stand, in metres.</summary>
+        const float TownTowerHeight = 10f;
+        const float TownGateHeight = 9f;
+
+        /// <summary>
+        /// Builds the walled town, if this level has one.
+        ///
+        /// The walls themselves were laid as ground before any of this ran (Towns.Stamp):
+        /// impassable tiles that the corridors and the player's own drawn line have to go
+        /// round or through a gate. What happens here is only that they are made visible.
+        /// The two cannot disagree, because this reads the same plan the stamp wrote and
+        /// puts a stone on every tile the stamp made impassable.
+        ///
+        /// <b>Which is why the gates are holes rather than arches parked against a wall.</b>
+        /// The stamp leaves the gate tiles passable and the wall run short a piece there;
+        /// the gatehouse is then stood in the hole. A gate drawn over a solid wall would
+        /// be a door nobody can open.
+        /// </summary>
+        static int PlaceTown(Transform parent, TileGrid grid, DeterministicRandom rng,
+                             BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                             Towns.Plan town, List<Landmark> found)
+        {
+            if (!town.Any) return 0;
+
+            var kit = decor.Kit;
+            if (kit == null || !kit.CurtainWalls.Any) return 0;
+
+            // One style for the whole circuit. A town wall built of three different
+            // stones reads as three towns.
+            var stone = Any(kit.CurtainWalls, rng);
+            int placed = 0;
+
+            // The corners first, and the order is the whole of it.
+            //
+            // Towers and wall ran in one pass over the rows, so the north wall was laid
+            // before the loop reached the north-east corner — and a wall piece beside a
+            // corner has already spoken for that ground, so the tower was turned away.
+            // One tower of four stood, which is a castle with three corners.
+            if (kit.CanBuildTower)
+            {
+                foreach (var corner in new[] { (town.West, town.North), (town.East, town.North),
+                                               (town.West, town.South), (town.East, town.South) })
+                {
+                    int tile = grid.ToIndex(corner.Item1, corner.Item2);
+
+                    if (Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),
+                              TownTowerHeight, heightScale, occupied, null, 0f, landmark: false))
+                    {
+                        Landmark.Note(found, LandmarkKind.Watchtower, tile);
+                        placed++;
+                    }
+                }
+            }
+
+            for (int y = town.North; y <= town.South; y++)
+            {
+                for (int x = town.West; x <= town.East; x++)
+                {
+                    if (!town.IsWall(x, y)) continue;
+
+                    int tile = grid.ToIndex(x, y);
+
+                    // The corners already carry their towers, raised before any of this.
+                    if ((x == town.West || x == town.East)
+                        && (y == town.North || y == town.South)) continue;
+
+                    // The face this piece stands on decides which way it looks. North and
+                    // south walls run east to west; the side walls run north to south.
+                    float yaw = y == town.North || y == town.South ? 0f : 90f;
+
+                    if (Scatter(parent, grid, rng,
+                                new Choice(kit.CurtainWalls, stone, TownWallHeight, byWidth: false,
+                                           low: 1f, high: 1f, maxSpread: 3f),
+                                tile, heightScale, spread: 0f, occupied, yaw: yaw))
+                        placed++;
+                }
+            }
+
+            // The two gatehouses, in the holes the stamp left.
+            if (kit.Gates.Any)
+            {
+                foreach (int gate in new[] { town.WestGate(grid), town.EastGate(grid) })
+                {
+                    if (Scatter(parent, grid, rng,
+                                new Choice(kit.Gates, Any(kit.Gates, rng), TownGateHeight,
+                                           byWidth: false, low: 1f, high: 1f),
+                                gate, heightScale, spread: 0f, occupied: null, yaw: 90f))
+                    {
+                        Landmark.Note(found, LandmarkKind.Castle, gate);
+                        placed++;
+                    }
+                }
+            }
+
+            placed += PlaceTownHouses(parent, grid, rng, decor, occupied, heightScale, town, found);
+            return placed;
+        }
+
+        /// <summary>
+        /// The town inside its walls: four rows of houses along two streets.
+        ///
+        /// The stamp leaves the inside as two lanes — one north of the block in the
+        /// middle, one south of it — and a street has houses down both sides or it is a
+        /// gap between buildings. So four rows: against the inside of each wall, facing
+        /// in, and along each face of the block, facing out. The lanes themselves are
+        /// left clear, because the lanes are what the caravan drives.
+        ///
+        /// <b>A town is not a village with more houses in it.</b> The village stands in a
+        /// ring round a well with its own ground cleared about it; here the ground is
+        /// spoken for by the walls, and what makes it a town is the density — houses
+        /// shoulder to shoulder along a street, a well by the gate where the carts stop,
+        /// and the yards between the houses used.
+        /// </summary>
+        static int PlaceTownHouses(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                   BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                                   Towns.Plan town, List<Landmark> found)
+        {
+            if (decor.Kit == null || !decor.Kit.CanBuildHouse) return 0;
+
+            int placed = 0;
+
+            // The four rows, inside to out: each is a row of tiles and the way its houses
+            // face. North of the gate row a house faces south, and the other way about.
+            var rows = new (int Row, float Yaw)[]
+            {
+                (town.North + 2, 180f),
+                (town.GateRow - 3, 0f),
+                (town.GateRow + 3, 180f),
+                (town.South - 2, 0f)
+            };
+
+            foreach (var (row, yaw) in rows)
+            {
+                if (row <= town.North || row >= town.South) continue;
+
+                for (int x = town.West + 2; x <= town.East - 2; x += 3)
+                {
+                    int tile = grid.ToIndex(x, row);
+
+                    var house = BuildingBuilder.House(parent, decor.Kit, rng, out bool upstairs);
+
+                    if (!Raise(grid, tile, rng, house, CottageHeight, heightScale, occupied,
+                               null, yaw, landmark: false))
+                        continue;
+
+                    Landmark.Note(found, LandmarkKind.House, tile);
+                    placed++;
+
+                    // And what stands between them: a cart in the yard, a shed against a
+                    // gable. Set behind the house, away from the street, so the lane
+                    // stays a lane.
+                    int behind = row + (yaw == 0f ? -1 : 1);
+
+                    if (behind > town.North && behind < town.South && decor.Yard.Any
+                        && rng.Chance(0.4f)
+                        && Scatter(parent, grid, rng,
+                                   new Choice(decor.Yard, Any(decor.Yard, rng), YardHeight,
+                                              byWidth: false),
+                                   grid.ToIndex(x, behind), heightScale, spread: 1.1f, occupied))
+                        placed++;
+                }
+            }
+
+            // And the block in the middle, which is the town's own ground rather than
+            // anybody's yard: the stamp made it solid so that the inside would have two
+            // lanes instead of one hall, and until something stands on it the middle of
+            // the town is a bare brown rectangle. Built along its spine, back to back, so
+            // both streets are faced by buildings.
+            for (int x = town.West + 4; x <= town.East - 4; x += 4)
+            {
+                foreach (var (row, yaw) in new[] { (town.GateRow - 1, 0f), (town.GateRow + 1, 180f) })
+                {
+                    if (row <= town.North || row >= town.South) continue;
+                    if (grid[grid.ToIndex(x, row)] != TerrainType.Cliff) continue;
+
+                    var core = BuildingBuilder.House(parent, decor.Kit, rng, out bool storey);
+
+                    if (Raise(grid, grid.ToIndex(x, row), rng, core, CottageHeight,
+                              heightScale, occupied, null, yaw, landmark: false))
+                    {
+                        Landmark.Note(found, LandmarkKind.House, grid.ToIndex(x, row));
+                        placed++;
+                    }
+                }
+            }
+
+            // The well, on the street just inside the west gate: where a cart coming
+            // through the gate would stop.
+            if (decor.Houses.Any)
+            {
+                int well = grid.ToIndex(town.West + 3, town.GateRow);
+
+                if (Scatter(parent, grid, rng,
+                            new Choice(decor.Houses, Any(decor.Houses, rng), WellHeight,
+                                       byWidth: false),
+                            well, heightScale, spread: 0f, occupied))
+                    placed++;
+            }
+
+            return placed;
+        }
+
         /// <summary>How many houses stand in a village.</summary>
-        const int VillageLow = 5;
-        const int VillageHigh = 9;
+        const int VillageLow = 12;
+        const int VillageHigh = 19;
 
         /// <summary>
         /// How far the houses stand from the village's middle, in metres.
@@ -3721,11 +4017,46 @@ namespace TheVeil.View
         /// that the whole place reads as one settlement from the caravan's height, far
         /// enough that two of them are not one building with two roofs.
         /// </summary>
-        const float VillageNear = 15f;
-        const float VillageFar = 26f;
+        const float VillageNear = 14f;
+        const float VillageFar = 24f;
+
+        /// <summary>
+        /// How far the second row of houses stands out, in metres.
+        ///
+        /// Two rings rather than one, because one ring of six houses is a hamlet and a
+        /// village is a place. Alternating between them as the ring is walked puts the
+        /// rows out of step with each other, so the outer houses stand in the gaps of the
+        /// inner ones and the place has depth from the road rather than reading as a
+        /// circle of buildings around a green.
+        /// </summary>
+        const float VillageOuter = 37f;
 
         /// <summary>How tall the well in the middle stands.</summary>
         const float WellHeight = 2.6f;
+
+        /// <summary>
+        /// How tall a village house stands, in metres.
+        ///
+        /// The pack draws its cottages about five metres to the ridge, so this is very
+        /// nearly life size and the scaling is very nearly nothing. HouseHeight, which
+        /// this replaces here, is seven — and seven was chosen back when a house was
+        /// four stacked pieces and the number had to cover all of them. One cottage
+        /// stretched to seven metres is a cottage with a two-storey door.
+        /// </summary>
+        const float CottageHeight = 5.5f;
+
+        /// <summary>The sizes of the small things a village is furnished with, in metres.</summary>
+        const float ShedHeight = 3.2f;
+        const float YardHeight = 1.9f;
+        const float FenceHeight = 1.3f;
+        const float MillWheelHeight = 5.5f;
+        const float BoatLength = 3.4f;
+
+        /// <summary>How far apart fence posts are set along a run, in metres.</summary>
+        const float FenceStep = 2.6f;
+
+        /// <summary>How far from the village a mill will look for water, in tiles.</summary>
+        const int MillReach = 10;
 
         /// <summary>
         /// Builds the village, if this level has one.
@@ -3736,6 +4067,14 @@ namespace TheVeil.View
         /// in a field. Nobody lives alone in a field on a road with bandits on it; that
         /// reads as a house somebody left, and it was not meant to. Settlements picks one
         /// site per level instead, and everything that makes a village is built around it.
+        ///
+        /// <b>And why it is more than houses.</b> Five buildings round a well is a
+        /// building site. What says people live here is the ground between them being
+        /// used: a fence round each plot, a cart standing where it was left, a shed
+        /// against a gable, and — where the village has water — a mill wheel turning in
+        /// it and a boat tied up beside. Every one of those is placed against a house or
+        /// against the water rather than scattered, because a prop that only reads as
+        /// part of something has to be placed as part of something.
         ///
         /// Houses that will not fit are simply not built. The ring is a wish, not a plan:
         /// a tree, a rock or the road itself may already hold the ground a house wanted,
@@ -3751,6 +4090,7 @@ namespace TheVeil.View
 
             var middle = Vec2.FromTile(grid, site);
             int placed = 0;
+
 
             // The well first, in the middle, because it is what the houses are turned
             // towards and the one piece whose position is not negotiable.
@@ -3776,10 +4116,18 @@ namespace TheVeil.View
             // it falls somewhere different on every level.
             float turn = rng.Range(0f, 360f);
 
+            // Where the houses actually landed, which is not where they were wanted: the
+            // fences and the yards are strung between the ones that stand.
+            var standing = new List<Vector2>();
+
             for (int i = 0; i < houses; i++)
             {
-                float bearing = (turn + i * 360f / houses + rng.Range(-14f, 14f)) * Mathf.Deg2Rad;
-                float reach = rng.Range(VillageNear, VillageFar);
+                float bearing = (turn + i * 360f / houses + rng.Range(-9f, 9f)) * Mathf.Deg2Rad;
+
+                // Every other house in the outer row. See VillageOuter.
+                float reach = i % 2 == 1
+                    ? rng.Range(VillageFar, VillageOuter)
+                    : rng.Range(VillageNear, VillageFar);
 
                 float x = middle.X + Mathf.Cos(bearing) * reach;
                 float z = middle.Y + Mathf.Sin(bearing) * reach;
@@ -3799,13 +4147,249 @@ namespace TheVeil.View
                 // scatter of buildings all facing the same way.
                 float yaw = Mathf.Round((bearing * Mathf.Rad2Deg + 180f) / 90f) * 90f;
 
-                if (Raise(grid, tile, rng, house, Storeys(HouseHeight, upstairs),
-                          heightScale, occupied, road, yaw))
+                if (!Raise(grid, tile, rng, house, CottageHeight,
+                           heightScale, occupied, road, yaw, landmark: false))
+                    continue;
+
+                Landmark.Note(found, LandmarkKind.House, tile);
+                placed++;
+
+                var at = Vec2.FromTile(grid, tile);
+                standing.Add(new Vector2(at.X, at.Y));
+
+                placed += Yard(parent, grid, rng, decor, occupied, heightScale, road,
+                               at, bearing);
+            }
+
+            placed += Fences(parent, grid, rng, decor, occupied, heightScale, road,
+                             new Vector2(middle.X, middle.Y), standing);
+
+            placed += Mill(parent, grid, rng, decor, occupied, heightScale, road, site, found);
+
+            // And the yard is spoken for last, which keeps the wood out of it.
+            //
+            // <b>A village does not have a forest growing through it.</b> Each building
+            // claims the tiles under itself, which is enough to keep two of them apart
+            // and nowhere near enough to make a village: the ground between the houses
+            // was left open, so the scatter sowed it like any other meadow and spruces
+            // came up on the green, against the doors and around the well. What was
+            // built read as houses dropped into a wood rather than as somewhere people
+            // had cleared and settled.
+            //
+            // Last rather than first, and that order is the whole of it: claimed before
+            // the houses go up, the yard turns away the houses themselves. Claimed after,
+            // it turns away only what comes later, and what comes later is the scatter.
+            // Out to the ring and one tile past it, not to Settlements.Yard: the yard is
+            // the plot the site was chosen by and it is three tiles, while the houses
+            // stand between fifteen and twenty-six metres out. Clearing the yard alone
+            // left the middle open and the wood standing between the houses, which is
+            // where it shows.
+            grid.ToCoords(site, out int yx, out int yy);
+            int clearing = Mathf.CeilToInt(VillageOuter / TileGrid.TileSize) + 1;
+
+            for (int dy = -clearing; dy <= clearing; dy++)
+                for (int dx = -clearing; dx <= clearing; dx++)
                 {
-                    Landmark.Note(found, LandmarkKind.House, tile);
+                    int nx = yx + dx, ny = yy + dy;
+                    if (grid.InBounds(nx, ny)) occupied?.Add(grid.ToIndex(nx, ny));
+                }
+
+            return placed;
+        }
+
+        /// <summary>
+        /// What stands in a house's yard: a shed against the gable, a cart in front.
+        ///
+        /// Placed against the house rather than near it. <paramref name="bearing"/> is the
+        /// direction from the village's middle out to this house, so the far side of the
+        /// house is where the shed goes and the near side, towards the well, is where the
+        /// cart stands — which is where a cart would be left, facing the way out.
+        /// </summary>
+        static int Yard(Transform parent, TileGrid grid, DeterministicRandom rng,
+                        BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                        HashSet<int> road, Vec2 house, float bearing)
+        {
+            int placed = 0;
+
+            if (decor.Sheds.Any && rng.Chance(0.55f))
+            {
+                float side = bearing + Mathf.PI * 0.5f;
+                int tile = Tile(grid, house.X + Mathf.Cos(side) * 7f,
+                                      house.Y + Mathf.Sin(side) * 7f);
+
+                if (tile >= 0 && Scatter(parent, grid, rng,
+                                         new Choice(decor.Sheds, Any(decor.Sheds, rng), ShedHeight,
+                                                    byWidth: false),
+                                         tile, heightScale, spread: 1f, occupied))
+                    placed++;
+            }
+
+            if (decor.Yard.Any && rng.Chance(0.7f))
+            {
+                int tile = Tile(grid, house.X - Mathf.Cos(bearing) * 6f,
+                                      house.Y - Mathf.Sin(bearing) * 6f);
+
+                if (tile >= 0 && (road == null || !road.Contains(tile))
+                    && Scatter(parent, grid, rng,
+                               new Choice(decor.Yard, Any(decor.Yard, rng), YardHeight,
+                                          byWidth: false),
+                               tile, heightScale, spread: 1.2f, occupied))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>
+        /// Fences from house to house, which is what turns a ring of buildings into
+        /// plots.
+        ///
+        /// Strung along the outside of the ring between neighbours, at a fixed step, and
+        /// each post turned to the run it belongs to. Anything the road wants, the road
+        /// gets: a fence across the way in is a fence across the way in.
+        /// </summary>
+        static int Fences(Transform parent, TileGrid grid, DeterministicRandom rng,
+                          BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                          HashSet<int> road, Vector2 middle, List<Vector2> houses)
+        {
+            if (!decor.Fences.Any || houses.Count < 2) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < houses.Count; i++)
+            {
+                var from = houses[i];
+                var to = houses[(i + 1) % houses.Count];
+
+                // Only between neighbours that are actually neighbours. Two houses on
+                // opposite sides of the village are not a plot boundary, they are a line
+                // drawn through the middle of the green.
+                float span = Vector2.Distance(from, to);
+                if (span > 34f) continue;
+
+                // Bowed outwards, away from the well, so the fence runs round the plots
+                // rather than cutting the corner across them.
+                var mid = (from + to) * 0.5f;
+                var out0 = (mid - middle).normalized * 4f;
+
+                float yaw = Mathf.Atan2(to.y - from.y, to.x - from.x) * Mathf.Rad2Deg;
+
+                for (float t = FenceStep * 0.5f; t < span; t += FenceStep)
+                {
+                    float k = t / span;
+
+                    // A hair of bow: full at the middle of the run, none at its ends.
+                    var bow = out0 * Mathf.Sin(k * Mathf.PI);
+                    var at = Vector2.Lerp(from, to, k) + bow;
+
+                    int tile = Tile(grid, at.x, at.y);
+                    if (tile < 0) continue;
+                    if (road != null && road.Contains(tile)) continue;
+
+                    var terrain = grid[tile];
+                    if (terrain == TerrainType.Water || terrain == TerrainType.Ford
+                        || terrain == TerrainType.Cliff) continue;
+
+                    if (Scatter(parent, grid, rng,
+                                new Choice(decor.Fences, Any(decor.Fences, rng), FenceHeight,
+                                           byWidth: false, low: 1f, high: 1f),
+                                tile, heightScale, spread: 0f, occupied: null, yaw: -yaw))
+                        placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>
+        /// The mill, where the village has water to turn one.
+        ///
+        /// Three pieces and one thing: the wheel in the water, the frame it turns in on
+        /// the bank, and the mill house behind that. Placed together or not at all — a
+        /// wheel on its own is a wheel in a river, which is what the cart wheel taught
+        /// (see Wreckage). A boat is tied up beside it where there is room.
+        /// </summary>
+        static int Mill(Transform parent, TileGrid grid, DeterministicRandom rng,
+                        BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                        HashSet<int> road, int site, List<Landmark> found)
+        {
+            if (!decor.Mills.Any) return 0;
+
+            grid.ToCoords(site, out int sx, out int sy);
+
+            // The nearest water with dry ground beside it, which is where a mill goes.
+            int bank = -1, water = -1, nearest = int.MaxValue;
+
+            for (int dy = -MillReach; dy <= MillReach; dy++)
+                for (int dx = -MillReach; dx <= MillReach; dx++)
+                {
+                    int wx = sx + dx, wy = sy + dy;
+                    if (!grid.InBounds(wx, wy)) continue;
+                    if (grid[wx, wy] != TerrainType.Water) continue;
+
+                    int reach = dx * dx + dy * dy;
+                    if (reach >= nearest) continue;
+
+                    // A bank beside it, towards the village.
+                    foreach (var step in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                    {
+                        int bx = wx + step.Item1, by = wy + step.Item2;
+                        if (!grid.InBounds(bx, by)) continue;
+
+                        var terrain = grid[bx, by];
+                        if (terrain == TerrainType.Water || terrain == TerrainType.Ford
+                            || terrain == TerrainType.Cliff) continue;
+
+                        nearest = reach;
+                        water = grid.ToIndex(wx, wy);
+                        bank = grid.ToIndex(bx, by);
+                        break;
+                    }
+                }
+
+            if (bank < 0) return 0;
+
+            grid.ToCoords(water, out int ax, out int ay);
+            grid.ToCoords(bank, out int bx2, out int by2);
+
+            // The wheel faces along the bank, which is across the line from bank to water.
+            float yaw = Mathf.Atan2(ay - by2, ax - bx2) * Mathf.Rad2Deg;
+            int placed = 0;
+
+            if (!Scatter(parent, grid, rng,
+                         new Choice(decor.Mills, Any(decor.Mills, rng), MillWheelHeight,
+                                    byWidth: false, low: 1f, high: 1f),
+                         water, heightScale, spread: 0f, occupied: null, yaw: -yaw))
+                return 0;
+
+            placed++;
+
+            if (decor.MillSupports.Any
+                && Scatter(parent, grid, rng,
+                           new Choice(decor.MillSupports, Any(decor.MillSupports, rng),
+                                      MillWheelHeight, byWidth: false, low: 1f, high: 1f),
+                           water, heightScale, spread: 0f, occupied: null, yaw: -yaw))
+                placed++;
+
+            // And the mill itself on the bank behind the wheel.
+            if (decor.Kit != null && decor.Kit.CanBuildHouse)
+            {
+                var mill = BuildingBuilder.House(parent, decor.Kit, rng, out bool upstairs);
+
+                if (Raise(grid, bank, rng, mill, CottageHeight,
+                          heightScale, occupied, road, Mathf.Round(yaw / 90f) * 90f, landmark: false))
+                {
+                    Landmark.Note(found, LandmarkKind.House, bank);
                     placed++;
                 }
             }
+
+            if (decor.Boats.Any
+                && Scatter(parent, grid, rng,
+                           new Choice(decor.Boats, Any(decor.Boats, rng), BoatLength,
+                                      byWidth: true, low: 1f, high: 1f),
+                           water, heightScale, spread: 2.4f, occupied: null, yaw: -yaw))
+                placed++;
 
             return placed;
         }
@@ -3821,16 +4405,44 @@ namespace TheVeil.View
 
         static bool Raise(TileGrid grid, int tile, DeterministicRandom rng, GameObject building,
                           float height, float heightScale, HashSet<int> occupied,
-                          HashSet<int> road = null, float yaw = -1f)
+                          HashSet<int> road = null, float yaw = -1f, bool landmark = true)
         {
             if (building == null) return false;
 
-            height = Mathf.Max(height * _landmarkScale, _landmarkFloor);
+            // <b>A house in a village is not a landmark, and blowing it up to landmark
+            // size is what made the villages look wrong.</b>
+            //
+            // The scale exists so that a lone building can be picked out from map height,
+            // and it is 1.6 with a floor under it. Applied to a village house it gives:
+            // seven metres becomes 11.2, and nine with an upper storey becomes 14.4.
+            // Measured on 1-6, every house stood between 12.5 and 16.3 m — four to five
+            // storeys, beside a wagon 3.2 m tall. At that size a two-storey house reads
+            // as wall, roof, wall, roof, and what it looks like is two or three houses
+            // stacked on top of each other, which is exactly what it was reported as.
+            //
+            // A settlement is not something to spot from above. It is something the road
+            // goes through, and the wagons are the ruler.
+            if (landmark) height = Mathf.Max(height * _landmarkScale, _landmarkFloor);
 
             var at = Vec2.FromTile(grid, tile);
 
             float surfaceY = grid.SurfaceElevation(at.X, at.Y) * heightScale;
-            float groundY = surfaceY - Seat(grid, tile, heightScale, height);
+
+            // <b>A cottage is not seated like a tower, and seating it like one buries it
+            // to the sills.</b>
+            //
+            // BuildingSink is an eighth of the model's own height, and it is right for
+            // what it was written for: a tower or a keep whose artist tapered its base
+            // into the ground, and a stacked house whose bottom course was a foundation
+            // meant to be half buried. A whole cottage has neither. An eighth of five and
+            // a half metres is 0.66 m before the slope is added, which is the ground floor
+            // — reported, correctly, as half-buried houses.
+            //
+            // The slope share stays either way. That is not about the model at all: it is
+            // what keeps the uphill side of anything from standing clear of the hill with
+            // daylight under it.
+            float taper = landmark ? height * BuildingSink : CottageSink;
+            float groundY = surfaceY - (taper + Fall(grid, tile, heightScale) * SlopeSink);
 
             // Quarter turns, as for any building. A house at eleven degrees reads as
             // subsidence, and this one is several pieces deep.
@@ -3890,7 +4502,7 @@ namespace TheVeil.View
             // Scatter has asked this since it was written, with this same call. Raise is
             // the one path that skipped it, and it is the path that puts up everything
             // large enough for the overlap to show.
-            if (!FootprintClear(grid, occupied, at.X, at.Y, FootprintRadius(building)))
+            if (!FootprintClear(grid, occupied, at.X, at.Y, FootprintRadius(building), always: true))
             {
                 Unbuild(building);
                 return false;

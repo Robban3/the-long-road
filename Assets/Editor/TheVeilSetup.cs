@@ -1373,6 +1373,33 @@ namespace TheVeil.Editor
                 // shape, so one number could never have sized both.
                 Houses = Knights("Buildings", "SM_Bld_Village_Well_01", "SM_Bld_Well_01"),
 
+                // What a village is furnished with. See BiomeDecor.Fences: houses alone
+                // read as a building site, and what says people live here is the ground
+                // between them being used.
+                //
+                // The knights pack's own, not the nature pack's fence, because these
+                // stand beside its houses and a second artist's fence against them is the
+                // seam the whole model swap was made to close.
+                Fences = Knights("Props", "SM_Prop_Fence_01", "SM_Prop_Fence_02"),
+
+                // One lean-to, which is the pack's whole answer to an outbuilding.
+                Sheds = Knights("Buildings", "SM_Bld_Leanto_01"),
+
+                // A cart left standing, a load of hay, a crate. These are also in
+                // Wreckage, and the difference is not the model but the claim: beside a
+                // broken wagon a crate says somebody was robbed here, and in a yard the
+                // same crate says somebody lives here.
+                Yard = Knights("Props", "SM_Prop_Cart_01", "SM_Prop_CartHay_01",
+                               "SM_Prop_Crate_01"),
+
+                // The wheel and the frame it turns in, which are two models and one
+                // thing. Index-matched by being one apiece: the wheel goes in the water,
+                // the frame stands over it.
+                Mills = Knights("Props", "SM_Prop_WaterWheel_01"),
+                MillSupports = Knights("Props", "SM_Prop_WaterWheel_Support_01"),
+
+                Boats = Knights("Props", "SM_Prop_Rowboat_01"),
+
                 // **Empty on purpose now.** These were the pack's two mini towers, which
                 // are whole pieces and were reported twice as standing on the grass. They
                 // are also two shapes, so every pass in the game had the same tower on it

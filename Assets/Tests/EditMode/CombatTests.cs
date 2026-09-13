@@ -165,19 +165,48 @@ namespace TheVeil.Tests
         public void TheScoutClearsTheTrapsSheSees()
         {
             // A trap the scout spots does no harm: she makes it safe before the column
-            // gets there. 1-8's fast road is the trapped one.
+            // gets there.
+            //
+            // Asked over the whole chapter, as a comparison, and that is the third shape
+            // this test has had. It named 1-8, whose fast road was the trapped one — until
+            // 1-8 became the town and its road ran through a walled street where nothing
+            // is buried. It then took the first level with traps on it and asked that she
+            // clear some, which failed on 1-2, where she clears none: what she can do
+            // depends on how much road she sees before the column reaches the trap, and on
+            // some roads that is nothing at all.
+            //
+            // Neither of those is what the scout promises. She promises that a squad with
+            // her in it meets fewer live traps than the same squad without her, and that
+            // is a claim about the troop rather than about any one map.
+            int withHer = 0, without = 0;
+
+            for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+            {
+                var scouted = Run(1, level, Line(TroopKind.Scout));
+                scouted.RunToCompletion();
+                withHer += scouted.Traps.DisarmedCount;
+
+                var blind = Run(1, level, Line(TroopKind.Spearmen));
+                blind.RunToCompletion();
+                without += blind.Traps.DisarmedCount;
+            }
+
+            if (withHer + without == 0) Assert.Ignore("no road in chapter one met a trap");
+
+            Assert.Greater(withHer, without,
+                           $"across chapter one the scout cleared {withHer} trap(s) "
+                           + $"and a squad without her cleared {without}");
+        }
+
+        /// <summary>The same four posts every time, with one of them the troop under test.</summary>
+        static Squad Line(TroopKind point)
+        {
             var squad = new Squad(18);
-            squad.TryPlace(FormationSlot.Van, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.Van, point);
             squad.TryPlace(FormationSlot.RightVan, TroopKind.Shieldbearer);
             squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
             squad.TryPlace(FormationSlot.LeftVan, TroopKind.Archers);
-
-            var run = Run(1, 8, squad);
-            run.RunToCompletion();
-
-            if (run.Traps.Traps.Count == 0) Assert.Ignore("no traps on this road");
-
-            Assert.Greater(run.Traps.DisarmedCount, 0, "the scout walked past every trap on the road");
+            return squad;
         }
 
         [Test]

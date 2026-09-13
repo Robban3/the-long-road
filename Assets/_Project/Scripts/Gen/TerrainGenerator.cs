@@ -56,7 +56,13 @@ namespace TheVeil.Gen
                 var grid = BuildTerrain(recipe, rng);
                 CarveRivers(grid, recipe, rng);
 
-                if (!TryPlaceEndpoints(grid, recipe, rng, out int sx, out int sy, out int gx, out int gy))
+                // The town is part of the country, not of what stands on it: its walls
+                // are impassable ground, laid before the ways through are looked for, so
+                // every route has to find a gate or go round. See Towns.
+                var town = recipe.Town ? Towns.Stamp(grid, seed) : Towns.None;
+
+                if (!TryPlaceEndpoints(grid, recipe, rng, out int sx, out int sy, out int gx, out int gy,
+                                       town.Any ? town.GateRow : -1))
                     continue;
 
                 // Before the corridors are found, so none of them is ever offered a
@@ -757,8 +763,16 @@ namespace TheVeil.Gen
 
         // --- Step 3: start and goal -------------------------------------------------
 
+        /// <summary>How far a tile sits from a row, in tiles.</summary>
+        static int Near(TileGrid grid, int tile, int row)
+        {
+            grid.ToCoords(tile, out _, out int y);
+            return Math.Abs(y - row);
+        }
+
         static bool TryPlaceEndpoints(TileGrid grid, LevelRecipe recipe, DeterministicRandom rng,
-                                      out int startX, out int startY, out int goalX, out int goalY)
+                                      out int startX, out int startY, out int goalX, out int goalY,
+                                      int preferRow = -1)
         {
             startX = startY = goalX = goalY = 0;
 
@@ -773,6 +787,25 @@ namespace TheVeil.Gen
             rng.Shuffle(left);
             rng.Shuffle(right);
 
+            // On a level built around something the road is meant to go through, the road
+            // has to actually go through it.
+            //
+            // <b>The town was built and the caravan never went near it.</b> Measured on
+            // 1-8: walls across the north of the map from row 1 to 16, start at row 63
+            // and goal at row 54 — both corridors ran along the southern edge with not
+            // one tile inside the walls, and only the detour found a gate, at 134 tiles
+            // against the fast road's 73. A gate nobody drives through is a model.
+            //
+            // So the ends of the road are drawn towards the gates' own row, and the shape
+            // the level was asked for follows from that: straight through the town, or
+            // the long way round it.
+            if (preferRow >= 0)
+            {
+                left.Sort((a, b) => Near(grid, a, preferRow).CompareTo(Near(grid, b, preferRow)));
+                right.Sort((a, b) => Near(grid, a, preferRow).CompareTo(Near(grid, b, preferRow)));
+            }
+
+
             var pathfinder = new GridPathfinder(grid);
             var path = new List<int>();
 
@@ -782,7 +815,16 @@ namespace TheVeil.Gen
             for (int i = 0; i < attempts; i++)
             {
                 int s = left[i % left.Count];
-                int g = right[(i * 7 + i / left.Count) % right.Count];
+
+                // The scramble is what spreads the pairs out over the two bands, and it
+                // is what kept the goal away from the row the town's gates are on: the
+                // left band was sorted towards that row and the right band was then read
+                // in a jumbled order, so the road started beside the gate and ended forty
+                // rows south of it. When a row is asked for, both ends walk their bands in
+                // order and the nearest pair is tried first.
+                int g = preferRow >= 0
+                    ? right[i % right.Count]
+                    : right[(i * 7 + i / left.Count) % right.Count];
 
                 grid.ToCoords(s, out int sx, out int sy);
                 grid.ToCoords(g, out int gx, out int gy);

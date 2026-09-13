@@ -97,6 +97,9 @@ namespace TheVeil.Sim
         /// <summary>How strong the escort is assumed to be. See LevelRecipe.EscortStrength.</summary>
         public float EscortStrength = 1f;
 
+        /// <summary>Which chapter this recipe is for, so a level can know its own place.</summary>
+        public int Chapter = 1;
+
         public TerrainShare[] TerrainMix;
         public int Rivers = 1;
         public int FordsPerRiver = 3;
@@ -126,7 +129,11 @@ namespace TheVeil.Sim
 
                 // Levels 6 to 9 are the escalation band and owe one way through; every
                 // other level owes two. See LevelRecipe.RoutesOwed.
-                RoutesOwed = clamped >= 6 && clamped <= 9 ? 1 : 2
+                RoutesOwed = clamped >= 6 && clamped <= 9 ? 1 : 2,
+
+                // And the one level with a town on it, whose walls are laid before the
+                // ways through are found. See Towns.
+                Town = Towns.HasTown(Chapter, clamped)
             };
 
             if (TerrainMix != null && TerrainMix.Length > 0) recipe.TerrainMix = TerrainMix;
@@ -175,7 +182,7 @@ namespace TheVeil.Sim
         /// </summary>
         public static ChapterRecipe For(int chapter)
         {
-            var recipe = new ChapterRecipe();
+            var recipe = new ChapterRecipe { Chapter = chapter < 1 ? 1 : chapter };
             if (chapter <= 1) return recipe;
 
             recipe.EnemyStrengthStart = StrengthAtEndOf(chapter - 1);
