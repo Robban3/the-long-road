@@ -366,7 +366,32 @@ namespace TheVeil.App
                 // on them — a village, a waystation — is a separate question and not one
                 // to answer by leaving the wrong building there.
                 goalTile: Level >= Campaign.LevelsPerChapter ? map.GoalIndex : -1,
-                landmarkScale: LandmarkScale);
+                landmarkScale: LandmarkScale,
+
+                // How thickly this country grows. See BiomeLook.Density: a fen is a
+                // thicket, and the forest's scatter rate in it reads as a wood that has
+                // lost its leaves.
+                densityScale: look != null ? look.Density : 1f);
+
+            // And the air it stands in. Set either way rather than only when a country
+            // wants it, because the setting belongs to the scene and would otherwise
+            // follow the player out of the fen and into the next chapter.
+            RenderSettings.fog = look != null && look.Fog;
+
+            if (RenderSettings.fog)
+            {
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+                RenderSettings.fogColor = look.FogColor;
+                RenderSettings.fogDensity = look.FogDensity;
+            }
+
+            // And the sky with it. A camera left on the skybox in a fogged country shows
+            // summer blue above a country that cannot see fifty metres.
+            if (_camera != null)
+            {
+                _camera.clearFlags = RenderSettings.fog ? CameraClearFlags.SolidColor : CameraClearFlags.Skybox;
+                if (RenderSettings.fog) _camera.backgroundColor = look.SkyColor;
+            }
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale)
             {

@@ -1482,7 +1482,10 @@ namespace TheVeil.App
 
             int placed = TerrainDecorator.Decorate(_props, map.Grid, map.Seed, decor,
                 keepClear: CorridorTiles(map), heightScale: HeightScale,
-                maxProps: MaxProps, densityScale: DensityScale,
+                // The plan's own thickening, times the country's: a fen is drawn as thick
+                // on the map as it will be on the ground, or the player plans a route
+                // through a wood and drives it through a thicket.
+                maxProps: MaxProps, densityScale: DensityScale * (look != null ? look.Density : 1f),
                 waterMaterial: water, marshWaterMaterial: marshWater,
                 ruinSites: TrapSigns.Sites(map), horizon: false,
                 campSites: CampSignal.Tiles(map), travelled: Travelled(map),

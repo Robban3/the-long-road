@@ -1173,7 +1173,7 @@ namespace TheVeil.View
                 if (!_traps.TryGetValue(trap, out var marker))
                 {
                     marker = Spawn(Library.TrapMarker, PrimitiveType.Cylinder,
-                        $"Trap_{trap.Kind}", TrapColor, 1.4f);
+                        $"Trap_{trap.Kind}", TrapColor, TrapMarkerHeight);
                     Place(marker, new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y));
                     _traps[trap] = marker;
                     _trapScale[trap] = marker.localScale;
@@ -1209,9 +1209,26 @@ namespace TheVeil.View
                     : Mathf.Lerp(SprungFlare, 1f, age / SprungFlareSeconds);
 
                 marker.localScale = rest * swell;
+
+                // Seated again at every size. Scaling happens about the model's middle, so
+                // a marker that swells to three times itself lifts half that swell clear
+                // of the ground — which is what "a red thing floating in the air" was: a
+                // skull the size of a man hanging over the trap it marks.
+                Place(marker, new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y));
+
                 Tint(marker, SprungColor);
             }
         }
+
+        /// <summary>
+        /// How tall a trap marker stands, in metres.
+        ///
+        /// Nine tenths, down from one and two fifths. The model is the pack's skull, and
+        /// at a metre and a half it was a monument rather than a mark — it read as a prop
+        /// somebody had placed rather than as the ground saying something happened here,
+        /// and at three times that in the flare it was the largest thing on the field.
+        /// </summary>
+        const float TrapMarkerHeight = 0.9f;
 
         /// <summary>How many times its own size a trap swells at the moment it goes off.</summary>
         const float SprungFlare = 3f;

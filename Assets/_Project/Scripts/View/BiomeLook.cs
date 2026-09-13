@@ -38,6 +38,39 @@ namespace TheVeil.View
         /// </summary>
         public GameObject Weather;
 
+        /// <summary>
+        /// How thickly this country is grown, against the forest's one.
+        ///
+        /// A country is not only which models stand on it but how many: a fen is a
+        /// thicket of dead trunks and roots where a wood is trees with floor between
+        /// them, and the same scatter rate in both makes the fen read as a wood that
+        /// lost its leaves. Multiplied into the decorator's own density, so the cap on
+        /// how many props a level may carry still holds.
+        /// </summary>
+        public float Density = 1f;
+
+        /// <summary>
+        /// Standing air: fog, for a country that has any. Off leaves the sky clear, which
+        /// is every country but the fen so far.
+        /// </summary>
+        public bool Fog;
+
+        public Color FogColor = new Color(0.55f, 0.60f, 0.58f);
+
+        /// <summary>Exponential-squared density. Small numbers: 0.01 is a haze, 0.05 is a wall.</summary>
+        public float FogDensity = 0.012f;
+
+        /// <summary>
+        /// What the sky is, in a country that has fog.
+        ///
+        /// The fog closes the ground and the skybox went on being a bright summer blue
+        /// over it, which reads as a clear day with a dirty lens rather than as weather.
+        /// A flat sky the colour of the fog is what standing in one actually looks like:
+        /// the horizon simply stops. Ignored where <see cref="Fog"/> is off, so every
+        /// other country keeps the skybox.
+        /// </summary>
+        public Color SkyColor = new Color(0.55f, 0.60f, 0.58f);
+
         /// <summary>Whether anybody has built this country's scenery yet.</summary>
         public bool Dressed => Decor != null && !Decor.IsEmpty;
     }

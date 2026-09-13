@@ -23,14 +23,51 @@ namespace TheVeil.Editor
     {
         const string Root = "The Veil/Demo/";
 
-        [MenuItem(Root + "Chapter 1")]
+        // One for every country on the tour (Biomes.Order), because a chapter nobody can
+        // jump to is a chapter nobody looks at: the winter was built, shipped and only
+        // seen because this menu existed, and the marsh would have waited its turn behind
+        // twenty levels of forest. They are written out one by one because a MenuItem is
+        // an attribute and attributes cannot be looped over.
+        [MenuItem(Root + "Chapter 1 — Forest")]
         static void ChapterOne() => Enter(1);
 
-        [MenuItem(Root + "Chapter 2")]
+        [MenuItem(Root + "Chapter 2 — Winter")]
         static void ChapterTwo() => Enter(2);
 
-        [MenuItem(Root + "Chapter 1", true)]
-        [MenuItem(Root + "Chapter 2", true)]
+        [MenuItem(Root + "Chapter 3 — Marsh")]
+        static void ChapterThree() => Enter(3);
+
+        [MenuItem(Root + "Chapter 4 — Plains")]
+        static void ChapterFour() => Enter(4);
+
+        [MenuItem(Root + "Chapter 5 — Farmland")]
+        static void ChapterFive() => Enter(5);
+
+        [MenuItem(Root + "Chapter 6 — Mountain")]
+        static void ChapterSix() => Enter(6);
+
+        [MenuItem(Root + "Chapter 7 — Coast")]
+        static void ChapterSeven() => Enter(7);
+
+        [MenuItem(Root + "Chapter 8 — Desert")]
+        static void ChapterEight() => Enter(8);
+
+        [MenuItem(Root + "Chapter 9 — Enchanted")]
+        static void ChapterNine() => Enter(9);
+
+        [MenuItem(Root + "Chapter 10 — Dead land")]
+        static void ChapterTen() => Enter(10);
+
+        [MenuItem(Root + "Chapter 1 — Forest", true)]
+        [MenuItem(Root + "Chapter 2 — Winter", true)]
+        [MenuItem(Root + "Chapter 3 — Marsh", true)]
+        [MenuItem(Root + "Chapter 4 — Plains", true)]
+        [MenuItem(Root + "Chapter 5 — Farmland", true)]
+        [MenuItem(Root + "Chapter 6 — Mountain", true)]
+        [MenuItem(Root + "Chapter 7 — Coast", true)]
+        [MenuItem(Root + "Chapter 8 — Desert", true)]
+        [MenuItem(Root + "Chapter 9 — Enchanted", true)]
+        [MenuItem(Root + "Chapter 10 — Dead land", true)]
         static bool Playing() => EditorApplication.isPlaying;
 
         static void Enter(int chapter)

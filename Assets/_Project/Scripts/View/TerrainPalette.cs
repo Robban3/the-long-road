@@ -106,14 +106,19 @@ namespace TheVeil.View
         /// </summary>
         static readonly Color[] MarshGroundColors =
         {
-            new Color(0.40f, 0.36f, 0.28f), // Road          — mud track
-            new Color(0.38f, 0.42f, 0.26f), // Plains        — rank wet meadow
-            new Color(0.30f, 0.34f, 0.22f), // Forest        — sodden floor
-            new Color(0.28f, 0.30f, 0.22f), // Marsh         — peat
-            new Color(0.33f, 0.35f, 0.30f), // Ford          — churned crossing
-            new Color(0.42f, 0.41f, 0.36f), // MountainPass  — wet rock
-            new Color(0.14f, 0.20f, 0.17f), // Water         — peat water, and must read as deep
-            new Color(0.30f, 0.29f, 0.26f)  // Cliff         — damp stone
+            // Darker than a first reading suggests, because the ground shader multiplies
+            // grain on top — up to nearly twice as bright in the lightest patches. Ground
+            // the props are cleared off, which is exactly the line the caravan drives
+            // along, is where that shows: at the first values the drive line came out a
+            // pale band through a dark country, as if the road were paved.
+            new Color(0.20f, 0.18f, 0.13f), // Road          — mud track
+            new Color(0.19f, 0.23f, 0.14f), // Plains        — rank wet meadow
+            new Color(0.16f, 0.19f, 0.12f), // Forest        — sodden floor
+            new Color(0.14f, 0.17f, 0.12f), // Marsh         — peat
+            new Color(0.17f, 0.20f, 0.17f), // Ford          — churned crossing
+            new Color(0.28f, 0.27f, 0.23f), // MountainPass  — wet rock
+            new Color(0.08f, 0.12f, 0.10f), // Water         — peat water, and must read as deep
+            new Color(0.19f, 0.19f, 0.17f)  // Cliff         — damp stone
         };
 
         public static Color Of(TerrainType t) => Colors[(int)t];
