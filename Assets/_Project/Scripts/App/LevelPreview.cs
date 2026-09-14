@@ -1496,7 +1496,7 @@ namespace TheVeil.App
                 village: Settlements.Site(map, Chapter, Level),
                 settled: Settlements.Settled(Biomes.Of(Chapter)),
                 town: LevelMaps.Recipe(Chapter, Level).Town
-                          ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed)
+                          ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
                           : Towns.None,
                 // The castle only at the end of a chapter, and the caller decides that
                 // because the decorator only knows there is a goal. Standing one on every

@@ -383,7 +383,7 @@ namespace TheVeil.App
 
                 // And the walls, if this is the level with a town on it. Where they
                 // stand was decided before the map had any ways through it (Towns).
-                town: recipe.Town ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed)
+                town: recipe.Town ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
                                  : Towns.None);
 
             // And the air it stands in. Set either way rather than only when a country

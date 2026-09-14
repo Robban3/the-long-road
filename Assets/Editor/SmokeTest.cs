@@ -147,7 +147,7 @@ namespace TheVeil.Editor
                 village: Settlements.Site(map, chapter, level),
                 settled: Settlements.Settled(biome),
                 town: LevelMaps.Recipe(chapter, level).Town
-                          ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed)
+                          ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
                           : Towns.None);
 
             return root;
@@ -281,7 +281,7 @@ namespace TheVeil.Editor
             // And the town, which is the largest thing on any map and the one most worth
             // looking at on the level it stands on.
             var walls = LevelMaps.Recipe(chapter, level).Town
-                ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed)
+                ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
                 : Towns.None;
 
             if (walls.Any)

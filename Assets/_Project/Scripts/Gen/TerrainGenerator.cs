@@ -56,10 +56,10 @@ namespace TheVeil.Gen
                 var grid = BuildTerrain(recipe, rng);
                 CarveRivers(grid, recipe, rng);
 
-                // The town is part of the country, not of what stands on it: its walls
-                // are impassable ground, laid before the ways through are looked for, so
-                // every route has to find a gate or go round. See Towns.
-                var town = recipe.Town ? Towns.Stamp(grid, seed) : Towns.None;
+                // The town is part of the country, not of what stands on it: its walls are
+                // impassable ground, laid before the ways through are looked for, so every
+                // route has to find a gate or go round. See Towns.
+                var town = recipe.Town ? Towns.Stamp(grid, seed, grid.Height / 2) : Towns.None;
 
                 if (!TryPlaceEndpoints(grid, recipe, rng, out int sx, out int sy, out int gx, out int gy,
                                        town.Any ? town.GateRow : -1))
@@ -799,12 +799,31 @@ namespace TheVeil.Gen
             // So the ends of the road are drawn towards the gates' own row, and the shape
             // the level was asked for follows from that: straight through the town, or
             // the long way round it.
+            // On a town level the ends of the road are not negotiated, they are set.
+            //
+            // <b>Three attempts to persuade the pairing failed, each on the ground rather
+            // than in principle.</b> Sorting the bands towards the gates' row picks the
+            // best of what is there and the best was eight rows out; opening a tile on the
+            // row gave a tile with water on every side; laying the town around the road
+            // instead put the gates on the start's row and the goal at the far corner, so
+            // the road ran diagonally past a town it never entered.
+            //
+            // A town level is a level about its town. The road starts level with the west
+            // gate and ends level with the east one, a causeway is cut to each if the
+            // water is in the way, and if no route exists between them after all that then
+            // the seed is wrong and the generator rolls again — which is what it does with
+            // every other map it cannot use.
             if (preferRow >= 0)
             {
-                left.Sort((a, b) => Near(grid, a, preferRow).CompareTo(Near(grid, b, preferRow)));
-                right.Sort((a, b) => Near(grid, a, preferRow).CompareTo(Near(grid, b, preferRow)));
-            }
+                int from = ForceLane(grid, 0, preferRow, 1);
+                int to = ForceLane(grid, grid.Width - 1, preferRow, -1);
 
+                grid.ToCoords(from, out startX, out startY);
+                grid.ToCoords(to, out goalX, out goalY);
+
+                return new GridPathfinder(grid)
+                    .TryFindPath(startX, startY, goalX, goalY, new List<int>(), out _);
+            }
 
             var pathfinder = new GridPathfinder(grid);
             var path = new List<int>();
@@ -861,6 +880,37 @@ namespace TheVeil.Gen
         {
             grid[x, y] = TerrainType.Plains;
             return grid.ToIndex(x, y);
+        }
+
+        /// <summary>
+        /// Opens a causeway from the map's edge inward until it meets ground.
+        ///
+        /// <b>One tile is not a way in.</b> ForceOpen clears the tile it is given, which
+        /// is enough when the question is "is there anywhere at all to start" and not
+        /// enough when the question is "is there a start on this row": on 1-8 the west
+        /// band was water from row 7 to row 21, the gates were on row 14, and a single
+        /// cleared tile at (0,14) had water on every side of it. No path led from it, the
+        /// pairing fell through to the next candidate, and the start went back to row 6 —
+        /// level with the town's north wall, where going round the town beats going
+        /// through it.
+        ///
+        /// Eight tiles at most, and it stops the moment it reaches ground that was already
+        /// dry. A causeway into a lake is a fault of its own.
+        /// </summary>
+        static int ForceLane(TileGrid grid, int x, int y, int step)
+        {
+            int entry = ForceOpen(grid, x, y);
+
+            for (int i = 1; i <= 8; i++)
+            {
+                int nx = x + step * i;
+                if (!grid.InBounds(nx, y)) break;
+                if (grid.IsPassable(nx, y)) break;
+
+                grid[nx, y] = TerrainType.Plains;
+            }
+
+            return entry;
         }
     }
 }

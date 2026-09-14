@@ -39,7 +39,7 @@ namespace TheVeil.Editor
                 return;
             }
 
-            var plan = Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed);
+            var plan = Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY);
 
             Debug.Log($"[Town] {chapter}-{level}: walls x {plan.West}..{plan.East}, "
                       + $"y {plan.North}..{plan.South}, gates on row {plan.GateRow}. "
@@ -65,6 +65,18 @@ namespace TheVeil.Editor
                       + $"(should be 0). Gates walkable: "
                       + $"west {map.Grid.IsPassable(plan.West, plan.GateRow)}, "
                       + $"east {map.Grid.IsPassable(plan.East, plan.GateRow)}.");
+
+            // What the ground outside the west gate is made of, on the gates. own row.
+            var westward = new System.Text.StringBuilder("[Town] row " + plan.GateRow + " west of the wall: ");
+            for (int x = 0; x <= plan.West; x++)
+                westward.Append(x + ":" + map.Grid[map.Grid.ToIndex(x, plan.GateRow)] + " ");
+            Debug.Log(westward.ToString());
+
+            var band = new System.Text.StringBuilder("[Town] passable rows in the west band: ");
+            for (int y = 0; y < map.Grid.Height; y++)
+                if (map.Grid.IsPassable(0, y) || map.Grid.IsPassable(1, y) || map.Grid.IsPassable(2, y))
+                    band.Append(y + " ");
+            Debug.Log(band.ToString());
 
             // And the ways through, counted the way the game counts them.
             foreach (var corridor in map.Corridors)

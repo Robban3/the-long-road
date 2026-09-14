@@ -3882,6 +3882,11 @@ namespace TheVeil.View
             }
 
             // The two gatehouses, in the holes the stamp left.
+            //
+            // Turned across the wall, not along it. A wall piece shows its face to the
+            // road and a gate shows its archway, which is a quarter turn apart — set to
+            // the wall's own bearing the gates came out sideways, with the road running
+            // at the arch rather than through it.
             if (kit.Gates.Any)
             {
                 foreach (int gate in new[] { town.WestGate(grid), town.EastGate(grid) })
@@ -3889,7 +3894,7 @@ namespace TheVeil.View
                     if (Scatter(parent, grid, rng,
                                 new Choice(kit.Gates, Any(kit.Gates, rng), TownGateHeight,
                                            byWidth: false, low: 1f, high: 1f),
-                                gate, heightScale, spread: 0f, occupied: null, yaw: 90f))
+                                gate, heightScale, spread: 0f, occupied: null, yaw: 0f))
                     {
                         Landmark.Note(found, LandmarkKind.Castle, gate);
                         placed++;
@@ -3902,19 +3907,18 @@ namespace TheVeil.View
         }
 
         /// <summary>
-        /// The town inside its walls: four rows of houses along two streets.
+        /// The town inside its walls: building on every block, facing the streets.
         ///
-        /// The stamp leaves the inside as two lanes — one north of the block in the
-        /// middle, one south of it — and a street has houses down both sides or it is a
-        /// gap between buildings. So four rows: against the inside of each wall, facing
-        /// in, and along each face of the block, facing out. The lanes themselves are
-        /// left clear, because the lanes are what the caravan drives.
+        /// The stamp lays the interior solid and cuts two streets out of it, so what is
+        /// left is block — and a block is where a town's buildings are. Rather than name
+        /// rows, which went stale the first time the layout changed, this walks the
+        /// impassable ground inside the walls and builds on it: a house every third tile,
+        /// turned to face the nearest street where there is one to face.
         ///
         /// <b>A town is not a village with more houses in it.</b> The village stands in a
-        /// ring round a well with its own ground cleared about it; here the ground is
-        /// spoken for by the walls, and what makes it a town is the density — houses
-        /// shoulder to shoulder along a street, a well by the gate where the carts stop,
-        /// and the yards between the houses used.
+        /// ring round a well with its ground cleared about it; here the ground is spoken
+        /// for by the walls, and what makes it a town is that the buildings are shoulder
+        /// to shoulder along a street with no gap to see the country through.
         /// </summary>
         static int PlaceTownHouses(Transform parent, TileGrid grid, DeterministicRandom rng,
                                    BiomeDecor decor, HashSet<int> occupied, float heightScale,
@@ -3924,81 +3928,47 @@ namespace TheVeil.View
 
             int placed = 0;
 
-            // The four rows, inside to out: each is a row of tiles and the way its houses
-            // face. North of the gate row a house faces south, and the other way about.
-            var rows = new (int Row, float Yaw)[]
+            for (int y = town.North + 1; y < town.South; y++)
             {
-                (town.North + 2, 180f),
-                (town.GateRow - 3, 0f),
-                (town.GateRow + 3, 180f),
-                (town.South - 2, 0f)
-            };
-
-            foreach (var (row, yaw) in rows)
-            {
-                if (row <= town.North || row >= town.South) continue;
-
-                for (int x = town.West + 2; x <= town.East - 2; x += 3)
+                for (int x = town.West + 1; x < town.East; x++)
                 {
-                    int tile = grid.ToIndex(x, row);
+                    if (grid[grid.ToIndex(x, y)] != TerrainType.Cliff) continue;
 
-                    var house = BuildingBuilder.House(parent, decor.Kit, rng, out bool upstairs);
+                    // Every third tile each way, which is a house and its yard.
+                    if ((x - town.West) % 3 != 0 || (y - town.North) % 3 != 0) continue;
 
-                    if (!Raise(grid, tile, rng, house, CottageHeight, heightScale, occupied,
-                               null, yaw, landmark: false))
+                    // Turned to whichever side has a street on it. A house with its back
+                    // to the road is a house nobody uses; one in the middle of a block
+                    // takes the turn of the die.
+                    float yaw = rng.Range(0, 4) * 90f;
+
+                    if (y > town.North && grid.IsPassable(x, y - 1)) yaw = 0f;
+                    else if (y < town.South && grid.IsPassable(x, y + 1)) yaw = 180f;
+                    else if (x > town.West && grid.IsPassable(x - 1, y)) yaw = 270f;
+                    else if (x < town.East && grid.IsPassable(x + 1, y)) yaw = 90f;
+
+                    var house = BuildingBuilder.House(parent, decor.Kit, rng, out bool storey);
+
+                    if (!Raise(grid, grid.ToIndex(x, y), rng, house, CottageHeight,
+                               heightScale, occupied, null, yaw, landmark: false))
                         continue;
 
-                    Landmark.Note(found, LandmarkKind.House, tile);
+                    Landmark.Note(found, LandmarkKind.House, grid.ToIndex(x, y));
                     placed++;
-
-                    // And what stands between them: a cart in the yard, a shed against a
-                    // gable. Set behind the house, away from the street, so the lane
-                    // stays a lane.
-                    int behind = row + (yaw == 0f ? -1 : 1);
-
-                    if (behind > town.North && behind < town.South && decor.Yard.Any
-                        && rng.Chance(0.4f)
-                        && Scatter(parent, grid, rng,
-                                   new Choice(decor.Yard, Any(decor.Yard, rng), YardHeight,
-                                              byWidth: false),
-                                   grid.ToIndex(x, behind), heightScale, spread: 1.1f, occupied))
-                        placed++;
                 }
             }
 
-            // And the block in the middle, which is the town's own ground rather than
-            // anybody's yard: the stamp made it solid so that the inside would have two
-            // lanes instead of one hall, and until something stands on it the middle of
-            // the town is a bare brown rectangle. Built along its spine, back to back, so
-            // both streets are faced by buildings.
-            for (int x = town.West + 4; x <= town.East - 4; x += 4)
-            {
-                foreach (var (row, yaw) in new[] { (town.GateRow - 1, 0f), (town.GateRow + 1, 180f) })
-                {
-                    if (row <= town.North || row >= town.South) continue;
-                    if (grid[grid.ToIndex(x, row)] != TerrainType.Cliff) continue;
-
-                    var core = BuildingBuilder.House(parent, decor.Kit, rng, out bool storey);
-
-                    if (Raise(grid, grid.ToIndex(x, row), rng, core, CottageHeight,
-                              heightScale, occupied, null, yaw, landmark: false))
-                    {
-                        Landmark.Note(found, LandmarkKind.House, grid.ToIndex(x, row));
-                        placed++;
-                    }
-                }
-            }
-
-            // The well, on the street just inside the west gate: where a cart coming
-            // through the gate would stop.
+            // The well, on the open ground just inside the west gate: where a cart coming
+            // through would stop.
             if (decor.Houses.Any)
             {
-                int well = grid.ToIndex(town.West + 3, town.GateRow);
+                int well = grid.ToIndex(town.West + 2, town.GateRow + 1);
 
-                if (Scatter(parent, grid, rng,
-                            new Choice(decor.Houses, Any(decor.Houses, rng), WellHeight,
-                                       byWidth: false),
-                            well, heightScale, spread: 0f, occupied))
+                if (grid.IsPassable(town.West + 2, town.GateRow + 1)
+                    && Scatter(parent, grid, rng,
+                               new Choice(decor.Houses, Any(decor.Houses, rng), WellHeight,
+                                          byWidth: false),
+                               well, heightScale, spread: 0f, occupied))
                     placed++;
             }
 
