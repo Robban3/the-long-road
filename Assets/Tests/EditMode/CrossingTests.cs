@@ -25,6 +25,12 @@ namespace TheVeil.Tests
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
+                    // The town is the exception, and it is an exception about material
+                    // rather than about the promise. A walled city has no river through it
+                    // — that would be a fourth way in past its gates — so its three ways
+                    // through are streets. TheTownOffersItsThreeWaysAsStreets checks them.
+                    if (LevelMaps.Recipe(chapter, level).Town) continue;
+
                     var map = LevelMaps.For(chapter, level);
                     var recipe = LevelMaps.Recipe(chapter, level);
 
@@ -44,6 +50,50 @@ namespace TheVeil.Tests
                     Assert.Contains(bridge, crossings,
                         $"{chapter}-{level}: the bridge is not on one of the counted crossings");
                 }
+            }
+        }
+
+        [Test]
+        public void TheTownOffersItsThreeWaysAsStreets()
+        {
+            // The same promise as the crossings, in the material a town is made of.
+            //
+            // Every other level owes three ways over its water; the town has no water, so
+            // it owes three ways between its gates instead — and they have to be three
+            // ways a player can actually drive, which means the corridor finder has to
+            // find them on ground that is street rather than block.
+            var map = LevelMaps.For(Towns.Chapter, Towns.Level);
+            var recipe = LevelMaps.Recipe(Towns.Chapter, Towns.Level);
+
+            Assert.IsTrue(recipe.Town, $"{Towns.Chapter}-{Towns.Level} is not the town level");
+
+            var plan = Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY);
+
+            // The wall is a wall: impassable everywhere except its gateways.
+            for (int y = plan.North; y <= plan.South; y++)
+                for (int x = plan.West; x <= plan.East; x++)
+                    if (plan.IsWall(x, y))
+                        Assert.IsFalse(map.Grid.IsPassable(x, y),
+                                       $"the wall can be walked through at {x},{y}");
+
+            Assert.IsTrue(map.Grid.IsPassable(plan.West, plan.GateRow), "the west gate is shut");
+            Assert.IsTrue(map.Grid.IsPassable(plan.East, plan.GateRow), "the east gate is shut");
+
+            // And three ways through it, every one of them inside the walls.
+            Assert.GreaterOrEqual(map.Corridors.Count, 3, "the town offers fewer than three ways through");
+
+            foreach (var corridor in map.Corridors)
+            {
+                int inside = 0;
+
+                foreach (int tile in corridor.Tiles)
+                {
+                    map.Grid.ToCoords(tile, out int x, out int y);
+                    if (plan.Holds(x, y)) inside++;
+                }
+
+                Assert.Greater(inside, corridor.Tiles.Count / 2,
+                               $"{corridor.Kind} runs mostly outside a town that is the whole level");
             }
         }
 

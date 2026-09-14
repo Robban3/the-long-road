@@ -28,6 +28,12 @@ namespace TheVeil.Tests
         {
             for (int level = 1; level <= 10; level++)
             {
+                // The town has no water in it, and that is the town's own rule: a river
+                // through a walled city would be a fourth way in past its gates (Towns).
+                // Its three ways through are made of street instead of ford, and
+                // CrossingTests is where that promise is checked.
+                if (LevelMaps.Recipe(1, level).Town) continue;
+
                 var map = LevelMaps.For(1, level);
                 var grid = map.Grid;
 
@@ -89,6 +95,12 @@ namespace TheVeil.Tests
         {
             for (int level = 1; level <= 10; level++)
             {
+                // The town has no water in it, and that is the town's own rule: a river
+                // through a walled city would be a fourth way in past its gates (Towns).
+                // Its three ways through are made of street instead of ford, and
+                // CrossingTests is where that promise is checked.
+                if (LevelMaps.Recipe(1, level).Town) continue;
+
                 var map = LevelMaps.For(1, level);
                 var grid = map.Grid;
 

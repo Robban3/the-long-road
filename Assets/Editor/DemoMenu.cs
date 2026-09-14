@@ -1,3 +1,4 @@
+using TheVeil.Sim;
 using TheVeil.UI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -70,9 +71,23 @@ namespace TheVeil.Editor
         [MenuItem(Root + "Chapter 10 — Dead land", true)]
         static bool Playing() => EditorApplication.isPlaying;
 
-        static void Enter(int chapter)
+        /// <summary>
+        /// Straight to the walled town, which is the one level nobody can reach by
+        /// starting a chapter: it is the eighth, and the menu above opens chapters at
+        /// their first level. Seven levels of forest is a long way to go to look at a
+        /// wall.
+        /// </summary>
+        [MenuItem(Root + "The town (1-8)")]
+        static void Town() => Enter(Towns.Chapter, Towns.Level);
+
+        [MenuItem(Root + "The town (1-8)", true)]
+        static bool TownPlaying() => EditorApplication.isPlaying;
+
+        static void Enter(int chapter) => Enter(chapter, 1);
+
+        static void Enter(int chapter, int level)
         {
-            Session.Choose(chapter, 1);
+            Session.Choose(chapter, level);
             Session.Forget();
             SceneManager.LoadScene(Session.PlanScene);
         }

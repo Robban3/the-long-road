@@ -151,6 +151,59 @@ namespace TheVeil.Editor
 
             var root = SmokeTest.Build(runner, chapter, level, out map);
 
+            // What is actually standing in it, counted rather than looked for in a picture.
+            int carts = 0, hay = 0, wells = 0, barrels = 0, crates = 0, houses = 0, walls = 0;
+
+            foreach (var piece in root.GetComponentsInChildren<MeshRenderer>(false))
+            {
+                string name = piece.gameObject.name;
+
+                if (name.Contains("CartHay")) hay++;
+                else if (name.Contains("Cart")) carts++;
+                else if (name.Contains("Well")) wells++;
+                else if (name.Contains("Barrel")) barrels++;
+                else if (name.Contains("Crate")) crates++;
+                else if (name.Contains("Castle_Wall")) walls++;
+                else if (name.StartsWith("SM_Bld_House")) houses++;
+            }
+
+            Debug.Log($"[Town] standing in it: {houses} house piece(s), {walls} wall length(s), "
+                      + $"{carts} cart(s), {hay} hay load(s), {wells} well(s), "
+                      + $"{barrels} barrel(s), {crates} crate(s).");
+
+            // And whether any tree is planted in a house, which is a question about the
+            // trunk and not about the crown.
+            //
+            // Measured the wrong way first: tree box against house box, in all three axes.
+            // That flags a tree standing beside a house with its branches over the roof,
+            // which is what a tree beside a house does. What is wrong is a trunk inside
+            // the walls, so the trunk is what is asked about.
+            var houseBoxes = new System.Collections.Generic.List<Bounds>();
+            var trunks = new System.Collections.Generic.List<Vector3>();
+
+            foreach (var piece in root.GetComponentsInChildren<MeshRenderer>(false))
+            {
+                string name = piece.gameObject.name;
+
+                if (name.Contains("Tree_") || name.Contains("Willow")) trunks.Add(piece.transform.position);
+                else if (name.StartsWith("SM_Bld_House")) houseBoxes.Add(piece.bounds);
+            }
+
+            int through = 0;
+
+            foreach (var trunk in trunks)
+                foreach (var box in houseBoxes)
+                {
+                    if (trunk.x <= box.min.x + 0.4f || trunk.x >= box.max.x - 0.4f) continue;
+                    if (trunk.z <= box.min.z + 0.4f || trunk.z >= box.max.z - 0.4f) continue;
+
+                    through++;
+                    break;
+                }
+
+            Debug.Log($"[Town] {trunks.Count} tree(s), {through} of them planted inside a house.");
+
+
             float tile = TileGrid.TileSize;
             float middleX = (plan.West + plan.East) * 0.5f * tile;
             float middleZ = (plan.North + plan.South) * 0.5f * tile;
@@ -170,8 +223,9 @@ namespace TheVeil.Editor
                   new Vector3(plan.East * tile, ground + 4f, row),
                   System.IO.Path.Combine(dir, "town-street.png"));
 
-            // And the whole circuit, from the south so the map is behind it.
-            Shoot(runner, new Vector3(middleX - 40f, ground + 85f, middleZ + 120f),
+            // And the whole circuit, from the south so the map is behind it. High enough
+            // for all of it: the town is the level now, a quarter of a kilometre across.
+            Shoot(runner, new Vector3(middleX - 50f, ground + 200f, middleZ + 235f),
                   new Vector3(middleX, ground, middleZ),
                   System.IO.Path.Combine(dir, "town-above.png"));
 
@@ -190,7 +244,14 @@ namespace TheVeil.Editor
             camera.transform.position = from;
             camera.transform.LookAt(at);
             camera.fieldOfView = 52f;
-            camera.farClipPlane = 900f;
+            camera.farClipPlane = 1400f;
+
+            // No fog. It is left on in the scene by whichever country was built last, and
+            // the fen's fog over a forest town two hundred metres up washed the whole
+            // picture to a pale grey — which looked like the town being badly lit rather
+            // than like a camera carrying somebody else's weather.
+            bool was = RenderSettings.fog;
+            RenderSettings.fog = false;
 
             var rt = new RenderTexture(1200, 760, 24);
             camera.targetTexture = rt;
@@ -203,6 +264,7 @@ namespace TheVeil.Editor
             RenderTexture.active = null;
 
             camera.targetTexture = null;
+            RenderSettings.fog = was;
             Object.DestroyImmediate(go);
             rt.Release();
             Object.DestroyImmediate(rt);

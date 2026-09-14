@@ -39,18 +39,23 @@ namespace TheVeil.Sim
                 /// <summary>
         /// How wide and deep the walls stand, in tiles.
         ///
-        /// Two thirds of the map across, and a little under half of it deep. The first
-        /// town was 26 by 16 on a 64 by 64 map — a tenth of the level, a walled yard the
-        /// road clipped the corner of. A town level should be a town the caravan travels
-        /// through for most of its journey, which means the walls have to be most of the
-        /// journey.
+        /// Fifty by forty on a 64 by 64 map: four fifths of it across, and just under
+        /// half the level by area. The first town was 26 by 16 — a tenth of the level, a
+        /// walled yard the road clipped the corner of.
+        ///
+        /// <b>The depth is traded against the way round, and it is a real trade.</b> At
+        /// forty-eight deep the town covered 58 per cent of the map and left fifteen rows
+        /// south of it — enough ground to walk, and so far round that the detour measured
+        /// 173 tiles against 76 through the gates. All three corridors then went through
+        /// the town, and the level lost the choice it was built to offer. Eight rows
+        /// shallower gives the road outside a length worth taking.
         ///
         /// The depth is what it is because of the way round: the town stands against the
         /// north edge, and what is left south of it is the one road past. Take that too
         /// and there is no choice on the level at all.
         /// </summary>
-        public const int Width = 42;
-        public const int Depth = 26;
+        public const int Width = 50;
+        public const int Depth = 40;
 
         /// <summary>
         /// How far the north wall sits from the map's edge, in tiles.
@@ -70,6 +75,20 @@ namespace TheVeil.Sim
 
         /// <summary>How deep the ground just inside a wall is kept open, in tiles.</summary>
         public const int Approach = 4;
+
+        /// <summary>
+        /// How wide a gateway is, in tiles either side of the gate row.
+        ///
+        /// One either way, so three tiles and twelve metres of opening. A single tile is
+        /// four metres — wide enough for the caravan to pass and far too narrow to read
+        /// as the gate of a town this size: from the road it was a gap in a wall rather
+        /// than a way in.
+        /// </summary>
+        public const int GateHalf = 1;
+
+        /// <summary>How far the ground outside the wall is cleared, in tiles.</summary>
+        /// <summary>How far apart the alleys between two streets are cut, in tiles.</summary>
+        public const int AlleyStep = 9;
 
         /// <summary>Where a town stands and where its gates are.</summary>
         public readonly struct Plan
@@ -97,17 +116,35 @@ namespace TheVeil.Sim
             /// <summary>The tile of the gate in the east wall.</summary>
             public int EastGate(TileGrid grid) => grid.ToIndex(East, GateRow);
 
-            /// <summary>Whether a tile is part of the wall itself.</summary>
+            /// <summary>Whether a tile is part of the wall itself, and so impassable.</summary>
             public bool IsWall(int x, int y)
             {
-                if (x < West || x > East || y < North || y > South) return false;
+                if (!Holds(x, y)) return false;
 
-                bool edge = x == West || x == East || y == North || y == South;
+                // Two rings thick, because the wall is the map's own border and a border
+                // one tile wide leaves a lane outside it. A lane outside the wall is a way
+                // round, and on this level there is not meant to be one.
+                bool edge = x <= West + 1 || x >= East - 1 || y <= North + 1 || y >= South - 1;
                 if (!edge) return false;
 
-                // The gates are holes in it.
-                return !((x == West || x == East) && y == GateRow);
+                return !IsGateway(x, y);
             }
+
+            /// <summary>
+            /// The face of the wall: the inner of its two rings, which is what is built.
+            ///
+            /// The outer ring is impassable ground and nothing stands on it. It is the
+            /// thickness of the wall seen from inside, and from outside it is past the
+            /// edge of the world.
+            /// </summary>
+            public bool IsFace(int x, int y)
+                => IsWall(x, y)
+                   && (x == West + 1 || x == East - 1 || y == North + 1 || y == South - 1);
+
+            /// <summary>The opening a gateway makes, through both rings.</summary>
+            public bool IsGateway(int x, int y)
+                => (x <= West + 1 || x >= East - 1)
+                   && y >= GateRow - GateHalf && y <= GateRow + GateHalf;
 
             /// <summary>Whether a tile is inside the walls, gates included.</summary>
             public bool Holds(int x, int y) => x >= West && x <= East && y >= North && y <= South;
@@ -139,29 +176,22 @@ namespace TheVeil.Sim
         /// </summary>
         public static Plan Layout(int mapWidth, int mapHeight, int seed, int road)
         {
-            if (mapWidth < Width + 8 || mapHeight < Depth + 8) return None;
+            if (mapWidth < 24 || mapHeight < 24) return None;
 
-            // Against the nearer edge, so the ground left over is all on one side.
-            bool northward = road < mapHeight / 2;
-
-            int north = northward
-                ? Margin
-                : mapHeight - Margin - Depth;
-
-            int south = north + Depth - 1;
-
-            // The gates on the road's own row, kept a few tiles clear of the corners so a
-            // gateway is never cut through a tower.
+            // The whole map, and its border is the wall.
+            //
+            // <b>A town that covers most of a level cannot also have a way round it.</b>
+            // Measured at fifty by forty: going round cost ten rows north, sixty-four
+            // east and ten back down — eighty-four tiles against sixty-four straight
+            // through — so every corridor went through the gates however open the ground
+            // outside was made. The two wishes were in each other's way, and the answer
+            // was to drop one of them: there is no outside now. The level is the town, the
+            // map's edge is its wall, and the three ways through are three streets.
             int gateRow = road;
-            if (gateRow < north + Approach) gateRow = north + Approach;
-            if (gateRow > south - Approach) gateRow = south - Approach;
+            if (gateRow < Approach + 2) gateRow = Approach + 2;
+            if (gateRow > mapHeight - Approach - 3) gateRow = mapHeight - Approach - 3;
 
-            // Somewhere along the map's width, clear of both edges so the start and the
-            // goal are never walled in.
-            var rng = new DeterministicRandom(seed ^ Salt);
-            int west = rng.Range(6, mapWidth - Width - 6);
-
-            return new Plan(west, west + Width - 1, north, south, gateRow);
+            return new Plan(0, mapWidth - 1, 0, mapHeight - 1, gateRow);
         }
 
         public static Plan Stamp(TileGrid grid, int seed, int road)
@@ -173,99 +203,73 @@ namespace TheVeil.Sim
             int west = plan.West, east = plan.East;
             int gateRow = plan.GateRow;
 
-            // The ground inside first: a town is built on cleared, level ground, and
-            // whatever the noise put here — bog, wood, a corner of a lake — is not it.
-            for (int y = north; y <= south; y++)
-                for (int x = west; x <= east; x++)
-                    grid[grid.ToIndex(x, y)] = TerrainType.Plains;
+            // Every tile of it is town: cleared, level ground with building on it, and
+            // whatever the noise and the rivers left is gone. A river through a walled
+            // town would be a fourth way in.
+            for (int i = 0; i < grid.TileCount; i++) grid[i] = TerrainType.Cliff;
 
-            // Then the walls, which are cliff because cliff is what nothing walks through.
+            float height = grid.Elevation(grid.ToIndex(grid.Width / 2, gateRow));
+            for (int i = 0; i < grid.TileCount; i++) grid.SetElevation(i, height);
+
+            // Three streets from gate to gate, and building everywhere else.
+            //
+            // Three, because the level owes the player three ways through and a town has
+            // to make all of them out of street. They are spread across the depth rather
+            // than bunched: the gates open onto the middle one, and the ends of the town
+            // carry the two lanes that reach the others.
+            int lane = StreetWidth;
+            int[] streets =
+            {
+                north + 2 + Approach,
+                gateRow,
+                south - 2 - Approach - lane + 1
+            };
+
+            foreach (int street in streets)
+                Cut(grid, west + 2, east - 2, street, street + lane - 1);
+
+            // And the alleys between them, which is what a town has that a road does not.
+            //
+            // One tile wide against the streets' three, cut north to south between one
+            // street and the next, and offset so that no two line up into a fourth way
+            // through. A medieval town is a few streets somebody laid out and a great many
+            // gaps between buildings that people wore into shortcuts; the streets carry the
+            // caravan and the alleys are what make the place look lived in rather than
+            // planned.
+            //
+            // They are passable, so a player who wants to thread one may. That is the
+            // point of them: the three streets are the ways through the level owes, and
+            // the alleys are the choices inside those ways.
+            for (int pair = 0; pair + 1 < streets.Length; pair++)
+            {
+                int from = streets[pair] + lane;
+                int to = streets[pair + 1] - 1;
+                if (to < from) continue;
+
+                for (int x = west + 2 + Approach + AlleyStep / 2 + pair * (AlleyStep / 3);
+                     x <= east - 2 - Approach;
+                     x += AlleyStep)
+                    Cut(grid, x, x, from, to);
+            }
+
+            // The two ends, joined down the inside of each wall so all three streets are
+            // reached from both gates.
+            int top = System.Math.Min(streets[0], gateRow);
+            int foot = System.Math.Max(streets[2] + lane - 1, gateRow);
+
+            Cut(grid, west + 2, west + 1 + Approach, top, foot);
+            Cut(grid, east - 1 - Approach, east - 2, top, foot);
+
+            // And the gateways, through both rings of the wall.
+            Cut(grid, west, west + 1, gateRow - GateHalf, gateRow + GateHalf);
+            Cut(grid, east - 1, east, gateRow - GateHalf, gateRow + GateHalf);
+
+            // Then the wall over all of it, which puts back anything the cuts took from
+            // the border except the gateways themselves.
             for (int y = north; y <= south; y++)
                 for (int x = west; x <= east; x++)
                     if (plan.IsWall(x, y))
                         grid[grid.ToIndex(x, y)] = TerrainType.Cliff;
-
-            // And the inside: two streets from gate to gate, and building everywhere else.
-            //
-            // <b>Two, and exactly two.</b> The level owes one way past the walls and two
-            // within them, and "within them" has to mean a choice the player makes rather
-            // than a maze they thread. A grid of blocks would give a dozen ways through
-            // and no decision; one hall would give none. So the interior is laid solid and
-            // two streets are cut out of it — one along the north of the town, one along
-            // the south — joined to each gate at either end and to nothing else.
-            //
-            // The fork is just inside the west gate and the two lines meet again just
-            // inside the east one. Everything the streets do not take is block, and a
-            // block is impassable ground, so the choice is made of country rather than of
-            // scenery: a drawn line that ignores it has nowhere to go.
-            for (int y = north + 1; y < south; y++)
-                for (int x = west + 1; x < east; x++)
-                    grid[grid.ToIndex(x, y)] = TerrainType.Cliff;
-
-            int lane = StreetWidth;
-            int northStreet = north + 1 + Approach;
-            int southStreet = south - 1 - Approach - lane + 1;
-
-            // The two streets, running the length of the town.
-            Cut(grid, west + 1, east - 1, northStreet, northStreet + lane - 1);
-            Cut(grid, west + 1, east - 1, southStreet, southStreet + lane - 1);
-
-            // The ends of them, joined down the inside of each wall so both streets are
-            // reached from both gates — and reaching the gate row itself, which is the
-            // one row that must be open or the gateway opens onto masonry. It came out
-            // exactly one row short: gates on 41, the yard behind them starting at 42.
-            int yardTop = System.Math.Min(gateRow, northStreet);
-            int yardFoot = System.Math.Max(gateRow, southStreet + lane - 1);
-
-            Cut(grid, west + 1, west + Approach, yardTop, yardFoot);
-            Cut(grid, east - Approach, east - 1, yardTop, yardFoot);
-
-            // The gates need no cutting: the fill starts inside the wall, so the gate tile
-            // is still the open ground it was, and the ends above open straight onto it.
-
-            // The ground the town stands on is level, or its walls step down a hillside
-            // one tile at a time and read as a ruin. Taken from the middle of the site so
-            // the whole plot is flattened to the same height.
-            float height = grid.Elevation(grid.ToIndex((west + east) / 2, gateRow));
-
-            for (int y = north; y <= south; y++)
-                for (int x = west; x <= east; x++)
-                    grid.SetElevation(grid.ToIndex(x, y), height);
-
-            // And the ground the road arrives on, outside each gate.
-            //
-            // <b>A gate with a lake in front of it is a gate nobody reaches dry.</b> The
-            // town is stamped onto whatever the noise and the rivers left, and on 1-8 that
-            // was water two tiles from the west wall, on the gates' own row. The caravan
-            // would have waded the last stretch into the town — and the causeway the
-            // generator cuts for the endpoints reaches eight tiles from the map's edge,
-            // which is nowhere near the wall.
-            //
-            // So the approach is dry for its own length either side, two tiles wide, and
-            // no further: this is the road to the gate, not a drained moat.
-            for (int i = 1; i <= Approach + 4; i++)
-            {
-                foreach (int side in new[] { -1, 1 })
-                {
-                    int x = side < 0 ? west - i : east + i;
-                    if (x < 0 || x >= grid.Width) continue;
-
-                    for (int dy = -2; dy <= 2; dy++)
-                    {
-                        int y = gateRow + dy;
-                        if (y < 0 || y >= grid.Height) continue;
-
-                        // Water and bog both. A gate opening onto a marsh is a gate the
-                        // caravan wades out of, and the ground beside the road reads as
-                        // being in front of the gate from the seat of a wagon. A ford is
-                        // left alone: it is already a way across, and the level owes
-                        // three of them (LevelRecipe.CrossingsOwed).
-                        var terrain = grid[grid.ToIndex(x, y)];
-                        if (terrain == TerrainType.Water || terrain == TerrainType.Marsh)
-                            grid[grid.ToIndex(x, y)] = TerrainType.Plains;
-                    }
-                }
-            }
 
             return plan;
         }

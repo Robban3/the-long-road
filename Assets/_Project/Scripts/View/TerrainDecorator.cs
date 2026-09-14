@@ -2622,7 +2622,7 @@ namespace TheVeil.View
         static bool Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
                             Choice choice, int tile, float heightScale, float spread,
                             HashSet<int> occupied = null, float lift = 0f, float? yaw = null,
-                            float maxWidth = 0f, bool signal = false)
+                            float maxWidth = 0f, bool signal = false, bool solid = false)
         {
             var position = Vec2.FromTile(grid, tile);
             float x = position.X + rng.Range(-spread, spread);
@@ -2715,7 +2715,13 @@ namespace TheVeil.View
             // Fitted before the ground is checked, because until it is fitted nobody
             // knows how much ground it wants. A big prop that cannot fit is destroyed
             // again rather than left standing through a watchtower.
-            if (!FootprintClear(grid, occupied, x, z, FootprintRadius(instance)))
+            // <paramref name="solid"/> is how a caller says "this one always asks". The
+            // size exemption below a tile.s width is about foliage — spruce crowns touch,
+            // and a tile of air round every tree would give an orchard — and it is wrong
+            // for anything standing among buildings. A town tree is six metres tall and
+            // two wide, so it slipped under the exemption and was planted through a roof:
+            // twenty of them, measured.
+            if (!FootprintClear(grid, occupied, x, z, FootprintRadius(instance), always: solid))
             {
                 if (Application.isPlaying) Object.Destroy(instance);
                 else Object.DestroyImmediate(instance);
@@ -3861,13 +3867,15 @@ namespace TheVeil.View
             {
                 for (int x = town.West; x <= town.East; x++)
                 {
-                    if (!town.IsWall(x, y)) continue;
+                    // The face of the wall only. Its outer ring is the thickness of the
+                    // stone, not a second wall to build.
+                    if (!town.IsFace(x, y)) continue;
 
                     int tile = grid.ToIndex(x, y);
 
                     // The corners already carry their towers, raised before any of this.
-                    if ((x == town.West || x == town.East)
-                        && (y == town.North || y == town.South)) continue;
+                    if ((x <= town.West + 1 || x >= town.East - 1)
+                        && (y <= town.North + 1 || y >= town.South - 1)) continue;
 
                     // The face this piece stands on decides which way it looks. North and
                     // south walls run east to west; the side walls run north to south.
@@ -3892,8 +3900,12 @@ namespace TheVeil.View
                 foreach (int gate in new[] { town.WestGate(grid), town.EastGate(grid) })
                 {
                     if (Scatter(parent, grid, rng,
-                                new Choice(kit.Gates, Any(kit.Gates, rng), TownGateHeight,
-                                           byWidth: false, low: 1f, high: 1f),
+                                // Fitted to the opening rather than to a height: the gateway is
+                                // three tiles wide and the gatehouse has to fill it, or the
+                                // wall has a hole beside its gate.
+                                new Choice(kit.Gates, Any(kit.Gates, rng),
+                                           (2 * Towns.GateHalf + 1) * TileGrid.TileSize,
+                                           byWidth: true, low: 1f, high: 1f),
                                 gate, heightScale, spread: 0f, occupied: null, yaw: 0f))
                     {
                         Landmark.Note(found, LandmarkKind.Castle, gate);
@@ -3925,8 +3937,98 @@ namespace TheVeil.View
             }
 
             placed += PlaceTownHouses(parent, grid, rng, decor, occupied, heightScale, town, found);
+            placed += PlaceTownStreets(parent, grid, rng, decor, occupied, heightScale, town);
+
             return placed;
         }
+
+        /// <summary>
+        /// What stands along a town's streets: carts, hay, barrels, and a well at a corner.
+        ///
+        /// <b>On the block, never on the street.</b> Every street in the town is one of the
+        /// three ways through the level and the player draws their own line down it, so
+        /// there is no lane of a street that is safe to stand in: the first version put
+        /// these in the gutter and the caravan walked through a well. Furniture stands on
+        /// the block instead, at its edge, facing the street — impassable ground, where
+        /// nothing can ever be in the way.
+        ///
+        /// Spaced along the street rather than scattered over it. A cart every few strides
+        /// is a market; a cart on every tile is a barricade.
+        /// </summary>
+        static int PlaceTownStreets(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                    BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                                    Towns.Plan town)
+        {
+            int placed = 0;
+
+            for (int y = town.North + 2; y < town.South - 1; y++)
+            {
+                for (int x = town.West + 2; x < town.East - 1; x++)
+                {
+                    int tile = grid.ToIndex(x, y);
+
+                    // <b>On the block, never on the street.</b> This stood things in the
+                    // gutter — a street tile with building on one side — and the caravan
+                    // walked straight through a well, because the player draws their own
+                    // line and every tile of a street is a tile they may drive. There is
+                    // no safe lane on a road somebody else chooses.
+                    //
+                    // Block is impassable ground, so nothing placed on it can ever be in
+                    // anybody's way; standing it at the block's edge puts it against the
+                    // street where it is seen. A cart at the kerb rather than in the road.
+                    if (grid[tile] != TerrainType.Cliff) continue;
+                    if (occupied != null && occupied.Contains(tile)) continue;
+
+                    bool northStreet = grid.InBounds(x, y - 1) && grid.IsPassable(x, y - 1);
+                    bool southStreet = grid.InBounds(x, y + 1) && grid.IsPassable(x, y + 1);
+                    bool westStreet = grid.InBounds(x - 1, y) && grid.IsPassable(x - 1, y);
+                    bool eastStreet = grid.InBounds(x + 1, y) && grid.IsPassable(x + 1, y);
+
+                    if (!northStreet && !southStreet && !westStreet && !eastStreet) continue;
+
+                    if ((x - town.West) % StreetFurniture != 0) continue;
+                    if (!rng.Chance(0.72f)) continue;
+
+                    // A well where two ways meet, a tree in a corner of the block, and a
+                    // cart or a load of hay everywhere else. The well is the rarer thing
+                    // and the one a town is built round, so it is not on every corner.
+                    //
+                    // Trees inside the walls on purpose: a town with no green in it reads
+                    // as a barracks, and the ones that grow in a town grow in the gaps
+                    // between buildings — which is exactly the ground this is walking.
+                    float roll = rng.Value01();
+
+                    bool wellHere = roll < 0.12f && decor.Houses.Any;
+                    bool treeHere = !wellHere && roll < 0.42f && decor.Trees.Any;
+
+                    var set = wellHere ? decor.Houses
+                            : treeHere ? decor.Trees
+                            : rng.Chance(0.66f) && decor.Yard.Any ? decor.Yard
+                            : decor.Wreckage;
+
+                    if (set == null || !set.Any) continue;
+
+                    float size = wellHere ? WellHeight
+                               : treeHere ? rng.Range(5.5f, 8.5f)
+                               : YardHeight;
+
+                    if (Scatter(parent, grid, rng,
+                                // Never canopy, not even for the trees. Canopy is the rule that
+                                // lets a wood look like a wood — a spruce skips the ground
+                                // check so crowns may touch — and in a town it means a tree
+                                // planted through a roof. A town tree asks like everything
+                                // else here and is refused where a house stands.
+                                new Choice(set, Any(set, rng), size, byWidth: false),
+                                tile, heightScale, spread: 0.8f, occupied, solid: true))
+                        placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>How far apart street furniture is set along a street, in tiles.</summary>
+        const int StreetFurniture = 3;
 
         /// <summary>
         /// The town inside its walls: building on every block, facing the streets.
@@ -3956,8 +4058,16 @@ namespace TheVeil.View
                 {
                     if (grid[grid.ToIndex(x, y)] != TerrainType.Cliff) continue;
 
-                    // Every third tile each way, which is a house and its yard.
-                    if ((x - town.West) % 3 != 0 || (y - town.North) % 3 != 0) continue;
+                    // Every third tile each way, and not every one of those: a town laid
+                    // out on an exact grid reads as barracks. A house in six is left out,
+                    // and the row's own offset shifts along the street, so the frontages
+                    // step in and out the way they do when each plot was built by whoever
+                    // owned it.
+                    int step = 3;
+                    int offset = (y * 2) % step;
+
+                    if ((x - town.West + offset) % step != 0 || (y - town.North) % step != 0) continue;
+                    if (rng.Chance(0.17f)) continue;
 
                     // Turned to whichever side has a street on it. A house with its back
                     // to the road is a house nobody uses; one in the middle of a block
