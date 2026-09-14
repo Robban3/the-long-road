@@ -232,6 +232,41 @@ namespace TheVeil.Sim
                 for (int x = west; x <= east; x++)
                     grid.SetElevation(grid.ToIndex(x, y), height);
 
+            // And the ground the road arrives on, outside each gate.
+            //
+            // <b>A gate with a lake in front of it is a gate nobody reaches dry.</b> The
+            // town is stamped onto whatever the noise and the rivers left, and on 1-8 that
+            // was water two tiles from the west wall, on the gates' own row. The caravan
+            // would have waded the last stretch into the town — and the causeway the
+            // generator cuts for the endpoints reaches eight tiles from the map's edge,
+            // which is nowhere near the wall.
+            //
+            // So the approach is dry for its own length either side, two tiles wide, and
+            // no further: this is the road to the gate, not a drained moat.
+            for (int i = 1; i <= Approach + 4; i++)
+            {
+                foreach (int side in new[] { -1, 1 })
+                {
+                    int x = side < 0 ? west - i : east + i;
+                    if (x < 0 || x >= grid.Width) continue;
+
+                    for (int dy = -2; dy <= 2; dy++)
+                    {
+                        int y = gateRow + dy;
+                        if (y < 0 || y >= grid.Height) continue;
+
+                        // Water and bog both. A gate opening onto a marsh is a gate the
+                        // caravan wades out of, and the ground beside the road reads as
+                        // being in front of the gate from the seat of a wagon. A ford is
+                        // left alone: it is already a way across, and the level owes
+                        // three of them (LevelRecipe.CrossingsOwed).
+                        var terrain = grid[grid.ToIndex(x, y)];
+                        if (terrain == TerrainType.Water || terrain == TerrainType.Marsh)
+                            grid[grid.ToIndex(x, y)] = TerrainType.Plains;
+                    }
+                }
+            }
+
             return plan;
         }
 

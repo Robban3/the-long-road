@@ -96,11 +96,25 @@ namespace TheVeil.View
         /// <summary>The ground colour of one terrain type in the biome being built.</summary>
         static Color Ground(TerrainType terrain) => TerrainPalette.OfGround(terrain, _biome);
 
+        /// <summary>
+        /// The town whose ground is paved, if this level has one.
+        ///
+        /// Static for the same reason _biome is, and the file says why: threading a value
+        /// that is the same for every tile through six signatures is worse than writing
+        /// down that it is state.
+        /// </summary>
+        static Towns.Plan _town;
+
+        /// <summary>Whether a tile is inside the town walls, and so laid rather than grown.</summary>
+        static bool Paved(int x, int y) => _town.Any && _town.Holds(x, y);
+
         public static Mesh Build(TileGrid grid, float tileSize, IReadOnlyList<RouteOverlay> overlays = null,
                                  int startIndex = -1, int goalIndex = -1, float heightScale = 0f,
-                                 float skirt = 0f, Biome biome = Biome.Forest)
+                                 float skirt = 0f, Biome biome = Biome.Forest,
+                                 Towns.Plan town = default)
         {
             _biome = biome;
+            _town = town;
 
             int tiles = grid.TileCount;
             var vertices = new Vector3[tiles * 4];
@@ -504,7 +518,7 @@ namespace TheVeil.View
                     if (terrain == TerrainType.Road) road = true;
                     if (terrain == TerrainType.Ford) ford = true;
 
-                    var c = Ground(terrain);
+                    var c = Paved(x, y) ? TerrainPalette.OfTown(terrain) : Ground(terrain);
                     r += c.r; g += c.g; b += c.b;
                 }
             }

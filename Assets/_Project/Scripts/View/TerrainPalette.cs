@@ -132,6 +132,31 @@ namespace TheVeil.View
         /// its scenery gets (see BiomeLook): a chapter set in a desert plays over desert
         /// ground in woodland colours until somebody paints the sand.
         /// </summary>
+        /// <summary>
+        /// The ground inside a town's walls, which is laid rather than grown.
+        ///
+        /// Two greys and nothing else: the streets a pale, worn cobble and the blocks the
+        /// buildings stand on a darker one. The blocks are cliff underneath — that is the
+        /// terrain the stamp had to hand for ground nothing walks through — and cliff is
+        /// painted the brown of bare rock, so the middle of the town came out as a field
+        /// of mud with houses standing in it.
+        ///
+        /// Not a texture, because the ground has none anywhere else on the map: the whole
+        /// surface is vertex colour, and a town that suddenly had a material would be the
+        /// one place in the world that did.
+        /// </summary>
+        public static Color OfTown(TerrainType t)
+        {
+            switch (t)
+            {
+                // What the buildings stand on.
+                case TerrainType.Cliff: return new Color(0.29f, 0.28f, 0.27f);
+
+                // And the streets between them, worn lighter by everything that uses them.
+                default: return new Color(0.58f, 0.57f, 0.54f);
+            }
+        }
+
         public static Color OfGround(TerrainType t, Biome biome)
         {
             switch (biome)

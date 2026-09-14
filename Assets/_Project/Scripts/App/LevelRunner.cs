@@ -318,7 +318,13 @@ namespace TheVeil.App
             var biome = Biomes.Of(Chapter);
 
             _mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize,
-                null, -1, -1, HeightScale, TerrainMeshBuilder.SkirtWidth, biome);
+                null, -1, -1, HeightScale, TerrainMeshBuilder.SkirtWidth, biome,
+
+                // And the town, whose ground is laid rather than grown: the blocks the
+                // buildings stand on are cliff underneath, and bare rock brown is not
+                // what the middle of a town looks like. See TerrainPalette.OfTown.
+                recipe.Town ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
+                            : Towns.None);
             GetComponent<MeshFilter>().sharedMesh = _mesh;
 
             _markerRoot = new GameObject("Markers").transform;

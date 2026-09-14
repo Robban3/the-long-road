@@ -3902,6 +3902,28 @@ namespace TheVeil.View
                 }
             }
 
+            // And the road to each gate is kept open.
+            //
+            // The stamp dries the ground outside the gates (Towns.Stamp) so the caravan
+            // does not wade into the town, and drying it is only half: dry ground is
+            // ground the scatter will happily sow, and the first build after it grew a
+            // stand of pines from the wall outwards with the gateway somewhere behind
+            // them. A gate you cannot see is a gate you cannot aim for.
+            //
+            // Claimed here rather than felled, because the scatter has not run yet — the
+            // town goes down before any of it. The same order the village's yard uses.
+            for (int i = 1; i <= Towns.Approach + 4; i++)
+            {
+                foreach (int at in new[] { town.West - i, town.East + i })
+                {
+                    for (int dy = -2; dy <= 2; dy++)
+                    {
+                        int y = town.GateRow + dy;
+                        if (grid.InBounds(at, y)) occupied?.Add(grid.ToIndex(at, y));
+                    }
+                }
+            }
+
             placed += PlaceTownHouses(parent, grid, rng, decor, occupied, heightScale, town, found);
             return placed;
         }

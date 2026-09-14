@@ -120,7 +120,11 @@ namespace TheVeil.Editor
             var ground = new GameObject("Ground");
             ground.transform.SetParent(root.transform, false);
             var mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize, null, -1, -1,
-                                                runner.HeightScale, TerrainMeshBuilder.SkirtWidth, biome);
+                                                runner.HeightScale, TerrainMeshBuilder.SkirtWidth, biome,
+                                                LevelMaps.Recipe(chapter, level).Town
+                                                    ? Towns.Layout(map.Grid.Width, map.Grid.Height,
+                                                                   map.Seed, map.StartY)
+                                                    : Towns.None);
             ground.AddComponent<MeshFilter>().sharedMesh = mesh;
             ground.AddComponent<MeshRenderer>().sharedMaterial =
                 runner.GetComponent<MeshRenderer>() != null
