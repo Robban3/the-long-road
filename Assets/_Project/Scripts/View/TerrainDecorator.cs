@@ -1127,7 +1127,7 @@ namespace TheVeil.View
             // on any map and they are not negotiable: the ground they stand on was made
             // impassable before the ways through were found, so nothing else may take it.
             placed += PlaceTown(parent, grid, Stream(11), decor, occupied, heightScale,
-                                town, found);
+                                town, found, road);
 
             // And the village next, for the same reason and one more: it is the only
             // built thing on the map whose position was decided before the decorator was
@@ -3829,7 +3829,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceTown(Transform parent, TileGrid grid, DeterministicRandom rng,
                              BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                             Towns.Plan town, List<Landmark> found)
+                             Towns.Plan town, List<Landmark> found, HashSet<int> road)
         {
             if (!town.Any) return 0;
 
@@ -3936,8 +3936,8 @@ namespace TheVeil.View
                 }
             }
 
-            placed += PlaceTownHouses(parent, grid, rng, decor, occupied, heightScale, town, found);
-            placed += PlaceTownStreets(parent, grid, rng, decor, occupied, heightScale, town);
+            placed += PlaceTownHouses(parent, grid, rng, decor, occupied, heightScale, town, found, road);
+            placed += PlaceTownStreets(parent, grid, rng, decor, occupied, heightScale, town, road);
 
             return placed;
         }
@@ -3957,7 +3957,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceTownStreets(Transform parent, TileGrid grid, DeterministicRandom rng,
                                     BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                                    Towns.Plan town)
+                                    Towns.Plan town, HashSet<int> road)
         {
             int placed = 0;
 
@@ -3978,6 +3978,10 @@ namespace TheVeil.View
                     // street where it is seen. A cart at the kerb rather than in the road.
                     if (grid[tile] != TerrainType.Cliff) continue;
                     if (occupied != null && occupied.Contains(tile)) continue;
+
+                    // And not where the column will pass. A cart at the kerb leans over
+                    // the street exactly as a house does.
+                    if (road != null && road.Contains(tile)) continue;
 
                     bool northStreet = grid.InBounds(x, y - 1) && grid.IsPassable(x, y - 1);
                     bool southStreet = grid.InBounds(x, y + 1) && grid.IsPassable(x, y + 1);
@@ -4046,7 +4050,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceTownHouses(Transform parent, TileGrid grid, DeterministicRandom rng,
                                    BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                                   Towns.Plan town, List<Landmark> found)
+                                   Towns.Plan town, List<Landmark> found, HashSet<int> road)
         {
             if (decor.Kit == null || !decor.Kit.CanBuildHouse) return 0;
 
@@ -4072,17 +4076,58 @@ namespace TheVeil.View
                     // Turned to whichever side has a street on it. A house with its back
                     // to the road is a house nobody uses; one in the middle of a block
                     // takes the turn of the die.
-                    float yaw = rng.Range(0, 4) * 90f;
+                    bool northStreet = y > town.North && grid.IsPassable(x, y - 1);
+                    bool southStreet = !northStreet && y < town.South && grid.IsPassable(x, y + 1);
+                    bool westStreet = !northStreet && !southStreet && x > town.West && grid.IsPassable(x - 1, y);
+                    bool eastStreet = !northStreet && !southStreet && !westStreet
+                                      && x < town.East && grid.IsPassable(x + 1, y);
 
-                    if (y > town.North && grid.IsPassable(x, y - 1)) yaw = 0f;
-                    else if (y < town.South && grid.IsPassable(x, y + 1)) yaw = 180f;
-                    else if (x > town.West && grid.IsPassable(x - 1, y)) yaw = 270f;
-                    else if (x < town.East && grid.IsPassable(x + 1, y)) yaw = 90f;
+                    float yaw = northStreet ? 0f
+                              : southStreet ? 180f
+                              : westStreet ? 270f
+                              : eastStreet ? 90f
+                              : rng.Range(0, 4) * 90f;
 
                     var house = BuildingBuilder.House(parent, decor.Kit, rng, out bool storey);
 
+                    // <b>Asked about the road, which it never used to be.</b> A house stands
+                    // on impassable ground, so no route crosses its tile — and the column
+                    // is wider than its tile. These are seven and a half metres across on
+                    // a four-metre tile, so each one leans nearly two metres over the
+                    // street it faces, and the caravan drove through the gables on every
+                    // way but the middle of the main street. Raise turns down a building
+                    // that stands in the road; it was being handed no road to check.
+                    // Set back from the street it faces by half its own overhang, so its
+                    // front lands on the plot line rather than out in the road.
+                    //
+                    // Two cases the setback cannot answer, and they are the twenty-two
+                    // that were left over when it did. A house with no street against it
+                    // at all is in the middle of a block and is not nudged anywhere: its
+                    // overhang lands on its neighbours' ground, which is what a terrace
+                    // is. A house with street on two sides is a corner plot, and a corner
+                    // plot is small — it is set back from one street and cut down to fit
+                    // the other.
+                    int streets = (northStreet ? 1 : 0) + (southStreet ? 1 : 0)
+                                + (westStreet ? 1 : 0) + (eastStreet ? 1 : 0);
+
+                    bool corner = grid.IsPassable(x, y - 1) && grid.IsPassable(x - 1, y)
+                               || grid.IsPassable(x, y - 1) && grid.IsPassable(x + 1, y)
+                               || grid.IsPassable(x, y + 1) && grid.IsPassable(x - 1, y)
+                               || grid.IsPassable(x, y + 1) && grid.IsPassable(x + 1, y);
+
+                    float width = corner ? TileGrid.TileSize * 0.95f : TownHouseWidth;
+                    float setback = (width - TileGrid.TileSize) * 0.5f;
+
+                    var nudge = streets == 0 ? Vector3.zero
+                              : northStreet ? new Vector3(0f, 0f, setback)
+                              : southStreet ? new Vector3(0f, 0f, -setback)
+                              : westStreet ? new Vector3(setback, 0f, 0f)
+                              : new Vector3(-setback, 0f, 0f);
+
                     if (!Raise(grid, grid.ToIndex(x, y), rng, house, CottageHeight,
-                               heightScale, occupied, null, yaw, landmark: false))
+                               heightScale, occupied, road, yaw, landmark: false,
+                               maxWidth: width, nudge: nudge))
+
                         continue;
 
                     Landmark.Note(found, LandmarkKind.House, grid.ToIndex(x, y));
@@ -4146,6 +4191,17 @@ namespace TheVeil.View
         /// stretched to seven metres is a cottage with a two-storey door.
         /// </summary>
         const float CottageHeight = 5.5f;
+
+        /// <summary>
+        /// How wide a town house is allowed to be, in metres.
+        ///
+        /// Seven, which is wider than the four-metre plot it stands on and narrower than
+        /// the eight and a quarter the general cap allows. The overhang is dealt with by
+        /// setting the house back rather than by shrinking it: squeezed inside its plot a
+        /// cottage came out under four metres tall and the wells beside it looked bigger
+        /// than the houses.
+        /// </summary>
+        const float TownHouseWidth = 7f;
 
         /// <summary>The sizes of the small things a village is furnished with, in metres.</summary>
         const float ShedHeight = 3.2f;
@@ -4507,7 +4563,8 @@ namespace TheVeil.View
 
         static bool Raise(TileGrid grid, int tile, DeterministicRandom rng, GameObject building,
                           float height, float heightScale, HashSet<int> occupied,
-                          HashSet<int> road = null, float yaw = -1f, bool landmark = true)
+                          HashSet<int> road = null, float yaw = -1f, bool landmark = true,
+                          float maxWidth = 0f, Vector3 nudge = default)
         {
             if (building == null) return false;
 
@@ -4550,7 +4607,14 @@ namespace TheVeil.View
             // subsidence, and this one is several pieces deep.
             building.transform.rotation = Quaternion.Euler(
                 0f, yaw >= 0f ? yaw : rng.Range(0, 4) * 90f, 0f);
-            building.transform.position = new Vector3(at.X, groundY, at.Y);
+            // <paramref name="nudge"/> moves it off the middle of its tile, which is where
+            // everything else here stands. A town house wants it: the plot is four metres
+            // and the house is seven, so centred on the tile it leans two metres over the
+            // street in front of it — measured, 155 of 249 of them reaching across ground
+            // the caravan drives, and the column went through the gables. Set back by the
+            // overhang, the front stands on the plot line and the rest leans into the
+            // block behind, where only its neighbours care.
+            building.transform.position = new Vector3(at.X + nudge.x, groundY, at.Y + nudge.z);
 
             // Scaled about its own origin, which the builder put on the ground plane —
             // not seated by its lowest point, which is what ModelScaling.Fit does and
@@ -4580,7 +4644,16 @@ namespace TheVeil.View
             // again as wide as it is tall and no wider.
             float byHeight = above > 0.0001f ? height / above : 1f;
             float widest = Mathf.Max(standing.size.x, standing.size.z);
-            float byWidth = widest > 0.0001f ? height * SpreadLimit / widest : byHeight;
+
+            // A caller may name the width instead of taking the general cap, and a town
+            // has to. Its buildings stand on a four-metre grid with streets cut out of
+            // that same grid, and at the general cap — half again the height, so eight and
+            // a quarter metres — each house leant two metres over the street in front of
+            // it. Measured: 155 of 249 reached across walkable ground, and the caravan
+            // drove through the gables. A narrow, tall house on a narrow plot is also what
+            // a town of this age actually looked like.
+            float limit = maxWidth > 0f ? maxWidth : height * SpreadLimit;
+            float byWidth = widest > 0.0001f ? limit / widest : byHeight;
 
             building.transform.localScale *= Mathf.Min(byHeight, byWidth);
 

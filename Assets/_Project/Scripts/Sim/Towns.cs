@@ -90,6 +90,17 @@ namespace TheVeil.Sim
         /// <summary>How far apart the alleys between two streets are cut, in tiles.</summary>
         public const int AlleyStep = 9;
 
+        /// <summary>
+        /// How wide an alley is cut, in tiles.
+        ///
+        /// Two, not one. The houses that line it are seven and a half metres across on a
+        /// four-metre tile, so each leans nearly two metres over the ground in front of
+        /// it — and a one-tile alley with building on both sides was four metres of
+        /// ground with three and a half metres of gable hanging into it. The caravan drove
+        /// through the walls. Two tiles leaves a lane after the eaves have taken theirs.
+        /// </summary>
+        public const int AlleyWidth = 2;
+
         /// <summary>Where a town stands and where its gates are.</summary>
         public readonly struct Plan
         {
@@ -249,7 +260,7 @@ namespace TheVeil.Sim
                 for (int x = west + 2 + Approach + AlleyStep / 2 + pair * (AlleyStep / 3);
                      x <= east - 2 - Approach;
                      x += AlleyStep)
-                    Cut(grid, x, x, from, to);
+                    Cut(grid, x, x + AlleyWidth - 1, from, to);
             }
 
             // The two ends, joined down the inside of each wall so all three streets are

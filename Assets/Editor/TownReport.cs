@@ -204,6 +204,43 @@ namespace TheVeil.Editor
             Debug.Log($"[Town] {trunks.Count} tree(s), {through} of them planted inside a house.");
 
 
+            // And how far the buildings lean over ground somebody may drive on.
+            //
+            // A house stands on impassable ground, so no route crosses its tile — and the
+            // house is wider than its tile. Measured at seven and a half metres on a
+            // four-metre grid, which is nearly two metres of gable over the street on each
+            // side, and the caravan drove through the walls on every way but the middle of
+            // the main street. This counts the ones that reach a walkable tile at all.
+            int leaning = 0, built = 0;
+
+            foreach (var piece in root.GetComponentsInChildren<MeshRenderer>(false))
+            {
+                if (!piece.gameObject.name.StartsWith("SM_Bld_House")) continue;
+
+                built++;
+
+                // Shrunk by half a metre before asking, because a front wall standing
+                // exactly on the plot line touches the street tile without being in it,
+                // and that is where a town house is supposed to stand.
+                var box = piece.bounds;
+                box.Expand(-1f);
+
+                int x0 = Mathf.FloorToInt(box.min.x / TileGrid.TileSize);
+                int x1 = Mathf.FloorToInt(box.max.x / TileGrid.TileSize);
+                int z0 = Mathf.FloorToInt(box.min.z / TileGrid.TileSize);
+                int z1 = Mathf.FloorToInt(box.max.z / TileGrid.TileSize);
+
+                bool reaches = false;
+
+                for (int ty = z0; ty <= z1 && !reaches; ty++)
+                    for (int tx = x0; tx <= x1 && !reaches; tx++)
+                        if (map.Grid.InBounds(tx, ty) && map.Grid.IsPassable(tx, ty)) reaches = true;
+
+                if (reaches) leaning++;
+            }
+
+            Debug.Log($"[Town] {built} house(s), {leaning} of them reaching over walkable ground.");
+
             float tile = TileGrid.TileSize;
             float middleX = (plan.West + plan.East) * 0.5f * tile;
             float middleZ = (plan.North + plan.South) * 0.5f * tile;
