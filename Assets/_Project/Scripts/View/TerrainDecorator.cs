@@ -3873,9 +3873,13 @@ namespace TheVeil.View
 
                     int tile = grid.ToIndex(x, y);
 
-                    // The corners already carry their towers, raised before any of this.
+                    // The corners already carry their towers, raised before any of this,
+                    // and so do the two tiles flanking each gateway.
                     if ((x <= town.West + 1 || x >= town.East - 1)
                         && (y <= town.North + 1 || y >= town.South - 1)) continue;
+
+                    if ((x <= town.West + 1 || x >= town.East - 1)
+                        && System.Math.Abs(y - town.GateRow) == Towns.GateHalf + 1) continue;
 
                     // The face this piece stands on decides which way it looks. North and
                     // south walls run east to west; the side walls run north to south.
@@ -3889,52 +3893,40 @@ namespace TheVeil.View
                 }
             }
 
-            // The two gatehouses, in the holes the stamp left.
+            // The gateways: a tower on each side and nothing across the opening.
             //
-            // Turned across the wall, not along it. A wall piece shows its face to the
-            // road and a gate shows its archway, which is a quarter turn apart — set to
-            // the wall's own bearing the gates came out sideways, with the road running
-            // at the arch rather than through it.
-            if (kit.Gates.Any)
+            // <b>There is no model for a gatehouse this wide, and there should not be.</b>
+            // The pack's gate is a wall panel with an arch in it, 5,4 m by 5,1 — the same
+            // piece as a plain wall with a hole. Stretched across a twenty-metre opening it
+            // becomes a triumphal arch twenty-five metres tall; laid in a row across it,
+            // the piers between the arches stand in the road. Either way the caravan drives
+            // through stone, which is the fault this was meant to fix.
+            //
+            // The column is sixteen metres wide (TerrainDecorator.DriveHalfWidth), so the
+            // opening has to be wider than that and empty. Two towers flanking a gap is
+            // what a city gate of that size actually is — the wall stops, the towers say
+            // where, and the doors it once had are open.
+            if (kit.CanBuildTower)
             {
-                foreach (int gate in new[] { town.WestGate(grid), town.EastGate(grid) })
+                foreach (int side in new[] { town.West + 1, town.East - 1 })
                 {
-                    if (Scatter(parent, grid, rng,
-                                // Fitted to the opening rather than to a height: the gateway is
-                                // three tiles wide and the gatehouse has to fill it, or the
-                                // wall has a hole beside its gate.
-                                new Choice(kit.Gates, Any(kit.Gates, rng),
-                                           (2 * Towns.GateHalf + 1) * TileGrid.TileSize,
-                                           byWidth: true, low: 1f, high: 1f),
-                                gate, heightScale, spread: 0f, occupied: null, yaw: 0f))
+                    foreach (int step in new[] { -1, 1 })
                     {
-                        Landmark.Note(found, LandmarkKind.Castle, gate);
-                        placed++;
+                        int y = town.GateRow + step * (Towns.GateHalf + 1);
+                        if (y <= town.North + 1 || y >= town.South - 1) continue;
+
+                        int tile = grid.ToIndex(side, y);
+
+                        if (Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),
+                                  TownTowerHeight, heightScale, occupied, null, 0f, landmark: false))
+                        {
+                            Landmark.Note(found, LandmarkKind.Castle, tile);
+                            placed++;
+                        }
                     }
                 }
             }
 
-            // And the road to each gate is kept open.
-            //
-            // The stamp dries the ground outside the gates (Towns.Stamp) so the caravan
-            // does not wade into the town, and drying it is only half: dry ground is
-            // ground the scatter will happily sow, and the first build after it grew a
-            // stand of pines from the wall outwards with the gateway somewhere behind
-            // them. A gate you cannot see is a gate you cannot aim for.
-            //
-            // Claimed here rather than felled, because the scatter has not run yet — the
-            // town goes down before any of it. The same order the village's yard uses.
-            for (int i = 1; i <= Towns.Approach + 4; i++)
-            {
-                foreach (int at in new[] { town.West - i, town.East + i })
-                {
-                    for (int dy = -2; dy <= 2; dy++)
-                    {
-                        int y = town.GateRow + dy;
-                        if (grid.InBounds(at, y)) occupied?.Add(grid.ToIndex(at, y));
-                    }
-                }
-            }
 
             placed += PlaceTownHouses(parent, grid, rng, decor, occupied, heightScale, town, found, road);
             placed += PlaceTownStreets(parent, grid, rng, decor, occupied, heightScale, town, road);

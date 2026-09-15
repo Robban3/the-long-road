@@ -79,12 +79,15 @@ namespace TheVeil.Sim
         /// <summary>
         /// How wide a gateway is, in tiles either side of the gate row.
         ///
-        /// One either way, so three tiles and twelve metres of opening. A single tile is
-        /// four metres — wide enough for the caravan to pass and far too narrow to read
-        /// as the gate of a town this size: from the road it was a gap in a wall rather
-        /// than a way in.
+        /// Two either way, so five tiles and twenty metres of opening.
+        ///
+        /// <b>The column is sixteen metres wide</b> — TerrainDecorator.DriveHalfWidth is
+        /// eight and it sweeps that far either side of the line. At three tiles the
+        /// gateway was twelve, so the caravan was four metres wider than the hole it was
+        /// driving through and its flanks went through the wall on the way out. A gate is
+        /// wide enough for what has to pass it or it is a doorway.
         /// </summary>
-        public const int GateHalf = 1;
+        public const int GateHalf = 2;
 
         /// <summary>How far the ground outside the wall is cleared, in tiles.</summary>
         /// <summary>How far apart the alleys between two streets are cut, in tiles.</summary>
