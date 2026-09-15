@@ -1400,6 +1400,33 @@ namespace TheVeil.Editor
 
                 Boats = Knights("Props", "SM_Prop_Rowboat_01"),
 
+                // The stone a street is made of. Cobble and flag both, drawn tile by
+                // tile, so a street is not one pattern repeated for two hundred metres.
+                // Worn earth mostly, with stone through it, and cobble here and there.
+                // That is the order a street of this age is made in: the ground is the
+                // ground and somebody laid stone over the worst of it.
+                //
+                // Each piece was photographed from straight above before being chosen —
+                // see KitReport.Paving — because the first three were picked off a file
+                // listing by name, and one of them was not paving at all. 
+                // SM_Env_Path_Cobble_Stone_01 is a single cobble, 41 cm by 31, and it was
+                // being scaled to four metres: the pale slabs lying about the streets.
+                Paving = Knights("Environments",
+                                 "SM_Env_Path_Dirt_01", "SM_Env_Path_Dirt_02",
+                                 "SM_Env_Path_Dirt_03", "SM_Env_Path_Dirt_04",
+                                 "SM_Env_Path_Stone_01", "SM_Env_Path_Stone_02",
+                                 "SM_Env_Path_Stone_03",
+                                 "SM_Env_Path_Cobble_01", "SM_Env_Path_Cobble_02"),
+
+                // Lamps, fire and trade: the things that say a street is used after dark
+                // and that somebody sells something behind that door.
+                Street = Knights("Props", "SM_Prop_Lampost_01", "SM_Prop_Brazier_01",
+                                 "SM_Prop_ShopSign_01"),
+
+                // And what a town raises once and is known by.
+                Monuments = Knights("Props", "SM_Prop_Statue_01", "SM_Prop_Plinth_01",
+                                    "SM_Prop_Plinth_02"),
+
                 // **Empty on purpose now.** These were the pack's two mini towers, which
                 // are whole pieces and were reported twice as standing on the grass. They
                 // are also two shapes, so every pass in the game had the same tower on it

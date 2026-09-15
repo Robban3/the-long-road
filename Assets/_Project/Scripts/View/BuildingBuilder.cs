@@ -102,55 +102,83 @@ namespace TheVeil.View
             => House(parent, kit, rng, out _);
 
         /// <summary>
-        /// As above, and says whether it came out with a second storey.
+        /// A house of one, two or three storeys, and says how many it came out with.
         ///
-        /// <b>The caller needs to know, because it decides how tall to scale the result.</b>
-        /// A cottage and a two-storey house are stacked from the same sets and differ by
-        /// one piece, and scaling both to one height makes the cottage a hall and squashes
-        /// the tall one — the storeys end up different heights in two buildings standing
-        /// next to each other. Nothing here can fix that on its own: the builder does not
-        /// know what height it is going to be given.
+        /// <b>The pack's four sets are not four courses of one building.</b> Each was
+        /// looked at on its own, square from the side, which is the inspection that should
+        /// have been made the first time:
+        ///
+        ///   * Foundation — a ground floor with a flat, open top. It carries a storey.
+        ///   * Room — a finished cottage: stone sill, timber walls, its own red roof.
+        ///   * TopRoomSmall — an upper storey with its own roof, jettied, narrow below.
+        ///   * RoomTop — an upper storey with its own roof, flat below.
+        ///
+        /// So there are two assemblies and this builds both: a Room standing alone, or a
+        /// Foundation — sometimes two — under a TopRoomSmall or a RoomTop. What there is
+        /// not is a stack of all four, which is what was built for months: a foundation, a
+        /// whole cottage on top of it, and two more roofed storeys above that. Sixteen and
+        /// nine tenths of a metre of it, reported over and over as three houses standing on
+        /// each other, which is exactly what it was.
+        ///
+        /// <paramref name="storeys"/> is for the caller's scaling. A cottage and a
+        /// three-storey town house are not the same height and must not be fitted to the
+        /// same number, or the tall one is squashed and the small one stretched.
         /// </summary>
         public static GameObject House(Transform parent, BuildingKit kit, DeterministicRandom rng,
-                                       out bool twoStorey)
+                                       out int storeys)
         {
-            twoStorey = false;
+            storeys = 1;
             if (kit == null || !kit.CanBuildHouse) return null;
 
             var host = new GameObject("House");
             host.transform.SetParent(parent, false);
 
-            // <b>One model. The pack's houses are whole houses, not courses.</b>
-            //
-            // This used to stack them: a foundation, a room, sometimes an upper room, and
-            // a roof, each seated on the one below. The names say that is what they are —
-            // Foundation, Room, TopRoomSmall, RoomTop — and they are not. Every one of
-            // those four is a finished house with its own walls, windows and red roof,
-            // and stacking them put three complete houses on top of each other, the
-            // upper one standing on the lower one's roof, 16.9 m of it. Measured off the
-            // prefabs: foundation 2.8 m, room 5.1, upper room 4.3, roof 4.7 — four
-            // storeys of separate cottages.
-            //
-            // It was reported over and over as houses stacked on houses, which is exactly
-            // what it was, and every measurement made of it looked for two *buildings*
-            // sharing ground. They never did. The stack was inside one.
-            //
-            // So a house is one house. The four sets are four shelves of the same shop,
-            // and drawing across all of them is what gives a village more than one shape
-            // of building.
-            var model = Any(Shelf(kit, rng), rng);
-            if (model == null) return host;
+            // One style, carried across the sets. The pack numbers its foundations, rooms
+            // and roofs in parallel, so drawing separately would put a round roof on a
+            // square room about six times in seven.
+            int style = rng.Range(0, Length(kit.Rooms));
+            float top = 0f;
 
-            var piece = Object.Instantiate(model, host.transform);
-            piece.transform.localRotation = Quaternion.identity;
+            float roll = rng.Value01();
 
-            // Centred on the host's own origin with its foot on the ground plane, which is
-            // what Raise expects to be handed.
-            var bounds = ModelScaling.Measure(piece);
-            piece.transform.position += new Vector3(-bounds.center.x, -bounds.min.y, -bounds.center.z);
+            // A cottage: one piece, finished, and the commonest thing in any town.
+            if (roll < Cottage || !kit.Foundations.Any)
+            {
+                Stack(host.transform, Pick(kit.Rooms, style), ref top, kit.Rooms.ZUp);
+                return host;
+            }
+
+            // Otherwise a ground floor, and a second one for the tall ones.
+            Stack(host.transform, Pick(kit.Foundations, style), ref top, kit.Foundations.ZUp);
+            storeys = 2;
+
+            if (roll > 1f - Tall && kit.Foundations.Any)
+            {
+                Stack(host.transform, Pick(kit.Foundations, style), ref top, kit.Foundations.ZUp);
+                storeys = 3;
+            }
+
+            // And the storey that carries the roof. The jettied one where the pack has it,
+            // because an upper floor hanging out over the street is the whole look of a
+            // town of this age.
+            var upper = kit.UpperRooms.Any && rng.Chance(Jettied) ? kit.UpperRooms : kit.Roofs;
+            var crown = Stack(host.transform, Pick(upper, style), ref top, upper.ZUp);
+
+            if (crown != null && kit.Chimneys.Any && rng.Chance(HasChimney))
+                Chimney(host.transform, kit, rng, crown);
 
             return host;
         }
+
+        /// <summary>Share of houses that are a single finished cottage.</summary>
+        const float Cottage = 0.42f;
+
+        /// <summary>Share of the rest that get a second ground floor under the top storey.</summary>
+        const float Tall = 0.3f;
+
+        /// <summary>How often the top storey is the jettied one rather than the plain one.</summary>
+        const float Jettied = 0.65f;
+
 
         /// <summary>
         /// Which of the kit's shelves this house is drawn from.

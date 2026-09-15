@@ -258,6 +258,31 @@ namespace TheVeil.View
         /// <summary>Tied up where the water is deep enough to tie one up.</summary>
         public PropSet Boats = new PropSet();
 
+        /// <summary>
+        /// Laid ground: cobble, flag and dressed stone for a town's streets.
+        ///
+        /// Every other surface in this game is vertex colour on the terrain mesh, which
+        /// is right for meadow and forest floor and poor for a city — a street is a made
+        /// thing. The pack ships the pieces to make one with and this project had never
+        /// loaded them; the town's streets were grey paint over the same ground the
+        /// woods stand on.
+        /// </summary>
+        public PropSet Paving = new PropSet();
+
+        /// <summary>
+        /// What a street has that a road does not: a lamp on a post, a brazier, a sign
+        /// hung off a gable.
+        /// </summary>
+        public PropSet Street = new PropSet();
+
+        /// <summary>
+        /// A statue on its base, and the plinths a town puts things on.
+        ///
+        /// One to a town, in the open ground by a gate. A monument is a thing a place
+        /// raised once and is known by; two of them in one town is a garden centre.
+        /// </summary>
+        public PropSet Monuments = new PropSet();
+
         public PropSet Wreckage = new PropSet();
 
         public PropSet Ruins = new PropSet();
@@ -563,11 +588,23 @@ namespace TheVeil.View
         /// </summary>
         static void Bury(GameObject instance, float share, float slope)
         {
-            float height = ModelScaling.Measure(instance).size.y;
+            var box = ModelScaling.Measure(instance);
+            float height = box.size.y;
             if (height <= 0f) return;
 
             float depth = height * share + slope;
-            float most = height * MostOfItself;
+
+            // Half of itself at most — unless it is a flat thing, and then all but a
+            // finger of it.
+            //
+            // The cap is there so nothing is swallowed by the ground, and a paving stone
+            // laid flush is not swallowed: it is laid. Paving is five to fourteen
+            // centimetres thick, so half of it left proud is a kerb across every tile,
+            // which is what a street of slabs sitting on the grass looks like.
+            bool flat = height < Mathf.Max(box.size.x, box.size.z) * 0.25f;
+            float most = flat ? height - 0.02f : height * MostOfItself;
+
+            if (most < 0f) most = 0f;
 
             instance.transform.position += Vector3.down * (depth > most ? most : depth);
         }
@@ -3628,18 +3665,18 @@ namespace TheVeil.View
             // and a two-storey house are the same call with a different die roll.
             if (plot && kit.CanBuildHouse && rng.Chance(HouseChance))
             {
-                var house = BuildingBuilder.House(parent, kit, rng, out bool upstairs);
+                var house = BuildingBuilder.House(parent, kit, rng, out int storeys);
                 return Note(found, LandmarkKind.House, tile,
                             Raise(grid, tile, rng, house,
-                                  Storeys(HouseHeight, upstairs), heightScale, occupied, road));
+                                  Storeys(HouseHeight, storeys > 1), heightScale, occupied, road));
             }
 
             if (plot && kit.CanBuildHouse && rng.Chance(FarmChance))
             {
-                var farm = BuildingBuilder.House(parent, kit, rng, out bool upstairs);
+                var farm = BuildingBuilder.House(parent, kit, rng, out int storeys);
                 return Note(found, LandmarkKind.Farm, tile,
                             Raise(grid, tile, rng, farm,
-                                  Storeys(FarmHeight, upstairs), heightScale, occupied, road));
+                                  Storeys(FarmHeight, storeys > 1), heightScale, occupied, road));
             }
 
             // Ruins go the other way: out in the country, away from the line, because a
@@ -3928,10 +3965,63 @@ namespace TheVeil.View
             }
 
 
+            placed += PavementOf(parent, grid, rng, decor, occupied, heightScale, town);
             placed += PlaceTownHouses(parent, grid, rng, decor, occupied, heightScale, town, found, road);
             placed += PlaceTownStreets(parent, grid, rng, decor, occupied, heightScale, town, road);
 
             return placed;
+        }
+
+        /// <summary>
+        /// Lays the town's streets with stone.
+        ///
+        /// <b>The ground was painted rather than laid.</b> Every surface in this game is
+        /// vertex colour on the terrain mesh, which is right for meadow and forest floor
+        /// and poor for a city: a town's street is a made thing, and the pack ships the
+        /// pieces to make it with — cobble, flag and dressed stone under Environments,
+        /// none of which this project had ever loaded. Painting it grey was the cheap half
+        /// of the job.
+        ///
+        /// Flat, so it goes on the street rather than beside it. Everything else in the
+        /// town stands on the block because the caravan may drive any tile of any street;
+        /// paving is the exception that proves the rule, because driving over a paving
+        /// stone is what a paving stone is for.
+        ///
+        /// Laid before the scatter, and it claims its tiles, so the streets also stop
+        /// growing grass — which they had been doing, in tufts, down the middle of a city.
+        /// </summary>
+        static int PavementOf(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                              Towns.Plan town)
+        {
+            if (!decor.Paving.Any) return 0;
+
+            int laid = 0;
+
+            for (int y = town.North + 1; y < town.South; y++)
+            {
+                for (int x = town.West + 1; x < town.East; x++)
+                {
+                    if (!grid.IsPassable(x, y)) continue;
+
+                    int tile = grid.ToIndex(x, y);
+
+                    // Fitted to the tile across, so the street is continuous stone rather
+                    // than a row of mats with ground showing between them, and turned in
+                    // quarter turns so the pattern does not repeat down the whole street.
+                    if (Scatter(parent, grid, rng,
+                                // Bedded into the ground rather than laid on it: only the top
+                                // of a paving stone is meant to show.
+                                new Choice(decor.Paving, Any(decor.Paving, rng),
+                                           TileGrid.TileSize, byWidth: true, low: 1f, high: 1f,
+                                           sink: 0.9f),
+                                tile, heightScale, spread: 0f, occupied,
+                                yaw: rng.Range(0, 4) * 90f))
+                        laid++;
+                }
+            }
+
+            return laid;
         }
 
         /// <summary>
@@ -3985,19 +4075,22 @@ namespace TheVeil.View
                     if ((x - town.West) % StreetFurniture != 0) continue;
                     if (!rng.Chance(0.72f)) continue;
 
-                    // A well where two ways meet, a tree in a corner of the block, and a
-                    // cart or a load of hay everywhere else. The well is the rarer thing
-                    // and the one a town is built round, so it is not on every corner.
+                    // A well where two ways meet, a lamp or a brazier on the kerb, a tree
+                    // in a corner of the block, and a cart or a load of hay everywhere
+                    // else. The well is the rarer thing and the one a town is built round,
+                    // so it is not on every corner.
                     //
                     // Trees inside the walls on purpose: a town with no green in it reads
                     // as a barracks, and the ones that grow in a town grow in the gaps
                     // between buildings — which is exactly the ground this is walking.
                     float roll = rng.Value01();
 
-                    bool wellHere = roll < 0.12f && decor.Houses.Any;
-                    bool treeHere = !wellHere && roll < 0.42f && decor.Trees.Any;
+                    bool wellHere = roll < 0.10f && decor.Houses.Any;
+                    bool lampHere = !wellHere && roll < 0.34f && decor.Street.Any;
+                    bool treeHere = !wellHere && !lampHere && roll < 0.56f && decor.Trees.Any;
 
                     var set = wellHere ? decor.Houses
+                            : lampHere ? decor.Street
                             : treeHere ? decor.Trees
                             : rng.Chance(0.66f) && decor.Yard.Any ? decor.Yard
                             : decor.Wreckage;
@@ -4005,6 +4098,7 @@ namespace TheVeil.View
                     if (set == null || !set.Any) continue;
 
                     float size = wellHere ? WellHeight
+                               : lampHere ? LampHeight
                                : treeHere ? rng.Range(5.5f, 8.5f)
                                : YardHeight;
 
@@ -4025,6 +4119,12 @@ namespace TheVeil.View
 
         /// <summary>How far apart street furniture is set along a street, in tiles.</summary>
         const int StreetFurniture = 3;
+
+        /// <summary>How tall a lamp post or a brazier stands, in metres.</summary>
+        const float LampHeight = 3.4f;
+
+        /// <summary>How tall the town's one monument stands, in metres.</summary>
+        const float MonumentHeight = 5.5f;
 
         /// <summary>
         /// The town inside its walls: building on every block, facing the streets.
@@ -4080,7 +4180,7 @@ namespace TheVeil.View
                               : eastStreet ? 90f
                               : rng.Range(0, 4) * 90f;
 
-                    var house = BuildingBuilder.House(parent, decor.Kit, rng, out bool storey);
+                    var house = BuildingBuilder.House(parent, decor.Kit, rng, out int storeys);
 
                     // <b>Asked about the road, which it never used to be.</b> A house stands
                     // on impassable ground, so no route crosses its tile — and the column
@@ -4116,7 +4216,7 @@ namespace TheVeil.View
                               : westStreet ? new Vector3(setback, 0f, 0f)
                               : new Vector3(-setback, 0f, 0f);
 
-                    if (!Raise(grid, grid.ToIndex(x, y), rng, house, CottageHeight,
+                    if (!Raise(grid, grid.ToIndex(x, y), rng, house, storeys * StoreyHeight,
                                heightScale, occupied, road, yaw, landmark: false,
                                maxWidth: width, nudge: nudge))
 
@@ -4127,21 +4227,23 @@ namespace TheVeil.View
                 }
             }
 
-            // The well, on the open ground just inside the west gate: where a cart coming
-            // through would stop.
-            if (decor.Houses.Any)
+            // And the monument: one to a town, on the open ground inside a gate where
+            // there is room to stand and look at it.
+            if (decor.Monuments.Any)
             {
-                int well = grid.ToIndex(town.West + 2, town.GateRow + 1);
+                int at = grid.ToIndex(town.West + 3, town.GateRow + 2);
 
-                if (grid.IsPassable(town.West + 2, town.GateRow + 1)
+                if (grid.InBounds(town.West + 3, town.GateRow + 2)
+                    && grid[at] == TerrainType.Cliff
                     && Scatter(parent, grid, rng,
-                               new Choice(decor.Houses, Any(decor.Houses, rng), WellHeight,
-                                          byWidth: false),
-                               well, heightScale, spread: 0f, occupied))
+                               new Choice(decor.Monuments, Any(decor.Monuments, rng),
+                                          MonumentHeight, byWidth: false, low: 1f, high: 1f),
+                               at, heightScale, spread: 0f, occupied, solid: true))
                     placed++;
             }
 
             return placed;
+
         }
 
         /// <summary>How many houses stand in a village.</summary>
@@ -4182,7 +4284,15 @@ namespace TheVeil.View
         /// four stacked pieces and the number had to cover all of them. One cottage
         /// stretched to seven metres is a cottage with a two-storey door.
         /// </summary>
-        const float CottageHeight = 5.5f;
+        /// <summary>
+        /// How tall one storey of a settlement building stands, in metres.
+        ///
+        /// The house is fitted to this times the number of storeys it came out with, so a
+        /// cottage is four metres to the ridge and a three-storey town house is twelve.
+        /// Fitting both to one number is what squashes the tall ones and stretches the
+        /// small ones into the same barracks.
+        /// </summary>
+        const float StoreyHeight = 4.2f;
 
         /// <summary>
         /// How wide a town house is allowed to be, in metres.
@@ -4289,7 +4399,7 @@ namespace TheVeil.View
                 if (terrain == TerrainType.Water || terrain == TerrainType.Ford
                     || terrain == TerrainType.Cliff) continue;
 
-                var house = BuildingBuilder.House(parent, decor.Kit, rng, out bool upstairs);
+                var house = BuildingBuilder.House(parent, decor.Kit, rng, out int storeys);
 
                 // Turned to the well, in quarter turns like every other building: the
                 // bearing decides which of the four it gets, so a house on the east side
@@ -4297,7 +4407,7 @@ namespace TheVeil.View
                 // scatter of buildings all facing the same way.
                 float yaw = Mathf.Round((bearing * Mathf.Rad2Deg + 180f) / 90f) * 90f;
 
-                if (!Raise(grid, tile, rng, house, CottageHeight,
+                if (!Raise(grid, tile, rng, house, storeys * StoreyHeight,
                            heightScale, occupied, road, yaw, landmark: false))
                     continue;
 
@@ -4524,9 +4634,9 @@ namespace TheVeil.View
             // And the mill itself on the bank behind the wheel.
             if (decor.Kit != null && decor.Kit.CanBuildHouse)
             {
-                var mill = BuildingBuilder.House(parent, decor.Kit, rng, out bool upstairs);
+                var mill = BuildingBuilder.House(parent, decor.Kit, rng, out int storeys);
 
-                if (Raise(grid, bank, rng, mill, CottageHeight,
+                if (Raise(grid, bank, rng, mill, storeys * StoreyHeight,
                           heightScale, occupied, road, Mathf.Round(yaw / 90f) * 90f, landmark: false))
                 {
                     Landmark.Note(found, LandmarkKind.House, bank);

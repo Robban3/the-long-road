@@ -1,3 +1,4 @@
+using TheVeil.Sim;
 using TheVeil.View;
 using UnityEditor;
 using UnityEngine;
@@ -63,6 +64,119 @@ namespace TheVeil.Editor
 
             Object.DestroyImmediate(stage);
             Debug.Log($"[Kit] picture in {shots}");
+        }
+
+        /// <summary>
+        /// Every piece of the house kit, photographed alone and from the side.
+        ///
+        /// The first version of this stood four of them in a row twelve metres apart and
+        /// looked at them from thirty — and at that distance every one of them read as a
+        /// finished house with a red roof, which is what it was reported as and what the
+        /// stacking was torn out for. A row at a distance is not an inspection. This walks
+        /// them one at a time, close, square from the side, with the ground line in shot,
+        /// so a flat top that is meant to carry a storey cannot be mistaken for a roof.
+        /// </summary>
+        [MenuItem("The Veil/Kit Pieces")]
+        public static void Inspect()
+        {
+            string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilSmoke");
+            System.IO.Directory.CreateDirectory(shots);
+
+            foreach (string name in Pieces)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Dir + name + ".prefab");
+                if (prefab == null) { Debug.Log($"[Kit] {name}: not found."); continue; }
+
+                var piece = Object.Instantiate(prefab);
+                var box = ModelScaling.Measure(piece);
+
+                // Square from the side, at the height of the piece's own middle, close
+                // enough that the top edge is unambiguous.
+                float reach = Mathf.Max(box.size.x, box.size.z) * 2.2f;
+
+                Shoot(box.center + new Vector3(0f, 0f, -reach),
+                      box.center,
+                      System.IO.Path.Combine(shots, "kit-" + name + ".png"));
+
+                Debug.Log($"[Kit] {name}: {box.size.x:0.0} x {box.size.y:0.0} x {box.size.z:0.0} m, "
+                          + $"foot {box.min.y:0.00}, top {box.max.y:0.0}.");
+
+                Object.DestroyImmediate(piece);
+            }
+
+            // And the four of them stacked the way the pack's own names say they go, so
+            // the assembly can be judged beside its parts.
+            var runner = Object.FindAnyObjectByType<TheVeil.App.LevelRunner>();
+            var kit = runner != null ? runner.Decor.Kit : null;
+
+            if (kit != null && kit.CanBuildHouse)
+            {
+                var house = BuildingBuilder.House(null, kit, new DeterministicRandom(1), out _);
+
+                if (house != null)
+                {
+                    var box = ModelScaling.Measure(house);
+                    float reach = Mathf.Max(box.size.x, box.size.z) * 2.6f;
+
+                    Shoot(box.center + new Vector3(0f, 0f, -reach), box.center,
+                          System.IO.Path.Combine(shots, "kit-house.png"));
+
+                    Debug.Log($"[Kit] assembled: {box.size.x:0.0} x {box.size.y:0.0} x {box.size.z:0.0} m.");
+                    Object.DestroyImmediate(house);
+                }
+            }
+
+            Debug.Log($"[Kit] pictures in {shots}");
+        }
+
+        /// <summary>
+        /// Every paving piece, measured and photographed from above and from the side.
+        ///
+        /// Written after laying a street with the first three that looked right in a file
+        /// listing, which produced a street of slabs sitting on the ground with their whole
+        /// thickness proud of it, in the densest cobble the pack has. Both faults are
+        /// answered by the same thing: look at each piece, and look at it from the side as
+        /// well as from above, because from above a slab that is lying on the grass and one
+        /// that is bedded into it are the same picture.
+        /// </summary>
+        [MenuItem("The Veil/Paving Report")]
+        public static void Paving()
+        {
+            string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilSmoke");
+            System.IO.Directory.CreateDirectory(shots);
+
+            string[] pieces =
+            {
+                "SM_Env_Path_Cobble_01", "SM_Env_Path_Cobble_02", "SM_Env_Path_Cobble_Stone_01",
+                "SM_Env_Path_Stone_01", "SM_Env_Path_Stone_02", "SM_Env_Path_Stone_03",
+                "SM_Env_Path_Tile_01", "SM_Env_Path_Tile_02", "SM_Env_Path_Tile_Corner_01",
+                "SM_Env_Path_Dirt_01", "SM_Env_Path_Dirt_02", "SM_Env_Path_Dirt_03"
+            };
+
+            const string dir = "Assets/Synty/PolygonKnights/Prefabs/Environments/";
+
+            foreach (string name in pieces)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(dir + name + ".prefab");
+                if (prefab == null) { Debug.Log($"[Paving] {name}: not found."); continue; }
+
+                var piece = Object.Instantiate(prefab);
+                var box = ModelScaling.Measure(piece);
+
+                float across = Mathf.Max(box.size.x, box.size.z);
+
+                // Straight down, so the pattern can be judged: how much stone, how much
+                // ground between it.
+                Shoot(box.center + new Vector3(0f, across * 1.6f, 0.01f), box.center,
+                      System.IO.Path.Combine(shots, "paving-" + name + ".png"));
+
+                Debug.Log($"[Paving] {name}: {box.size.x:0.00} x {box.size.z:0.00} m across, "
+                          + $"{box.size.y:0.00} m thick, foot at y {box.min.y:0.00}.");
+
+                Object.DestroyImmediate(piece);
+            }
+
+            Debug.Log($"[Paving] pictures in {shots}");
         }
 
         static void Shoot(Vector3 from, Vector3 at, string path)
