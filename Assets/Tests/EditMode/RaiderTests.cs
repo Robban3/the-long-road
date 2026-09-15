@@ -65,9 +65,13 @@ namespace TheVeil.Tests
         [Test]
         public void EveryTableHasARowForEveryEnemy()
         {
-            // Five kinds across eight parallel tables: one short and a new enemy reads
+            // Six kinds across eight parallel tables: one short and a new enemy reads
             // past the end of it the first time a level fields one.
-            foreach (var kind in EnemyTable.All)
+            //
+            // Over the enum rather than over EnemyTable.All, because the two are no
+            // longer the same list and the rows are what this is about. A kind with a
+            // missing row is a crash whether or not anything scatters it.
+            foreach (EnemyKind kind in System.Enum.GetValues(typeof(EnemyKind)))
             {
                 Assert.Greater(EnemyTable.GroupSize(kind), 0, $"{kind} has no group");
                 Assert.Greater(EnemyTable.HpPerModel(kind), 0f, $"{kind} has no health");
@@ -79,8 +83,18 @@ namespace TheVeil.Tests
                 Assert.Greater(EnemyTable.SilverPerKill(kind), 0, $"{kind} is worth nothing");
             }
 
-            Assert.AreEqual(System.Enum.GetValues(typeof(EnemyKind)).Length, EnemyTable.All.Length,
-                            "an enemy kind is not in EnemyTable.All, so no level will ever field it");
+            // Everything the scatter may deal is in All; the champion is the one kind
+            // that is placed instead, and it is kept out on purpose so that the hardest
+            // fight in the game can never turn up at random on the road.
+            foreach (EnemyKind kind in System.Enum.GetValues(typeof(EnemyKind)))
+            {
+                bool dealt = System.Array.IndexOf(EnemyTable.All, kind) >= 0;
+
+                Assert.AreEqual(!EnemyTable.Guards(kind), dealt,
+                    EnemyTable.Guards(kind)
+                        ? $"{kind} is posted at goals and must never be scattered"
+                        : $"{kind} is not in EnemyTable.All, so no level will ever field it");
+            }
         }
 
         [Test]

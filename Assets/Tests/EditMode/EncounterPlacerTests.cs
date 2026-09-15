@@ -111,8 +111,13 @@ namespace TheVeil.Tests
             for (int level = 1; level <= 10; level++)
             {
                 var map = Level(1, level, recipe);
-                Assert.LessOrEqual(map.Encounters.TotalPoints, recipe.EnemyBudget,
-                    $"level 1-{level} spent {map.Encounters.TotalPoints} of {recipe.EnemyBudget}");
+                // Both pockets. The stand at the goal is bought with points of its own
+                // (LevelRecipe.GoalBudget) rather than out of the road's, and a bare
+                // recipe carries none — so for this one the sum is the road's alone.
+                int purse = recipe.EnemyBudget + recipe.GoalBudget;
+
+                Assert.LessOrEqual(map.Encounters.TotalPoints, purse,
+                    $"level 1-{level} spent {map.Encounters.TotalPoints} of {purse}");
             }
         }
 

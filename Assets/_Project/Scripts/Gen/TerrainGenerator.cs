@@ -178,7 +178,21 @@ namespace TheVeil.Gen
             {
                 float danger = 0f;
 
-                foreach (int met in EncounterPlacer.MetGroups(grid, corridor.Tiles, encounters))
+                // The road, and not the stand at its end.
+                //
+                // This is an estimate calibrated on chapter one: routes that arrive carry
+                // thirty to forty-five points, routes that die carry fifty to seventy. A
+                // champion is sixty on his own, met by every route by construction, so
+                // counting him made every corridor of every tenth level read as fatal —
+                // and the generator then went looking for a map that did not exist and
+                // shipped the least-bad one. 3-10 lost two roads the escort had been
+                // winning that way, with the champion untouched at the goal.
+                //
+                // What waits at the goal is measured by playing it (The Veil > Champion
+                // Report), which is the only honest way to measure one fight, and this
+                // stays what it was calibrated to be: an estimate about a road.
+                foreach (int met in EncounterPlacer.MetGroups(grid, corridor.Tiles, encounters,
+                                                              roadOnly: true))
                     danger += EnemyTable.Points(encounters.Enemies[met].Kind);
 
                 // Measured against chapter one's squad; later chapters say how far the

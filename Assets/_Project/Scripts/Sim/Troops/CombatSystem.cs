@@ -127,6 +127,24 @@ namespace TheVeil.Sim
 
         public int EnemiesEngaged { get; private set; }
 
+        /// <summary>
+        /// Whether anything posted to hold a goal is still on its feet.
+        ///
+        /// Asked once a step by the run, which may not call a level finished while a
+        /// champion is up. Over every enemy rather than a cached flag because the list is
+        /// a dozen long and a flag would be one more thing to keep true.
+        /// </summary>
+        public bool GuardsStillStanding
+        {
+            get
+            {
+                foreach (var enemy in _detection.Enemies)
+                    if (EnemyTable.Guards(enemy.Kind) && !IsDefeated(enemy)) return true;
+
+                return false;
+            }
+        }
+
         public float HealthOf(TrackedEnemy enemy)
         {
             if (_health.TryGetValue(enemy, out float hp)) return hp;

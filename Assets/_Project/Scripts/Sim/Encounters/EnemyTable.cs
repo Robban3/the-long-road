@@ -20,8 +20,25 @@ namespace TheVeil.Sim
         /// The man the band follows. One figure, worth four of them, and the reason a
         /// band is somewhere rather than wandering.
         /// </summary>
-        BanditLeader = 4
+        BanditLeader = 4,
+
+        /// <summary>
+        /// The one who waits at the end of the road.
+        /// </summary>
+        /// <remarks>
+        /// A chapter is ten levels of the same enemies growing stronger and it ended on
+        /// scenery: a castle standing on the goal with nothing in front of it. The
+        /// champion is what a chapter is about — one rider, at the gate of the tenth
+        /// level, who has to be put down before the caravan arrives.
+        ///
+        /// Never scattered. He is placed at the goal (EncounterPlacer.GuardTheGoal) and
+        /// is deliberately absent from <see cref="Common"/> and from the pool the
+        /// scatter draws on, because a champion met halfway down a road is a strong
+        /// bandit and not a champion at all.
+        /// </remarks>
+        Champion = 5
     }
+
 
     /// <summary>
     /// Stats per enemy group. Enemies are placed and fought as groups, matching how
@@ -47,14 +64,38 @@ namespace TheVeil.Sim
         // counts the groups a route meets rather than the ones that end up in the battle.
         // At 3.4 and 20 they are still the quickest thing on the road and the first to
         // notice the caravan, and every road can be fought down again.
-        static readonly int[] _groupSize = { 5, 4, 3, 3, 1 };
-        static readonly float[] _hpPerModel = { 60f, 100f, 60f, 130f, 280f };
-        static readonly float[] _dps = { 14f, 20f, 18f, 26f, 28f };
-        static readonly float[] _speed = { 3.5f, 2.0f, 1.8f, 3.4f, 2.2f };
-        static readonly float[] _attackRange = { 2.0f, 2.0f, 18f, 2.2f, 2.2f };
+        // The champion's row, and every number in it is about one thing: he is the only
+        // enemy in the game the player cannot drive round. He is quick — 3.2, near a
+        // rider's 3.4 — because a champion who can be outrun is a toll and not a fight,
+        // and he wakes at twenty-six metres so that arriving at the goal means meeting
+        // him rather than creeping past along the edge.
+        //
+        // <b>Four hundred and fifty, measured, and it began at nine hundred.</b> At nine
+        // hundred the chapter's EnemyStrength carried him to 1,215 in chapter one and
+        // 1,530 in chapter two, and every road of 2-10 and 3-10 was lost. What the
+        // measuring showed (The Veil > Champion Report) was that the health was barely
+        // the point: on every road that was lost the escort was already <i>dead</i> — six
+        // posts, none standing — and a caravan with no escort does no damage at all, so
+        // any champion of any size is a wall. On every road where even one troop group
+        // was left alive he was killed. The fight is decided by what the road left of the
+        // escort, which is the design working; the health decides how much of that is
+        // spent, and at 450 chapter one loses him two roads out of three and chapter two
+        // one out of three with 280 of wagon paid for it.
+        //
+        // Sixty points, which is twice the captain's thirty. The price no longer buys him
+        // room on the road — he is paid for out of a purse of his own (Champions.Purse)
+        // and is deliberately invisible to the survivability estimate, which is calibrated
+        // on roads and cannot judge one hand-tuned fight. It is what the report and the
+        // difficulty sheets read him as costing, and it is why a level's total points rise
+        // by exactly the stand at its goal.
+        static readonly int[] _groupSize = { 5, 4, 3, 3, 1, 1 };
+        static readonly float[] _hpPerModel = { 60f, 100f, 60f, 130f, 280f, 450f };
+        static readonly float[] _dps = { 14f, 20f, 18f, 26f, 28f, 30f };
+        static readonly float[] _speed = { 3.5f, 2.0f, 1.8f, 3.4f, 2.2f, 3.2f };
+        static readonly float[] _attackRange = { 2.0f, 2.0f, 18f, 2.2f, 2.2f, 2.4f };
 
         /// <summary>Range at which the group wakes and attacks the caravan.</summary>
-        static readonly float[] _detectRadius = { 20f, 16f, 22f, 20f, 18f };
+        static readonly float[] _detectRadius = { 20f, 16f, 22f, 20f, 18f, 26f };
 
         /// <summary>
         /// Threat cost against the level's enemy budget. Not derived from stats: a
@@ -69,9 +110,9 @@ namespace TheVeil.Sim
         // twenty it was 2-9, and at fourteen and twenty-four it was 2-10 — the captain
         // kept being priced low enough that the placer could stand a band beside him. At
         // thirty he arrives nearly alone, which is what a man worth thirty points means.
-        static readonly int[] _points = { 5, 8, 7, 14, 30 };
+        static readonly int[] _points = { 5, 8, 7, 14, 30, 60 };
 
-        static readonly int[] _silverPerKill = { 3, 6, 5, 9, 40 };
+        static readonly int[] _silverPerKill = { 3, 6, 5, 9, 40, 200 };
 
         public static int GroupSize(EnemyKind k) => _groupSize[(int)k];
         public static float HpPerModel(EnemyKind k) => _hpPerModel[(int)k];
@@ -95,10 +136,20 @@ namespace TheVeil.Sim
         /// instead of the treasure.
         /// </summary>
         public static bool AfterTreasure(EnemyKind k)
-            => k == EnemyKind.Bandit || k == EnemyKind.BanditRider || k == EnemyKind.BanditLeader;
+            => k == EnemyKind.Bandit || k == EnemyKind.BanditRider
+               || k == EnemyKind.BanditLeader || k == EnemyKind.Champion;
 
         /// <summary>Whether this one is on a horse, which is what a spear is for.</summary>
-        public static bool IsMounted(EnemyKind k) => k == EnemyKind.BanditRider;
+        public static bool IsMounted(EnemyKind k)
+            => k == EnemyKind.BanditRider || k == EnemyKind.Champion;
+
+        /// <summary>
+        /// Whether this one waits at the goal rather than being dealt onto the road.
+        ///
+        /// Asked by the placer, which must never scatter one, and by the run, which must
+        /// not call the level finished while one is still up.
+        /// </summary>
+        public static bool Guards(EnemyKind k) => k == EnemyKind.Champion;
 
         public static readonly EnemyKind[] All =
         {

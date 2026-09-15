@@ -15,7 +15,18 @@ namespace TheVeil.Sim
         Repair = 2,
 
         /// <summary>Laid on the line of one route rather than on the ground around it.</summary>
-        OnRoute = 3
+        OnRoute = 3,
+
+        /// <summary>
+        /// Posted at the goal: the last fight of the road, and once a chapter the
+        /// champion who has to be beaten before the caravan may arrive.
+        ///
+        /// Kept apart from <see cref="Guard"/> rather than folded into it, because the
+        /// two are guards of different things and the tests say so: a ford guard stands
+        /// on a ford, and asking that of everything posted deliberately would make the
+        /// ford rule unfalsifiable the moment anything else was posted anywhere.
+        /// </summary>
+        Goal = 4
     }
 
     public struct EnemySpawn
@@ -94,6 +105,15 @@ namespace TheVeil.Sim
 
         /// <summary>Groups placed on fords, which no crossing of the river can avoid.</summary>
         public int FordGuards;
+
+        /// <summary>
+        /// Figures standing at the goal — the guard and whoever rides with him.
+        ///
+        /// Counted apart from the ford guards because they are the one placement made on
+        /// ground the band deliberately keeps empty, so a number that looks wrong here is
+        /// the first thing worth looking at.
+        /// </summary>
+        public int GoalGuards;
 
         /// <summary>Groups moved onto a route that had met too little. Budget-neutral.</summary>
         public int Repairs;

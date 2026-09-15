@@ -233,6 +233,31 @@ namespace TheVeil.Gen
             // nothing needs counting again. See MineARoute.
             MineARoute(grid, corridors, layout, mined, startIndex, goalIndex);
 
+            // Last of all, and every word of that is load-bearing.
+            //
+            // The stand at the goal must not be able to move the road. It has its own
+            // purse (Champions.Purse), its own dice, and now its own place in the order —
+            // after the scatter, after the repair pass, after everything the generator
+            // reads when it decides whether to keep a map. Placed earlier it changed the
+            // ground it stood on: 3-10 came out with 2,644 tiles of different terrain, a
+            // fastest road a quarter slower, and a worst drawn route that met two groups
+            // instead of six. The escort lost two roads it had been winning, with the
+            // champion untouched at the goal — the level under it had been replaced.
+            //
+            // Chapters one and two came right by taking the goal out of the numbers the
+            // generator reads; chapter three only came right when it was taken out of the
+            // order as well. The lesson is the cheaper one to write down than to find:
+            // anything added to a generated level must be added where it cannot be an
+            // input to the generation.
+            GuardTheGoal(grid, corridors, recipe, new DeterministicRandom(goalIndex * 31 + grid.Width),
+                         layout, occupied, recipe.GoalBudget, goalIndex);
+
+            // Both are pure recounts over the finished lists, so the goal's own territory
+            // and its silver are right without anything upstream being asked again. See
+            // AssignTerritories for why the posted men are no neighbour to anybody.
+            AssignTerritories(grid, layout);
+            TallySilver(layout, recipe);
+
             return layout;
         }
 
@@ -460,6 +485,190 @@ namespace TheVeil.Gen
             }
 
             return spent;
+        }
+
+        /// <summary>
+        /// How far short of the goal the guard stands, in tiles, measured across the
+        /// ground rather than along a path.
+        ///
+        /// <see cref="SafeEndTiles"/>, and the same number on purpose. The first draft
+        /// stood him four tiles off on the reasoning that the band's rule was worth
+        /// breaking once for the sake of the fight being at the goal — and that was a
+        /// special case bought for nothing. At five he is outside the ring the band keeps
+        /// clear, so there is no exception to write down and no test to weaken, and he is
+        /// still twenty metres from the goal on the road in: well inside his own detect
+        /// radius from any direction a route can arrive from, which is what "arriving
+        /// means meeting him" actually requires.
+        ///
+        /// The <see cref="SafeEndCost"/> half of the band's rule he is still inside —
+        /// five tiles of road is about four of travel cost against a floor of eight. That
+        /// is the whole of the exception, it applies to the goal end only, and it is the
+        /// point: the ground by the goal is quiet so that the one thing standing on it is
+        /// the thing the player sees.
+        /// </summary>
+        const int GoalStandoff = SafeEndTiles;
+
+        /// <summary>
+        /// How far from the guard his retinue may be posted, in tiles.
+        ///
+        /// Two, and it was three. At three they are spread over five tiles of road with a
+        /// territory and a twenty-metre notice each, which does not read as a bodyguard —
+        /// it reads as a picket, and it fought like one: on 3-10 the retinue killed the
+        /// caravan short of the goal with the champion still at full health and the fight
+        /// the level is named for never begun. Close enough to be his, so the player meets
+        /// the whole thing at once and the choice of which to answer first is a choice
+        /// made in one fight rather than three.
+        /// </summary>
+        const int RetinueReach = 2;
+
+        /// <summary>
+        /// Stands the last fight of the road at the goal.
+        ///
+        /// Every level ends on something. Nine times out of ten it is the heaviest thing
+        /// the level is allowed to field, which the player may still drive round; on the
+        /// tenth it is the chapter's champion, who cannot be driven round and is the only
+        /// thing in the game of which that is true.
+        ///
+        /// <b>The kind comes from the level's own pool and not from a constant.</b> The
+        /// first draft posted a BanditRider at every goal, and chapter one does not unlock
+        /// riders at all — so 1-1, which is meant to be wolves and nothing else, met
+        /// horsemen at its goal. What waits at the end of a level has to be something the
+        /// level was allowed to contain, or the unlock table is decoration.
+        ///
+        /// Paid out of the same budget as everything else, and taken before the scatter
+        /// spends it, so a level with a champion carries less on the road behind him
+        /// rather than more danger altogether.
+        /// </summary>
+        static int GuardTheGoal(TileGrid grid, IReadOnlyList<Corridor> corridors,
+                                LevelRecipe recipe, DeterministicRandom rng,
+                                EncounterLayout layout, HashSet<int> occupied,
+                                int budget, int goalIndex)
+        {
+            var kind = Champions.GuardKind(recipe.EnemyPool, recipe.GoalBlocks);
+            if (EnemyTable.Points(kind) > budget) return 0;
+
+            // The ring the band keeps clear, claimed before anything is posted in it, so
+            // that the rule holds for the retinue as well as for the man it rides with.
+            // The scatter loses nothing by this: the band excludes these tiles already.
+            grid.ToCoords(goalIndex, out int ringX, out int ringY);
+
+            for (int dy = -GoalStandoff; dy <= GoalStandoff; dy++)
+                for (int dx = -GoalStandoff; dx <= GoalStandoff; dx++)
+                {
+                    if (ClearOf(dx, dy, GoalStandoff)) continue;
+
+                    int nx = ringX + dx, ny = ringY + dy;
+                    if (grid.InBounds(nx, ny)) occupied.Add(grid.ToIndex(nx, ny));
+                }
+
+            int post = GoalPost(grid, corridors, goalIndex, occupied);
+            if (post < 0) return 0;
+
+            layout.Enemies.Add(new EnemySpawn
+            {
+                Tile = post,
+                Kind = kind,
+                Origin = PlacementOrigin.Goal
+            });
+
+            occupied.Add(post);
+            int spent = EnemyTable.Points(kind);
+            layout.GoalGuards++;
+
+            // And the men who ride with him: horsemen and bowmen, never more captains.
+            // See Champions.CompanionAt for what drawing them like the guard cost.
+            grid.ToCoords(post, out int px, out int py);
+
+            for (int i = 0; i < recipe.GoalRetinue; i++)
+            {
+                var drawn = Champions.Companion(recipe.EnemyPool, i);
+                if (!drawn.HasValue) break;
+
+                var companion = drawn.Value;
+                if (spent + EnemyTable.Points(companion) > budget) break;
+
+                int beside = FreeNear(grid, px, py, 1, RetinueReach, occupied, rng);
+                if (beside < 0) break;
+
+                layout.Enemies.Add(new EnemySpawn
+                {
+                    Tile = beside,
+                    Kind = companion,
+                    Origin = PlacementOrigin.Goal
+                });
+
+                occupied.Add(beside);
+                spent += EnemyTable.Points(companion);
+                layout.GoalGuards++;
+            }
+
+            return spent;
+        }
+
+        /// <summary>
+        /// The tile the guard stands on: on the fastest road in, a few tiles short of the
+        /// goal, and failing that any open ground at that remove.
+        /// </summary>
+        static int GoalPost(TileGrid grid, IReadOnlyList<Corridor> corridors, int goalIndex,
+                            HashSet<int> occupied)
+        {
+            grid.ToCoords(goalIndex, out int gx, out int gy);
+
+            // The fast road, walked back from the goal. A guard on the road the player is
+            // likeliest to take is a guard the player meets.
+            //
+            // Straight-line distance, not steps taken. Manhattan counts a diagonal as
+            // two, so five of it is three and a half tiles across the ground — which put
+            // a group eleven metres from the goal while satisfying a rule written in
+            // sixteen. The band's own note about cost and distance is the same mistake
+            // one measure along; this is that note applied here.
+            foreach (var corridor in corridors)
+            {
+                if (corridor.Kind != CorridorKind.Fast) continue;
+
+                for (int i = corridor.Tiles.Count - 1; i >= 0; i--)
+                {
+                    int tile = corridor.Tiles[i];
+                    if (occupied.Contains(tile) || !grid.IsPassable(tile)) continue;
+
+                    grid.ToCoords(tile, out int x, out int y);
+                    if (!ClearOf(x - gx, y - gy, GoalStandoff)) continue;
+
+                    return tile;
+                }
+            }
+
+            // No fast corridor to walk back, so the nearest open ground at the right remove.
+            return FreeNear(grid, gx, gy, GoalStandoff, GoalStandoff + 2, occupied, null);
+        }
+
+        /// <summary>Whether an offset is at least this many tiles across the ground.</summary>
+        static bool ClearOf(int dx, int dy, int tiles) => dx * dx + dy * dy >= tiles * tiles;
+
+        /// <summary>Open, unclaimed ground at a given remove from a point.</summary>
+        static int FreeNear(TileGrid grid, int x, int y, int nearest, int furthest,
+                            HashSet<int> occupied, DeterministicRandom rng)
+        {
+            var found = new List<int>();
+
+            for (int dy = -furthest; dy <= furthest; dy++)
+            {
+                for (int dx = -furthest; dx <= furthest; dx++)
+                {
+                    if (!ClearOf(dx, dy, nearest)) continue;
+
+                    int nx = x + dx, ny = y + dy;
+                    if (!grid.InBounds(nx, ny) || !grid.IsPassable(nx, ny)) continue;
+
+                    int tile = grid.ToIndex(nx, ny);
+                    if (occupied.Contains(tile)) continue;
+
+                    found.Add(tile);
+                }
+            }
+
+            if (found.Count == 0) return -1;
+            return rng == null ? found[found.Count / 2] : found[rng.Range(0, found.Count)];
         }
 
         /// <summary>Ford tiles grouped into crossings, one group per place the river can be forded.</summary>
@@ -1089,12 +1298,35 @@ namespace TheVeil.Gen
             for (int i = 0; i < layout.Enemies.Count; i++)
             {
                 var spawn = layout.Enemies[i];
+
+                // The stand at the goal holds a gate, not a stretch of country, so it
+                // keeps its own eyes: territory stays zero and TrackedEnemy falls back to
+                // the table's detect radius.
+                //
+                // Given a territory it was given the *wrong* one. A group's territory is
+                // half the distance to its nearest neighbour, and the nearest neighbour of
+                // a man posted five tiles from the goal is whatever the scatter happened
+                // to leave nearby — so the champion, whose twenty-six metres of notice is
+                // the whole reason he cannot be crept past, was watching six. He sat at
+                // full health while the caravan was killed twenty metres away by his own
+                // bodyguard, and on a road where the bodyguard lost, the run simply never
+                // ended: nothing could arrive and nothing could wake to stop it.
+                if (spawn.Origin == PlacementOrigin.Goal) continue;
+
                 grid.ToCoords(spawn.Tile, out int x, out int y);
 
                 float nearest = float.PositiveInfinity;
                 for (int j = 0; j < layout.Enemies.Count; j++)
                 {
                     if (j == i) continue;
+
+                    // The stand at the goal holds no country and takes none from anybody.
+                    // A group's territory is half the distance to its nearest neighbour,
+                    // so a champion posted near the goal quietly halved the reach of every
+                    // group on the road beside him — which changed what routes met, which
+                    // changed which map the generator kept.
+                    if (layout.Enemies[j].Origin == PlacementOrigin.Goal) continue;
+
                     grid.ToCoords(layout.Enemies[j].Tile, out int ox, out int oy);
                     float dx = ox - x, dy = oy - y;
                     float distance = (float)Math.Sqrt(dx * dx + dy * dy);
@@ -1278,7 +1510,7 @@ namespace TheVeil.Gen
 
         /// <summary>Indices of the enemy groups whose territory a route crosses.</summary>
         public static List<int> MetGroups(TileGrid grid, IReadOnlyList<int> route,
-                                          EncounterLayout layout)
+                                          EncounterLayout layout, bool roadOnly = false)
         {
             var met = new List<int>();
             var onRoute = new HashSet<int>(route);
@@ -1286,6 +1518,18 @@ namespace TheVeil.Gen
             for (int i = 0; i < layout.Enemies.Count; i++)
             {
                 var spawn = layout.Enemies[i];
+
+                // The stand at the goal is not what this promise is about.
+                //
+                // MinEncounters asks whether a *drawn* route meets enough to be a level —
+                // draw what you like, you will still have a game. Something posted at the
+                // goal is met by every route by construction, so counting it adds one to
+                // every score and tells the placer a road is livelier than it is. It also
+                // changed which generated map was kept, because the generator re-rolls on
+                // this number: adding a champion to 3-10 reshuffled the terrain and lost
+                // the escort two roads it had been winning, with the champion untouched.
+                if (roadOnly && spawn.Origin == PlacementOrigin.Goal) continue;
+
                 if (onRoute.Contains(spawn.Tile)) { met.Add(i); continue; }
 
                 float reach = spawn.Territory > 0f ? spawn.Territory : EngageRadiusTiles;
@@ -1410,7 +1654,7 @@ namespace TheVeil.Gen
 
             for (int i = 0; i < routes.Count; i++)
             {
-                int met = MetGroups(grid, routes[i], layout).Count;
+                int met = MetGroups(grid, routes[i], layout, roadOnly: true).Count;
                 if (met >= fewest) continue;
                 fewest = met;
                 worst = i;
@@ -1418,7 +1662,7 @@ namespace TheVeil.Gen
 
             tied = 0;
             for (int i = 0; i < routes.Count; i++)
-                if (MetGroups(grid, routes[i], layout).Count == fewest) tied++;
+                if (MetGroups(grid, routes[i], layout, roadOnly: true).Count == fewest) tied++;
         }
 
         /// <summary>
@@ -1443,7 +1687,8 @@ namespace TheVeil.Gen
             for (int i = 0; i < layout.Enemies.Count; i++)
             {
                 var spawn = layout.Enemies[i];
-                if (spawn.Origin == PlacementOrigin.Guard || rejected.Contains(i)) continue;
+                if (spawn.Origin == PlacementOrigin.Guard || spawn.Origin == PlacementOrigin.Goal
+                    || rejected.Contains(i)) continue;
 
                 float reach = spawn.Territory > 0f ? spawn.Territory : EngageRadiusTiles;
                 int met = 0;
@@ -1554,7 +1799,7 @@ namespace TheVeil.Gen
             {
                 int earned = 0;
 
-                foreach (int index in MetGroups(grid, route, layout))
+                foreach (int index in MetGroups(grid, route, layout, roadOnly: true))
                     earned += (int)(EnemyTable.GroupSilver(layout.Enemies[index].Kind) * multiplier);
 
                 for (int i = 0; i < layout.Traps.Count; i++)

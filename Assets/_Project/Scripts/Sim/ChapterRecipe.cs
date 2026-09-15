@@ -133,10 +133,20 @@ namespace TheVeil.Sim
 
                 // And the one level with a town on it, whose walls are laid before the
                 // ways through are found. See Towns.
-                Town = Towns.HasTown(Chapter, clamped)
+                Town = Towns.HasTown(Chapter, clamped),
+
+                // And who is waiting at the end of it. See Champions.
+                GoalRetinue = Champions.Named(Chapter, clamped) ? Champions.Retinue(Chapter) : 0,
+                GoalBlocks = Champions.Named(Chapter, clamped)
             };
 
             if (TerrainMix != null && TerrainMix.Length > 0) recipe.TerrainMix = TerrainMix;
+
+            // After the pool, which is what the guard is drawn from. Nothing at the goal
+            // means nothing to pay for: see Champions.Guards for why that is most levels.
+            recipe.GoalBudget = Champions.Guards(Chapter, clamped)
+                ? Champions.Purse(recipe.EnemyPool, recipe.GoalBlocks, recipe.GoalRetinue)
+                : 0;
             return recipe;
         }
 

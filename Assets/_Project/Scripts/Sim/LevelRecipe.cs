@@ -167,6 +167,34 @@ namespace TheVeil.Sim
         /// </summary>
         public bool Town;
 
+        /// <summary>
+        /// Whether this level's goal is held by the chapter's champion, and how many ride
+        /// with him.
+        ///
+        /// On the recipe for the same reason <see cref="Town"/> is: the placer is handed a
+        /// grid and a recipe and knows nothing about chapters, and the answer has to be
+        /// the same one the plan map and the run both get. Champions decides it.
+        ///
+        /// <see cref="GoalBlocks"/> is the one that matters to the player. Every level has
+        /// something at its goal; only a champion has to be put down before the caravan
+        /// may arrive, and that is once a chapter.
+        ///
+        /// There is deliberately no field for *what* an ordinary goal guard is. It is the
+        /// heaviest thing in <see cref="EnemyPool"/>, worked out where it is placed, so
+        /// that what waits at the end of a level is always something the level was allowed
+        /// to contain — see EncounterPlacer.GuardTheGoal.
+        /// </summary>
+        public int GoalRetinue;
+        public bool GoalBlocks;
+
+        /// <summary>
+        /// Threat points for the stand at the goal, on top of <see cref="EnemyBudget"/>.
+        ///
+        /// A second pocket rather than a slice of the first. See Champions.Purse for what
+        /// happened when it was a slice.
+        /// </summary>
+        public int GoalBudget;
+
         public int SquadBudget = 12;
         public float TrapDensity = 1f;
         public float SilverMultiplier = 1f;

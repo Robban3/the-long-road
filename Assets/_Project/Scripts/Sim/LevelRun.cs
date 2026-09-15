@@ -188,7 +188,7 @@ namespace TheVeil.Sim
             if (Outcome != RunOutcome.InProgress) return;
 
             ElapsedSeconds += StepSeconds;
-            if (Combat == null || !Combat.Halted) TravelSeconds += StepSeconds;
+            if ((Combat == null || !Combat.Halted) && !HoldingTheGoal) TravelSeconds += StepSeconds;
 
             Caravan.Tick(StepSeconds);
 
@@ -236,8 +236,34 @@ namespace TheVeil.Sim
             ApplyTrapDamage();
 
             if (Caravan.Destroyed) Outcome = RunOutcome.CaravanLost;
-            else if (Caravan.HasArrived) Outcome = RunOutcome.Arrived;
+            else if (Caravan.HasArrived) HoldOrFinish();
             else WatchForAStall();
+        }
+
+        /// <summary>
+        /// The caravan is at the goal and something is refusing to let it be over.
+        ///
+        /// True for one fight in a chapter: the champion, who is the only thing in the
+        /// game that has to be beaten rather than driven round. Everything else on a map
+        /// can be routed past, which is what the route drawing is for, and a level that
+        /// cannot be finished without a fight is a promise the game breaks once a chapter
+        /// rather than ten times.
+        /// </summary>
+        public bool HoldingTheGoal { get; private set; }
+
+        /// <summary>
+        /// Calls the level finished, unless the champion says otherwise.
+        ///
+        /// <b>The stand is not charged to the player twice.</b> Arriving already stops
+        /// <see cref="WatchForAStall"/> — it is only asked while the caravan is still on
+        /// the road — and <see cref="TravelSeconds"/> stops with it, for the same reason
+        /// fighting was taken out of the clock in the first place: par is measured against
+        /// the route, and standing at the goal killing a man is not route.
+        /// </summary>
+        void HoldOrFinish()
+        {
+            HoldingTheGoal = Combat != null && Combat.GuardsStillStanding;
+            if (!HoldingTheGoal) Outcome = RunOutcome.Arrived;
         }
 
         /// <summary>
