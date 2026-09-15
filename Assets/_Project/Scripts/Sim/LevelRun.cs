@@ -263,7 +263,84 @@ namespace TheVeil.Sim
         void HoldOrFinish()
         {
             HoldingTheGoal = Combat != null && Combat.GuardsStillStanding;
-            if (!HoldingTheGoal) Outcome = RunOutcome.Arrived;
+            if (!HoldingTheGoal) { Outcome = RunOutcome.Arrived; return; }
+
+            WatchForAStandoff();
+        }
+
+        /// <summary>
+        /// How long the stand at the goal may go without a blow landing either way, before
+        /// the run is called off. Seconds.
+        ///
+        /// Twelve, which is longer than <see cref="StallSeconds"/> because a fight has
+        /// lulls a stuck cart does not: a champion who has knocked the line back and is
+        /// riding round for another pass is doing nothing measurable for several seconds
+        /// and is not stuck.
+        /// </summary>
+        public const float StandoffSeconds = 12f;
+
+        float _standoff;
+        float _lastBlow = float.NaN;
+
+        /// <summary>
+        /// Ends a stand at the goal that has stopped being a fight.
+        ///
+        /// <b>Holding the outcome removed the only way a run could end, and a run that
+        /// cannot end is worse than any balance fault in this file.</b>
+        /// <see cref="WatchForAStall"/> is only asked while the caravan is still on the
+        /// road — that is deliberate, since a caravan parked at the goal is not stalled —
+        /// so once <see cref="HoldingTheGoal"/> started holding InProgress there was
+        /// nothing left watching at all. Found by playing 1-10: the escort was dead, the
+        /// champion was seven metres from the lead wagon with the castle between them and
+        /// could not close, and the run sat at five minutes and counting with neither side
+        /// able to touch the other.
+        ///
+        /// Watched by damage rather than by movement, which is what makes it right here.
+        /// The caravan is *meant* to be standing still — it has arrived — so distance says
+        /// nothing, and <c>Combat.Halted</c> is false whenever the champion is more than
+        /// five metres out, which is exactly the case that hung. What a fight always does
+        /// is take health off somebody. When neither the guard nor the wagons have lost
+        /// anything for twelve seconds, there is no fight, whatever the positions say.
+        ///
+        /// <b>Called off as a loss, and not as an arrival.</b> The champion is the one
+        /// thing in the game that has to be beaten, so a caravan that has not beaten him
+        /// has not got through — ending it as Arrived would hand the player the level for
+        /// failing to fight, which is the opposite of what the champion is for.
+        /// </summary>
+        void WatchForAStandoff()
+        {
+            float blood = Combat.GuardHealth + CaravanHealth();
+
+            // Strictly less, so the wheelwright's mending cannot hold the run open on its
+            // own: any blow landed either way resets the clock, and nothing else does.
+            if (float.IsNaN(_lastBlow) || blood < _lastBlow - 0.001f)
+            {
+                _lastBlow = blood;
+                _standoff = 0f;
+                return;
+            }
+
+            _standoff += StepSeconds;
+            if (_standoff < StandoffSeconds) return;
+
+            HeldAtTheGate = true;
+            Outcome = RunOutcome.CaravanLost;
+        }
+
+        /// <summary>
+        /// The run ended because the champion held the goal and nothing could shift him.
+        ///
+        /// Kept so the app can say *why*, the same reason <see cref="StalledOn"/> is:
+        /// "the caravan was lost" and "the caravan was lost at the gate, to a champion it
+        /// could not reach" are an evening apart when the second one is a bug.
+        /// </summary>
+        public bool HeldAtTheGate { get; private set; }
+
+        float CaravanHealth()
+        {
+            float hp = 0f;
+            foreach (var wagon in Caravan.Wagons) hp += wagon.Hp;
+            return hp;
         }
 
         /// <summary>

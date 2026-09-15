@@ -308,6 +308,12 @@ namespace TheVeil.Editor
                 // reads as the wrong faction rather than as its captain.
                 BanditLeader = Army("MC_ManAtArms_03"),
 
+                // And the one who waits at the end of a chapter. A face per chapter: see
+                // ChampionRiders for why they are drawn from three families rather than
+                // one, and VisualLibrary.ChampionFor for what happens past the tenth.
+                Champions = ChampionActors(),
+                ChampionLiveries = ChampionLiveries(),
+
                 // The wildlife of GDD §3.5.
                 //
                 // The URP prefab for the materials, but the controller this project
@@ -515,6 +521,102 @@ namespace TheVeil.Editor
         public const string KnightsPath = CavalryPrefabDir + "/TheVeil_Knights.prefab";
 
         /// <summary>
+        /// A rider per chapter, for the champion who holds its last level.
+        ///
+        /// Deliberately walked across the pack's three families rather than down one of
+        /// them — a knight, then a nobleman, then a man-at-arms, and round again. Ten
+        /// knights in ten shades of steel is ten of the same man, and what this is for is
+        /// that the champion of chapter four is visibly not the champion of chapter three.
+        /// Adjacent chapters therefore never share a family, which is the thing a player
+        /// would actually notice.
+        ///
+        /// They all ride the pack's heavy horse. Varying the mount as well was tempting
+        /// and is not free: the re-dressing finds the seated rider by name
+        /// (MC_Knight_01), and that name is the heavy cavalry's. A champion on a bare
+        /// saddle would want that worked out first, and a wrong guess is a man bound to a
+        /// horse's neck.
+        /// </summary>
+        static readonly string[] ChampionRiders =
+        {
+            "MC_Knight_03", "MC_Noble_02", "MC_ManAtArms_05", "MC_Knight_06", "MC_Noble_05",
+            "MC_ManAtArms_09", "MC_Knight_07", "MC_Noble_07", "MC_ManAtArms_11", "MC_Knight_09"
+        };
+
+        /// <summary>
+        /// The horse each country's champion rides.
+        ///
+        /// A country's own, the way its trees and its ground are: the marsh and the coast
+        /// get the light horse, the plains and the mountain the barded one, the enchanted
+        /// wood and the dead lands the nobleman's. It costs nothing — every mount in the
+        /// pack carries its rider under the same name (The Veil > Report Cavalry Riders),
+        /// so the re-dressing works on any of them — and it is most of the silhouette at
+        /// the distance this game is played from. Ten riders on one horse is ten men who
+        /// look alike from forty metres up, which is where the player actually is.
+        /// </summary>
+        static readonly string[] ChampionMounts =
+        {
+            "MC_Cavalry_HeavyCavalry", "MC_Cavalry", "MC_Cavalry_LightCavalry",
+            "MC_Cavalry_HeavyCavalry", "MC_Cavalry", "MC_Cavalry_HeavyCavalry",
+            "MC_Cavalry_LightCavalry", "MC_Cavalry_Scout", "MC_Cavalry_NobleCavalry",
+            "MC_Cavalry_NobleCavalry"
+        };
+
+        static string ChampionPath(Biome biome)
+            => $"{CavalryPrefabDir}/TheVeil_Champion_{(int)biome:00}_{biome}.prefab";
+
+        /// <summary>
+        /// The ten champions, each the heavy cavalry wearing a different man.
+        ///
+        /// Where a re-dress fails the chapter falls back to the pack's own scout-rider —
+        /// the same horseman the raiders use — rather than to nothing. A champion who
+        /// looks like an ordinary rider is a disappointment; a champion who is invisible
+        /// is a bug, and the fight is unavoidable.
+        /// </summary>
+        static ActorModel[] ChampionActors()
+        {
+            var order = Biomes.Order;
+            var faces = new ActorModel[order.Length];
+
+            for (int i = 0; i < order.Length; i++)
+            {
+                var biome = order[i];
+
+                string built = RiderPrefab(ChampionMounts[i], ChampionRiders[i],
+                                           ChampionPath(biome), $"TheVeil_Champion_{biome}");
+
+                faces[(int)biome] = ArmyAt(built ?? $"{ArmyDir}/MC_Cavalry_Scout.prefab");
+            }
+
+            return faces;
+        }
+
+        /// <summary>
+        /// The six liveries a champion may wear, in the order the passes take them.
+        ///
+        /// <b>The country says who he is and the pass says which one he is.</b> Ten
+        /// countries with one champion each would be ten champions in a campaign written
+        /// for about a hundred chapters — so the same man in the same wood, nine more
+        /// times. The dressings answer exactly this question for the scenery and are
+        /// described there as the cheap half of variety: ten countries and four dressings
+        /// are forty chapters that do not look like each other, for the art of ten. This
+        /// is that, for the man at the end of them.
+        ///
+        /// Black is left out. It is the raiders' own livery (see EnemyFaction) and a
+        /// champion in it is the band's captain with more health.
+        /// </summary>
+        static Material[] ChampionLiveries()
+        {
+            string[] colours = { "Red", "Blue", "Green", "Yellow", "Brown" };
+            var liveries = new Material[colours.Length];
+
+            for (int i = 0; i < colours.Length; i++)
+                liveries[i] = AssetDatabase.LoadAssetAtPath<Material>(
+                    $"Assets/Stylized_Medieval_Army_Pack/Materials/UnviersalColors{colours[i]}.mat");
+
+            return liveries;
+        }
+
+        /// <summary>
         /// The heavy cavalry with the cloth taken off its horse: plate and nothing over it.
         ///
         /// The pack dresses its heavy and its noble horse alike — plate under a trapper —
@@ -581,9 +683,20 @@ namespace TheVeil.Editor
         /// it meets — so the knights keep exactly the avatar the heavy cavalry has.
         /// </summary>
         static string KnightsPrefab()
+            => RiderPrefab("MC_Cavalry_HeavyCavalry", "MC_Knight_02", KnightsPath, "TheVeil_Knights");
+
+        /// <summary>
+        /// The heavy cavalry with a different man in the saddle, saved as its own prefab.
+        ///
+        /// Generalised out of the knights when the champions needed the same trick ten
+        /// more times. It is the only piece of this file worth not copying: the rebinding
+        /// below is exact, and a second copy of it would be a second thing to get wrong.
+        /// </summary>
+        static string RiderPrefab(string mountName, string dresserName, string savePath,
+                                  string prefabName)
         {
-            var source = One($"{ArmyDir}/MC_Cavalry_HeavyCavalry.prefab");
-            var knight = One($"{ArmyDir}/MC_Knight_02.prefab");
+            var source = One($"{ArmyDir}/{mountName}.prefab");
+            var knight = One($"{ArmyDir}/{dresserName}.prefab");
             if (source == null || knight == null) return null;
 
             MakeFolder(CavalryPrefabDir);
@@ -598,7 +711,7 @@ namespace TheVeil.Editor
                 if (rider == null)
                 {
                     Debug.LogWarning("[The Veil] No rider called MC_Knight_01 on the heavy cavalry; "
-                                     + "the knights keep the pack's MC_Cavalry.");
+                                     + $"{prefabName} keeps the pack's own.");
                     return null;
                 }
 
@@ -615,12 +728,12 @@ namespace TheVeil.Editor
                     {
                         if (piece.bones[i] != null && bones.TryGetValue(piece.bones[i].name, out mapped[i])) continue;
 
-                        Debug.LogWarning($"[The Veil] Knight 02's {piece.name} is bound to a bone the rider "
-                                         + $"has not got ({piece.bones[i]?.name}); the knights keep the pack's MC_Cavalry.");
+                        Debug.LogWarning($"[The Veil] {dresserName}'s {piece.name} is bound to a bone the rider "
+                                         + $"has not got ({piece.bones[i]?.name}); {prefabName} keeps the pack's own.");
                         return null;
                     }
 
-                    var part = new GameObject("Knight02_" + piece.name);
+                    var part = new GameObject(dresserName + "_" + piece.name);
                     part.transform.SetParent(rider, false);
 
                     var skin = part.AddComponent<SkinnedMeshRenderer>();
@@ -642,8 +755,8 @@ namespace TheVeil.Editor
                     else skin.enabled = false;
                 }
 
-                instance.name = "TheVeil_Knights";
-                return PrefabUtility.SaveAsPrefabAsset(instance, KnightsPath) != null ? KnightsPath : null;
+                instance.name = prefabName;
+                return PrefabUtility.SaveAsPrefabAsset(instance, savePath) != null ? savePath : null;
             }
             finally
             {

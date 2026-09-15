@@ -416,6 +416,9 @@ namespace TheVeil.App
             {
                 Library = Models,
                 ShowReach = ShowReach,
+
+                // The one thing drawn differently per chapter. See RunVisuals.Chapter.
+                Chapter = Chapter,
                 // Footprints behind the column, in the one country that takes a print.
                 TracksInSnow = biome == Biome.Winter
             };

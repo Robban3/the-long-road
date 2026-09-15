@@ -260,6 +260,39 @@ namespace TheVeil.View
         public ActorModel[] Brigands;
         public ActorModel[] Deserters;
 
+        /// <summary>
+        /// The champion who holds the last level of each chapter — <b>one per country</b>,
+        /// indexed by <see cref="Biome"/>.
+        ///
+        /// By country and not by chapter number, which was the first try and does not
+        /// survive the campaign being about a thousand levels long. Ten faces dealt out by
+        /// chapter means the eleventh chapter wears the first one's harness again, and
+        /// <see cref="Biomes.Of"/> shifts the countries by one every pass — so the face
+        /// and the land it stood in would drift apart immediately and a player would meet
+        /// the same man in a different country for no reason.
+        ///
+        /// Keyed by the country, the wood's champion is the wood's champion, every time
+        /// the road goes back through a wood. That is how the scenery is keyed and how the
+        /// enemies are dressed, and it is the version that means something: he belongs
+        /// somewhere. What stops him being the same man nine times over is
+        /// <see cref="ChampionLiveries"/>.
+        ///
+        /// Not a mix, which is the opposite call from <see cref="Brigands"/> and for the
+        /// same reason underneath: a band is people and people do not match, but there is
+        /// one champion in a country and he has to be the same man every time the level is
+        /// drawn.
+        /// </summary>
+        public ActorModel[] Champions;
+
+        /// <summary>
+        /// The liveries a champion may wear, one per pass through the countries.
+        ///
+        /// The country says who he is; this says which one he is. See the note in setup:
+        /// it is the same trade the scenery's dressings make, where ten countries and four
+        /// dressings buy forty chapters that do not look alike for the art of ten.
+        /// </summary>
+        public Material[] ChampionLiveries;
+
         [Header("Wildlife")]
         /// <summary>
         /// Deer, foxes and boar (docs/GDD.md §3.5). They cannot be fought, so they are
@@ -527,6 +560,56 @@ namespace TheVeil.View
 
             var face = pool[(int)(mix / 4 % (uint)pool.Length)];
             return face.HasModel ? face : Bandit;
+        }
+
+        /// <summary>
+        /// The face this chapter's champion wears.
+        ///
+        /// Wraps past the end of the list, so chapter eleven wears chapter one's harness
+        /// again. The campaign is written to go on for about a thousand levels
+        /// (ChapterDifficultyTests) and the pack has the riders it has; coming round again
+        /// after ten is the honest version of that, and far better than the tenth champion
+        /// standing at the end of every chapter thereafter.
+        ///
+        /// Falls back to the raiders' own horseman rather than to their captain, which is
+        /// what the plan said. The captain walks: <see cref="EnemyTable.IsMounted"/> has
+        /// him on foot, and <see cref="HeightOf"/> draws a champion on the cavalry's
+        /// ruler — so a captain in this slot is a man standing in the air at the one fight
+        /// a chapter cannot drive round.
+        /// </summary>
+        public ActorModel ChampionFor(int chapter)
+        {
+            var mounted = BanditRider.HasModel ? BanditRider : Bandit;
+            if (Champions == null || Champions.Length == 0) return mounted;
+
+            int index = (int)Biomes.Of(chapter);
+            if (index < 0 || index >= Champions.Length) return mounted;
+
+            var face = Champions[index];
+            return face.HasModel ? face : mounted;
+        }
+
+        /// <summary>
+        /// The colours this chapter's champion is painted in.
+        ///
+        /// By pass rather than by chapter, so that every champion met on one journey
+        /// round the countries wears one house's colours and the next journey is another
+        /// house. A player who has gone round twice has met ten champions in two liveries
+        /// rather than twenty in twenty, which is the difference between a world with
+        /// factions in it and a paint-by-numbers.
+        ///
+        /// Null where nothing was loaded, and the caller then paints him as an ordinary
+        /// raider — which is a champion who reads as a captain rather than a champion who
+        /// does not appear.
+        /// </summary>
+        public Material ChampionLivery(int chapter)
+        {
+            if (ChampionLiveries == null || ChampionLiveries.Length == 0) return EnemyFaction;
+
+            int pass = Biomes.PassOf(chapter) % ChampionLiveries.Length;
+            if (pass < 0) pass += ChampionLiveries.Length;
+
+            return ChampionLiveries[pass] != null ? ChampionLiveries[pass] : EnemyFaction;
         }
 
         /// <summary>A well-stirred number from a group and a figure, for choosing faces.</summary>

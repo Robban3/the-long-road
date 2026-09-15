@@ -145,6 +145,20 @@ namespace TheVeil.Sim
             }
         }
 
+        /// <summary>What is left of everything posted to hold a goal, added together.</summary>
+        public float GuardHealth
+        {
+            get
+            {
+                float left = 0f;
+
+                foreach (var enemy in _detection.Enemies)
+                    if (EnemyTable.Guards(enemy.Kind)) left += HealthOf(enemy);
+
+                return left;
+            }
+        }
+
         public float HealthOf(TrackedEnemy enemy)
         {
             if (_health.TryGetValue(enemy, out float hp)) return hp;

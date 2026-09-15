@@ -2966,19 +2966,54 @@ namespace TheVeil.View
             // is what the goal is, and its gate is turned to face the way the caravan
             // arrives — it is the one building the route is supposed to reach.
             if (!Raise(grid, goalTile, rng, castle, CastleHeight, heightScale, occupied,
-                       yaw: GateYaw(grid, goalTile, travelled)))
+                       yaw: GateYaw(grid, goalTile, travelled), landmark: false, resize: false))
                 return 0;
 
-            // The Solid that Raise just added, taken straight back off. See the note
-            // above: on this one building it walls the caravan out of its own gate.
+            WallOff(castle);
+
+            Landmark.Note(found, LandmarkKind.Castle, goalTile);
+            return 1;
+        }
+
+        /// <summary>
+        /// Makes the castle's stonework solid, a piece at a time, leaving the gateway open.
+        ///
+        /// <b>This is the answer PlaceCastle's own note asked for, and it took a champion
+        /// standing in the gate to make it worth the risk.</b> Raise blocks what it seats
+        /// with one disc over the whole building, which on a castle walls the caravan out
+        /// of its own courtyard — so the disc was taken straight back off and the walls
+        /// were left drivable. The note recorded the trade honestly: *"From four hundred
+        /// metres up nobody sees the column clip a course of stone."*
+        ///
+        /// Somebody does now. The champion holds the goal, so the last thing that happens
+        /// on the tenth level of every chapter happens at the gate with the camera on it,
+        /// and the column driving through the curtain wall is the first thing anybody
+        /// watching notices.
+        ///
+        /// A disc per piece rather than one over the building. The gateway is a hole in
+        /// the wall — BuildingBuilder leaves the pieces out — so there is nothing standing
+        /// there to be made solid, and the way in is open without anything having to be
+        /// carved out of the block. Each disc is the piece's own half-width, not the
+        /// eight-tenths Block uses: a wall is thin and long, and a disc drawn to its
+        /// length would seal the courtyard it stands around.
+        /// </summary>
+        static void WallOff(GameObject castle)
+        {
             foreach (var solid in castle.GetComponentsInChildren<Solid>(true))
             {
                 if (Application.isPlaying) Object.Destroy(solid);
                 else Object.DestroyImmediate(solid);
             }
 
-            Landmark.Note(found, LandmarkKind.Castle, goalTile);
-            return 1;
+            foreach (Transform piece in castle.transform)
+            {
+                var bounds = ModelScaling.Measure(piece.gameObject);
+                if (bounds.size.y < SolidHeight) continue;
+
+                var solid = piece.gameObject.AddComponent<Solid>();
+                solid.Radius = Mathf.Min(bounds.extents.x, bounds.extents.z);
+                solid.Centre = new Vector2(bounds.center.x, bounds.center.z);
+            }
         }
 
         /// <summary>How tall the castle stands, in metres. Half again the watchtower.</summary>
@@ -4666,7 +4701,7 @@ namespace TheVeil.View
         static bool Raise(TileGrid grid, int tile, DeterministicRandom rng, GameObject building,
                           float height, float heightScale, HashSet<int> occupied,
                           HashSet<int> road = null, float yaw = -1f, bool landmark = true,
-                          float maxWidth = 0f, Vector3 nudge = default)
+                          float maxWidth = 0f, Vector3 nudge = default, bool resize = true)
         {
             if (building == null) return false;
 
@@ -4757,7 +4792,12 @@ namespace TheVeil.View
             float limit = maxWidth > 0f ? maxWidth : height * SpreadLimit;
             float byWidth = widest > 0.0001f ? limit / widest : byHeight;
 
-            building.transform.localScale *= Mathf.Min(byHeight, byWidth);
+            // Unless the thing was built at the size it means to be. A castle is assembled
+            // from kit pieces that are already drawn to the scale of everything else on the
+            // map, and fitting the assembly to a target height scales every piece with it:
+            // on 3-10 that was x2.58, curtain walls thirteen metres high, and a goal that
+            // read as a stack of slabs. See BuildingBuilder.CastleSpan.
+            if (resize) building.transform.localScale *= Mathf.Min(byHeight, byWidth);
 
             // Scaled before the lane is checked, because until it is scaled nobody knows
             // how much ground it covers — the same order Scatter uses, and for the same

@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using TheVeil.Gen;
 using TheVeil.Sim;
+using TheVeil.View;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace TheVeil.Tests
 {
@@ -200,6 +202,120 @@ namespace TheVeil.Tests
                     $"{chapter}-{level}: no road gets past the champion, so chapter "
                     + $"{chapter + 1} cannot be reached");
             }
+        }
+
+        /// <summary>
+        /// Every chapter resolves a champion, neighbours do not look alike, and a country
+        /// keeps its own.
+        ///
+        /// The library is empty in an EditMode test — nothing has run TheVeilSetup — so
+        /// what this can check is the lookup rather than the models: that it never returns
+        /// nothing, that consecutive chapters differ, and that two chapters in the same
+        /// country resolve the same man however far apart they are. The models themselves
+        /// are looked at in The Veil > Champion Report, which is where a wrong face is
+        /// actually visible.
+        /// </summary>
+        [Test]
+        public void EveryChapterResolvesItsOwnChampion()
+        {
+            var library = new VisualLibrary
+            {
+                Bandit = Marker("bandit"),
+                BanditRider = Marker("rider"),
+                Champions = Faces()
+            };
+
+            string previous = null;
+
+            for (int chapter = 1; chapter <= 40; chapter++)
+            {
+                var face = library.ChampionFor(chapter);
+
+                Assert.IsTrue(face.HasModel, $"chapter {chapter} has no champion to draw");
+                Assert.AreNotEqual(previous, face.Prefab.name,
+                    $"chapter {chapter} wears the same harness as the chapter before it");
+
+                previous = face.Prefab.name;
+            }
+
+            // A country's champion is that country's, wherever in the campaign it turns
+            // up. Biomes.Of shifts the order by one every pass, so these two chapters are
+            // deliberately not ten apart — if this ever passes by arithmetic rather than
+            // by country, the lookup has gone back to counting chapters.
+            for (int chapter = 1; chapter <= 40; chapter++)
+            {
+                for (int other = chapter + 1; other <= 40; other++)
+                {
+                    if (Biomes.Of(chapter) != Biomes.Of(other)) continue;
+
+                    Assert.AreEqual(library.ChampionFor(chapter).Prefab.name,
+                                    library.ChampionFor(other).Prefab.name,
+                                    $"chapters {chapter} and {other} are both "
+                                    + $"{Biomes.Of(chapter)} and have different champions");
+                }
+            }
+        }
+
+        /// <summary>
+        /// The same man in the same country, in a different house's colours each time the
+        /// road comes back round to it.
+        ///
+        /// Ten countries with one champion each is ten champions in a campaign written for
+        /// about a hundred chapters. The liveries are what stop that being the same man
+        /// nine more times — the same trade the scenery's dressings make.
+        /// </summary>
+        [Test]
+        public void EachPassDressesTheChampionsInANewHouse()
+        {
+            var red = new Material(Shader.Find("Unlit/Color"));
+            var blue = new Material(Shader.Find("Unlit/Color"));
+
+            var library = new VisualLibrary { ChampionLiveries = new[] { red, blue } };
+
+            // Chapter one and chapter eleven are one pass apart, whatever countries they
+            // happen to be.
+            Assert.AreNotSame(library.ChampionLivery(1), library.ChampionLivery(11),
+                "the second time round the countries, the champions wear the same colours");
+
+            Assert.AreSame(library.ChampionLivery(1), library.ChampionLivery(10),
+                "two champions of the same pass are in different houses");
+        }
+
+        /// <summary>
+        /// An unbuilt champion falls back to something on a horse.
+        ///
+        /// The captain would be the obvious stand-in and is the wrong one: he walks, and
+        /// VisualLibrary.HeightOf draws a champion on the cavalry's ruler, so he would
+        /// stand in the air at the one fight a chapter cannot drive round.
+        /// </summary>
+        [Test]
+        public void AChampionNobodyBuiltStillRidesSomething()
+        {
+            var library = new VisualLibrary
+            {
+                Bandit = Marker("bandit"),
+                BanditRider = Marker("rider"),
+                BanditLeader = Marker("captain")
+            };
+
+            Assert.AreEqual("rider", library.ChampionFor(3).Prefab.name,
+                "the champion fell back to something that is not on a horse");
+
+            Assert.IsTrue(EnemyTable.IsMounted(EnemyKind.Champion),
+                "the champion is drawn on the cavalry's ruler and must be mounted");
+        }
+
+        static ActorModel Marker(string name) => new ActorModel { Prefab = new GameObject(name) };
+
+        /// <summary>One marker per country, indexed by Biome the way the real list is.</summary>
+        static ActorModel[] Faces()
+        {
+            var faces = new ActorModel[Biomes.Order.Length];
+
+            foreach (var biome in Biomes.Order)
+                faces[(int)biome] = Marker(biome.ToString());
+
+            return faces;
         }
 
         /// <summary>

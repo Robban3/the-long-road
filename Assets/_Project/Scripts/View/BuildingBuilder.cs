@@ -315,8 +315,20 @@ namespace TheVeil.View
             float span = WallLength(host.transform, kit, style);
             if (span <= 0f) return host;
 
-            int across = rng.Range(2, 4);
-            int deep = rng.Range(2, 4);
+            // <b>How many pieces, not how big a piece.</b>
+            //
+            // This used to take two or three a side and let the caller fit the whole thing
+            // to fifteen metres tall, which on 3-10 came out as a scale of 2.58 — curtain
+            // walls thirteen metres high and fourteen long, four of them, and from the
+            // ground it read as a stack of grey slabs rather than as a castle. The kit is
+            // already drawn at the scale everything else in the level is at; a wall that
+            // has to be made half again as tall as a house is a wall, and one made three
+            // times as tall is a cliff.
+            //
+            // So the pieces keep the size they were drawn at and the castle is made big
+            // the way a real one is: by having more of them. See CastleSpan.
+            int across = Ring(span);
+            int deep = Ring(span);
 
             float halfX = across * span * 0.5f;
             float halfZ = deep * span * 0.5f;
@@ -332,10 +344,21 @@ namespace TheVeil.View
                     new Vector3(halfX, 0f, z), 90f);
             }
 
-            // The back wall, whole. The front wall with its middle piece left out for the
-            // gate — a gateway is a hole in a wall, so the wall has to actually be short
-            // a piece rather than have an arch parked in front of it.
-            int gateAt = across / 2;
+            // The back wall, whole. The front wall short of however many pieces the
+            // caravan needs to drive between.
+            //
+            // <b>A gateway is a hole, and this one has to be sixteen metres of hole.</b>
+            // The column is that wide — TerrainDecorator.DriveHalfWidth is eight — and the
+            // pack's archway is 2.4 m across, so putting the arch in a wall's place left a
+            // gate the caravan could not use and a wall it drove straight through instead.
+            // The town's gateways were widened for exactly this reason and then the same
+            // mistake was made again here; the arch is decoration, not a gate.
+            //
+            // Left open and flanked by the corner towers, which is what makes it read as a
+            // gateway rather than as a wall somebody forgot to finish.
+            int gap = GatePieces(span);
+            int gateFrom = (across - gap) / 2;
+            int gateTo = gateFrom + gap;
 
             for (int i = 0; i < across; i++)
             {
@@ -344,12 +367,20 @@ namespace TheVeil.View
                 Run(host.transform, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp,
                     new Vector3(x, 0f, halfZ), 0f);
 
-                if (i == gateAt && kit.Gates.Any)
-                    Run(host.transform, Any(kit.Gates, rng), kit.Gates.ZUp,
-                        new Vector3(x, 0f, -halfZ), 0f);
-                else
-                    Run(host.transform, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp,
-                        new Vector3(x, 0f, -halfZ), 0f);
+                if (i >= gateFrom && i < gateTo) continue;
+
+                Run(host.transform, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp,
+                    new Vector3(x, 0f, -halfZ), 0f);
+            }
+
+            // A tower on each side of the opening, so the gateway is a gateway.
+            if (gap > 0 && gap < across)
+            {
+                foreach (float side in new[] { -halfX + gateFrom * span, -halfX + gateTo * span })
+                {
+                    var post = Tower(host.transform, kit, rng);
+                    if (post != null) post.transform.localPosition = new Vector3(side, 0f, -halfZ);
+                }
             }
 
             // A tower on each corner, which is what stops the curtain reading as a fence.
@@ -376,6 +407,44 @@ namespace TheVeil.View
         /// The longer of the two ground axes, because a piece may be authored running
         /// along either.
         /// </summary>
+        /// <summary>
+        /// How wide the castle is built, in metres, before the ground is considered.
+        ///
+        /// Forty-four. The caravan drives in through the gate, so the courtyard has to
+        /// hold a sixteen-metre column with its escort round it and still look like a
+        /// courtyard rather than a corridor. It is also what a castle has to be to read as
+        /// one from the game camera against a map whose tiles are four metres.
+        /// </summary>
+        public const float CastleSpan = 44f;
+
+        /// <summary>
+        /// The gateway, in metres of opening.
+        ///
+        /// Twenty against a sixteen-metre column, which is the same allowance the town's
+        /// gateways ended up at. The extra four are not politeness: the escort's posts
+        /// sit out to the sides of the column and a gap measured exactly to the wagons
+        /// scrapes them off against the jambs.
+        /// </summary>
+        public const float GateSpan = 20f;
+
+        /// <summary>Pieces to a side, so the ring comes out about <see cref="CastleSpan"/> wide.</summary>
+        static int Ring(float span)
+        {
+            if (span <= 0f) return 2;
+
+            int pieces = Mathf.RoundToInt(CastleSpan / span);
+            return pieces < 3 ? 3 : pieces;
+        }
+
+        /// <summary>Pieces to leave out of the front wall, so the opening clears the column.</summary>
+        static int GatePieces(float span)
+        {
+            if (span <= 0f) return 1;
+
+            int pieces = Mathf.CeilToInt(GateSpan / span);
+            return pieces < 1 ? 1 : pieces;
+        }
+
         static float WallLength(Transform host, BuildingKit kit, int style)
         {
             var sample = Pick(kit.CurtainWalls, style);

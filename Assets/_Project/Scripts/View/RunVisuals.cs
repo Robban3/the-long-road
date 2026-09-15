@@ -16,6 +16,26 @@ namespace TheVeil.View
     {
         public VisualLibrary Library = new VisualLibrary();
 
+        /// <summary>
+        /// Which chapter is being drawn, for the one thing whose looks depend on it.
+        ///
+        /// The champion, and nothing else. Everything else in the library answers to a
+        /// kind, and a kind is the same wherever it is met; he is the exception because a
+        /// chapter is what he belongs to. Defaulted to one so a scene opened straight from
+        /// the editor draws a champion rather than nothing.
+        /// </summary>
+        public int Chapter = 1;
+
+        /// <summary>The whole group's model, for its facing. See <see cref="Chapter"/>.</summary>
+        ActorModel Look(EnemyKind kind)
+            => kind == EnemyKind.Champion ? Library.ChampionFor(Chapter) : Library.For(kind);
+
+        /// <summary>One figure's own face. See <see cref="Chapter"/>.</summary>
+        ActorModel Look(EnemyKind kind, int group, int figure)
+            => kind == EnemyKind.Champion
+                ? Library.ChampionFor(Chapter)
+                : Library.For(kind, group, figure);
+
         /// <summary>Whether the wagons cut ruts behind them. Winter only; see SnowTracks.</summary>
         public bool TracksInSnow;
 
@@ -998,7 +1018,7 @@ namespace TheVeil.View
             foreach (var enemy in run.Detection.Enemies)
             {
                 bool defeated = run.Combat != null && run.Combat.IsDefeated(enemy);
-                var model = Library.For(enemy.Kind);
+                var model = Look(enemy.Kind);
 
                 // Never seen: nothing is drawn. Wiped out: the bodies stay.
                 //
@@ -1035,7 +1055,7 @@ namespace TheVeil.View
                     for (int i = 0; i < size; i++)
                     {
                         // Each figure its own face — see VisualLibrary.For(kind, group, figure).
-                        var face = Library.For(enemy.Kind, enemy.Tile, i);
+                        var face = Look(enemy.Kind, enemy.Tile, i);
 
                         var figure = SpawnActor(face, PrimitiveType.Sphere,
                             $"Enemy_{enemy.Kind}_{i}", EnemyAwakeColor, height);
@@ -1043,7 +1063,17 @@ namespace TheVeil.View
                         // Once, at spawn. A property block set every frame on every
                         // figure of every group is a per-frame cost for a colour that
                         // never changes.
-                        if (face.HasModel) Faction(figure);
+                        //
+                        // The champion in his own house's colours rather than the band's
+                        // black — see VisualLibrary.ChampionLivery. He is not one of them;
+                        // painting him as one is the whole reason a captain would not do
+                        // as his stand-in either.
+                        if (face.HasModel)
+                        {
+                            if (enemy.Kind == EnemyKind.Champion)
+                                Repaint(figure, Library.ChampionLivery(Chapter));
+                            else Faction(figure);
+                        }
 
                         pack.Add(figure);
                     }
@@ -1279,7 +1309,7 @@ namespace TheVeil.View
         /// <summary>A bandit dressed as the level dresses one. See <see cref="ShowTroop"/>.</summary>
         public Transform ShowEnemy(EnemyKind kind, int group, int index, string name, Vector3 position)
         {
-            var face = Library.For(kind, group, index);
+            var face = Look(kind, group, index);
             float height = VisualLibrary.HeightOf(kind);
             var figure = SpawnActor(face, PrimitiveType.Sphere, name, EnemyAwakeColor, height);
 

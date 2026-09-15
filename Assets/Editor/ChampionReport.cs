@@ -1,6 +1,7 @@
 using System.Text;
 using TheVeil.Gen;
 using TheVeil.Sim;
+using TheVeil.View;
 using UnityEditor;
 using UnityEngine;
 
@@ -68,8 +69,201 @@ namespace TheVeil.Editor
             }
 
             Debug.Log(sheet.ToString());
+            PhotographTheChampions();
             SweepTheChapters();
             PlayTheChampions();
+        }
+
+        /// <summary>
+        /// What each of the pack's mounts is actually made of.
+        ///
+        /// The re-dressing finds the seated rider by name, and that name was read off the
+        /// heavy cavalry once and hard-coded. Putting a champion on a different horse
+        /// means knowing what the rider is called there, and guessing wrong does not fail
+        /// — it binds a man to a horse's neck. So it is looked up.
+        /// </summary>
+        [MenuItem("The Veil/Report Cavalry Riders")]
+        public static void Mounts()
+        {
+            string[] mounts =
+            {
+                "MC_Cavalry", "MC_Cavalry_HeavyCavalry", "MC_Cavalry_LightCavalry",
+                "MC_Cavalry_NobleCavalry", "MC_Cavalry_Scout"
+            };
+
+            var sheet = new StringBuilder();
+
+            foreach (string name in mounts)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    $"Assets/Stylized_Medieval_Army_Pack/Prefabs - Characters/{name}.prefab");
+
+                if (prefab == null) { sheet.AppendLine($"[Mounts] {name}: not found"); continue; }
+
+                var instance = Object.Instantiate(prefab);
+                sheet.AppendLine($"[Mounts] {name}:");
+
+                foreach (var child in instance.GetComponentsInChildren<Transform>(true))
+                {
+                    if (child == instance.transform) continue;
+                    if (child.parent != instance.transform) continue;
+
+                    int skins = child.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length;
+                    sheet.AppendLine($"[Mounts]     {child.name}  ({skins} skinned meshes)");
+                }
+
+                Object.DestroyImmediate(instance);
+            }
+
+            Debug.Log(sheet.ToString());
+        }
+
+        /// <summary>
+        /// Each chapter's champion built and photographed on his own, from the side.
+        ///
+        /// <b>From the side, and one at a time, because that is the only way this project
+        /// has ever found a fault in how something looks.</b> Three complete houses stacked
+        /// on one another read as a house from above and were obvious the moment one was
+        /// drawn side-on; a street of paving read as a street from above and was a row of
+        /// slabs lying on the grass. A re-dressed rider has two failure modes that a plan
+        /// view hides completely — a man standing beside his horse instead of sitting on
+        /// it, and a man half inside it — and both are one glance away from the side.
+        ///
+        /// Ten pictures side by side is also the only way to answer the question the
+        /// champions exist for: is the champion of chapter four visibly not the champion
+        /// of chapter three?
+        /// </summary>
+        static void PhotographTheChampions()
+        {
+            var library = TheVeilSetup.LoadModels();
+
+            string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilSmoke");
+            System.IO.Directory.CreateDirectory(shots);
+
+            var sheet = new StringBuilder();
+            sheet.AppendLine("[Faces] the champion of each chapter, measured and photographed");
+
+            for (int chapter = 1; chapter <= 10; chapter++)
+            {
+                var face = library.ChampionFor(chapter);
+                if (!face.HasModel)
+                {
+                    sheet.AppendLine($"[Faces] chapter {chapter}: nothing to draw");
+                    continue;
+                }
+
+                var figure = Object.Instantiate(face.Prefab);
+                var box = ModelScaling.Measure(figure);
+
+                // In the house he actually rides for. Without this the sheet shows ten
+                // men in whatever the pack shipped, which is not what any of them look
+                // like in the game — the livery is applied at spawn.
+                Wear(figure, library.ChampionLivery(chapter));
+
+                // Side on, at the height of the saddle, far enough back to hold a horse.
+                float span = Mathf.Max(box.size.x, box.size.z);
+                var eye = box.center + new Vector3(span * 2.2f, box.size.y * 0.15f, 0f);
+
+                Shoot(eye, box.center,
+                      System.IO.Path.Combine(shots, $"champion-{chapter:00}.png"));
+
+                // And the man alone, close. The horse is most of the silhouette, so at
+                // full length a fault in the rider is a dozen pixels — which is how a
+                // second head went unnoticed in the first sheet of these.
+                var head = new Vector3(box.center.x, box.max.y - box.size.y * 0.22f, box.center.z);
+
+                Shoot(head + new Vector3(box.size.y * 0.75f, 0f, 0f), head,
+                      System.IO.Path.Combine(shots, $"champion-{chapter:00}-rider.png"));
+
+                sheet.AppendLine($"[Faces] chapter {chapter}: {face.Prefab.name}, "
+                                 + $"{box.size.x:0.00} x {box.size.y:0.00} x {box.size.z:0.00} m, "
+                                 + $"foot at y {box.min.y:0.00}");
+
+                Object.DestroyImmediate(figure);
+            }
+
+            // And one country in every house it will ever ride for, which is the other
+            // half of the answer: ten countries is ten champions, and ten champions in a
+            // campaign of a hundred chapters is the same man nine more times. The pass is
+            // what stops that.
+            for (int pass = 0; pass < 5; pass++)
+            {
+                var face = library.ChampionFor(1);
+                if (!face.HasModel) break;
+
+                var figure = Object.Instantiate(face.Prefab);
+                Wear(figure, library.ChampionLivery(1 + pass * 10));
+
+                var box = ModelScaling.Measure(figure);
+                float span = Mathf.Max(box.size.x, box.size.z);
+
+                Shoot(box.center + new Vector3(span * 2.2f, box.size.y * 0.15f, 0f), box.center,
+                      System.IO.Path.Combine(shots, $"champion-forest-pass-{pass + 1}.png"));
+
+                Object.DestroyImmediate(figure);
+            }
+
+            sheet.AppendLine($"[Faces] pictures in {shots}");
+            Debug.Log(sheet.ToString());
+        }
+
+        /// <summary>
+        /// Puts a champion in a house's colours, the way RunVisuals.Repaint does at spawn.
+        ///
+        /// Only the slots already holding a faction material, which is the pack's own
+        /// convention and the reason this is a swap rather than a tint: repainting every
+        /// slot would hand him a red lance and a red horse's eye.
+        /// </summary>
+        static void Wear(GameObject figure, Material livery)
+        {
+            if (livery == null) return;
+
+            foreach (var renderer in figure.GetComponentsInChildren<Renderer>(true))
+            {
+                var slots = renderer.sharedMaterials;
+                bool changed = false;
+
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    if (slots[i] == null) continue;
+                    if (!slots[i].name.StartsWith(VisualLibrary.FactionPrefix)) continue;
+
+                    slots[i] = livery;
+                    changed = true;
+                }
+
+                if (changed) renderer.sharedMaterials = slots;
+            }
+        }
+
+        static void Shoot(Vector3 from, Vector3 at, string path)
+        {
+            var go = new GameObject("Champion camera");
+            var camera = go.AddComponent<Camera>();
+
+            camera.transform.position = from;
+            camera.transform.LookAt(at);
+            camera.fieldOfView = 45f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.35f, 0.42f, 0.5f);
+
+            var rt = new RenderTexture(900, 900, 24);
+            camera.targetTexture = rt;
+            camera.Render();
+
+            RenderTexture.active = rt;
+            var tex = new Texture2D(900, 900, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, 900, 900), 0, 0);
+            tex.Apply();
+            RenderTexture.active = null;
+
+            camera.targetTexture = null;
+            Object.DestroyImmediate(go);
+            rt.Release();
+            Object.DestroyImmediate(rt);
+
+            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            Object.DestroyImmediate(tex);
         }
 
         /// <summary>
