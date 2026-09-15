@@ -75,7 +75,12 @@ namespace TheVeil.Sim
         {
             Boons = boons ?? new Boons();
 
-            Caravan = new Caravan(map.Grid, route, Boons.WagonHealth, Boons.TreasureGuard);
+            // Lined up at the water before the wheels reach it. See Crossings.Square: the
+            // bridge lies along its river because the planning map has to be drawn before
+            // the player draws a line, so it is the road that gives way at the crossing.
+            Route = Crossings.Square(map.Grid, route);
+
+            Caravan = new Caravan(map.Grid, Route, Boons.WagonHealth, Boons.TreasureGuard);
             Squad = squad;
             Detection = new DetectionSystem(map.Grid, map.Encounters.Enemies);
             Traps = new TrapField(map.Grid, map.Encounters.Traps);
@@ -112,6 +117,16 @@ namespace TheVeil.Sim
 
         /// <summary>What was bought between levels. Empty on a run nobody has spent on.</summary>
         public Boons Boons { get; }
+
+        /// <summary>
+        /// The road actually driven: what was handed in, squared at the crossings.
+        ///
+        /// Exposed so the view can draw the line the wagons follow rather than the one
+        /// that was asked for. They differ by a tile or two at the water and nowhere else,
+        /// and a drawn line that disagrees with the wheels at exactly the place the player
+        /// is watching is worse than no line at all.
+        /// </summary>
+        public IReadOnlyList<int> Route { get; }
 
         public Caravan Caravan { get; }
         public Squad Squad { get; }

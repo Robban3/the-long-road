@@ -283,6 +283,16 @@ namespace TheVeil.View
         /// </summary>
         public PropSet Monuments = new PropSet();
 
+        /// <summary>
+        /// What stands in a castle.s courtyard.
+        ///
+        /// The champion.s yard was bare ground with whatever the scatter had dropped
+        /// there — a couple of pines and nothing else — which is a wall built round a
+        /// field rather than a place somebody lives and holds. These are the things that
+        /// say it is occupied and whose it is: fires, tents, stores, and the block.
+        /// </summary>
+        public PropSet CastleYard = new PropSet();
+
         public PropSet Wreckage = new PropSet();
 
         public PropSet Ruins = new PropSet();
@@ -1250,7 +1260,8 @@ namespace TheVeil.View
             // shore pass had already strewn with boulders. One of them came up through
             // the deck. Placed first and claiming its whole footprint, the stones go
             // round it.
-            placed += PlaceFords(parent, grid, seed, Stream(4), decor, occupied, heightScale, found);
+            placed += PlaceFords(parent, grid, seed, Stream(4), decor, occupied, heightScale,
+                                 found, travelled);
 
             placed += PlaceGroundCover(parent, grid, Stream(5), decor, clear, occupied,
                                        heightScale, densityScale);
@@ -1458,7 +1469,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceFords(Transform parent, TileGrid grid, int seed, DeterministicRandom rng,
                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                              List<Landmark> found)
+                              List<Landmark> found, IReadOnlyCollection<int> travelled)
         {
             int bridged = BridgeTile(grid, seed);
             if (bridged < 0) return 0;
@@ -1468,7 +1479,7 @@ namespace TheVeil.View
             // Its own stream for the model, for the reason BridgeTile gives for the tile.
             if (decor.Fords.Any &&
                 Bridge(parent, grid, new DeterministicRandom(seed ^ BridgeModelSalt), decor, bridged,
-                       heightScale, occupied))
+                       heightScale, occupied, travelled))
             {
                 placed++;
 
@@ -1772,7 +1783,8 @@ namespace TheVeil.View
         /// the scatter deliberately randomises.
         /// </summary>
         static bool Bridge(Transform parent, TileGrid grid, DeterministicRandom rng,
-                           BiomeDecor decor, int tile, float heightScale, HashSet<int> occupied)
+                           BiomeDecor decor, int tile, float heightScale, HashSet<int> occupied,
+                           IReadOnlyCollection<int> travelled)
         {
             var prefab = Any(decor.Fords, rng);
             if (prefab == null) return false;
@@ -1806,7 +1818,7 @@ namespace TheVeil.View
             // crossed, so the bridge answers to the river alone. The column crabs a few
             // degrees across the deck where the line meets the water at a slant; that is
             // the lesser fault by far.
-            float across = Crossing(grid, tile);
+            float across = Crossing(grid, tile, travelled);
 
             // The model's own length is turned onto that bearing. A prefab authored
             // along X is already a quarter turn from one authored along Z.
@@ -1990,7 +2002,7 @@ namespace TheVeil.View
         /// halving it after is the standard way round that; the road is then square to
         /// what comes out.
         /// </summary>
-        static float Crossing(TileGrid grid, int tile)
+        static float Crossing(TileGrid grid, int tile, IReadOnlyCollection<int> travelled = null)
         {
             // The ford run first, because it is not an estimate. A ford is cut as a line
             // of tiles straight across its river (TerrainGenerator carves it out from the
@@ -2007,8 +2019,22 @@ namespace TheVeil.View
             float ford = Bearing(grid, tile, TerrainType.Ford, 3);
             if (!float.IsNaN(ford)) return ford;
 
-            // A ford one tile wide has no run to read, so fall back to the water — square
-            // to it, and water only.
+            // <b>A ford one tile wide has no run to read, so ask the road instead.</b>
+            //
+            // The water was asked first and the note above records what it answers:
+            // anywhere between 54 and 120 degrees. On a ford several tiles wide that
+            // never showed, because the run overrode it. On a single tile it is the whole
+            // answer — and 1-4.s bridge is exactly that, one tile at (34,48), laid at
+            // whatever angle the surrounding water averaged to while the road came at it
+            // dead straight. The wagons were not crossing crooked; the bridge was.
+            //
+            // The road knows which way the crossing runs, because crossing it is what the
+            // road is doing there. Still a function of the map — travelled is
+            // LevelPreview.Travelled(map), which the planning map and the run both pass —
+            // so the bridge cannot come out one way on the map and another in the game.
+            float road = Bearing(grid, tile, travelled, 2);
+            if (!float.IsNaN(road)) return road;
+
             float water = Bearing(grid, tile, TerrainType.Water, 2);
             if (!float.IsNaN(water)) return water + 90f;
 
@@ -2053,6 +2079,48 @@ namespace TheVeil.View
 
             // Unity's yaw looks up +Z and turns clockwise — the opposite sense to atan2
             // about +X, hence the ninety and the subtraction.
+            float bearing = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
+            return 90f - bearing * 57.29578f;
+        }
+
+        /// <summary>
+        /// The same measurement taken over a set of tiles rather than a terrain type.
+        ///
+        /// For asking the road which way it is going. A run of route tiles through a ford
+        /// is a line in exactly the sense <see cref="Bearing(TileGrid,int,TerrainType,int)"/>
+        /// means: it is crossed in either direction and has no arrow, so it is averaged
+        /// the same doubled-angle way.
+        /// </summary>
+        static float Bearing(TileGrid grid, int tile, IReadOnlyCollection<int> of, int radius)
+        {
+            if (of == null || of.Count == 0) return float.NaN;
+
+            // Hashed once rather than scanned per tile: the road is a few hundred tiles
+            // and this asks about twenty-four of them.
+            var road = of as HashSet<int> ?? new HashSet<int>(of);
+
+            grid.ToCoords(tile, out int x, out int y);
+
+            float sumSin = 0f, sumCos = 0f;
+
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+                    if (!road.Contains(grid.ToIndex(x + dx, y + dy))) continue;
+
+                    float angle = (float)System.Math.Atan2(dy, dx);
+                    float weight = 1f / Mathf.Sqrt(dx * dx + dy * dy);
+
+                    sumSin += weight * (float)System.Math.Sin(angle * 2f);
+                    sumCos += weight * (float)System.Math.Cos(angle * 2f);
+                }
+            }
+
+            if (sumSin * sumSin + sumCos * sumCos < 0.0001f) return float.NaN;
+
             float bearing = (float)System.Math.Atan2(sumSin, sumCos) * 0.5f;
             return 90f - bearing * 57.29578f;
         }
@@ -2965,14 +3033,97 @@ namespace TheVeil.View
             // And no road is passed on purpose. The castle stands on the goal because that
             // is what the goal is, and its gate is turned to face the way the caravan
             // arrives — it is the one building the route is supposed to reach.
-            if (!Raise(grid, goalTile, rng, castle, CastleHeight, heightScale, occupied,
+            // <b>Beside the goal, and not on it.</b>
+            //
+            // The castle stood on the goal because the goal is what the journey is aimed
+            // at — and that made the journey end inside the enemy's fortress, with the
+            // caravan driving through his curtain wall to get there. It is *his* castle:
+            // the champion holds it, and what the road is for is reaching the place beside
+            // it, past him.
+            //
+            // Which also dissolves the fault that was chased through two rewrites. The
+            // walls could not be solid while the route ran through them, so they were left
+            // drivable and the column clipped stone at the one moment the camera is on it.
+            // Nothing has to be driven through any more, so nothing has to be left open.
+            int site = CastleSite(grid, goalTile, travelled, occupied);
+            if (site < 0) return 0;
+
+            if (!Raise(grid, site, rng, castle, CastleHeight, heightScale, occupied,
                        yaw: GateYaw(grid, goalTile, travelled), landmark: false, resize: false))
                 return 0;
 
             WallOff(castle);
+            FillTheYard(parent, grid, rng, decor, castle, site, heightScale, occupied);
 
-            Landmark.Note(found, LandmarkKind.Castle, goalTile);
+            Landmark.Note(found, LandmarkKind.Castle, site);
             return 1;
+        }
+
+        /// <summary>How much of the courtyard is left clear in the middle, as a share of it.</summary>
+        const float YardCentre = 0.45f;
+
+        /// <summary>Things stood in a castle.s courtyard, and how tall they are drawn.</summary>
+        const int YardProps = 9;
+        const float CastleYardHeight = 2.5f;
+
+        /// <summary>
+        /// Puts something in the champion's yard.
+        ///
+        /// <b>A ring of wall round bare grass is a wall round a field.</b> The courtyard
+        /// had nothing in it but whatever the scatter had already dropped on that ground,
+        /// which on the forest map is two pines — so the one building the tenth level is
+        /// aimed at was, on the inside, a lawn. What makes a fortress read as held is the
+        /// clutter of holding it.
+        ///
+        /// Set out in a ring against the walls with the middle left clear, because that is
+        /// what a courtyard is for and because the champion and his men are standing in it.
+        /// Their ground is claimed in <paramref name="occupied"/> the same as any other
+        /// prop's, so the scatter does not drop a tree through the guillotine.
+        /// </summary>
+        static void FillTheYard(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                BiomeDecor decor, GameObject castle, int site,
+                                float heightScale, HashSet<int> occupied)
+        {
+            if (!decor.CastleYard.Any || castle == null) return;
+
+            var box = ModelScaling.Measure(castle);
+            float reach = Mathf.Min(box.size.x, box.size.z) * 0.5f;
+
+            grid.ToCoords(site, out int cx, out int cy);
+
+            // Its own set of claimed ground, not the level.s.
+            //
+            // Raise reserves the whole of a building.s footprint in occupied, which for a
+            // castle is the courtyard as well as the walls — so a yard that respected it
+            // had nowhere to put anything and the props squeezed out through the gate and
+            // stood in the grass outside. The castle owns that ground; what goes on it is
+            // the castle.s business, and all this has to avoid is itself.
+            var taken = new HashSet<int>();
+
+            for (int i = 0; i < YardProps; i++)
+            {
+                // Round the inside of the wall, spaced by a turn that never repeats a
+                // bearing: nine things on a circle at even angles reads as a clock face.
+                float turn = (i * 360f / YardProps + rng.Range(-14f, 14f)) * Mathf.Deg2Rad;
+                float out_ = reach * Mathf.Lerp(YardCentre, 0.8f, rng.Value01());
+
+                int x = cx + Mathf.RoundToInt(Mathf.Sin(turn) * out_ / TileGrid.TileSize);
+                int y = cy + Mathf.RoundToInt(Mathf.Cos(turn) * out_ / TileGrid.TileSize);
+
+                if (!grid.InBounds(x, y)) continue;
+
+                int tile = grid.ToIndex(x, y);
+                if (!taken.Add(tile)) continue;
+
+                // Two and a half metres: a brazier, a tent or the block, at the size a man
+                // stands beside. The yard is measured in wagons and this is what fits in it.
+                var choice = From(decor.CastleYard, rng, CastleYardHeight);
+                if (choice.Prefab == null) continue;
+
+                // Not made solid. The walls already are, nothing routes through a courtyard
+                // nobody enters, and Block on these threw on the first one it was handed.
+                Place(parent, grid, tile, rng, choice, heightScale);
+            }
         }
 
         /// <summary>
@@ -3014,6 +3165,57 @@ namespace TheVeil.View
                 solid.Radius = Mathf.Min(bounds.extents.x, bounds.extents.z);
                 solid.Centre = new Vector2(bounds.center.x, bounds.center.z);
             }
+        }
+
+        /// <summary>
+        /// Tiles from the goal to the middle of the castle.
+        ///
+        /// Fourteen. The castle is forty-six metres across — near six tiles to its wall
+        /// from its middle — so this stands it about eight tiles clear of the goal: near
+        /// enough to loom over the arrival, far enough that the caravan is not parked
+        /// against the stonework, and far enough that the champion, who waits five tiles
+        /// short of the goal, is in front of it rather than in it.
+        /// </summary>
+        public const int CastleStandoff = 14;
+
+        /// <summary>
+        /// Where the enemy's castle stands: off to one side of the goal, across the road.
+        ///
+        /// Square to the way the caravan comes in, so it is beside the arrival rather than
+        /// behind it — a castle straight ahead is a castle the road appears to lead to,
+        /// which is the reading this whole change is getting rid of.
+        ///
+        /// Either side will do and the first that fits is taken, which is not laziness:
+        /// the two are mirror images of each other, the choice says nothing to the player,
+        /// and trying both is what makes a goal near the edge of the map still get a
+        /// castle instead of quietly getting none.
+        /// </summary>
+        static int CastleSite(TileGrid grid, int goalTile, IReadOnlyCollection<int> travelled,
+                              HashSet<int> occupied)
+        {
+            grid.ToCoords(goalTile, out int gx, out int gy);
+
+            // The way in, as the gate already works it out, turned a quarter.
+            float yaw = GateYaw(grid, goalTile, travelled);
+            float rad = yaw * Mathf.Deg2Rad;
+
+            int dx = Mathf.RoundToInt(Mathf.Cos(rad));
+            int dy = Mathf.RoundToInt(-Mathf.Sin(rad));
+
+            foreach (int sign in new[] { 1, -1 })
+            {
+                int x = gx + dx * CastleStandoff * sign;
+                int y = gy + dy * CastleStandoff * sign;
+
+                if (!grid.InBounds(x, y)) continue;
+
+                int tile = grid.ToIndex(x, y);
+                if (occupied.Contains(tile)) continue;
+
+                return tile;
+            }
+
+            return -1;
         }
 
         /// <summary>How tall the castle stands, in metres. Half again the watchtower.</summary>

@@ -444,6 +444,7 @@ namespace TheVeil.Sim
         static Corridor Build(CorridorKind kind, TileGrid grid, List<int> tiles, float travelCost)
         {
             var corridor = new Corridor { Kind = kind, TravelCost = travelCost };
+
             corridor.Tiles.AddRange(tiles);
 
             float ambush = 0f;

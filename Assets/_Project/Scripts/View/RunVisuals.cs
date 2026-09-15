@@ -1202,8 +1202,8 @@ namespace TheVeil.View
 
                 if (!_traps.TryGetValue(trap, out var marker))
                 {
-                    marker = Spawn(Library.TrapMarker, PrimitiveType.Cylinder,
-                        $"Trap_{trap.Kind}", TrapColor, TrapMarkerHeight);
+                    marker = Spawn(Library.TrapMarkerFor(trap.Kind), PrimitiveType.Cylinder,
+                        $"Trap_{trap.Kind}", TrapColor, TrapMarkerAcross, byWidth: true);
                     Place(marker, new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y));
                     _traps[trap] = marker;
                     _trapScale[trap] = marker.localScale;
@@ -1246,19 +1246,70 @@ namespace TheVeil.View
                 // skull the size of a man hanging over the trap it marks.
                 Place(marker, new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y));
 
-                Tint(marker, SprungColor);
+                // And the bones of whoever found it first, laid beside it once it has gone
+                // off. This used to be a colour — the marker turned red — and a colour is
+                // the one thing in this scene that is not a thing. What the ground should
+                // say is not "danger" but "somebody died here", and the pack has exactly
+                // that lying in a heap. See VisualLibrary.TrapBones.
+                LayBones(trap);
             }
         }
 
         /// <summary>
         /// How tall a trap marker stands, in metres.
         ///
-        /// Nine tenths, down from one and two fifths. The model is the pack's skull, and
+        /// Nine tenths, down from one and two fifths. The model was the pack's skull, and
         /// at a metre and a half it was a monument rather than a mark — it read as a prop
         /// somebody had placed rather than as the ground saying something happened here,
         /// and at three times that in the flare it was the largest thing on the field.
+        ///
+        /// <b>Across rather than tall, now that it is a hatch and not a skull.</b> The pit
+        /// trap is the pack's trapdoor — 1.14 m square and 23 cm thick — and a flat thing
+        /// fitted by height is a flat thing scaled by five. Two metres across is a hatch a
+        /// wagon could fall through, which is what it is, and it still reads from the
+        /// forty-six metres the camera actually sits at.
         /// </summary>
-        const float TrapMarkerHeight = 0.9f;
+        const float TrapMarkerAcross = 2f;
+
+        /// <summary>How far from a sprung trap its bones lie, in metres.</summary>
+        const float BonesBeside = 1.6f;
+
+        /// <summary>How long a skeleton is drawn, in metres. A man, because it was one.</summary>
+        const float BonesLength = 2f;
+
+        readonly Dictionary<TrackedTrap, Transform> _bones = new Dictionary<TrackedTrap, Transform>();
+
+        /// <summary>
+        /// Lays the bones of whoever found this trap first, once, beside it.
+        ///
+        /// Turned and offset off the trap's own position rather than rolled, so a level
+        /// looks the same every time it is played — the same reason the raiders' faces are
+        /// fixed by their group rather than drawn at random.
+        ///
+        /// Seated by width, because a skeleton is a flat thing: fitted by height, the
+        /// pack's is 41 cm of bone and would come out five times life size, which is the
+        /// mistake the paving taught and the skull it replaces was still making.
+        /// </summary>
+        void LayBones(TrackedTrap trap)
+        {
+            if (Library.TrapBones == null || _bones.ContainsKey(trap)) return;
+
+            uint mix = VisualLibrary.Mix(trap.Tile, (int)trap.Kind);
+            float turn = mix % 360u;
+            float away = (mix >> 9) % 2u == 0 ? BonesBeside : -BonesBeside;
+
+            var at = new Vector3(trap.Position.X + away * Mathf.Sin(turn * Mathf.Deg2Rad),
+                                 0f,
+                                 trap.Position.Y + away * Mathf.Cos(turn * Mathf.Deg2Rad));
+
+            var bones = Spawn(Library.TrapBones, PrimitiveType.Cube, $"TrapBones_{trap.Kind}",
+                              TrapColor, BonesLength, byWidth: true);
+
+            bones.localRotation = Quaternion.Euler(0f, turn, 0f);
+            Place(bones, new Vector3(at.x, GroundAt(new Vec2(at.x, at.z)), at.z));
+
+            _bones[trap] = bones;
+        }
 
         /// <summary>How many times its own size a trap swells at the moment it goes off.</summary>
         const float SprungFlare = 3f;

@@ -393,7 +393,14 @@ namespace TheVeil.Editor
                 // is meant to look *at* rather than past, which makes matching the
                 // world they sit in worth more here than anywhere else.
                 SilverCache = One($"{SyntyNatureDir}/Props/SM_Prop_Chest_Wood_01.prefab"),
-                TrapMarker = One($"{SyntyNatureDir}/Props/SM_Prop_Skull_01.prefab"),
+                // A hatch over the hole, the beam that falls, and the bones of whoever found
+                // out first. All three at the size the artist drew them — see
+                // VisualLibrary.TrapPit for what one skull scaled to nine tenths looked
+                // like, and RunVisuals.TrapMarkerAcross for why a flat thing is fitted
+                // across rather than up.
+                TrapPit = One($"{SyntyKnightsDir}/Props/SM_Prop_Trapdoor_01.prefab"),
+                TrapLog = One($"{SyntyKnightsDir}/Props/SM_Prop_Beam_01.prefab"),
+                TrapBones = One($"{SyntyNatureDir}/Props/SM_Prop_Skeleton_Ground_01.prefab"),
 
                 // The one arrow in either pack. PolygonKnights ships swords, shields and
                 // polearms and no ammunition at all, which is worth knowing before
@@ -1113,6 +1120,9 @@ namespace TheVeil.Editor
         /// rebuilt from scratch on any machine. Missing models are skipped silently —
         /// the level still runs, it just runs on bare ground.
         /// </summary>
+        /// <summary>The forest kit, for tools that want to build one piece of scenery.</summary>
+        internal static BiomeDecor ForestDecor() => LoadForestDecor();
+
         static BiomeDecor LoadForestDecor()
         {
             // Two packs, two up axes, measured rather than assumed. The stylized nature
@@ -1540,6 +1550,21 @@ namespace TheVeil.Editor
                 Monuments = Knights("Props", "SM_Prop_Statue_01", "SM_Prop_Plinth_01",
                                     "SM_Prop_Plinth_02"),
 
+                // What stands in the champion.s yard. Fires and stores because somebody
+                // lives there, tents because his men do, and the block because it is his
+                // castle and the tenth level is meant to feel like arriving at it.
+                CastleYard = Mixed(
+                    Load($"{SyntyKnightsDir}/Props", new[]
+                    {
+                        "SM_Prop_Guillotine_01", "SM_Prop_Brazier_01", "SM_Prop_CampFire_01",
+                        "SM_Prop_Crate_01", "SM_Prop_CartHay_01", "SM_Prop_Cart_01",
+                        "SM_Prop_Banner_01", "SM_Prop_Banner_02"
+                    }),
+                    Load($"{SyntyKnightsDir}/Buildings", new[]
+                    {
+                        "SM_Bld_Tent_01", "SM_Bld_Tent_02", "SM_Bld_Tent_03", "SM_Bld_Well_01"
+                    })),
+
                 // **Empty on purpose now.** These were the pack's two mini towers, which
                 // are whole pieces and were reported twice as standing on the grass. They
                 // are also two shapes, so every pass in the game had the same tower on it
@@ -1590,6 +1615,48 @@ namespace TheVeil.Editor
                         "SM_Bld_Castle_Tower_01", "SM_Bld_Castle_Tower_02",
                         "SM_Bld_Castle_Tower_03", "SM_Bld_Castle_Tower_04"),
 
+                    // The drums, and the caps that belong on them. Kept apart from the
+                    // square towers because Pick matches a style by remainder and the
+                    // sets are different lengths — see BuildingKit.RoundShafts for the
+                    // domes that ended up on square towers when they shared a set.
+                    RoundShafts = Knights("Buildings",
+                        "SM_Bld_Castle_Tower_Round_01", "SM_Bld_Castle_Tower_Round_02"),
+
+                    RoundTops = Knights("Buildings", "SM_Bld_Castle_Tower_Round_Top_01"),
+
+                    // What stands inside a crown. Tower_Mini is a small crenellated tower
+                    // on two and a half metres of tenon, meant to drop down into the
+                    // battlements of a bigger one; Roof_Spire is the conical roof for a
+                    // round crown. Both sat unused, and both are the stepped silhouette
+                    // the pack.s own artwork is built on.
+                    Turrets = Knights("Buildings",
+                        "SM_Bld_Castle_Tower_Mini_01", "SM_Bld_Castle_Tower_Mini_02"),
+
+                    Spires = Knights("Buildings", "SM_Bld_Castle_Roof_Spire_01"),
+
+                    // The timber fighting top. Four of them in the pack, none of them ever
+                    // used, and it is what the artwork has on top of every stone tower.
+                    // The wide one only. The pack ships four and the other three are 1.8 to
+                    // 3.2 m across, drawn for a single shaft; on a gate tower of four they
+                    // sat on one corner like a shed on a roof. _01 is 5.32 m, which is the
+                    // block to within a hand.
+                    Hoardings = Knights("Buildings", "SM_Bld_Castle_Wood_Battlement_01"),
+
+                    // And the crenellated walk that goes on top of a curtain wall. See
+                    // BuildingBuilder.Crenel: the wall had been shipping without its top.
+                    WallTops = Knights("Buildings", "SM_Bld_Castle_Tower_Wall_Top_01"),
+
+                    // Colours for the tall towers to fly. Nothing in this game was
+                    // flying any, and a fortress with no colours on it reads as a ruin
+                    // somebody still lives in rather than as a castle somebody holds.
+                    Banners = Knights("Buildings", "SM_Bld_Castle_Flag_01"),
+
+                    // The buttress at a wall joint and the grille in the gate. Both are
+                    // in the pack, both were sitting unused, and both are what the
+                    // artwork shows: a wall in bays, and a gate that is shut.
+                    Pillars = Knights("Buildings", "SM_Bld_Castle_Pillar_01"),
+                    Portcullis = Knights("Buildings", "SM_Bld_Castle_Iron_Gate_01"),
+
                     TowerTops = Knights("Buildings", "SM_Bld_Castle_Tower_Top_01"),
 
                     // Free-standing stonework, for a ruin with no room left in it.
@@ -1607,7 +1674,7 @@ namespace TheVeil.Editor
                     // castle courses, being the pack's only arch, so the gate is a shade
                     // rougher than the wall it stands in. Worth seeing before deciding it
                     // is wrong: a rough gate in a good wall is how most of them were.
-                    Gates = Knights("Buildings", "SM_Bld_Rockwall_Archway_01"),
+                    Gates = Knights("Buildings", "SM_Bld_Castle_Wall_Gate_01"),
 
                     // What came down. The same rock piles the shoreline uses, which is
                     // right: a fallen wall and a river's stones are the same stone.

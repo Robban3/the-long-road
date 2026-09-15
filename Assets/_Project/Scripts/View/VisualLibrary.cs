@@ -462,7 +462,35 @@ namespace TheVeil.View
 
         [Header("World")]
         public GameObject SilverCache;
-        public GameObject TrapMarker;
+
+        /// <summary>
+        /// What a trap looks like once the player can see it.
+        ///
+        /// <b>A trap is a thing, not an icon.</b> This was one skull, blown up to nine
+        /// tenths of a metre and tinted red — a skull the size of a sheep, in a colour
+        /// nothing else in the level is, standing for both kinds of trap at once. It read
+        /// as a marker on a map rather than as something lying in the road, which for one
+        /// of the two or three props the player is meant to look *at* is the whole of the
+        /// job missed.
+        ///
+        /// So: the pit is a hatch over a hole and the deadfall is the beam that falls, both
+        /// at the size the artist drew them, and the bones are what is left of whoever
+        /// found it first. The bones are a second object beside the trap rather than the
+        /// trap itself, because they say a different thing — a hatch says *careful*, and a
+        /// skeleton beside it says *somebody was not*.
+        /// </summary>
+        public GameObject TrapPit;
+        public GameObject TrapLog;
+        public GameObject TrapBones;
+
+        /// <summary>What marks a trap of this kind. Falls back to whichever one was set.</summary>
+        public GameObject TrapMarkerFor(TrapKind kind)
+        {
+            var own = kind == TrapKind.Log ? TrapLog : TrapPit;
+            if (own != null) return own;
+
+            return TrapPit != null ? TrapPit : TrapLog;
+        }
 
         /// <summary>
         /// The shaft an archer looses. Optional: without one the bows fire a plain dart,
