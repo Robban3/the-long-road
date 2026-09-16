@@ -309,7 +309,17 @@ namespace TheVeil.Sim
 
                     // Nothing is left to intercept it, so closeness to the wagons is
                     // what counts.
-                    if (Vec2.DistanceSquared(enemy.Position, wagonAt) <= HaltRadius * HaltRadius)
+                    //
+                    // <b>And to the side of the wagon, for the same reason the reach is.</b>
+                    // Moving the stopping distance out to the cart's flank without moving
+                    // this with it left an attacker halting at nine metres from a point
+                    // while the column only stops for something within five of it — so he
+                    // stood still and the caravan drove through him, front to back, which
+                    // is worse than the fault that was being fixed and was reported as
+                    // exactly that.
+                    float halt = HaltRadius + Caravan.CartHalf;
+
+                    if (Vec2.DistanceSquared(enemy.Position, wagonAt) <= halt * halt)
                         Halted = true;
 
                     StrikeCaravan(enemy, wagon, deltaTime);

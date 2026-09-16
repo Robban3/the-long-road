@@ -675,7 +675,16 @@ namespace TheVeil.View
         /// it cost chapter one's tenth level both of its winnable roads even when the road
         /// was forbidden to grow by a single tile.
         public const float FordDeck = 9f;
-        public const float FordSpan = 12f;
+        /// <summary>
+        /// The shortest a bridge is ever built, in metres.
+        ///
+        /// <b>Sixteen, up from twelve, because a bridge that only just spans its water
+        /// reads as a plank somebody laid across it.</b> Watched from the ground the deck
+        /// wants to be a piece of road that happens to be over a river, not the minimum
+        /// timber that reaches both banks — and the crossings carry four to eight metres of
+        /// water, so twelve was that minimum almost everywhere.
+        /// </summary>
+        public const float FordSpan = 16f;
 
         /// <summary>
         /// How far onto each bank the bridge reaches past the water, in metres.
@@ -691,7 +700,7 @@ namespace TheVeil.View
         /// eighteen, which is a bridge that meets dry ground at both ends rather than one
         /// that stops where the river does.
         /// </summary>
-        public const float BridgeLanding = 3f;
+        public const float BridgeLanding = 5f;
 
         /// <summary>How much clear ground the bridge keeps around itself, in metres.</summary>
         public const float BridgeClearance = 6f;
@@ -2082,37 +2091,22 @@ namespace TheVeil.View
             // than better: a three-tile ford is three tiles of "water" lying square to
             // the river, so the average leant toward the crossing and the ninety-degree
             // turn that follows put the bridge in the water.
-            // <b>The road first, because the road is what crosses here.</b>
-            //
-            // This asked the ford run first and the road only when the ford was a single
-            // tile. The ford run is the truer fact about the water — it is cut straight
-            // across its river, so it is ninety degrees on every crossing in chapter one
-            // — and that is exactly the trouble: it is a fact about the river and the
-            // thing being laid is a road over it.
-            //
-            // Two attempts were made at the other end of this and both were measured and
-            // thrown away. Straightening the road onto the ford's row works as geometry
-            // and costs a chapter: a straight approach cuts a corner, and the corner the
-            // drawn line went round is a corner something is standing in — on 1-10 the
-            // travel time did not move at all while the fighting grew by seventy seconds.
-            // Shortened to two tiles it stopped costing anything and stopped doing
-            // anything: one crossing of a hundred and sixteen. See BridgeReport.
-            //
-            // So the bridge gives way instead of the road. It is a model laid at an angle;
-            // moving it changes no ground, meets no enemy and takes nothing from any
-            // level.
-            //
-            // Still a function of the map and not of the drawn line. `travelled` is every
-            // corridor tile — LevelPreview.Travelled(map), which the planning map and the
-            // run both pass — so the bridge cannot come out one way on the map and another
-            // in the game. That distinction is what the first version of this got wrong:
-            // it turned to meet the caravan's own lane, and the lane does not exist when
-            // the map is drawn.
-            float road = Bearing(grid, tile, travelled, 2);
-            if (!float.IsNaN(road)) return road;
-
             float ford = Bearing(grid, tile, TerrainType.Ford, 3);
             if (!float.IsNaN(ford)) return ford;
+
+            // <b>And the road only where the ford has no run to read.</b>
+            //
+            // Asking the road first was tried and reverted on sight: a bridge laid along
+            // the road.s bearing instead of the river.s crosses the water at a slant, and
+            // what that looks like is a bridge that does not belong to its stream. The
+            // ford is cut straight across its river and the deck belongs to the river.
+            //
+            // A single wet tile has no run to read, so there the road is the whole answer
+            // — 1-4.s crossing is exactly that, and before this fallback existed its bridge
+            // sat at whatever angle the surrounding water averaged to while the road came
+            // at it dead straight.
+            float road = Bearing(grid, tile, travelled, 2);
+            if (!float.IsNaN(road)) return road;
 
             float water = Bearing(grid, tile, TerrainType.Water, 2);
             if (!float.IsNaN(water)) return water + 90f;
