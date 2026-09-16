@@ -3131,11 +3131,64 @@ namespace TheVeil.View
                        yaw: GateYaw(grid, goalTile, travelled), landmark: false, resize: false))
                 return 0;
 
+            BedTheYard(castle, grid, site, heightScale);
             WallOff(castle);
 
             Landmark.Note(found, LandmarkKind.Castle, site);
             _castle = castle;
             return 1;
+        }
+
+        /// <summary>
+        /// Lays the bailey's stone on the ground it is actually on.
+        ///
+        /// <b>A castle is built in its own flat plane and set down on country that is
+        /// not flat.</b> Everything inside the walls is assembled at the origin — that is
+        /// what lets the whole thing be turned and seated as one thing — so the yard comes
+        /// out as a level floor at whatever height Raise chose for the building. On a
+        /// slope, a quarter of it is then underground: Smoke Test counted twelve pieces
+        /// buried on 1-10, eight on 2-10 and eleven on 3-10, and what that looks like is
+        /// grass pushing up through a paved courtyard.
+        ///
+        /// Moved by the difference between the ground under each flag and the ground under
+        /// the castle's own tile, rather than seated on the ground outright. The yard is
+        /// two layers — earth everywhere with stone over five parts in six of it — and
+        /// seating both on the surface would flatten one into the other. A shared offset
+        /// keeps the stone above its earth and still lets the floor follow the fall.
+        ///
+        /// Here rather than in BuildingBuilder because there is no ground to ask there.
+        /// The same reason the courtyard is swept at the end of Decorate and not before
+        /// it: some questions can only be put once the thing is standing where it stands.
+        /// </summary>
+        static void BedTheYard(GameObject castle, TileGrid grid, int site, float heightScale)
+        {
+            // <b>The castle.s own height, not the ground under its tile.</b>
+            //
+            // Those are not the same number and the difference is the whole fault. Raise
+            // sinks a building so its footings bed into the slope rather than perching on
+            // it, so the castle.s plane sits below grade by a constant — and a correction
+            // measured against the ground under its tile is that same constant on every
+            // flag, which cancels and moves nothing. It was measured, changed nothing on
+            // 1-10 and made 2-10 worse.
+            float floor = castle.transform.position.y;
+
+            foreach (Transform piece in castle.transform)
+            {
+                // Everything that stands on the yard, and nothing that stands on the wall.
+                //
+                // The stone was the loud part of this and not the whole of it: crates, a
+                // hay wain and a cart wheel went under on 3-10 for the same reason, being
+                // seated on the same sunken plane. The masonry stays where Raise put it —
+                // its footings are meant to be in the slope — and so do the banners, which
+                // hang from the parapet and belong to the wall rather than to the ground.
+                if (piece.name.Contains("Castle") || piece.name.Contains("Banner")
+                    || piece.name == "Tower") continue;
+
+                var stood = piece.position;
+                float ground = grid.SurfaceElevation(stood.x, stood.z) * heightScale;
+
+                piece.position = new Vector3(stood.x, stood.y + (ground - floor), stood.z);
+            }
         }
 
         /// <summary>
