@@ -152,7 +152,11 @@ namespace TheVeil.Editor
                 settled: Settlements.Settled(biome),
                 town: LevelMaps.Recipe(chapter, level).Town
                           ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
-                          : Towns.None);
+                          : Towns.None,
+
+                // Where the champion waits, so the castle stands on his side of
+                // the goal. See Strongholds.Site.
+                guard: Champions.Post(map));
 
             return root;
         }

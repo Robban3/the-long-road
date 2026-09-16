@@ -1130,7 +1130,15 @@ namespace TheVeil.View
                                    IReadOnlyCollection<int> apronOpenings = null,
                                    int village = -1,
                                    bool settled = true,
-                                   Towns.Plan town = default)
+                                   Towns.Plan town = default,
+
+                                   // The tile the chapter.s champion waits on, so the castle
+                                   // can be stood on his side of the goal rather than on
+                                   // whichever side the loop reached first. See
+                                   // Strongholds.Site: he is mechanism and cannot be moved to
+                                   // the castle without costing a chapter, so the castle comes
+                                   // to him.
+                                   int guard = -1)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -1173,7 +1181,7 @@ namespace TheVeil.View
             // building, the thing the eye was meant to find, is the one that loses. A
             // castle is the largest of them by a long way, so it claims first.
             placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
-                                  goalTile, travelled, found);
+                                  goalTile, travelled, found, guard);
 
             // The town before any of it, because its walls are the largest built thing
             // on any map and they are not negotiable: the ground they stand on was made
@@ -3077,7 +3085,7 @@ namespace TheVeil.View
         static int PlaceCastle(Transform parent, TileGrid grid, DeterministicRandom rng,
                                BiomeDecor decor, HashSet<int> occupied, float heightScale,
                                int goalTile, IReadOnlyCollection<int> travelled,
-                               List<Landmark> found)
+                               List<Landmark> found, int guard)
         {
             if (goalTile < 0 || goalTile >= grid.TileCount) return 0;
             if (decor.Kit == null || !decor.Kit.CanBuildCastle) return 0;
@@ -3103,7 +3111,7 @@ namespace TheVeil.View
             // walls could not be solid while the route ran through them, so they were left
             // drivable and the column clipped stone at the one moment the camera is on it.
             // Nothing has to be driven through any more, so nothing has to be left open.
-            int site = CastleSite(grid, goalTile, travelled, occupied);
+            int site = CastleSite(grid, goalTile, travelled, occupied, guard);
             if (site < 0) return 0;
 
             if (!Raise(grid, site, rng, castle, CastleHeight, heightScale, occupied,
@@ -3176,7 +3184,7 @@ namespace TheVeil.View
         /// against the stonework, and far enough that the champion, who waits five tiles
         /// short of the goal, is in front of it rather than in it.
         /// </summary>
-        public const int CastleStandoff = 14;
+        public const int CastleStandoff = Strongholds.Standoff;
 
         /// <summary>
         /// Where the enemy's castle stands: off to one side of the goal, across the road.
@@ -3191,38 +3199,26 @@ namespace TheVeil.View
         /// castle instead of quietly getting none.
         /// </summary>
         static int CastleSite(TileGrid grid, int goalTile, IReadOnlyCollection<int> travelled,
-                              HashSet<int> occupied)
+                              HashSet<int> occupied, int guard)
         {
-            grid.ToCoords(goalTile, out int gx, out int gy);
-
-            // The way in, as the gate already works it out, turned a quarter.
-            float yaw = GateYaw(grid, goalTile, travelled);
-            float rad = yaw * Mathf.Deg2Rad;
-
-            int dx = Mathf.RoundToInt(Mathf.Cos(rad));
-            int dy = Mathf.RoundToInt(-Mathf.Sin(rad));
-
-            foreach (int sign in new[] { 1, -1 })
-            {
-                int x = gx + dx * CastleStandoff * sign;
-                int y = gy + dy * CastleStandoff * sign;
-
-                if (!grid.InBounds(x, y)) continue;
-
-                int tile = grid.ToIndex(x, y);
-                if (occupied.Contains(tile)) continue;
-
-                return tile;
-            }
-
-            return -1;
+            // <b>Asked rather than worked out here.</b>
+            //
+            // This was the only place that knew where the castle went, which is why the
+            // generator posted the chapter's champion five tiles back along the fastest
+            // road while the castle went up fourteen tiles out to the side: the man who
+            // holds it stood in a field with his back to it. The answer lives in
+            // Sim.Strongholds now and both callers ask the same one.
+            //
+            // What stays here is the only part that is about this scene rather than about
+            // the map: ground something else has already claimed.
+            return Strongholds.Site(grid, goalTile, travelled, occupied, guard);
         }
 
         /// <summary>How tall the castle stands, in metres. Half again the watchtower.</summary>
         public const float CastleHeight = 15f;
 
         /// <summary>Tiles around the goal that are looked at to find which way the road comes in.</summary>
-        public const int GateLookback = 8;
+        public const int GateLookback = Strongholds.Lookback;
 
         /// <summary>
         /// Which way to turn the castle so its gate faces the road.
@@ -3237,46 +3233,13 @@ namespace TheVeil.View
         /// buildings at eleven degrees. With nothing to go on it faces west, which is
         /// where the caravan starts: the start is chosen from the leftmost columns.
         /// </summary>
+        /// <summary>
+        /// Which quarter turn puts the gate towards the road. Moved to Sim.Strongholds,
+        /// because the generator needs the same answer to know where the castle.s lord
+        /// waits — see CastleSite.
+        /// </summary>
         static float GateYaw(TileGrid grid, int goalTile, IReadOnlyCollection<int> travelled)
-        {
-            float toX = -1f, toZ = 0f;
-
-            if (travelled != null)
-            {
-                grid.ToCoords(goalTile, out int gx, out int gy);
-                float sumX = 0f, sumY = 0f;
-                int seen = 0;
-
-                foreach (int tile in travelled)
-                {
-                    if (tile < 0 || tile >= grid.TileCount) continue;
-
-                    grid.ToCoords(tile, out int x, out int y);
-                    int dx = x - gx, dy = y - gy;
-
-                    if (dx * dx + dy * dy > GateLookback * GateLookback) continue;
-
-                    sumX += dx;
-                    sumY += dy;
-                    seen++;
-                }
-
-                if (seen > 0 && (sumX != 0f || sumY != 0f))
-                {
-                    toX = sumX;
-                    toZ = sumY;
-                }
-            }
-
-            // Whichever axis the road lies along more strongly wins the quarter turn.
-            //
-            // A yaw of nought leaves the gate pointing down -Z, ninety turns it to -X,
-            // a hundred and eighty to +Z and two hundred and seventy to +X. Written the
-            // other way round the castle presents its back wall to the road, which is
-            // the one thing this function exists to prevent.
-            if (Mathf.Abs(toX) >= Mathf.Abs(toZ)) return toX < 0f ? 90f : 270f;
-            return toZ < 0f ? 0f : 180f;
-        }
+            => Strongholds.GateYaw(grid, goalTile, travelled);
 
         /// <summary>
         /// Places the things that were built rather than grown.

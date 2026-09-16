@@ -257,8 +257,34 @@ namespace TheVeil.Sim
                 // the front of it, and the rear of a caravan was the safest place on the
                 // map. A column is thirty metres long and the thing nearest a raider is
                 // whatever he is standing next to.
-                Wagon wagon = null; Vec2 wagonAt = _caravan.LeadPosition;
-                foreach (var c in _caravan.Wagons) { if (!c.Destroyed) { wagon = c; break; } }
+                // <b>And this is what it said and still did not do.</b>
+                //
+                // The loop took the first undestroyed wagon, which is the lead one, and
+                // wagonAt was set to the lead position and never assigned again — so every
+                // attacker in the column ran at the front of it whichever cart it had
+                // picked. Watched from the ground that is a horseman riding the length of
+                // the caravan, through the wagons, to reach the first one: reported as
+                // "he rides inside the carts", and he was.
+                //
+                // Nearest by distance, and the spot aimed at is that wagon's own.
+                Wagon wagon = null;
+                Vec2 wagonAt = _caravan.LeadPosition;
+                float nearest = float.MaxValue;
+
+                for (int i = 0; i < _caravan.Wagons.Count; i++)
+                {
+                    if (_caravan.Wagons[i].Destroyed) continue;
+
+                    var at = _caravan.WagonPosition(i);
+                    float span = Vec2.DistanceSquared(enemy.Position, at);
+
+                    if (span >= nearest) continue;
+
+                    nearest = span;
+                    wagon = _caravan.Wagons[i];
+                    wagonAt = at;
+                }
+
                 if (wagon == null) continue;
 
                 float reachToCaravan = EnemyTable.AttackRange(enemy.Kind) + EngagementSlack;

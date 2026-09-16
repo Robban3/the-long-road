@@ -390,7 +390,11 @@ namespace TheVeil.App
                 // And the walls, if this is the level with a town on it. Where they
                 // stand was decided before the map had any ways through it (Towns).
                 town: recipe.Town ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
-                                 : Towns.None);
+                                 : Towns.None,
+
+                // And where the chapter.s champion stands, so the castle goes up on his
+                // side of the goal rather than behind him. See Strongholds.Site.
+                guard: Champions.Post(map));
 
             // And the air it stands in. Set either way rather than only when a country
             // wants it, because the setting belongs to the scene and would otherwise

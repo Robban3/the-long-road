@@ -178,5 +178,32 @@ namespace TheVeil.Sim
         /// beside it is how a lesson becomes a wall.
         /// </summary>
         static bool Settled(int chapter) => chapter >= 2;
+
+        /// <summary>
+        /// The tile the chapter's champion waits on, or -1 where there is none.
+        ///
+        /// For the castle, which is stood on his side of the goal rather than on whichever
+        /// side the arithmetic reached first — see Strongholds.Site.
+        ///
+        /// <b>The other way round was tried three times and measured three times.</b>
+        /// Moving him to the castle costs a chapter every way it is done: four tiles
+        /// outside his own gate is forty metres from the goal against a detect radius of
+        /// twenty-six, so he never wakes and a live champion holds the goal — the run
+        /// cannot end at all. At the right distance but off the road he is a hundred and
+        /// twenty-seven metres from the fast corridor. On the road nearest his castle he is
+        /// twenty-seven from the odd one. He has to stand where three roads converge, and
+        /// only one tile does.
+        ///
+        /// So the scenery moves and the mechanism does not.
+        /// </summary>
+        public static int Post(LevelMap map)
+        {
+            if (map?.Encounters?.Enemies == null) return -1;
+
+            foreach (var spawn in map.Encounters.Enemies)
+                if (spawn.Kind == EnemyKind.Champion) return spawn.Tile;
+
+            return -1;
+        }
     }
 }

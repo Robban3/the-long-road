@@ -1498,6 +1498,7 @@ namespace TheVeil.App
                 town: LevelMaps.Recipe(Chapter, Level).Town
                           ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
                           : Towns.None,
+                guard: Champions.Post(map),
                 // The castle only at the end of a chapter, and the caller decides that
                 // because the decorator only knows there is a goal. Standing one on every
                 // level made ten keeps in a chapter and turned the thing the roadmap
