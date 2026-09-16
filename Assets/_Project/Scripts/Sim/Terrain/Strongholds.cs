@@ -100,6 +100,65 @@ namespace TheVeil.Sim
         }
 
         /// <summary>
+        /// How much ground the bailey is levelled over, as a radius in tiles.
+        ///
+        /// Seven. The castle is forty-odd metres across, near six tiles from its middle to
+        /// its wall, and one more takes in the towers that stand out of the line.
+        /// </summary>
+        public const int Bailey = 7;
+
+        /// <summary>
+        /// Levels the ground a castle stands on, so its courtyard can be flat and above
+        /// grade at once.
+        ///
+        /// <b>Why it has to be the ground and not the floor.</b> A castle is assembled in
+        /// its own flat plane and set down on country that is not — so the yard came out
+        /// as a level slab at the building's height, and on a slope a quarter of it was
+        /// underground: sixteen pieces buried on 1-10, eight on 2-10, eleven on 3-10.
+        /// Laying each flag on the ground under it fixed that and bought a new fault,
+        /// because flat tiles at different heights do not meet at their edges: the terrain
+        /// shows through the seams. There is no arrangement of a flat floor on sloping
+        /// ground that is both level and closed. The ground has to give.
+        ///
+        /// <b>And it can, because nothing decides anything by it here.</b> Elevation is
+        /// read by two things outside the generator — Settlements picks a village site by
+        /// it and Towns sets its gate row by it — and neither ever meets a castle: villages
+        /// stand on the third and sixth levels of a chapter, the town on 1-8, and the keep
+        /// only on the tenth. Run after Generate, so every corridor, cost and encounter is
+        /// already fixed and cannot see this.
+        ///
+        /// Called from LevelMaps.For, which is the one door both the planning map and the
+        /// run come through — a level flattened for one and not the other would be two
+        /// different countries.
+        /// </summary>
+        public static void Flatten(LevelMap map, int level)
+        {
+            if (map?.Grid == null || level < Campaign.LevelsPerChapter) return;
+
+            var travelled = new HashSet<int>();
+            if (map.Corridors != null)
+                foreach (var corridor in map.Corridors)
+                    foreach (int tile in corridor.Tiles) travelled.Add(tile);
+
+            int site = Site(map.Grid, map.GoalIndex, travelled);
+            if (site < 0) return;
+
+            map.Grid.ToCoords(site, out int cx, out int cy);
+            float floor = map.Grid.Elevation(site);
+
+            for (int dy = -Bailey; dy <= Bailey; dy++)
+            {
+                for (int dx = -Bailey; dx <= Bailey; dx++)
+                {
+                    int x = cx + dx, y = cy + dy;
+                    if (!map.Grid.InBounds(x, y)) continue;
+
+                    map.Grid.SetElevation(map.Grid.ToIndex(x, y), floor);
+                }
+            }
+        }
+
+        /// <summary>
         /// Which quarter turn puts the gate towards the road the caravan arrives on.
         ///
         /// Moved here whole from TerrainDecorator. A yaw of nought leaves the gate

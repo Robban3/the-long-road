@@ -35,7 +35,25 @@ namespace TheVeil.Gen
     {
         /// <summary>The map for one level, as both the planning screen and the run see it.</summary>
         public static LevelMap For(int chapter, int level)
-            => TerrainGenerator.Generate(Recipe(chapter, level), DeterministicRandom.SeedFor(chapter, level));
+        {
+            var map = TerrainGenerator.Generate(Recipe(chapter, level),
+                                                DeterministicRandom.SeedFor(chapter, level));
+
+            // The ground a castle stands on, levelled — after the generator has finished
+            // with the map and can no longer see it. See Strongholds.Flatten for why a
+            // courtyard cannot be both flat and above grade on a slope, and for why this
+            // changes no decision: the two things that read elevation outside the
+            // generator pick village and town sites, and neither is ever on the level a
+            // keep is on.
+            //
+            // Here rather than in either caller, because this is the one door the planning
+            // map and the run both come through. A level flattened for one and not the
+            // other would be two different countries, which is the fault this whole file
+            // exists to prevent.
+            Strongholds.Flatten(map, level);
+
+            return map;
+        }
 
         /// <summary>
         /// The recipe that level is built from.
