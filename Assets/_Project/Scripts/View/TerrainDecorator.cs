@@ -3654,7 +3654,17 @@ namespace TheVeil.View
             // be. The same single call in the same place — hoisting it out of the Choice
             // does not touch the order the random numbers come in, and every map stays
             // exactly the map it was.
-            var chosen = Any(decor.Ruins, rng);
+            // <b>Bones, always, because this is a trap sign and not a ruin.</b>
+            //
+            // The draw was Any, which takes whatever the set hands back — and the set holds
+            // wrecks as well as remains, so about half of every trap on every level was
+            // marked by a broken cart. That is not a warning, it is scenery; and because
+            // the landmark below is noted from what was drawn, those halves came out on the
+            // planning map as Wreck and the bones symbol never appeared for them.
+            //
+            // LandmarkKind.Bones has said "remains at a trap site" since the day it was
+            // written. It was the draw that had never been told.
+            var chosen = Bones(decor.Ruins, rng) ?? Any(decor.Ruins, rng);
 
             // Life size, and not sunk at all.
             //
@@ -3693,7 +3703,7 @@ namespace TheVeil.View
             // every piece of it stays the size a bone is.
             if (IsBones(chosen))
             {
-                int bones = rng.Range(3, 7);
+                int bones = rng.Range(BonePieces, BonePieces * 2);
                 for (int i = 0; i < bones; i++)
                 {
                     var piece = Bones(decor.Ruins, rng);
@@ -3743,12 +3753,27 @@ namespace TheVeil.View
             return placed;
         }
 
-        /// <summary>How far the pieces of a bone pile lie from its middle, in metres.</summary>
+        /// <summary>
+        /// How far the pieces of a bone pile lie from its middle, in metres.
         ///
-        /// Half what the wreckage scatters over. Debris came off a cart and travelled;
-        /// bones are where somebody fell, and a heap two metres across is a heap. Wider
-        /// and it stops being one thing that happened and becomes litter.
-        public const float BonePileSpread = 1.3f;
+        /// <b>Two and a half, which is a tile, and it was 1.3 for a reason that does not
+        /// survive being measured.</b> The reason was that bones are where somebody fell
+        /// and a heap wider than two metres stops being one thing that happened and
+        /// becomes litter. True at eye level. The game is looked at from thirty-odd
+        /// metres up at a slant, and photographed from there — see TrapReport.OnALevel —
+        /// a 2.6 m scatter of pieces 41 cm tall is not litter or a heap, it is nothing at
+        /// all: the only parts of a trap sign a player can actually see are the banner
+        /// and the dead trees standing beside it.
+        ///
+        /// Nothing is scaled. What is wider is the ground it covers, so the patch reads
+        /// as disturbed even when no single bone does — the same answer this file already
+        /// reached once, that the cure is more of them rather than a bigger one, carried
+        /// the rest of the way.
+        /// </summary>
+        public const float BonePileSpread = 2.5f;
+
+        /// <summary>Pieces in a bone pile, and up to twice that.</summary>
+        public const int BonePieces = 8;
 
         /// <summary>
         /// One bone prop out of a set that is mostly not bones, or null if it has none.

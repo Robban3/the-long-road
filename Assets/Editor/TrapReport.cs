@@ -91,6 +91,85 @@ namespace TheVeil.Editor
             Debug.Log(sheet.ToString());
         }
 
+        /// <summary>
+        /// A trap sign where it actually stands, from where the player actually sits:
+        /// `The Veil > Trap Sign On A Level`.
+        ///
+        /// <b>Every judgement about these bones has been made from the wrong distance.</b>
+        /// The pieces above are photographed a metre away, which is how a 41 cm skeleton
+        /// gets called "life size, and that is the honest size for a body". The game camera
+        /// is forty-six metres up at a slant, and the question that matters is not whether
+        /// the skeleton is the right size but whether a player looking at the ground from
+        /// there can tell there is one.
+        ///
+        /// Two shots: what the camera sees, and a close one for what is actually lying
+        /// there. The second is the one that says the first is not a rendering fault.
+        /// </summary>
+        [MenuItem("The Veil/Trap Sign On A Level")]
+        public static void OnALevel()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/_Project/Scenes/PlayLevel.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Single);
+
+            var runner = Object.FindAnyObjectByType<TheVeil.App.LevelRunner>();
+            if (runner == null) { Debug.Log("[Trap] no LevelRunner in the scene"); return; }
+
+            string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilSmoke");
+            System.IO.Directory.CreateDirectory(shots);
+
+            for (int level = 1; level <= 3; level++)
+            {
+                var root = SmokeTest.Build(runner, 1, level, out _);
+
+                var remains = Remains(root.transform);
+                if (remains == null)
+                {
+                    Debug.Log($"[Trap] 1-{level}: no remains anywhere on the level");
+                    Object.DestroyImmediate(root);
+                    continue;
+                }
+
+                var box = ModelScaling.Measure(remains.gameObject);
+
+                Debug.Log($"[Trap] 1-{level}: {remains.name} "
+                          + $"{box.size.x:0.00} x {box.size.y:0.00} x {box.size.z:0.00} m "
+                          + $"at {box.center.x:0}, {box.center.z:0}");
+
+                // The camera the game is played from: forty-six metres up, at a slant.
+                Shoot(box.center + new Vector3(0f, PlayHeight, -PlayHeight), box.center,
+                      System.IO.Path.Combine(shots, $"trapsign-{level}-played.png"));
+
+                // And close, so a thing that cannot be seen from up there is shown to be
+                // there all the same.
+                Shoot(box.center + new Vector3(0f, 3f, -4f), box.center,
+                      System.IO.Path.Combine(shots, $"trapsign-{level}-close.png"));
+
+                Object.DestroyImmediate(root);
+            }
+
+            Debug.Log($"[Trap] pictures in {shots}");
+        }
+
+        /// <summary>How high the game's own camera sits, in metres. See RunVisuals.</summary>
+        const float PlayHeight = 33f;
+
+        /// <summary>The first bones standing on a level, wherever they ended up.</summary>
+        static Transform Remains(Transform at)
+        {
+            foreach (Transform child in at)
+            {
+                if (child.name.Contains("Skeleton") || child.name.Contains("Skull")
+                    || child.name.Contains("Bone"))
+                    return child;
+
+                var found = Remains(child);
+                if (found != null) return found;
+            }
+
+            return null;
+        }
+
         static void Shoot(Vector3 from, Vector3 at, string path)
         {
             var go = new GameObject("Trap camera");
