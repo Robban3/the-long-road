@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TheVeil.Sim;
 using UnityEngine;
 
@@ -113,6 +114,52 @@ namespace TheVeil.View
 
         /// <summary>Fallen stone. What a building leaves behind when it stops being one.</summary>
         public PropSet Rubble = new PropSet();
+
+        /// <summary>
+        /// What furnishes a courtyard: the well, the lean-tos against the wall, the
+        /// tents, the loose gear and the fire by the gate.
+        ///
+        /// <b>Held on the kit rather than read from the biome's prop sets, because the
+        /// castle is assembled at the origin and turned as one thing.</b> Everything
+        /// inside the walls has to be a child of the castle and placed in its local
+        /// space — which is also what keeps it out of the courtyard sweep, since that
+        /// only judges the decor parent's own children.
+        /// </summary>
+        public PropSet Wells = new PropSet();
+        public PropSet Shelters = new PropSet();
+        public PropSet Tents = new PropSet();
+        public PropSet YardGear = new PropSet();
+        public PropSet Braziers = new PropSet();
+        public PropSet Stairs = new PropSet();
+
+        /// <summary>The stone the bailey is laid in. See BuildingBuilder.Pave.</summary>
+        public PropSet Paving = new PropSet();
+
+        /// <summary>The earth the flagstone is laid over. See BuildingBuilder.Pave.</summary>
+        public PropSet Ground = new PropSet();
+
+        /// <summary>
+        /// The cloth banners that hang down the face of a curtain wall.
+        ///
+        /// Not <see cref="Banners"/>, which is the pennant on a tower's staff. The plan
+        /// hangs four of these between the towers, and they are the only colour on a
+        /// forty-metre run of grey.
+        /// </summary>
+        public PropSet WallBanners = new PropSet();
+
+        /// <summary>
+        /// The colours the banners are painted in.
+        ///
+        /// <b>PolygonKnights ships four texture atlases and this game had only ever used
+        /// the first.</b> Nothing was wrong with that until the plan asked for red cloth:
+        /// the banner's UVs point where they point, and under atlas one they come out blue
+        /// and purple. Put the same prefab under each of the four and the third is red and
+        /// gold — see CastleMockup.Swatches, which is how this was settled rather than
+        /// reasoned about.
+        ///
+        /// Optional. Left empty the banners keep whatever the prefab ships with.
+        /// </summary>
+        public Material Livery;
 
         public bool CanBuildHouse => Foundations.Any && Rooms.Any && Roofs.Any;
         public bool CanBuildTower => TowerShafts.Any && TowerTops.Any;
@@ -282,7 +329,8 @@ namespace TheVeil.View
         /// </summary>
         public static GameObject Tower(Transform parent, BuildingKit kit, DeterministicRandom rng,
                                        int courses, bool round = false, bool timber = false,
-                                       bool capped = true, int style = -1, bool crowned = true)
+                                       bool capped = true, int style = -1, bool crowned = true,
+                                       bool spired = false)
         {
             if (kit == null || !kit.CanBuildTower) return null;
 
@@ -337,7 +385,7 @@ namespace TheVeil.View
             // gate. Put on every tower it turns the whole castle into a timber yard —
             // the artwork hoards the gatehouse and leaves the rest of the wall in stone,
             // because the gate is the part worth defending from overhead.
-            var cap = drum ? kit.Spires
+            var cap = drum || spired ? kit.Spires
                           : (timber && kit.Hoardings.Any ? kit.Hoardings : kit.Turrets);
 
             // Uncapped when this shaft is one quarter of a block: the block gets a single
@@ -507,15 +555,78 @@ namespace TheVeil.View
 
                 if (i == gateAt && kit.Gates.Any)
                 {
-                    Run(host.transform, Any(kit.Gates, rng), kit.Gates.ZUp,
-                        new Vector3(x, 0f, -halfZ), 0f);
+                    // <b>Built big, because a gateway is the one hole in the wall.</b>
+                    //
+                    // The pack draws its gate panel the size of a curtain panel, and once
+                    // the curtain went to two courses the arch in it was a mousehole at
+                    // the foot of a fifteen-metre face — an eighth of the wall's height
+                    // where the plan has a quarter of it. So the gate panel is built to a
+                    // scale of its own: it is the gatehouse, and a gatehouse is heavier
+                    // masonry than the wall it interrupts.
+                    //
+                    // Which also widens it past its bay and into the panels either side,
+                    // and that is right: on the plan the gatehouse is a block projecting
+                    // out of the wall line, not a panel flush with it.
+                    var arch = Gatehouse(host.transform, kit, rng, x, -halfZ,
+                                         WallRise(host.transform, kit, style) * GateShare);
 
                     // And the grille, down. The castle is the champion's and nobody is
                     // invited in: a gateway standing open on a fortress that cannot be
                     // entered is the one detail that would give the whole thing away.
-                    if (kit.Portcullis.Any)
-                        Run(host.transform, Any(kit.Portcullis, rng), kit.Portcullis.ZUp,
-                            new Vector3(x, 0f, -halfZ), 0f);
+                    if (arch != null && kit.Portcullis.Any)
+                    {
+                        var grille = Run(host.transform, Any(kit.Portcullis, rng),
+                                         kit.Portcullis.ZUp, new Vector3(x, 0f, -halfZ), 0f);
+
+                        // At the arch's scale, or the grille hangs in the middle of an
+                        // opening twice its size with daylight all round it.
+                        if (grille != null)
+                        {
+                            grille.transform.localScale = arch.transform.localScale;
+
+                            var bars = ModelScaling.Measure(grille);
+                            grille.transform.position += new Vector3(x - bars.center.x,
+                                                                     -bars.min.y,
+                                                                     -halfZ - bars.center.z);
+                        }
+                    }
+
+                    // <b>The stone over the gateway.</b>
+                    //
+                    // A gatehouse is not two towers with a hole between them, which is
+                    // what stood here: a pair of drums planted six metres clear of the
+                    // wall with the arch behind them. On the plan it is a mass of masonry
+                    // built up over the arch — a course higher than the curtain either
+                    // side, crenellated across the top, and the towers are at its
+                    // shoulders rather than in front of it.
+                    if (arch != null)
+                    // <b>Crenellations only, no course under them.</b>
+                    //
+                    // The gate panel is already built to the full height of the curtain,
+                    // so a course on top of it stood the gatehouse a whole storey proud of
+                    // the wall — a crenellated block rearing up over the gateway that is
+                    // on no elevation of the plan. What rises above the wall there is the
+                    // donjon, behind. The gatehouse finishes flush and takes the same wall
+                    // walk as the curtain either side of it.
+                    if (arch != null)
+                    {
+                        var block = ModelScaling.Measure(arch);
+
+                        Crenel(host.transform, kit, style, rng,
+                               new Vector3(x, block.max.y - Seam, -halfZ), 0f, courses: 0);
+
+                        // And the colours, on the gatehouse itself. They used to hang on
+                        // the wall panels either side, which the widened gatehouse then
+                        // stood in front of — so the two banners the plan hangs at the
+                        // gate, the pair anybody walking up to it sees, were behind
+                        // masonry.
+                        foreach (float off in new[] { -GateBannerAt, GateBannerAt })
+                            Hang(host.transform, kit, Any(kit.WallBanners, rng),
+                                 kit.WallBanners.ZUp,
+                                 new Vector3(x + off * block.size.x,
+                                             block.max.y * BannerDrop,
+                                             block.min.z - Seam), 0f);
+                    }
                 }
                 else
                 {
@@ -536,20 +647,20 @@ namespace TheVeil.View
                 for (int i = 1; i < across; i++)
                 {
                     float x = -halfX + i * span;
-                    Run(host.transform, Any(kit.Pillars, rng), kit.Pillars.ZUp,
+                    Buttress(host.transform, kit, rng,
                         new Vector3(x, 0f, halfZ), 0f);
 
                     if (i != gateAt && i != gateAt + 1)
-                        Run(host.transform, Any(kit.Pillars, rng), kit.Pillars.ZUp,
+                        Buttress(host.transform, kit, rng,
                             new Vector3(x, 0f, -halfZ), 0f);
                 }
 
                 for (int i = 1; i < deep; i++)
                 {
                     float z = -halfZ + i * span;
-                    Run(host.transform, Any(kit.Pillars, rng), kit.Pillars.ZUp,
+                    Buttress(host.transform, kit, rng,
                         new Vector3(-halfX, 0f, z), 0f);
-                    Run(host.transform, Any(kit.Pillars, rng), kit.Pillars.ZUp,
+                    Buttress(host.transform, kit, rng,
                         new Vector3(halfX, 0f, z), 0f);
                 }
             }
@@ -558,40 +669,67 @@ namespace TheVeil.View
             // the wall on the outside of it — the same tower the corners carry, with the
             // timber gallery on top.
             float gateX = -halfX + (gateAt + 0.5f) * span;
-            float stand = -halfZ - OutsideTheWall(kit);
 
-            foreach (float side in new[] { gateX - span * 0.5f, gateX + span * 0.5f })
+            // In the wall line, not in front of it. The pair used to stand a tower's depth
+            // clear of the curtain, which made them two free-standing drums with a gateway
+            // somewhere behind — see the gate bay above for what the plan actually draws.
+            float stand = -halfZ;
+
+            // <b>Round drums with red conical roofs, which is what the plan draws.</b>
+            //
+            // These were square shafts under timber hoardings for several passes, built
+            // off the pack's own promotional artwork and off instructions given while that
+            // was the only reference there was. The plan supersedes both: every tower on
+            // it — the four corners and the pair at the gate — is a round drum capped
+            // with a red spire, and the timber on it is a gallery along the back wall,
+            // not a hat on every tower.
+            //
+            // Both halves are in the kit and both were already loaded: RoundShafts and
+            // Spires. Tower(round: true) has drawn them correctly the whole time; nothing
+            // was ever asking it to.
+            foreach (float side in new[] { gateX - span * GateFlank, gateX + span * GateFlank })
             {
-                // Style three, which is SM_Bld_Castle_Tower_04 — the one shaft in the set
-                // with arrow slits cut in it. The corners draw at random and so happened
-                // to show windows while the gate towers came out blank.
-                Block(host.transform, kit, rng, GateCourses, new Vector3(side, 0f, stand),
-                      timber: true, facing: 180f, width: 1f, style: SlittedShaft);
+                Mural(host.transform, kit, rng, GateCourses, new Vector3(side, 0f, stand));
             }
 
-            // And two more of the same on each of the other three sides.
+            // <b>Eight towers: four corners, one on each side wall, two at the gate.</b>
             //
-            // The gate had its pair and the rest of the circuit had nothing but corners,
-            // so from anywhere except straight in front the castle was a long blank run of
-            // wall. Two to a side puts a tower in view from wherever the road comes in,
-            // which is the whole job of a mural tower and the reason they are spaced the
-            // way they are on any real one.
+            // Counted off the plan rather than reasoned about, after two passes of
+            // reasoning about it. It was twelve once — two to a side on all four, which
+            // turned the circuit into a palisade of towers — and six for one pass, which
+            // left both side walls a blank forty-metre run. Six besides the gate pair is
+            // what is drawn.
             //
-            // Each turned to overhang its own wall, since a hoarding built out over the
-            // courtyard would be a gallery facing the wrong way.
-            float outX = halfX + OutsideTheWall(kit);
-            float outZ = halfZ + OutsideTheWall(kit);
-
-            foreach (float at in new[] { -span, span })
+            // The side ones stand mid-wall, which is also the only place a mural tower is
+            // any use: a tower at a corner covers two faces and a tower halfway along
+            // covers the ground between them.
+            // In the wall line, like every other tower on the plan. These two stood a
+            // tower's depth clear of the curtain — the only two on the circuit that did,
+            // which read as a pair of turrets parked beside the castle rather than as
+            // mural towers belonging to it.
+            foreach (float side in new[] { -halfX, halfX })
             {
-                Block(host.transform, kit, rng, GateCourses, new Vector3(at, 0f, outZ),
-                      timber: true, facing: 0f, width: 1f, style: SlittedShaft);
+                Mural(host.transform, kit, rng, CornerCourses, new Vector3(side, 0f, 0f));
+            }
 
-                Block(host.transform, kit, rng, GateCourses, new Vector3(-outX, 0f, at),
-                      timber: true, facing: 90f, width: 1f, style: SlittedShaft);
+            // <b>The donjon, in the middle of the wall the gate faces across.</b>
+            //
+            // Item two on the plan's key — huvudtorn — and the thing the whole castle is
+            // built around: a keep wider and half again taller than the mural towers,
+            // standing in the north wall. It was missing entirely, which is why the castle
+            // read as a walled yard with turrets rather than as somebody's stronghold.
+            //
+            // Widened rather than heightened alone. The kit draws one width of shaft, and
+            // a keep that is only taller is a chimney — see Block, which was written for
+            // exactly this and had been left standing unused once the gate towers stopped
+            // needing it.
+            var keep = Tower(host.transform, kit, rng, KeepCourses, spired: true,
+                             style: rng.Range(0, WindowedShafts));
 
-                Block(host.transform, kit, rng, GateCourses, new Vector3(outX, 0f, at),
-                      timber: true, facing: 270f, width: 1f, style: SlittedShaft);
+            if (keep != null)
+            {
+                keep.transform.localScale = new Vector3(Broad, 1f, Broad);
+                keep.transform.localPosition = new Vector3(0f, 0f, halfZ);
             }
 
             // A tower on each corner, which is what stops the curtain reading as a fence.
@@ -601,14 +739,601 @@ namespace TheVeil.View
                 new Vector3(-halfX, 0f, halfZ), new Vector3(halfX, 0f, halfZ)
             })
             {
-                // Three courses at the corners, so the towers clear the curtain by half
-                // again and the castle has a skyline. See Tower(.., courses).
-                var tower = Tower(host.transform, kit, rng, CornerCourses);
-                if (tower != null) tower.transform.localPosition = corner;
+                Mural(host.transform, kit, rng, CornerCourses, corner);
             }
 
+            // The colours down the curtain. Four to a wall on the plan, hung between the
+            // towers on the two faces anybody sees — and they are the only thing that is
+            // not grey on a forty-metre run of it.
+            Colours(host.transform, kit, rng, halfX, halfZ, span, across, gateAt, style);
+
+
+            Courtyard(host.transform, kit, rng, halfX, halfZ, span, gateX,
+                      WallDepth(host.transform, kit, style));
 
             return host;
+        }
+
+        /// <summary>
+        /// Inside the walls, to the plan: ranges of buildings with their backs to the
+        /// curtain, a hall on the wall facing the gate, and the middle left open with a
+        /// well in it.
+        ///
+        /// <b>Nothing here is fitted to a size.</b> The castle is put up at the scale the
+        /// pack draws it and set down without resizing — see TerrainDecorator.PlaceCastle
+        /// — so a house from the same pack is already the right size beside its wall. Every
+        /// fault the yard has had came from the other habit: a piece asked to be a certain
+        /// number of metres tall, which blows a wide flat thing up by its aspect ratio and
+        /// turns a well into a silo.
+        ///
+        /// So the only measuring done is of what a building came out as, and the only use
+        /// made of it is deciding where the next one starts.
+        ///
+        /// Built as children of the castle, in the castle's own space, before it is turned
+        /// and seated. That is what keeps the yard out of the sweep at the end of Decorate,
+        /// which walks the decor parent's children and would otherwise clear this too.
+        /// </summary>
+        static void Courtyard(Transform host, BuildingKit kit, DeterministicRandom rng,
+                              float halfX, float halfZ, float span, float gateX, float wall)
+        {
+            if (!kit.CanBuildHouse) return;
+
+            float inset = wall * 0.5f;
+
+            // The corners are held clear because a corner tower stands on each of them,
+            // and a cottage inside a tower is a cottage nobody can see.
+            float clear = CourtyardClear;
+
+            // <b>The ground first, because it is the largest thing in the picture.</b>
+            //
+            // The yard was whatever the level's ground happened to be, which in a forest
+            // chapter is grass — so the castle read as a wall built round a field. On the
+            // plan the inner bailey is laid stone, grey and brown, and it is the single
+            // change that does most: a paved yard is a yard, and grass is a paddock.
+            Pave(host, kit, rng, halfX - inset, halfZ - inset);
+
+            // Then the buildings, and there are few of them and none of them is tall.
+            //
+            // <b>Two mistakes were made here and both were made by not looking.</b> The
+            // yard was filled wall to wall with the town's houses — fourteen of them, some
+            // three storeys — and the plan has neither: it has six or seven single-storey
+            // sheds ranged against the curtain, with more bare ground than building. A
+            // castle bailey is not a village that happens to have a wall round it. What
+            // stands in one is what the garrison needs and nothing else.
+            Range(host, kit, rng, new Vector3(-halfX + clear, 0f, halfZ - inset),
+                  Vector3.right, Vector3.back, 2f * (halfX - clear), 90f, BackRange);
+
+            Range(host, kit, rng, new Vector3(-halfX + inset, 0f, -halfZ + clear),
+                  Vector3.forward, Vector3.right, 2f * (halfZ - clear), 0f, SideRange);
+
+            Range(host, kit, rng, new Vector3(halfX - inset, 0f, -halfZ + clear),
+                  Vector3.forward, Vector3.left, 2f * (halfZ - clear), 180f, SideRange);
+
+            // <b>And the gate wall, which was bare.</b>
+            //
+            // The plan has stores against it like every other wall; the reason this one
+            // was left empty is that the middle of it is gatehouse and a tower stands
+            // either side of that, so what is left is two short stretches out by the
+            // corners. Short is not nothing: one building to a stretch, and the corner
+            // allowance halved, since a corner tower is narrower than the gate towers the
+            // rest of the yard is spaced around.
+            // Gear, not buildings. Measured rather than assumed: the gatehouse takes the
+            // middle of this wall, a tower stands a panel and a half either side of it and
+            // another on each corner, so what is left is two stretches of about five
+            // metres — and the narrowest shed in the pack is wider than that. A range was
+            // asked for here twice and quietly built nothing both times, which is worse
+            // than not asking.
+            if (kit.YardGear.Any)
+            {
+                float flank = gateX + span * GateFlank;
+
+                foreach (float at in new[] { -flank, flank })
+                {
+                    Run(host, Any(kit.YardGear, rng), kit.YardGear.ZUp,
+                        new Vector3(at * GateGearIn, 0f, -halfZ + inset + GearStand),
+                        rng.Range(0, 4) * 90f);
+
+                    Run(host, Any(kit.YardGear, rng), kit.YardGear.ZUp,
+                        new Vector3(at, 0f, -halfZ + inset + GearStand * 2.2f),
+                        rng.Range(0, 4) * 90f);
+                }
+            }
+
+            // <b>The well, in the middle, and big.</b>
+            //
+            // Item six on the plan's key, drawn dead centre of the inner bailey and wide
+            // enough that two people could stand at it — it is the thing the yard is
+            // arranged around. The pack draws its well for a village green, about two
+            // metres across, and at that size in a forty-metre yard it was a drain cover
+            // somebody had put off to one side.
+            //
+            // Fitted across rather than to a height, which is the distinction this
+            // codebase keeps getting wrong in the other direction: a well is a wide flat
+            // thing and fitting one to a height blows it up by its aspect ratio into a silo.
+            if (kit.Wells.Any)
+            {
+                var well = Run(host, Any(kit.Wells, rng), kit.Wells.ZUp,
+                               Vector3.zero, rng.Range(0, 4) * 90f);
+
+                if (well != null)
+                {
+                    var ring = ModelScaling.Measure(well);
+                    float wide = Mathf.Max(ring.size.x, ring.size.z);
+
+                    if (wide > 0f) well.transform.localScale *= WellWide / wide;
+
+                    ring = ModelScaling.Measure(well);
+                    well.transform.position += new Vector3(-ring.center.x, -ring.min.y,
+                                                           -ring.center.z);
+                }
+            }
+
+            // The stair up to the wall walk — item nine, against the inside of a side wall.
+            //
+            // At the size the pack draws it, which does not reach the parapet of a wall
+            // this tall. Scaling it up until it did would make a flight eleven metres wide
+            // to get eleven metres of rise, which is the aspect-ratio trap that has turned
+            // a cobble into a boulder and a tent into a marquee in this file before. A
+            // stair that climbs part of the way still reads as a stair.
+            if (kit.Stairs.Any)
+                Run(host, Any(kit.Stairs, rng), kit.Stairs.ZUp,
+                    new Vector3(halfX - inset - StairStand, 0f, -halfZ * 0.35f), 90f);
+
+            // Two striped canopies in the open ground, which is what the plan has standing
+            // in the middle of the bailey and the only colour in it.
+            if (kit.Tents.Any)
+                foreach (var at in new[]
+                {
+                    new Vector2(halfX * TentAt, -halfZ * TentAt * 0.4f),
+                    new Vector2(-halfX * TentAt * 0.55f, -halfZ * TentAt)
+                })
+                    Run(host, Any(kit.Tents, rng), kit.Tents.ZUp,
+                        new Vector3(at.x, 0f, at.y), rng.Range(0, 4) * 90f);
+
+            // A fire either side of the gateway, inside. A shut gate with nobody keeping
+            // it is a shut gate; a shut gate with braziers at it is held.
+            if (kit.Braziers.Any)
+                foreach (float side in new[] { gateX - span * 0.6f, gateX + span * 0.6f })
+                    Run(host, Any(kit.Braziers, rng), kit.Braziers.ZUp,
+                        new Vector3(side, 0f, -halfZ + inset + BrazierStand), 0f);
+
+            // And the loose gear — a cart, a hay wain, crates. Put where a yard's gear
+            // actually ends up, which is against the buildings: a cart is unloaded at a
+            // door and a crate is stacked out of the way, and neither is left standing in
+            // the middle of the ground everybody has to drive across.
+            //
+            // This was a row across the open yard for one pass and it read as four things
+            // placed by arithmetic, because it was.
+            if (!kit.YardGear.Any) return;
+
+            // The lane between the ranges and the open middle. A range is seven or eight
+            // metres deep, so gear set against the wall itself would be standing inside a
+            // house; this is the strip just in front of their doors.
+            float laneX = halfX * GearLane;
+            float laneZ = halfZ * GearLane;
+
+            foreach (var spot in new[]
+            {
+                new Vector2(-laneX, laneZ * 0.7f),
+                new Vector2(laneX, laneZ * 0.2f),
+                new Vector2(-laneX * 0.85f, -laneZ * 0.6f),
+                new Vector2(laneX * 0.9f, -laneZ * 0.8f)
+            })
+            {
+                Run(host, Any(kit.YardGear, rng), kit.YardGear.ZUp,
+                    new Vector3(spot.x, 0f, spot.y), rng.Range(0, 4) * 90f);
+            }
+        }
+
+        /// <summary>
+        /// A row of buildings along the inside of one wall, packed end to end until the
+        /// run is used up.
+        ///
+        /// Each is built, measured and then seated: the pack's rooms are not one width,
+        /// and stepping by a constant either overlaps them or leaves a gap that reads as a
+        /// missing house. <paramref name="along"/> is the direction the row runs and
+        /// <paramref name="inward"/> the way the courtyard is, so the back of each
+        /// building finishes against the stone.
+        /// </summary>
+        static void Range(Transform host, BuildingKit kit, DeterministicRandom rng,
+                          Vector3 from, Vector3 along, Vector3 inward, float run, float yaw,
+                          int most)
+        {
+            var turn = Quaternion.Euler(0f, yaw, 0f);
+
+            var built = new List<GameObject>();
+            var boxes = new List<Bounds>();
+            float total = 0f;
+
+            // Built first and placed after, because a row that is laid down as it is built
+            // can only be packed from one end — and what is left over then shows as a
+            // stretch of bare wall at the far corner, which reads as a range that ran out
+            // of houses rather than as a castle.
+            while (built.Count < most)
+            {
+                var shed = Shed(host, kit, rng);
+                if (shed == null) break;
+
+                shed.transform.localRotation = turn;
+
+                var box = ModelScaling.Measure(shed);
+                float width = Across(box, along);
+
+                if (width <= 0f || total + width > run) { Object.DestroyImmediate(shed); break; }
+
+                built.Add(shed);
+                boxes.Add(box);
+                total += width;
+            }
+
+            if (built.Count == 0) return;
+
+            // <b>Spread, not packed.</b> What is left over is shared out between the
+            // buildings as well as at the ends, because the plan does not range them
+            // shoulder to shoulder: there are two or three to a wall with bare stone
+            // showing between them, and a row packed tight against one end reads as a
+            // terrace, which is a street and not a bailey.
+            float gap = (run - total) / (built.Count + 1);
+            float cursor = gap;
+
+            for (int i = 0; i < built.Count; i++)
+            {
+                float width = Across(boxes[i], along);
+
+                // <b>Backed onto the wall by the ground floor, not by the whole house.</b>
+                //
+                // A house's bounds are its roof's bounds: the eaves overhang the walls and
+                // a chimney hangs off one side of the ridge, and neither is symmetric. So
+                // the two side ranges — the same houses, turned through a hundred and
+                // eighty degrees — backed onto their walls by different amounts, and on a
+                // real level one range sat on the stone while the other stood four metres
+                // out in the yard with grass behind it.
+                //
+                // The ground-floor piece is the building's actual footprint and has no
+                // overhang on it, so seating by that puts the wall of the house on the
+                // wall of the castle whichever way round it is turned. The roof is left to
+                // overhang the parapet, which is what a range built against a curtain does.
+                var body = Footing(built[i]);
+
+                float depth = Across(body, inward);
+                var off = new Vector3(body.center.x, 0f, body.center.z);
+
+                built[i].transform.localPosition =
+                    from + along * (cursor + width * 0.5f) + inward * (depth * 0.5f) - off;
+
+                cursor += width + gap;
+            }
+        }
+
+        /// <summary>
+        /// How far a measured box reaches along one of the ground axes.
+        ///
+        /// The bounds are world-aligned, so which of x and z is the building's width
+        /// depends on which way it was turned. A range down a side wall runs along z and
+        /// one along the back runs along x, and reading size.x for both is what made every
+        /// second range overlap itself.
+        /// </summary>
+        static float Across(Bounds box, Vector3 axis)
+            => Mathf.Abs(axis.x) * box.size.x + Mathf.Abs(axis.z) * box.size.z;
+
+        /// <summary>
+        /// One building of a range: a plank shed, or now and then a single-storey cottage.
+        ///
+        /// <b>No storeys.</b> The plan has nothing inside the walls taller than one floor,
+        /// and what stands there is mostly the pack's lean-to — a plank roof on posts,
+        /// open to the yard. Calling <see cref="House"/> here is what filled the bailey
+        /// with three-storey town houses on jettied foundations: a house is what a town is
+        /// made of, and a bailey is made of sheds.
+        /// </summary>
+        static GameObject Shed(Transform parent, BuildingKit kit, DeterministicRandom rng)
+        {
+            var host = new GameObject("Shed");
+            host.transform.SetParent(parent, false);
+
+            float top = 0f;
+
+            if (kit.Shelters.Any && rng.Chance(PlankShed))
+            {
+                Stack(host.transform, Any(kit.Shelters, rng), ref top, kit.Shelters.ZUp);
+                return host;
+            }
+
+            // A finished cottage: one room, its own roof, and nothing on top of it.
+            int style = rng.Range(0, Length(kit.Rooms));
+            var room = Stack(host.transform, Pick(kit.Rooms, style), ref top, kit.Rooms.ZUp);
+
+            if (room != null && kit.Chimneys.Any && rng.Chance(HasChimney))
+                Chimney(host.transform, kit, rng, room);
+
+            return host;
+        }
+
+        /// <summary>
+        /// The footprint a building actually stands on, which is not what it measures.
+        ///
+        /// The ground-floor piece, because a building's bounds are its roof's bounds —
+        /// eaves overhang the walls and a chimney hangs off one side of the ridge, neither
+        /// of them symmetric. Two ranges of the same sheds turned through a hundred and
+        /// eighty degrees backed onto their walls by different amounts because of it, and
+        /// on a real level one range sat on the stone while the other stood four metres out
+        /// with grass behind it.
+        /// </summary>
+        static Bounds Footing(GameObject building)
+        {
+            if (building.transform.childCount == 0) return ModelScaling.Measure(building);
+
+            var box = ModelScaling.Measure(building.transform.GetChild(0).gameObject);
+            return box.size == Vector3.zero ? ModelScaling.Measure(building) : box;
+        }
+
+        /// <summary>
+        /// The bailey, laid in stone.
+        ///
+        /// <b>The ground was the biggest thing in the picture and nobody had chosen it.</b>
+        /// The yard was whatever the level's terrain happened to be, so in a forest chapter
+        /// the castle was a wall built round a lawn. On the plan the inner bailey is laid
+        /// stone — grey and brown, worn earth with flags through it — and it is what
+        /// separates a castle from a stockade.
+        ///
+        /// Each flag fitted across to the step so the yard is continuous stone rather than
+        /// a field of mats with ground showing between them, and turned in quarter turns so
+        /// one pattern does not repeat over forty metres. The same treatment the town's
+        /// streets get, which is where it was proved.
+        /// </summary>
+        static void Pave(Transform host, BuildingKit kit, DeterministicRandom rng,
+                         float halfX, float halfZ)
+        {
+            if (!kit.Paving.Any) return;
+
+            int across = Mathf.Max(1, Mathf.RoundToInt(halfX * 2f / Flagstone));
+            int deep = Mathf.Max(1, Mathf.RoundToInt(halfZ * 2f / Flagstone));
+
+            float stepX = halfX * 2f / across;
+            float stepZ = halfZ * 2f / deep;
+            float size = Mathf.Max(stepX, stepZ);
+
+            // <b>Earth first, all of it, and stone on some of it.</b>
+            //
+            // Both the pack's flag and its cobble are a cold blue-grey and the plan's
+            // bailey is warm sandy stone. Mixing the warm piece in with them as a third
+            // option gave a chequerboard of grey slabs and tan squares that read as sand
+            // pits in a car park — which is what it was, since a flat unfigured square laid
+            // beside a figured one is a hole in the pattern.
+            //
+            // Laying the earth under everything instead solves both at once: there is no
+            // chequer because there is only one ground, the warmth comes from underneath,
+            // and the stone that shows is stone somebody laid over the worst of the mud.
+            // Which is also how a yard like this was actually surfaced.
+            for (int i = 0; i < across; i++)
+            {
+                for (int j = 0; j < deep; j++)
+                {
+                    var at = new Vector3(-halfX + (i + 0.5f) * stepX, 0f,
+                                         -halfZ + (j + 0.5f) * stepZ);
+
+                    if (kit.Ground.Any)
+                        Flag(host, Any(kit.Ground, rng), kit.Ground.ZUp, at, size,
+                             rng.Range(0, 4) * 90f, PaveLip);
+
+                    if (!kit.Ground.Any || rng.Chance(Flagged))
+                        Flag(host, Any(kit.Paving, rng), kit.Paving.ZUp, at, size,
+                             rng.Range(0, 4) * 90f, PaveLip + FlagProud);
+                }
+            }
+        }
+
+        /// <summary>
+        /// One paving flag, fitted across to a size and laid with its face at the ground.
+        ///
+        /// Scaled before it is placed, not after: scaling happens about the pivot, and a
+        /// piece centred on its spot and then scaled walks off it by however far its pivot
+        /// is from its middle.
+        /// </summary>
+        static void Flag(Transform host, GameObject prefab, bool zUp, Vector3 at,
+                         float size, float yaw, float lip)
+        {
+            if (prefab == null) return;
+
+            var piece = Object.Instantiate(prefab, host);
+
+            piece.transform.localRotation = zUp
+                ? Quaternion.Euler(-90f, yaw, 0f) : Quaternion.Euler(0f, yaw, 0f);
+
+            var box = ModelScaling.Measure(piece);
+            float wide = Mathf.Max(box.size.x, box.size.z);
+
+            if (wide <= 0f) { Object.DestroyImmediate(piece); return; }
+
+            piece.transform.localScale *= size / wide;
+
+            box = ModelScaling.Measure(piece);
+
+            piece.transform.position += new Vector3(at.x - box.center.x,
+                                                    lip - box.max.y,
+                                                    at.z - box.center.z);
+        }
+
+        /// <summary>
+        /// The colours down the curtain.
+        ///
+        /// Hung on the two faces anybody sees, every other bay, from just under the
+        /// crenellations. The plan hangs four to a wall and they are the one thing on it
+        /// that is not grey: a forty-metre run of stone with nothing on it reads as a
+        /// retaining wall however well it is built.
+        /// </summary>
+        static void Colours(Transform host, BuildingKit kit, DeterministicRandom rng,
+                            float halfX, float halfZ, float span, int across, int gateAt,
+                            int style)
+        {
+            if (!kit.WallBanners.Any) return;
+
+            float rise = WallRise(host, kit, style) * WallCourses;
+            if (rise <= 0f) return;
+
+            float face = WallDepth(host, kit, style) * 0.5f;
+            float hang = rise * BannerDrop;
+
+            for (int i = 0; i < across; i++)
+            {
+                if (i % 2 == 1) continue;
+
+                float x = -halfX + (i + 0.5f) * span;
+
+                // Not on the bays touching the gate: the gatehouse hangs its own pair,
+                // and a banner on the panel beside it lands a stride away from one of
+                // them and reads as four colours crowded round the gateway.
+                if (i < gateAt - 1 || i > gateAt + 1)
+                    Hang(host, kit, Any(kit.WallBanners, rng), kit.WallBanners.ZUp,
+                         new Vector3(x, hang, -halfZ - face), 0f);
+
+                Hang(host, kit, Any(kit.WallBanners, rng), kit.WallBanners.ZUp,
+                     new Vector3(x, hang, halfZ + face), 180f);
+            }
+        }
+
+        /// <summary>A banner hung from a height, against a face.</summary>
+        static void Hang(Transform host, BuildingKit kit, GameObject prefab, bool zUp,
+                         Vector3 at, float yaw)
+        {
+            if (prefab == null) return;
+
+            var piece = Object.Instantiate(prefab, host);
+
+            piece.transform.localRotation = zUp
+                ? Quaternion.Euler(-90f, yaw, 0f) : Quaternion.Euler(0f, yaw, 0f);
+
+            // Repainted in the castle's colours. See BuildingKit.Livery.
+            if (kit.Livery != null)
+            {
+                foreach (var skin in piece.GetComponentsInChildren<Renderer>())
+                {
+                    var swap = new Material[skin.sharedMaterials.Length];
+                    for (int i = 0; i < swap.Length; i++) swap[i] = kit.Livery;
+                    skin.sharedMaterials = swap;
+                }
+            }
+
+            var box = ModelScaling.Measure(piece);
+            if (box.size.y <= 0f) { Object.DestroyImmediate(piece); return; }
+
+            // Sized to the wall it hangs on. The pack draws its banners for a tent pole
+            // and at that size they read as playing cards pinned to forty metres of stone
+            // — which is what the first pass looked like. A banner on a curtain is most of
+            // the height of it. Scaled by its own height, so the cloth keeps its shape.
+            piece.transform.localScale *= BannerRise / box.size.y;
+
+            box = ModelScaling.Measure(piece);
+
+            // By its top, not its foot: a banner is hung from the parapet and falls, and
+            // seating it on the ground is a flag standing in a flowerbed.
+            piece.transform.position += new Vector3(at.x - box.center.x,
+                                                    at.y - box.max.y,
+                                                    at.z - box.center.z);
+        }
+
+        /// <summary>How tall one curtain piece is, measured like its length and thickness.</summary>
+        static float WallRise(Transform host, BuildingKit kit, int style)
+        {
+            var sample = Pick(kit.CurtainWalls, style);
+            if (sample == null) return 0f;
+
+            var probe = Object.Instantiate(sample, host);
+            probe.transform.localRotation = kit.CurtainWalls.ZUp
+                ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.identity;
+
+            float rise = ModelScaling.Measure(probe).size.y;
+
+            if (Application.isPlaying) Object.Destroy(probe);
+            else Object.DestroyImmediate(probe);
+
+            return rise;
+        }
+
+        /// <summary>Where a banner's head hangs, as a share of the curtain's height.</summary>
+        const float BannerDrop = 0.95f;
+
+        /// <summary>How far a banner falls down the wall, in metres.</summary>
+        const float BannerRise = 3.6f;
+
+        /// <summary>How far out from the gateway a gatehouse banner hangs, as a share of the block.</summary>
+        const float GateBannerAt = 0.3f;
+
+        /// <summary>How far a wall's inner face is held clear of each corner, in metres.</summary>
+        const float CourtyardClear = 6f;
+
+        /// <summary>Buildings against the wall the gate faces, and against each side wall.</summary>
+        const int BackRange = 4;
+        const int SideRange = 3;
+
+        /// <summary>Buildings on each short stretch of the gate wall.</summary>
+        /// <summary>How far in from a gate tower the near piece of gear stands.</summary>
+        const float GateGearIn = 0.62f;
+
+        /// <summary>How far off the gate wall gear stands, in metres.</summary>
+        const float GearStand = 2.6f;
+
+        /// <summary>Where a gate tower stands, in wall panels either side of the gateway.</summary>
+        const float GateFlank = 1.5f;
+
+        /// <summary>How often a building in the bailey is the pack's plank lean-to.</summary>
+        const float PlankShed = 0.35f;
+
+        /// <summary>How wide one paving flag is laid, in metres, and how proud it sits.</summary>
+        const float Flagstone = 7f;
+        const float PaveLip = 0.05f;
+
+        /// <summary>
+        /// How far a flagstone stands over the earth it is laid in, in metres.
+        ///
+        /// A centimetre. It was five, which is nothing until you remember the flag is a
+        /// slab with a thickness and that thickness is scaled up with its width — so five
+        /// centimetres of the slab.s own side stood exposed all the way round every flag,
+        /// and from straight above the yard was a field of grey rugs each with its own
+        /// shadow. Bedded to a centimetre the side is gone and only the face shows, which
+        /// is what a paving stone is.
+        ///
+        /// Not nought, because two surfaces at the same height flicker against each other.
+        /// </summary>
+        const float FlagProud = 0.01f;
+
+        /// <summary>Share of the bailey that has stone laid over its earth.</summary>
+        const float Flagged = 0.86f;
+
+        /// <summary>Where the well, the tent and the gear stand, as a share of the yard.</summary>
+        const float WellWide = 4.6f;
+
+        /// <summary>How far off the wall the stair to the walk stands, in metres.</summary>
+        const float StairStand = 1.5f;
+        const float TentAt = 0.42f;
+
+        /// <summary>
+        /// The lane the gear stands in, as a share of the half-yard: outside the ranges
+        /// and inside the open middle.
+        /// </summary>
+        const float GearLane = 0.58f;
+
+        /// <summary>How far inside the gateway a brazier stands, in metres.</summary>
+        const float BrazierStand = 3.5f;
+
+        /// <summary>
+        /// How thick a wall piece is, measured the way <see cref="WallLength"/> measures
+        /// how long one is: the shorter of the two ground axes.
+        /// </summary>
+        static float WallDepth(Transform host, BuildingKit kit, int style)
+        {
+            var sample = Pick(kit.CurtainWalls, style);
+            if (sample == null) return 0f;
+
+            var probe = Object.Instantiate(sample, host);
+            probe.transform.localRotation = kit.CurtainWalls.ZUp
+                ? Quaternion.Euler(-90f, 0f, 0f) : Quaternion.identity;
+
+            var bounds = ModelScaling.Measure(probe);
+
+            if (Application.isPlaying) Object.Destroy(probe);
+            else Object.DestroyImmediate(probe);
+
+            return Mathf.Min(bounds.size.x, bounds.size.z);
         }
 
         /// <summary>
@@ -726,7 +1451,7 @@ namespace TheVeil.View
         /// A castle's silhouette is a rising one — curtain, corner, gate, keep — and that
         /// order is the whole of what makes a pile of grey blocks read as a fortress.
         /// </summary>
-        public const int KeepCourses = 4;
+        public const int KeepCourses = 7;
 
         /// <summary>
         /// How long one wall piece is, measured rather than assumed.
@@ -746,7 +1471,7 @@ namespace TheVeil.View
         /// courtyard rather than a corridor. It is also what a castle has to be to read as
         /// one from the game camera against a map whose tiles are four metres.
         /// </summary>
-        public const float CastleSpan = 44f;
+        public const float CastleSpan = 38f;
 
         /// <summary>
         /// How much wider than the kit draws it a gate tower or a keep is built.
@@ -758,8 +1483,28 @@ namespace TheVeil.View
         /// </summary>
         public const float Broad = 1.9f;
 
-        /// <summary>The shaft in the set that has arrow slits cut in it.</summary>
-        public const int SlittedShaft = 3;
+        /// <summary>The shaft in the set with windows cut down it: SM_Bld_Castle_Tower_04.</summary>
+        public const int WindowedShaft = 3;
+        public const int SlittedShaft = WindowedShaft;
+
+        /// <summary>
+        /// How many of the square shafts have windows in them.
+        ///
+        /// Three: SM_Bld_Castle_Tower_01 through _03. The fourth is the slitted one, which
+        /// is a blank face with loops cut in it and reads as a blockhouse.
+        /// </summary>
+        public const int WindowedShafts = 3;
+
+        /// <summary>How much stouter than the pack draws it a mural tower is built.</summary>
+        public const float TowerGirth = 1.35f;
+
+        /// <summary>
+        /// How much of the curtain's height the gatehouse panel is built to.
+        ///
+        /// Two courses, so the arch reaches the wall head and the gateway is a quarter of
+        /// the wall rather than an eighth of it. See the gate bay in Castle.
+        /// </summary>
+        public const float GateShare = 2f;
 
         /// <summary>How much of a hoarding is the raking timbers under its floor.</summary>
         public const float StrutShare = 0.4f;
@@ -768,8 +1513,8 @@ namespace TheVeil.View
         public const float CrownSink = 0.33f;
 
         /// <summary>Courses of shaft in a corner tower, and in the pair flanking the gate.</summary>
-        public const int CornerCourses = 2;
-        public const int GateCourses = 3;
+        public const int CornerCourses = 5;
+        public const int GateCourses = 5;
 
         /// <summary>Pieces to a side, so the ring comes out about <see cref="CastleSpan"/> wide.</summary>
         static int Ring(float span)
@@ -892,15 +1637,113 @@ namespace TheVeil.View
         /// proportion the pack's own artwork has against its figures.
         /// </summary>
         static void Crenel(Transform host, BuildingKit kit, int style, DeterministicRandom rng,
-                           Vector3 at, float turn)
+                           Vector3 at, float turn, int courses = WallCourses)
         {
-            var wall = Run(host, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp, at, turn);
-            if (wall == null || !kit.WallTops.Any) return;
+            float top = at.y;
 
-            float top = ModelScaling.Measure(wall).max.y;
+            for (int c = 0; c < courses; c++)
+            {
+                var wall = Run(host, Pick(kit.CurtainWalls, style), kit.CurtainWalls.ZUp,
+                               new Vector3(at.x, c == 0 ? at.y : top - Seam, at.z), turn);
+                if (wall == null) return;
+
+                top = ModelScaling.Measure(wall).max.y;
+            }
+
+            if (!kit.WallTops.Any) return;
+
             Run(host, Any(kit.WallTops, rng), kit.WallTops.ZUp,
                 new Vector3(at.x, top - Seam, at.z), turn);
         }
+
+        /// <summary>
+        /// One tower of the circuit: a windowed square shaft under a red pyramid, set in
+        /// the wall line and built a little stouter than the pack draws it.
+        ///
+        /// <b>The girth is the point.</b> A tower the same thickness as the curtain sits
+        /// flush in it and disappears — the wall runs past and there is nothing to see but
+        /// a roof. Widened by a third it breaks the wall line on both faces, which is what
+        /// a mural tower is for and what every tower on the plan does.
+        ///
+        /// Widened and not heightened, which is the distinction this file keeps having to
+        /// relearn: the kit draws one width of shaft, so the only dial a plain stack has is
+        /// height, and turning it up makes a flue.
+        /// </summary>
+        static void Mural(Transform host, BuildingKit kit, DeterministicRandom rng,
+                          int courses, Vector3 at)
+        {
+            // Style three, which is SM_Bld_Castle_Tower_04: the one shaft in the set with
+            // openings cut down it. The other three are blank faces with a string course,
+            // and a castle of those is a castle nobody is looking out of.
+            var tower = Tower(host, kit, rng, courses, spired: true, style: WindowedShaft);
+            if (tower == null) return;
+
+            tower.transform.localScale = new Vector3(TowerGirth, 1f, TowerGirth);
+            tower.transform.localPosition = at;
+        }
+
+        /// <summary>
+        /// The gate panel, built to its own scale.
+        ///
+        /// The pack draws one gate piece and it is the size of a curtain panel. That was
+        /// right while the wall was one course; at two it left the arch at the foot of the
+        /// face, an eighth of the wall's height where the plan has a quarter. So it is
+        /// scaled to reach the wall head — which widens it past its bay into the panels
+        /// either side, and that is what a gatehouse does.
+        /// </summary>
+        static GameObject Gatehouse(Transform host, BuildingKit kit, DeterministicRandom rng,
+                                    float x, float z, float rise)
+        {
+            var arch = Run(host, Any(kit.Gates, rng), kit.Gates.ZUp, new Vector3(x, 0f, z), 0f);
+            if (arch == null) return null;
+
+            var box = ModelScaling.Measure(arch);
+            if (box.size.y <= 0f || rise <= 0f) return arch;
+
+            arch.transform.localScale *= rise / box.size.y;
+
+            box = ModelScaling.Measure(arch);
+            arch.transform.position += new Vector3(x - box.center.x, -box.min.y,
+                                                   z - box.center.z);
+            return arch;
+        }
+
+        /// <summary>
+        /// The buttress at a wall joint, run up the full height of the wall.
+        ///
+        /// The pack draws its pillar exactly one curtain piece tall, which is the pack
+        /// saying the two belong together — so a wall of two courses wants two of them.
+        /// One left the buttresses stopping halfway up, which reads as a wall that was
+        /// heightened later and never had its bays carried up.
+        /// </summary>
+        static void Buttress(Transform host, BuildingKit kit, DeterministicRandom rng,
+                             Vector3 at, float turn)
+        {
+            if (!kit.Pillars.Any) return;
+
+            float top = at.y;
+
+            for (int c = 0; c < WallCourses; c++)
+            {
+                var pier = Run(host, Any(kit.Pillars, rng), kit.Pillars.ZUp,
+                               new Vector3(at.x, c == 0 ? at.y : top - Seam, at.z), turn);
+                if (pier == null) return;
+
+                top = ModelScaling.Measure(pier).max.y;
+            }
+        }
+
+        /// <summary>
+        /// Courses of curtain in a wall.
+        ///
+        /// <b>Two, measured off the plan's front elevation rather than eyeballed.</b> The
+        /// curtain there stands about a third of the castle's width; at one course it
+        /// stood an eighth of it, and no arrangement of towers fixes that — a low wall
+        /// round a wide yard is a stockyard however well the towers are placed. One piece
+        /// is 5.09 m, which is three men; the drawing's is a wall nobody gets a ladder
+        /// over.
+        /// </summary>
+        public const int WallCourses = 2;
 
         /// <summary>
         /// Sets a piece by its own origin rather than by the bottom of its bounds.

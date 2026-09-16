@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &302091599
+--- !u!1 &41956220
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 302091601}
-  - component: {fileID: 302091600}
+  - component: {fileID: 41956222}
+  - component: {fileID: 41956221}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -136,13 +136,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!20 &302091600
+--- !u!20 &41956221
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 302091599}
+  m_GameObject: {fileID: 41956220}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
@@ -187,13 +187,13 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!4 &302091601
+--- !u!4 &41956222
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 302091599}
+  m_GameObject: {fileID: 41956220}
   serializedVersion: 2
   m_LocalRotation: {x: 0.46174863, y: 0, z: 0, w: 0.8870109}
   m_LocalPosition: {x: 128, y: 327.6608, z: -101.43057}
@@ -202,7 +202,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &490901581
+--- !u!1 &143610008
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -210,10 +210,10 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 490901585}
-  - component: {fileID: 490901584}
-  - component: {fileID: 490901583}
-  - component: {fileID: 490901582}
+  - component: {fileID: 143610012}
+  - component: {fileID: 143610011}
+  - component: {fileID: 143610010}
+  - component: {fileID: 143610009}
   m_Layer: 0
   m_Name: LevelRunner
   m_TagString: Untagged
@@ -221,13 +221,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &490901582
+--- !u!114 &143610009
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 490901581}
+  m_GameObject: {fileID: 143610008}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276efe23f9c34824fba91cdb7a5337e1, type: 3}
@@ -1068,6 +1068,65 @@ MonoBehaviour:
         - {fileID: 1682779332229148, guid: 9d8bbbb9bf9f20a4ea09ffc827b92239, type: 3}
         ZUp: 0
         Sink: 0
+      Wells:
+        Models:
+        - {fileID: 2353317757980482398, guid: 763a6e5ba7a00d84b88c731a56e89571, type: 3}
+        - {fileID: 148764, guid: fd4bfd190fdf71945b39f635e2671b97, type: 3}
+        ZUp: 0
+        Sink: 0
+      Shelters:
+        Models:
+        - {fileID: 117958, guid: c34c166783f3c744686ef9143de6e3fe, type: 3}
+        ZUp: 0
+        Sink: 0
+      Tents:
+        Models:
+        - {fileID: 162728, guid: 33adbca995ce9484f9258d275aabac10, type: 3}
+        - {fileID: 193672, guid: d8e888ed02072774198f7f7ce47d5f50, type: 3}
+        - {fileID: 128636, guid: 68a8f186e1f1db64dbfe8ddd247816ec, type: 3}
+        ZUp: 0
+        Sink: 0
+      YardGear:
+        Models:
+        - {fileID: 111980, guid: fd3d2a7dec61bb842a89089e1d1e6764, type: 3}
+        - {fileID: 147522, guid: 132d1de61c7a2714f9cff49ced16356d, type: 3}
+        - {fileID: 123248, guid: f028244a47462e3449e09903dedd7955, type: 3}
+        - {fileID: 151704, guid: a46d562cc4980004b95e73322fc948be, type: 3}
+        ZUp: 0
+        Sink: 0
+      Braziers:
+        Models:
+        - {fileID: 191442, guid: 20a79b55466cdb84da379ae63fc30867, type: 3}
+        ZUp: 0
+        Sink: 0
+      Stairs:
+        Models:
+        - {fileID: 129838, guid: 60b9638239615e4458f5dc2aa7892cce, type: 3}
+        - {fileID: 148450, guid: 9d512b24ffbedb841a3b360fd5f32d6c, type: 3}
+        ZUp: 0
+        Sink: 0
+      Paving:
+        Models:
+        - {fileID: 113036, guid: 0c8b53b4a2c2a624d8f344f282d709aa, type: 3}
+        - {fileID: 111248, guid: 8cab502212f9c98408dba5ee83b4054a, type: 3}
+        - {fileID: 161712, guid: cd63e7ed2d501564ebcb6cd6729e699e, type: 3}
+        - {fileID: 188894, guid: f19c957688bdf7849aa321d60569a6b2, type: 3}
+        ZUp: 0
+        Sink: 0
+      Ground:
+        Models:
+        - {fileID: 153302, guid: c4ea6c556c8f2064a877d7f0982758f3, type: 3}
+        - {fileID: 137852, guid: 03d2eb9c9da523040929bae51949bd81, type: 3}
+        - {fileID: 126640, guid: 5192ca6ecc300684cb6da5af87a67b3b, type: 3}
+        ZUp: 0
+        Sink: 0
+      WallBanners:
+        Models:
+        - {fileID: 147606, guid: 8f2cbf2ae2d496b44ba72882a3c6d4c9, type: 3}
+        - {fileID: 140704, guid: d9d95bd4aa86d86448ff3c157b7bb366, type: 3}
+        ZUp: 0
+        Sink: 0
+      Livery: {fileID: 2100000, guid: d99fb2a16888ab54a9160cf879c5589f, type: 2}
     Fences:
       Models:
       - {fileID: 184858, guid: f5e310684d533124e895f9100f7931f4, type: 3}
@@ -1476,6 +1535,65 @@ MonoBehaviour:
           - {fileID: 5905867637389456330, guid: 64791c01b3e1e574485983298bf0ae7a, type: 3}
           ZUp: 0
           Sink: 0
+        Wells:
+          Models:
+          - {fileID: 2353317757980482398, guid: 763a6e5ba7a00d84b88c731a56e89571, type: 3}
+          - {fileID: 117716, guid: 349a95877a2dab644bd575346288dac9, type: 3}
+          ZUp: 0
+          Sink: 0
+        Shelters:
+          Models:
+          - {fileID: 147352, guid: 359bc0057e473984096c8c30538d5023, type: 3}
+          ZUp: 0
+          Sink: 0
+        Tents:
+          Models:
+          - {fileID: 112120, guid: a5a3ac181ea8b0648a6d9e47a4e9871d, type: 3}
+          - {fileID: 143964, guid: 63bc61fd01b93af4cb0f789a4f098a3b, type: 3}
+          - {fileID: 178232, guid: b3f63a08cad7af84399f19f5624c24fc, type: 3}
+          ZUp: 0
+          Sink: 0
+        YardGear:
+          Models:
+          - {fileID: 166016, guid: 58b5596c2a042ab4c88e7cc17c107b4e, type: 3}
+          - {fileID: 105248, guid: aa763308863e10a47b22602d858ad492, type: 3}
+          - {fileID: 131010, guid: a14aedf782d161543a1bd0a7d18e84ee, type: 3}
+          - {fileID: 151704, guid: a46d562cc4980004b95e73322fc948be, type: 3}
+          ZUp: 0
+          Sink: 0
+        Braziers:
+          Models:
+          - {fileID: 100126, guid: 181bc8ff855bc974c9ce4ca36ef19fdc, type: 3}
+          ZUp: 0
+          Sink: 0
+        Stairs:
+          Models:
+          - {fileID: 108486, guid: 22707cac57d152f47840353b2078da00, type: 3}
+          - {fileID: 107712, guid: a59701f4ac337494aba2dadcc87fb525, type: 3}
+          ZUp: 0
+          Sink: 0
+        Paving:
+          Models:
+          - {fileID: 111742, guid: 1bc0af6d47e7ebb43bb2638e709f3d4e, type: 3}
+          - {fileID: 186750, guid: 901dbbf8b98014748b711baa056ba0de, type: 3}
+          - {fileID: 111878, guid: c514137b1e39e5f43bf39c988d4ff044, type: 3}
+          - {fileID: 159870, guid: e767b7dde8a52b14b871fe9a295bb8df, type: 3}
+          ZUp: 0
+          Sink: 0
+        Ground:
+          Models:
+          - {fileID: 153302, guid: c4ea6c556c8f2064a877d7f0982758f3, type: 3}
+          - {fileID: 137852, guid: 03d2eb9c9da523040929bae51949bd81, type: 3}
+          - {fileID: 126640, guid: 5192ca6ecc300684cb6da5af87a67b3b, type: 3}
+          ZUp: 0
+          Sink: 0
+        WallBanners:
+          Models:
+          - {fileID: 147606, guid: 8f2cbf2ae2d496b44ba72882a3c6d4c9, type: 3}
+          - {fileID: 140704, guid: d9d95bd4aa86d86448ff3c157b7bb366, type: 3}
+          ZUp: 0
+          Sink: 0
+        Livery: {fileID: 2100000, guid: d99fb2a16888ab54a9160cf879c5589f, type: 2}
       Fences:
         Models:
         - {fileID: 138156, guid: c3ac44b9b3a44ba4196fc850bc8e84ec, type: 3}
@@ -1932,6 +2050,65 @@ MonoBehaviour:
           - {fileID: 1682779332229148, guid: 9d8bbbb9bf9f20a4ea09ffc827b92239, type: 3}
           ZUp: 0
           Sink: 0
+        Wells:
+          Models:
+          - {fileID: 2353317757980482398, guid: 763a6e5ba7a00d84b88c731a56e89571, type: 3}
+          - {fileID: 148764, guid: fd4bfd190fdf71945b39f635e2671b97, type: 3}
+          ZUp: 0
+          Sink: 0
+        Shelters:
+          Models:
+          - {fileID: 117958, guid: c34c166783f3c744686ef9143de6e3fe, type: 3}
+          ZUp: 0
+          Sink: 0
+        Tents:
+          Models:
+          - {fileID: 162728, guid: 33adbca995ce9484f9258d275aabac10, type: 3}
+          - {fileID: 193672, guid: d8e888ed02072774198f7f7ce47d5f50, type: 3}
+          - {fileID: 128636, guid: 68a8f186e1f1db64dbfe8ddd247816ec, type: 3}
+          ZUp: 0
+          Sink: 0
+        YardGear:
+          Models:
+          - {fileID: 111980, guid: fd3d2a7dec61bb842a89089e1d1e6764, type: 3}
+          - {fileID: 147522, guid: 132d1de61c7a2714f9cff49ced16356d, type: 3}
+          - {fileID: 123248, guid: f028244a47462e3449e09903dedd7955, type: 3}
+          - {fileID: 151704, guid: a46d562cc4980004b95e73322fc948be, type: 3}
+          ZUp: 0
+          Sink: 0
+        Braziers:
+          Models:
+          - {fileID: 191442, guid: 20a79b55466cdb84da379ae63fc30867, type: 3}
+          ZUp: 0
+          Sink: 0
+        Stairs:
+          Models:
+          - {fileID: 129838, guid: 60b9638239615e4458f5dc2aa7892cce, type: 3}
+          - {fileID: 148450, guid: 9d512b24ffbedb841a3b360fd5f32d6c, type: 3}
+          ZUp: 0
+          Sink: 0
+        Paving:
+          Models:
+          - {fileID: 113036, guid: 0c8b53b4a2c2a624d8f344f282d709aa, type: 3}
+          - {fileID: 111248, guid: 8cab502212f9c98408dba5ee83b4054a, type: 3}
+          - {fileID: 161712, guid: cd63e7ed2d501564ebcb6cd6729e699e, type: 3}
+          - {fileID: 188894, guid: f19c957688bdf7849aa321d60569a6b2, type: 3}
+          ZUp: 0
+          Sink: 0
+        Ground:
+          Models:
+          - {fileID: 153302, guid: c4ea6c556c8f2064a877d7f0982758f3, type: 3}
+          - {fileID: 137852, guid: 03d2eb9c9da523040929bae51949bd81, type: 3}
+          - {fileID: 126640, guid: 5192ca6ecc300684cb6da5af87a67b3b, type: 3}
+          ZUp: 0
+          Sink: 0
+        WallBanners:
+          Models:
+          - {fileID: 147606, guid: 8f2cbf2ae2d496b44ba72882a3c6d4c9, type: 3}
+          - {fileID: 140704, guid: d9d95bd4aa86d86448ff3c157b7bb366, type: 3}
+          ZUp: 0
+          Sink: 0
+        Livery: {fileID: 2100000, guid: d99fb2a16888ab54a9160cf879c5589f, type: 2}
       Fences:
         Models:
         - {fileID: 184858, guid: f5e310684d533124e895f9100f7931f4, type: 3}
@@ -2086,13 +2263,13 @@ MonoBehaviour:
     Kind: 6
   - Occupied: 1
     Kind: 5
---- !u!23 &490901583
+--- !u!23 &143610010
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 490901581}
+  m_GameObject: {fileID: 143610008}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -2135,21 +2312,21 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &490901584
+--- !u!33 &143610011
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 490901581}
+  m_GameObject: {fileID: 143610008}
   m_Mesh: {fileID: 0}
---- !u!4 &490901585
+--- !u!4 &143610012
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 490901581}
+  m_GameObject: {fileID: 143610008}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -2158,7 +2335,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1616548500
+--- !u!1 &1035210889
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2166,8 +2343,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1616548502}
-  - component: {fileID: 1616548501}
+  - component: {fileID: 1035210891}
+  - component: {fileID: 1035210890}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -2175,13 +2352,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &1616548501
+--- !u!108 &1035210890
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1616548500}
+  m_GameObject: {fileID: 1035210889}
   m_Enabled: 1
   serializedVersion: 12
   m_Type: 1
@@ -2240,13 +2417,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &1616548502
+--- !u!4 &1035210891
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1616548500}
+  m_GameObject: {fileID: 1035210889}
   serializedVersion: 2
   m_LocalRotation: {x: 0.29261872, y: -0.41448808, z: 0.14271969, w: 0.8498265}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -2259,6 +2436,6 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 302091601}
-  - {fileID: 1616548502}
-  - {fileID: 490901585}
+  - {fileID: 41956222}
+  - {fileID: 1035210891}
+  - {fileID: 143610012}

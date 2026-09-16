@@ -1666,6 +1666,61 @@ namespace TheVeil.Editor
                     // is wrong: a rough gate in a good wall is how most of them were.
                     Gates = Knights("Buildings", "SM_Bld_Castle_Wall_Gate_01"),
 
+                    // What stands inside the walls. The village already draws on all of
+                    // these — see the Houses, Sheds, Yard and Street sets below — and a
+                    // castle courtyard is furnished out of the same pack, so the castle
+                    // gets its own copies rather than a second set of prefabs.
+                    //
+                    // Both wells, because the pack draws two and they are the same well in
+                    // two states; the lean-to, which is the plank shed the artwork builds
+                    // against a curtain; all three tents, which are the striped ones; and
+                    // the gear a worked yard has lying about.
+                    Wells = Knights("Buildings", "SM_Bld_Well_01", "SM_Bld_Village_Well_01"),
+                    Shelters = Knights("Buildings", "SM_Bld_Leanto_01"),
+
+                    Tents = Knights("Buildings",
+                        "SM_Bld_Tent_01", "SM_Bld_Tent_02", "SM_Bld_Tent_03"),
+
+                    YardGear = Knights("Props",
+                        "SM_Prop_Cart_01", "SM_Prop_CartHay_01", "SM_Prop_Crate_01",
+                        "SM_Prop_CartWheel_01"),
+
+                    Braziers = Knights("Props", "SM_Prop_Brazier_01"),
+
+                    // The flight up to the wall walk — item nine on the plan. The pack
+                    // ships two straight ones and two corner returns; the straight pair
+                    // are what stands against a curtain.
+                    Stairs = Knights("Buildings",
+                        "SM_Bld_StairsLarge_01", "SM_Bld_StairsLarge_02"),
+
+                    // The stone the bailey is laid in. Worn earth with flagging through
+                    // it, which is the same mix the town's streets are paved from and the
+                    // grey-brown the plan draws the inner bailey in — not the grass the
+                    // level happened to have under the walls.
+                    Paving = Knights("Environments",
+                        "SM_Env_Path_Tile_01", "SM_Env_Path_Tile_02",
+                        "SM_Env_Path_Cobble_01", "SM_Env_Path_Cobble_02"),
+
+                    // And the earth it is laid over. Both the flag and the cobble are a
+                    // cold blue-grey; this is the only warm ground in the pack, and the
+                    // plan's bailey is warm. Laid under everything rather than mixed in
+                    // beside it — see BuildingBuilder.Pave.
+                    Ground = Knights("Environments",
+                        "SM_Env_Path_Dirt_01", "SM_Env_Path_Dirt_02",
+                        "SM_Env_Path_Dirt_03"),
+
+                    // The cloth that hangs down the curtain. Three in the pack, in
+                    // different colours, and none of them had ever been hung on anything.
+                    WallBanners = Knights("Props",
+                        "SM_Prop_Banner_01", "SM_Prop_Banner_02"),
+
+                    // And in red. The pack ships four texture atlases and this game had
+                    // only ever used the first, under which the banners come out blue and
+                    // purple. The third is red and gold — settled by rendering the same
+                    // prefab under all four, see CastleMockup.Swatches.
+                    Livery = AssetDatabase.LoadAssetAtPath<Material>(
+                        "Assets/Synty/PolygonKnights/Materials/PolyKnights_03.mat"),
+
                     // What came down. The same rock piles the shoreline uses, which is
                     // right: a fallen wall and a river's stones are the same stone.
                     Rubble = Mixed(
