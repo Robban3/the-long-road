@@ -83,6 +83,12 @@ namespace TheVeil.Editor
                 Shoot(box.center + new Vector3(0f, span * 1.3f, -0.01f), box.center,
                       System.IO.Path.Combine(shots, $"castle-{chapter}-above.png"));
 
+                // And the yard from where the player actually watches: the game camera is
+                // forty-odd metres up at a slant, not a hundred straight down, and a crate
+                // a metre and a quarter tall is a pixel from one and a thing from the other.
+                Shoot(box.center + new Vector3(0f, 34f, -34f), box.center,
+                      System.IO.Path.Combine(shots, $"castle-{chapter}-yard.png"));
+
                 Object.DestroyImmediate(root);
             }
 

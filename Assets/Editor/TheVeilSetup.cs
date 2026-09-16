@@ -1553,17 +1553,7 @@ namespace TheVeil.Editor
                 // What stands in the champion.s yard. Fires and stores because somebody
                 // lives there, tents because his men do, and the block because it is his
                 // castle and the tenth level is meant to feel like arriving at it.
-                CastleYard = Mixed(
-                    Load($"{SyntyKnightsDir}/Props", new[]
-                    {
-                        "SM_Prop_Guillotine_01", "SM_Prop_Brazier_01", "SM_Prop_CampFire_01",
-                        "SM_Prop_Crate_01", "SM_Prop_CartHay_01", "SM_Prop_Cart_01",
-                        "SM_Prop_Banner_01", "SM_Prop_Banner_02"
-                    }),
-                    Load($"{SyntyKnightsDir}/Buildings", new[]
-                    {
-                        "SM_Bld_Tent_01", "SM_Bld_Tent_02", "SM_Bld_Tent_03", "SM_Bld_Well_01"
-                    })),
+                // The shelters a garrison sleeps under, measured across.
 
                 // **Empty on purpose now.** These were the pack's two mini towers, which
                 // are whole pieces and were reported twice as standing on the grass. They

@@ -283,16 +283,6 @@ namespace TheVeil.View
         /// </summary>
         public PropSet Monuments = new PropSet();
 
-        /// <summary>
-        /// What stands in a castle.s courtyard.
-        ///
-        /// The champion.s yard was bare ground with whatever the scatter had dropped
-        /// there — a couple of pines and nothing else — which is a wall built round a
-        /// field rather than a place somebody lives and holds. These are the things that
-        /// say it is occupied and whose it is: fires, tents, stores, and the block.
-        /// </summary>
-        public PropSet CastleYard = new PropSet();
-
         public PropSet Wreckage = new PropSet();
 
         public PropSet Ruins = new PropSet();
@@ -1278,11 +1268,64 @@ namespace TheVeil.View
             placed += PlaceCamps(parent, grid, Stream(9), decor, occupied, heightScale, campSites, road,
                                  found);
 
+            placed -= SweepTheCourtyard(parent);
+
             Census(parent);
             Tallest(parent);
 
             return placed;
         }
+
+        /// <summary>
+        /// Takes everything out of the castle's courtyard, last of all.
+        ///
+        /// <b>Last, because nothing else works.</b> Raise reserves the castle's footprint
+        /// in <c>occupied</c> and the scatter checks it — but a tree is canopy, and canopy
+        /// skips the ground check on purpose so that a wood can close over a track. So
+        /// pines grew through the curtain wall and stood about the yard, and no amount of
+        /// reserving ground before the fact would have stopped them. The only thing that
+        /// answers every case at once is to look at what is standing there when the
+        /// decorating is finished and take it away.
+        ///
+        /// The yard is left bare on purpose and that is not laziness — it is the enemy's
+        /// castle, the player never goes in, and everything put in it so far has been
+        /// wrong in a different way each time. Empty is the honest state to build from.
+        /// </summary>
+        static int SweepTheCourtyard(Transform parent)
+        {
+            if (_castle == null) return 0;
+
+            var yard = ModelScaling.Measure(_castle);
+
+            // The inside only. The wall's own pieces and its towers stand on the rim, so
+            // the box is pulled in by a wall's thickness before anything is judged by it.
+            yard.Expand(new Vector3(-CourtyardMargin * 2f, 0f, -CourtyardMargin * 2f));
+
+            var doomed = new List<GameObject>();
+
+            foreach (Transform thing in parent)
+            {
+                if (thing == _castle.transform) continue;
+
+                var at = thing.position;
+                if (at.x < yard.min.x || at.x > yard.max.x) continue;
+                if (at.z < yard.min.z || at.z > yard.max.z) continue;
+
+                doomed.Add(thing.gameObject);
+            }
+
+            foreach (var thing in doomed)
+            {
+                if (Application.isPlaying) Object.Destroy(thing);
+                else Object.DestroyImmediate(thing);
+            }
+
+            _castle = null;
+            return doomed.Count;
+        }
+
+        /// <summary>How far inside the castle's outline the courtyard begins, in metres.</summary>
+        const float CourtyardMargin = 4f;
 
         /// <summary>
         /// Says what is actually standing on the map, biggest population first.
@@ -3053,78 +3096,20 @@ namespace TheVeil.View
                 return 0;
 
             WallOff(castle);
-            FillTheYard(parent, grid, rng, decor, castle, site, heightScale, occupied);
 
             Landmark.Note(found, LandmarkKind.Castle, site);
+            _castle = castle;
             return 1;
         }
 
-        /// <summary>How much of the courtyard is left clear in the middle, as a share of it.</summary>
-        const float YardCentre = 0.45f;
-
-        /// <summary>Things stood in a castle.s courtyard, and how tall they are drawn.</summary>
-        const int YardProps = 9;
-        const float CastleYardHeight = 2.5f;
-
         /// <summary>
-        /// Puts something in the champion's yard.
+        /// The castle just built, so the courtyard can be swept once everything is down.
         ///
-        /// <b>A ring of wall round bare grass is a wall round a field.</b> The courtyard
-        /// had nothing in it but whatever the scatter had already dropped on that ground,
-        /// which on the forest map is two pines — so the one building the tenth level is
-        /// aimed at was, on the inside, a lawn. What makes a fortress read as held is the
-        /// clutter of holding it.
-        ///
-        /// Set out in a ring against the walls with the middle left clear, because that is
-        /// what a courtyard is for and because the champion and his men are standing in it.
-        /// Their ground is claimed in <paramref name="occupied"/> the same as any other
-        /// prop's, so the scatter does not drop a tree through the guillotine.
+        /// Held on the class rather than passed along because the sweep has to happen at
+        /// the very end of Decorate, after the scatter, and the castle is put up near the
+        /// beginning of it.
         /// </summary>
-        static void FillTheYard(Transform parent, TileGrid grid, DeterministicRandom rng,
-                                BiomeDecor decor, GameObject castle, int site,
-                                float heightScale, HashSet<int> occupied)
-        {
-            if (!decor.CastleYard.Any || castle == null) return;
-
-            var box = ModelScaling.Measure(castle);
-            float reach = Mathf.Min(box.size.x, box.size.z) * 0.5f;
-
-            grid.ToCoords(site, out int cx, out int cy);
-
-            // Its own set of claimed ground, not the level.s.
-            //
-            // Raise reserves the whole of a building.s footprint in occupied, which for a
-            // castle is the courtyard as well as the walls — so a yard that respected it
-            // had nowhere to put anything and the props squeezed out through the gate and
-            // stood in the grass outside. The castle owns that ground; what goes on it is
-            // the castle.s business, and all this has to avoid is itself.
-            var taken = new HashSet<int>();
-
-            for (int i = 0; i < YardProps; i++)
-            {
-                // Round the inside of the wall, spaced by a turn that never repeats a
-                // bearing: nine things on a circle at even angles reads as a clock face.
-                float turn = (i * 360f / YardProps + rng.Range(-14f, 14f)) * Mathf.Deg2Rad;
-                float out_ = reach * Mathf.Lerp(YardCentre, 0.8f, rng.Value01());
-
-                int x = cx + Mathf.RoundToInt(Mathf.Sin(turn) * out_ / TileGrid.TileSize);
-                int y = cy + Mathf.RoundToInt(Mathf.Cos(turn) * out_ / TileGrid.TileSize);
-
-                if (!grid.InBounds(x, y)) continue;
-
-                int tile = grid.ToIndex(x, y);
-                if (!taken.Add(tile)) continue;
-
-                // Two and a half metres: a brazier, a tent or the block, at the size a man
-                // stands beside. The yard is measured in wagons and this is what fits in it.
-                var choice = From(decor.CastleYard, rng, CastleYardHeight);
-                if (choice.Prefab == null) continue;
-
-                // Not made solid. The walls already are, nothing routes through a courtyard
-                // nobody enters, and Block on these threw on the first one it was handed.
-                Place(parent, grid, tile, rng, choice, heightScale);
-            }
-        }
+        static GameObject _castle;
 
         /// <summary>
         /// Makes the castle's stonework solid, a piece at a time, leaving the gateway open.
