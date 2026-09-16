@@ -382,20 +382,35 @@ namespace TheVeil.Editor
                                  + $"{map.Encounters.Enemies.Count}, worst route "
                                  + $"{before.Encounters.MinEncounters} vs {map.Encounters.MinEncounters}");
 
-                Play(sheet, before, bare, "no goal");
-                Play(sheet, map, recipe, "champion");
+                Play(sheet, before, bare, "no goal", chapter, level);
+                Play(sheet, map, recipe, "champion", chapter, level);
             }
 
             Debug.Log(sheet.ToString());
         }
 
         /// <summary>One level played down every corridor it offers.</summary>
-        static void Play(StringBuilder sheet, LevelMap map, LevelRecipe recipe, string label)
+        static void Play(StringBuilder sheet, LevelMap map, LevelRecipe recipe, string label,
+                         int chapter, int level)
         {
             foreach (var corridor in map.Corridors)
             {
+                // <b>The escort the difficulty curve assumes, not a fixed six.</b>
+                //
+                // This fielded Escort below — spears, bows, a crossbow and a sword at no
+                // weapon level, with nothing bought — which is the line written into a
+                // test for chapter two and carried forward ever since. Measured against
+                // it, chapter three.s tenth level had no road that could be won and the
+                // row *without* a champion on it lost too: the report was saying the
+                // road was unwinnable when what it had shown is that this escort cannot
+                // win it, which is a different sentence and wants a different answer.
+                //
+                // ReferenceSquad is where that assumption is written down, and the sweep
+                // above has fielded it since it was written. This did not.
                 var run = new LevelRun(map, corridor.Tiles,
-                                       Escort(recipe.SquadBudget, recipe.Posts),
+                                       ReferenceSquad.For(recipe,
+                                           ReferenceSquad.LevelsCleared(chapter, level),
+                                           ReferenceSquad.Smithy(chapter)),
                                        recipe.EnemyStrength);
 
                 var outcome = run.RunToCompletion();
@@ -440,7 +455,15 @@ namespace TheVeil.Editor
             }
         }
 
-        /// <summary>The escort ChapterDifficultyTests fields. Kept identical on purpose.</summary>
+        /// <summary>
+        /// The escort ChapterDifficultyTests fields. Kept identical on purpose.
+        ///
+        /// Used only by the sweep, which shows the upgraded line against this one to say
+        /// how much of a chapter.s difficulty is the climb the player is expected to make.
+        /// The played report fielded it too and should not have: this is the escort a
+        /// player would have had chapters ago, and judging a chapter.s last level by it
+        /// measures the wrong player and then blames the level.
+        /// </summary>
         static Squad Escort(int budget, int posts)
         {
             var squad = new Squad(budget, posts);

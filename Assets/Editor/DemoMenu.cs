@@ -83,14 +83,87 @@ namespace TheVeil.Editor
         [MenuItem(Root + "The town (1-8)", true)]
         static bool TownPlaying() => EditorApplication.isPlaying;
 
+        /// <summary>
+        /// Straight to a chapter's champion, with the escort a player would be holding
+        /// when they met him.
+        ///
+        /// <b>Written because the fight had never once been seen.</b> Two playtests of
+        /// 1-10 both ended on the road at a hundred and eighteen seconds with the escort
+        /// dead and the champion untouched, and the conclusion drawn from that was that
+        /// the champion was unreachable. He is not: the simulated run of the same level
+        /// wins on two of its three roads — see ChampionReport.PlayTheChampions.
+        ///
+        /// What was wrong was the way in. Entering a level without coming through the
+        /// escort screen leaves Session.HasEscort false, so LevelRunner falls back to the
+        /// formation serialized in the scene — six posts of whatever was last saved
+        /// there, at no weapon level, with nothing bought. That is a fair fight for 1-1
+        /// and it is not the player who arrives at 1-10, which is the point
+        /// ReferenceSquad was written to make and which the tooling then went on
+        /// ignoring.
+        /// </summary>
+        [MenuItem(Root + "The champion (1-10)")]
+        static void Champion() => Enter(1, Campaign.LevelsPerChapter, geared: true);
+
+        [MenuItem(Root + "The champion (1-10)", true)]
+        static bool ChampionPlaying() => EditorApplication.isPlaying;
+
         static void Enter(int chapter) => Enter(chapter, 1);
 
-        static void Enter(int chapter, int level)
+        static void Enter(int chapter, int level, bool geared = false)
         {
             Session.Choose(chapter, level);
             Session.Forget();
+
+            if (geared) Gear(chapter, level);
+
             SceneManager.LoadScene(Session.PlanScene);
         }
+
+        /// <summary>
+        /// Puts the campaign where a player entering this level would be: the line
+        /// ReferenceSquad says they would be fielding, and the smithy behind it.
+        ///
+        /// Both halves are needed and neither is enough. Session.SetEscort carries the
+        /// composition — which troops, in which posts — and nothing else; the weapon and
+        /// armour levels come from the campaign's own purchases, through
+        /// Campaign.TroopBoons. Set one without the other and the caravan goes in with
+        /// the right line at no level, which is most of the way to the escort that lost
+        /// twice.
+        ///
+        /// Bought rather than assigned, through the same TryBuy the shop uses, so a
+        /// geared demo run is a state the game could actually have reached. The gold is
+        /// granted first because the point is to skip the grind, not to model it.
+        /// </summary>
+        static void Gear(int chapter, int level)
+        {
+            var squad = ReferenceSquad.For(chapter, level);
+            Session.SetEscort(squad);
+
+            int smithy = ReferenceSquad.Smithy(chapter);
+            if (smithy <= 0) return;
+
+            Session.Campaign.Earn(GearingGold);
+
+            foreach (var group in squad.Slots)
+            {
+                if (group == null) continue;
+
+                for (int step = 0; step < smithy; step++)
+                {
+                    Session.Campaign.TryBuy(group.Kind, UpgradeTrack.Weapon, out _);
+                    Session.Campaign.TryBuy(group.Kind, UpgradeTrack.Armour, out _);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gold handed to a geared demo run before it starts buying.
+        ///
+        /// Generous on purpose and not a balance number: it is spent immediately on a
+        /// fixed list and whatever is left over is spendable in the shop, which is the
+        /// same freedom a player who had played the chapter would have.
+        /// </summary>
+        const int GearingGold = 20000;
 
         /// <summary>
         /// Every troop on one field, marching into bandits and fighting them. See
