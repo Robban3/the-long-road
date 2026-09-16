@@ -75,16 +75,72 @@ namespace TheVeil.Tests
         }
 
         [Test]
+        public void TheyNeverRunOntoWater()
+        {
+            // <b>Nothing in the step had ever looked at the ground under it.</b> It
+            // advanced a position by a heading and a speed, so a startled deer bolted
+            // along whatever bearing it was given — over the lake, across the ford the
+            // caravan is queueing for, off the cliff. Reported from a playtest, which is
+            // the wrong place to find it: it is true of every animal on every level and
+            // always was.
+            //
+            // Driven rather than staged. A single animal aimed at a single pond proves the
+            // case it was written for and nothing else; a caravan walking a diagonal
+            // across six levels startles everything on them, from every side, and asks
+            // the question of each animal on every tick.
+            for (int level = 1; level <= 6; level++)
+            {
+                var map = Level(1, level);
+                var animals = Wildlife.Populate(map);
+
+                for (int tick = 0; tick < 600; tick++)
+                {
+                    var chase = new Vec2(tick * 1.7f, tick * 1.3f);
+                    Wildlife.Step(map.Grid, animals, chase, null, 0.1f);
+
+                    foreach (var animal in animals)
+                        Assert.IsTrue(OnGround(map, animal.Position),
+                            $"1-{level} tick {tick}: a {animal.Kind} is standing on "
+                            + $"{Under(map, animal.Position)} at "
+                            + $"{animal.Position.X:0}, {animal.Position.Y:0}");
+                }
+            }
+        }
+
+        /// <summary>Whether a world position is on ground an animal could stand on.</summary>
+        static bool OnGround(LevelMap map, Vec2 at)
+        {
+            if (at.X < 0f || at.Y < 0f) return false;
+
+            int x = (int)(at.X / TileGrid.TileSize);
+            int y = (int)(at.Y / TileGrid.TileSize);
+
+            return map.Grid.InBounds(x, y) && map.Grid.IsPassable(x, y)
+                && map.Grid[map.Grid.ToIndex(x, y)] != TerrainType.Ford;
+        }
+
+        /// <summary>What it is standing on, for the failure message.</summary>
+        static string Under(LevelMap map, Vec2 at)
+        {
+            int x = (int)(at.X / TileGrid.TileSize);
+            int y = (int)(at.Y / TileGrid.TileSize);
+
+            if (at.X < 0f || at.Y < 0f || !map.Grid.InBounds(x, y)) return "ground off the map";
+
+            return map.Grid[map.Grid.ToIndex(x, y)].ToString();
+        }
+
+        [Test]
         public void TheCaravanScattersThem()
         {
             var map = Level(1, 5);
             var animals = Wildlife.Populate(map);
             var target = animals[0];
 
-            Wildlife.Step(animals, target.Home, null, 0.1f);
+            Wildlife.Step(map.Grid, animals, target.Home, null, 0.1f);
             Assert.IsTrue(target.IsFleeing);
 
-            for (int i = 0; i < 60; i++) Wildlife.Step(animals, target.Home, null, 0.1f);
+            for (int i = 0; i < 60; i++) Wildlife.Step(map.Grid, animals, target.Home, null, 0.1f);
             Assert.Greater(Distance(target.Position, target.Home), 20f,
                 "it bolted and got nowhere");
         }
@@ -103,7 +159,7 @@ namespace TheVeil.Tests
             var elsewhere = new Vec2(target.Home.X + 500f, target.Home.Y + 500f);
             var battle = new Vec2(target.Position.X + Wildlife.SpookRadius + 14f, target.Position.Y);
 
-            Wildlife.Step(animals, elsewhere, new List<Vec2> { battle }, 0.1f);
+            Wildlife.Step(map.Grid, animals, elsewhere, new List<Vec2> { battle }, 0.1f);
             Assert.IsTrue(target.IsFleeing,
                 "a fight beyond the caravan's own radius should still have startled it");
         }
@@ -117,9 +173,9 @@ namespace TheVeil.Tests
             var animals = Wildlife.Populate(map);
             var target = animals[0];
 
-            Wildlife.Step(animals, target.Home, null, 0.1f);
+            Wildlife.Step(map.Grid, animals, target.Home, null, 0.1f);
             var elsewhere = new Vec2(target.Home.X + 500f, target.Home.Y + 500f);
-            for (int i = 0; i < 1500; i++) Wildlife.Step(animals, elsewhere, null, 0.1f);
+            for (int i = 0; i < 1500; i++) Wildlife.Step(map.Grid, animals, elsewhere, null, 0.1f);
 
             Assert.IsFalse(target.IsFleeing);
             Assert.LessOrEqual(Distance(target.Position, target.Home), Wildlife.GrazeRadius + 0.5f);

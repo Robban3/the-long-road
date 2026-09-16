@@ -272,7 +272,7 @@ namespace TheVeil.Sim
         /// <summary>
         /// Moves the animals on. `battles` is where fighting is happening this frame.
         /// </summary>
-        public static void Step(IReadOnlyList<WildAnimal> animals, Vec2 caravan,
+        public static void Step(TileGrid grid, IReadOnlyList<WildAnimal> animals, Vec2 caravan,
                                 IReadOnlyList<Vec2> battles, float dt)
         {
             if (animals == null || dt <= 0f) return;
@@ -289,8 +289,7 @@ namespace TheVeil.Sim
                 {
                     animal.Fleeing -= dt;
                     animal.Speed = FleeSpeed;
-                    animal.Position = new Vec2(animal.Position.X + animal.Heading.X * FleeSpeed * dt,
-                                               animal.Position.Y + animal.Heading.Y * FleeSpeed * dt);
+                    Walk(grid, animal, FleeSpeed, dt);
                     continue;
                 }
 
@@ -315,10 +314,73 @@ namespace TheVeil.Sim
                 animal.Heading = new Vec2(toHome.X / distance, toHome.Y / distance);
                 animal.Speed = GrazeSpeed;
 
-                animal.Position = new Vec2(animal.Position.X + animal.Heading.X * GrazeSpeed * dt,
-                                           animal.Position.Y + animal.Heading.Y * GrazeSpeed * dt);
+                Walk(grid, animal, GrazeSpeed, dt);
             }
         }
+
+        /// <summary>
+        /// Moves an animal along its heading as far as the ground allows, swerving rather
+        /// than stopping when it runs out of it.
+        ///
+        /// <b>Nothing here had ever looked at the ground.</b> Step advanced a position by
+        /// a heading and a speed and that was all of it, so a startled deer bolted along
+        /// whatever bearing it happened to be given — over the lake, across the ford the
+        /// caravan is queueing for, off the cliff. The rule it needed was already in this
+        /// file: <see cref="Standable"/>, written for placing a herd and never asked
+        /// again once one was moving.
+        ///
+        /// Swerving and not stopping, because a frightened animal that hits a shoreline
+        /// and freezes reads exactly as wrong as one that runs out into the water. It
+        /// turns by thirty-five degrees at a time, either way, and takes the first bearing
+        /// with ground on it — which is also what a deer does at a river. Boxed in on
+        /// every side it stops, and that at least is a thing an animal does.
+        /// </summary>
+        static void Walk(TileGrid grid, WildAnimal animal, float speed, float dt)
+        {
+            if (Try(grid, animal, animal.Heading, speed, dt)) return;
+
+            foreach (float turn in Swerves)
+            {
+                if (Try(grid, animal, Turn(animal.Heading, turn), speed, dt, keep: true)) return;
+                if (Try(grid, animal, Turn(animal.Heading, -turn), speed, dt, keep: true)) return;
+            }
+
+            animal.Speed = 0f;
+        }
+
+        /// <summary>One candidate step. Taken only if it lands on ground.</summary>
+        static bool Try(TileGrid grid, WildAnimal animal, Vec2 heading, float speed, float dt,
+                        bool keep = false)
+        {
+            var step = new Vec2(animal.Position.X + heading.X * speed * dt,
+                                animal.Position.Y + heading.Y * speed * dt);
+
+            if (grid != null && !Standable(grid, step)) return false;
+
+            if (keep) animal.Heading = heading;
+            animal.Position = step;
+            return true;
+        }
+
+        /// <summary>A heading turned by a number of degrees.</summary>
+        static Vec2 Turn(Vec2 heading, float degrees)
+        {
+            float radians = degrees * (float)(Math.PI / 180.0);
+            float cos = (float)Math.Cos(radians), sin = (float)Math.Sin(radians);
+
+            return new Vec2(heading.X * cos - heading.Y * sin,
+                            heading.X * sin + heading.Y * cos);
+        }
+
+        /// <summary>
+        /// How far an animal will turn off its bearing to find ground, in degrees.
+        ///
+        /// Tried nearest first and to both sides, so an animal running at a shore veers
+        /// along it rather than reversing into whatever it was running from. The last one
+        /// is most of the way round: that is the animal cornered against water with the
+        /// caravan behind it, and doubling back is better than standing in the shallows.
+        /// </summary>
+        static readonly float[] Swerves = { 35f, 70f, 105f, 140f, 175f };
 
         static bool Startled(WildAnimal animal, Vec2 caravan, IReadOnlyList<Vec2> battles,
                              out Vec2 away)
@@ -356,6 +418,11 @@ namespace TheVeil.Sim
         /// <summary>Whether a world position is on ground an animal could stand on.</summary>
         static bool Standable(TileGrid grid, Vec2 at)
         {
+            // Off the west or south edge entirely. Worth saying out loud because the cast
+            // below truncates towards zero, so a position at minus one metre lands on tile
+            // nought and is waved through — which is ground, just not the ground it is on.
+            if (at.X < 0f || at.Y < 0f) return false;
+
             int x = (int)(at.X / TileGrid.TileSize);
             int y = (int)(at.Y / TileGrid.TileSize);
 

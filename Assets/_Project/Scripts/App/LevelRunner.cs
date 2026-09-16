@@ -584,7 +584,7 @@ namespace TheVeil.App
             if (_run?.Combat != null && _run.Combat.InContact)
                 _battles.Add(_run.Caravan.LeadPosition);
 
-            Wildlife.Step(_wildlife, _run.Caravan.LeadPosition, _battles, dt);
+            Wildlife.Step(_levelGrid, _wildlife, _run.Caravan.LeadPosition, _battles, dt);
         }
 
         void Update()
