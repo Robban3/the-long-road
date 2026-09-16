@@ -202,6 +202,20 @@ namespace TheVeil.Editor
                 if (name.IndexOf("water", System.StringComparison.OrdinalIgnoreCase) >= 0
                     || name.Contains("Pools") || name.Contains("Bridge")) continue;
 
+                // And two more that are meant to be exactly what this would call a fault.
+                //
+                // <b>A banner hangs and paving is buried.</b> The castle's colours are hung
+                // from the parapet and fall down the face of the wall, so they are four to
+                // seven metres clear of the ground by construction; the bailey is laid as
+                // earth with flagstone over five parts in six of it, so most of the earth
+                // is under stone and out of sight. Both were reported by this the day they
+                // were built, four and eleven times a level, and both are correct.
+                //
+                // Written down rather than tolerated, because a check that cries about
+                // things that are right is a check nobody reads — which is the whole
+                // reason the bridge exemption above exists.
+                bool hangs = name.Contains("Banner");
+
                 // The building kit is assembled part on part, so a chimney is eight metres
                 // clear of the ground and right to be: it is standing on a roof. Measuring
                 // the parts against the ground asks the wrong question of them — the first
@@ -221,6 +235,8 @@ namespace TheVeil.Editor
 
                 if (gap > FloatTolerance)
                 {
+                    if (hangs) continue;
+
                     floating.TryGetValue(name, out var seen);
                     floating[name] = (seen.Count + 1, Mathf.Max(seen.Worst, gap));
                 }

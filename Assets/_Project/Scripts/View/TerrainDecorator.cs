@@ -2082,24 +2082,37 @@ namespace TheVeil.View
             // than better: a three-tile ford is three tiles of "water" lying square to
             // the river, so the average leant toward the crossing and the ninety-degree
             // turn that follows put the bridge in the water.
-            float ford = Bearing(grid, tile, TerrainType.Ford, 3);
-            if (!float.IsNaN(ford)) return ford;
-
-            // <b>A ford one tile wide has no run to read, so ask the road instead.</b>
+            // <b>The road first, because the road is what crosses here.</b>
             //
-            // The water was asked first and the note above records what it answers:
-            // anywhere between 54 and 120 degrees. On a ford several tiles wide that
-            // never showed, because the run overrode it. On a single tile it is the whole
-            // answer — and 1-4.s bridge is exactly that, one tile at (34,48), laid at
-            // whatever angle the surrounding water averaged to while the road came at it
-            // dead straight. The wagons were not crossing crooked; the bridge was.
+            // This asked the ford run first and the road only when the ford was a single
+            // tile. The ford run is the truer fact about the water — it is cut straight
+            // across its river, so it is ninety degrees on every crossing in chapter one
+            // — and that is exactly the trouble: it is a fact about the river and the
+            // thing being laid is a road over it.
             //
-            // The road knows which way the crossing runs, because crossing it is what the
-            // road is doing there. Still a function of the map — travelled is
-            // LevelPreview.Travelled(map), which the planning map and the run both pass —
-            // so the bridge cannot come out one way on the map and another in the game.
+            // Two attempts were made at the other end of this and both were measured and
+            // thrown away. Straightening the road onto the ford's row works as geometry
+            // and costs a chapter: a straight approach cuts a corner, and the corner the
+            // drawn line went round is a corner something is standing in — on 1-10 the
+            // travel time did not move at all while the fighting grew by seventy seconds.
+            // Shortened to two tiles it stopped costing anything and stopped doing
+            // anything: one crossing of a hundred and sixteen. See BridgeReport.
+            //
+            // So the bridge gives way instead of the road. It is a model laid at an angle;
+            // moving it changes no ground, meets no enemy and takes nothing from any
+            // level.
+            //
+            // Still a function of the map and not of the drawn line. `travelled` is every
+            // corridor tile — LevelPreview.Travelled(map), which the planning map and the
+            // run both pass — so the bridge cannot come out one way on the map and another
+            // in the game. That distinction is what the first version of this got wrong:
+            // it turned to meet the caravan's own lane, and the lane does not exist when
+            // the map is drawn.
             float road = Bearing(grid, tile, travelled, 2);
             if (!float.IsNaN(road)) return road;
+
+            float ford = Bearing(grid, tile, TerrainType.Ford, 3);
+            if (!float.IsNaN(ford)) return ford;
 
             float water = Bearing(grid, tile, TerrainType.Water, 2);
             if (!float.IsNaN(water)) return water + 90f;
