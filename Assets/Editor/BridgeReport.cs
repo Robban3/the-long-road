@@ -38,8 +38,13 @@ namespace TheVeil.Editor
         /// <summary>Chapters measured. Three is the span the other reports cover.</summary>
         const int Chapters = 3;
 
-        /// <summary>Tiles of approach read back from the water. Matches Crossings.RunUp.</summary>
-        static int RunUp => Crossings.RunUp;
+        /// <summary>
+        /// Tiles of approach read back from the water when measuring the wander.
+        ///
+        /// Pinned rather than taken from Crossings.RunUp, so that shortening the run-up
+        /// does not flatter the measurement by narrowing the window it is measured over.
+        /// </summary>
+        const int RunUp = 5;
 
         [MenuItem("The Veil/Bridge Report")]
         public static void Run()

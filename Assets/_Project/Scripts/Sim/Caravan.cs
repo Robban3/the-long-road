@@ -104,6 +104,22 @@ namespace TheVeil.Sim
         public const float WagonSpacing = 15f;
 
         /// <summary>
+        /// Half the length of one cart and its team, in metres.
+        ///
+        /// <b>Five and a half, measured rather than reasoned.</b> RunVisuals.CheckSpacing
+        /// walks the models actually loaded and prints what the tightest pair needs; on a
+        /// chapter-one run it says 10.8 m, which is a covered wagon plus the two horses in
+        /// harness in front of it. So a wagon reaches about five and a half metres either
+        /// side of the point on the road it is tracked by.
+        ///
+        /// Which is the whole of why raiders stood inside the carts. A wagon is a point to
+        /// the simulation and ten metres of timber and horseflesh on the screen, and an
+        /// attacker that stops at its own reach from the point is a metre and a half past
+        /// the tailgate before his own horse is counted.
+        /// </summary>
+        public const float CartHalf = 5.4f;
+
+        /// <summary>
         /// Metres of road behind the start line, for the column to form up on.
         ///
         /// Without it every wagon begins on the start tile, stacked, and the third one

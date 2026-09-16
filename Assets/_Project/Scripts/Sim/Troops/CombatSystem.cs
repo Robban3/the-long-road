@@ -287,7 +287,20 @@ namespace TheVeil.Sim
 
                 if (wagon == null) continue;
 
-                float reachToCaravan = EnemyTable.AttackRange(enemy.Kind) + EngagementSlack;
+                // <b>Measured to the side of the cart, not to the middle of it.</b>
+                //
+                // A wagon is a point here and ten and a half metres of timber and horses on
+                // the screen — see Caravan.CartHalf, which is that measurement. An attacker
+                // stopping at his own reach from the point stands a metre and a half past
+                // the tailgate, and a mounted one is three metres long himself: reported
+                // from a playtest as a rider standing inside the carts, with a picture of
+                // him doing it.
+                //
+                // Nothing about the fighting changes. He strikes at the same range from the
+                // same thing; what has been corrected is which part of the thing the range
+                // is measured to.
+                float reachToCaravan = EnemyTable.AttackRange(enemy.Kind) + EngagementSlack
+                                       + Caravan.CartHalf;
                 if (Vec2.DistanceSquared(enemy.Position, wagonAt) <= reachToCaravan * reachToCaravan)
                 {
                     InContact = true;
