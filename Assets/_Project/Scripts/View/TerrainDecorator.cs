@@ -659,7 +659,22 @@ namespace TheVeil.View
         /// a wagon needs without the bridge growing into a viaduct. Five metres is two
         /// wagons abreast, which is what the crossing has to look like it could carry.
         /// </summary>
-        public const float FordDeck = 7f;
+        /// <b>Nine, and the last metre of it is measured rather than judged.</b>
+        ///
+        /// BridgeReport walks every corridor of thirty levels and reads how far across the
+        /// deck the column drifts while it is on the timber. The answer is not a small
+        /// angle: eighty-nine of a hundred and sixteen crossings drift under a metre, and
+        /// the other twenty-seven step a whole tile sideways — four metres — with nothing
+        /// in between. It is a road that either holds the ford's row or does not.
+        ///
+        /// Carrying the four-metre step needs eleven metres of deck, and these bridges are
+        /// fourteen metres long. Fourteen by eleven is a raft. So this covers the
+        /// eighty-nine with a metre to spare either side and leaves the twenty-seven
+        /// crabbing, which is the honest trade: the alternative was straightening the road
+        /// at the crossings, and that moves it past what the player drew round — measured,
+        /// it cost chapter one's tenth level both of its winnable roads even when the road
+        /// was forbidden to grow by a single tile.
+        public const float FordDeck = 9f;
         public const float FordSpan = 12f;
 
         /// <summary>
