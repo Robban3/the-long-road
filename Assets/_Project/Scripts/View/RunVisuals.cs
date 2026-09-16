@@ -1202,8 +1202,24 @@ namespace TheVeil.View
 
                 if (!_traps.TryGetValue(trap, out var marker))
                 {
+                    // <b>The two traps are two shapes and cannot take one number.</b>
+                    //
+                    // The pit is the pack's trapdoor: 1.14 m square and 23 cm thick, a flat
+                    // thing, and fitting it across to two metres is a hatch a wagon could
+                    // fall through. The log is the pack's beam: 26 cm across and 2.49 m
+                    // long, a thing drawn standing — and the same call fitted its footprint
+                    // to the same two metres, which is a scale of seven and a half and a
+                    // nineteen-metre pole standing in a field. Sprung, it flared to three
+                    // times that.
+                    //
+                    // So the log is laid down first and then fitted along its length, which
+                    // is what a falling log is: four metres of timber lying across a track.
+                    bool log = trap.Kind == TrapKind.Log;
+
                     marker = Spawn(Library.TrapMarkerFor(trap.Kind), PrimitiveType.Cylinder,
-                        $"Trap_{trap.Kind}", TrapColor, TrapMarkerAcross, byWidth: true);
+                        $"Trap_{trap.Kind}", TrapColor,
+                        log ? TrapLogAlong : TrapMarkerAcross, byWidth: true,
+                        lie: log ? Quaternion.Euler(90f, 0f, 0f) : (Quaternion?)null);
                     Place(marker, new Vector3(trap.Position.X, GroundAt(trap.Position), trap.Position.Y));
                     _traps[trap] = marker;
                     _trapScale[trap] = marker.localScale;
@@ -1270,6 +1286,15 @@ namespace TheVeil.View
         /// forty-six metres the camera actually sits at.
         /// </summary>
         const float TrapMarkerAcross = 2f;
+
+        /// <summary>
+        /// How long the fallen log lies, in metres.
+        ///
+        /// Four, which is a tile — a log across the track and not a twig on it. Measured
+        /// along its length rather than across its thickness, which is the whole of the
+        /// difference between this and the nineteen-metre pole it used to be.
+        /// </summary>
+        const float TrapLogAlong = 4f;
 
         /// <summary>How far from a sprung trap its bones lie, in metres.</summary>
         const float BonesBeside = 1.6f;
@@ -1966,7 +1991,8 @@ namespace TheVeil.View
         /// </param>
         Transform Spawn(GameObject prefab, PrimitiveType fallback, string name, Color color,
                         float targetHeight, Transform parent = null, string[] hide = null,
-                        string[] unsized = null, bool byWidth = false)
+                        string[] unsized = null, bool byWidth = false,
+                        Quaternion? lie = null)
         {
             var host = parent != null ? parent : _root;
 
@@ -1986,6 +2012,17 @@ namespace TheVeil.View
 
             var instance = Object.Instantiate(prefab, host);
             instance.name = name;
+
+            // Laid down before it is measured, not after.
+            //
+            // <b>Which way a thing is lying decides what fitting it means.</b> A prefab
+            // drawn standing has its length in Y, so fitting its footprint scales by its
+            // thickness — and for something long and thin that is a multiplier of seven or
+            // eight. The pack's beam is 26 cm across and 2.49 m long; fitted to a
+            // two-metre footprint it came out nineteen metres tall, and three times that
+            // for the moment a sprung trap flares. Rotating afterwards would have left the
+            // scale already wrong.
+            if (lie.HasValue) instance.transform.localRotation = lie.Value;
 
             // Before measuring, not after. A stowaway mesh lying thirty units below
             // the character drags the bounds down with it, and the figure gets scaled
