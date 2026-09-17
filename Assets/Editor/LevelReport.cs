@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using TheVeil.Gen;
 using TheVeil.Sim;
@@ -30,6 +31,7 @@ namespace TheVeil.Editor
             sheet.AppendLine("[Levels] chapter-level: attempt, verdict, and the promises kept");
 
             int compromised = 0, unwinnable = 0, wet = 0;
+            var groups = new List<string>();
             var why = new int[4];
 
             for (int chapter = 1; chapter <= LevelCatalogue.Chapters; chapter++)
@@ -61,6 +63,15 @@ namespace TheVeil.Editor
                     string ends = Ends(map, out bool damp);
                     if (damp) wet++;
 
+                    // <b>How many groups the budget bought, against whether the
+                    // placement held.</b> The count is what the promise is made of - every
+                    // route meets five - and it is decided by a uniform draw over enemy
+                    // kinds that cost anything from a few points to sixty. Printed for
+                    // every level so the two can be seen together.
+                    groups.Add((kept ? "kept " : "SHORT") + $" {chapter}-{level}: "
+                               + $"{map.Encounters.Enemies.Count} groups, worst route "
+                               + $"{map.Encounters.MinEncounters}");
+
                     if (map.Accepted && winnable && !damp) continue;
 
                     sheet.AppendLine($"[Levels] {chapter}-{level}: attempt {map.Attempts - 1}, "
@@ -70,6 +81,7 @@ namespace TheVeil.Editor
                                      + $"crossings {crossings}/{recipe.CrossingsOwed} "
                                      + $"| {ends}"
                                      + (choice ? "" : " | " + WhyNoChoice(map))
+                                     + (kept ? "" : " | " + Starved(map))
                                      + " | " + Ground(map));
                 }
             }
@@ -80,10 +92,36 @@ namespace TheVeil.Editor
                              + $"{why[1]} have encounters the placer could not validate, "
                              + $"{why[2]} are short of crossings, {why[3]} cannot be won");
 
+            groups.Sort();
+            foreach (string line in groups) sheet.AppendLine("[Groups] " + line);
+
             Debug.Log(sheet.ToString());
         }
 
         static string Yes(bool held) => held ? "ok" : "NO";
+
+        /// <summary>
+        /// How far short of its promise the placement came, and what it had to work with.
+        ///
+        /// The promise is that every route a player might draw meets enough to be a level
+        /// (EncounterPlacer.MinEncounters), aimed one higher because the loop can only
+        /// repair the routes it sampled. When that fails the question is always the same:
+        /// too few groups on the map, or enough groups in the wrong places.
+        /// </summary>
+        static string Starved(LevelMap map)
+        {
+            int guards = 0, repaired = 0;
+
+            foreach (var spawn in map.Encounters.Enemies)
+            {
+                if (spawn.Origin == PlacementOrigin.Guard) guards++;
+                if (spawn.Origin == PlacementOrigin.Repair) repaired++;
+            }
+
+            return $"worst route meets {map.Encounters.MinEncounters}/"
+                   + $"{EncounterPlacer.RepairTarget}, {map.Encounters.Enemies.Count} groups "
+                   + $"({guards} placed, {repaired} moved), {map.Encounters.Repairs} repairs";
+        }
 
         /// <summary>What the level is made of, as a count per terrain type.</summary>
         static string Ground(LevelMap map)

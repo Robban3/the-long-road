@@ -143,6 +143,30 @@ namespace TheVeil.Gen
         public const int MinEncounters = 5;
 
         /// <summary>
+        /// How many groups a level's budget buys before it starts buying strength.
+        ///
+        /// <b>The count the promise is made of was being decided by a dice roll.</b>
+        /// PickAffordable drew uniformly from every enemy kind the remaining budget could
+        /// afford, and those kinds cost anything from a handful of points to sixty - so
+        /// the same budget came out as nine groups on one level and eighteen on another,
+        /// and nothing anywhere knew that the number mattered. It matters more than
+        /// anything else here: the promise is that every route a player might draw meets
+        /// five groups, and five groups on each of three roads that barely touch cannot be
+        /// made out of nine.
+        ///
+        /// Measured over a hundred levels, and the line is sharp. Every level that failed
+        /// to keep the promise had ten groups or fewer - seven, eight, nine, nine, nine,
+        /// ten, ten - and of the ninety-three that kept it, eighty-eight had eleven or
+        /// more, with the mass at twelve to fourteen.
+        ///
+        /// So twelve is bought first and whatever is left over is spent on strength. The
+        /// budget does not change, which means the groups are individually weaker: this is
+        /// a road harried the length of it rather than three set-piece battles, and that
+        /// is what a promise of five encounters a route was always describing.
+        /// </summary>
+        public const int GroupsWanted = 12;
+
+        /// <summary>
         /// What the repair loop aims at, which is one more than the promise.
         ///
         /// The loop can only measure the routes it sampled, and a player draws whatever
@@ -470,7 +494,10 @@ namespace TheVeil.Gen
                 int tile = crossing[crossing.Count / 2];
                 if (occupied.Contains(tile)) continue;
 
-                var kind = PickAffordable(recipe.EnemyPool, rng, budget - spent);
+                // The ford guards count towards the level's group tally like anything
+                // else, so they hold back the same reserve. See GroupsWanted.
+                var kind = PickAffordable(recipe.EnemyPool, rng, budget - spent,
+                                          GroupsWanted - layout.Enemies.Count);
                 if (kind == null) break;
 
                 layout.Enemies.Add(new EnemySpawn
@@ -1247,7 +1274,8 @@ namespace TheVeil.Gen
                 if (mined.Contains(tile)) continue;
                 if (!SpacedEnough(grid, tile, occupied, GroupSpacingTiles)) continue;
 
-                var kind = PickAffordable(recipe.EnemyPool, rng, budget);
+                var kind = PickAffordable(recipe.EnemyPool, rng, budget,
+                                          GroupsWanted - layout.Enemies.Count);
                 if (kind == null) break;
 
                 layout.Enemies.Add(new EnemySpawn
@@ -1276,13 +1304,42 @@ namespace TheVeil.Gen
             return true;
         }
 
-        static EnemyKind? PickAffordable(EnemyKind[] pool, DeterministicRandom rng, int budget)
+        /// <summary>
+        /// One group, drawn from what the budget can afford - and holding back enough of
+        /// it to buy the groups still owed.
+        ///
+        /// <paramref name="owed"/> is how many more groups <see cref="GroupsWanted"/>
+        /// still wants. While that is more than one, this may only spend what would leave
+        /// the rest buyable at the cheapest price in the pool; once the count is met it
+        /// spends freely, which is where the strength goes. A pool whose cheapest kind
+        /// costs more than the reserve allows falls back to affording anything at all,
+        /// because a group placed is worth more than a count kept.
+        /// </summary>
+        static EnemyKind? PickAffordable(EnemyKind[] pool, DeterministicRandom rng, int budget,
+                                         int owed)
         {
             var source = pool != null && pool.Length > 0 ? pool : EnemyTable.All;
 
+            int cheapest = int.MaxValue;
+            foreach (var kind in source)
+            {
+                int points = EnemyTable.Points(kind);
+                if (points < cheapest) cheapest = points;
+            }
+
+            int spend = owed > 1 ? budget - (owed - 1) * cheapest : budget;
+            if (spend < cheapest) spend = cheapest;
+
             var affordable = new List<EnemyKind>();
             foreach (var kind in source)
-                if (EnemyTable.Points(kind) <= budget) affordable.Add(kind);
+            {
+                int points = EnemyTable.Points(kind);
+                if (points <= budget && points <= spend) affordable.Add(kind);
+            }
+
+            if (affordable.Count == 0)
+                foreach (var kind in source)
+                    if (EnemyTable.Points(kind) <= budget) affordable.Add(kind);
 
             if (affordable.Count == 0) return null;
             return affordable[rng.Range(0, affordable.Count)];
