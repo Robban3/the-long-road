@@ -33,9 +33,9 @@ namespace TheVeil.Sim
         public const int BasePrice = 30;
 
         /// <summary>Caps, reached to 90% at thirty steps.</summary>
-        public const float WeaponCap = 0.35f;
-        public const float ArmourHealthCap = 0.30f;
-        public const float ArmourReductionCap = 0.08f;
+        public const float WeaponCap = 0.60f;
+        public const float ArmourHealthCap = 0.50f;
+        public const float ArmourReductionCap = 0.15f;
         public const float RangeCap = 0.25f;
 
         /// <summary>

@@ -396,6 +396,55 @@ namespace TheVeil.Sim
             // more for them: they close from anywhere on the map, so their line to the
             // caravan crosses whatever the country has on it.
             enemy.Position = Obstacles == null ? moved : Obstacles.Clear(moved, EnemyRadius);
+
+            // <b>And out of the carts, which nothing had ever stopped him entering.</b>
+            //
+            // This walks a straight line to whatever it is going for and steps round trees
+            // on the way, and that is the whole of what it avoided. What it is going for is
+            // usually not a wagon at all but the nearest living troop — and the escort
+            // stands at the caravan's own posts, around and alongside the column. A rider
+            // closing on a spearman on the far flank has a straight line that runs through
+            // three carts, and he took it.
+            //
+            // Three passes were spent on the ranges instead: which cart he aims at, how far
+            // off he stops, how near he has to be for the column to halt. Every one of them
+            // was a real fault and not one of them was this one, because none of them is
+            // about where he is allowed to *be*. Reported after each: still riding through.
+            //
+            // So there is a floor, and it is a floor rather than a rule about intent: no
+            // attacker may stand inside a cart, whatever he is walking towards. He slides
+            // along the column instead of through it.
+            enemy.Position = OutOfTheColumn(enemy.Position);
+        }
+
+        /// <summary>
+        /// Pushes a point out of the caravan's own body.
+        ///
+        /// Applied to where a step landed rather than to where it was aimed, so an attacker
+        /// coming round the column keeps his speed and only loses the part of it that would
+        /// have put him in a wagon.
+        /// </summary>
+        Vec2 OutOfTheColumn(Vec2 at)
+        {
+            for (int i = 0; i < _caravan.Wagons.Count; i++)
+            {
+                if (_caravan.Wagons[i].Destroyed) continue;
+
+                var cart = _caravan.WagonPosition(i);
+
+                float dx = at.X - cart.X, dy = at.Y - cart.Y;
+                float span = (float)System.Math.Sqrt(dx * dx + dy * dy);
+
+                if (span >= Caravan.CartKeep) continue;
+
+                // Standing exactly on the axle: pick a side rather than divide by zero.
+                if (span < 0.0001f) { dx = 1f; dy = 0f; span = 1f; }
+
+                at = new Vec2(cart.X + dx / span * Caravan.CartKeep,
+                              cart.Y + dy / span * Caravan.CartKeep);
+            }
+
+            return at;
         }
 
         /// <summary>The nearest cart still standing, and where it is. Null when all are gone.</summary>

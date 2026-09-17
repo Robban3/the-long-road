@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace TheVeil.Sim
 {
     /// <summary>
@@ -63,12 +65,103 @@ namespace TheVeil.Sim
             return For(recipe, LevelsCleared(chapter, level), Smithy(chapter), boons);
         }
 
+        /// <summary>
+        /// Gold a cleared level pays, on average.
+        ///
+        /// <b>Measured off LevelRun.GoldEarned rather than chosen.</b> Forty for arriving,
+        /// fifteen a wagon for the three that arrive with it, and up to sixty of loot
+        /// scaled by what is left of the treasure cart — so a clean run pays about a
+        /// hundred and forty-five and a mauled one about ninety. A hundred and ten is a run
+        /// that lost a wagon and half its cargo, which is what most of them are.
+        /// </summary>
+        public const int GoldPerLevel = 110;
+
+        /// <summary>
+        /// What share of that gold goes on the smithy rather than on boons.
+        ///
+        /// Half. The shop sells both and a player buys both; splitting it evenly is a guess
+        /// and is written down as one. What it is not is the old assumption, which was that
+        /// none of it was spent at all.
+        /// </summary>
+        public const float SpentOnTroops = 0.5f;
+
+        /// <summary>
+        /// The permanent levels a player would have bought by here, and the thing this
+        /// whole file was missing.
+        ///
+        /// <b>ReferenceSquad never shopped.</b> It set WeaponLevel and ArmourLevel — the
+        /// fields a run's own silver raises and resets afterwards, capped at five — and
+        /// left School at nothing. So the escort every level is balanced against owned not
+        /// one of the thirty permanent steps the shop sells on each of its tracks, on any
+        /// troop, in any chapter. The curve has been judged against a player who never
+        /// spent a gold piece.
+        ///
+        /// That is most of why the chapters sit on a knife edge: a two-tile change to a
+        /// road took 1-10 from two winnable roads to none, and a champion moved four metres
+        /// took 3-10 from one to none. Nothing had any slack because the player being
+        /// measured had no growth in them.
+        ///
+        /// Worked out from the income rather than picked: levels cleared times what a run
+        /// pays, halved, and then spent buying every sold track up a level at a time until
+        /// the gold runs out — which is how a player spends, and what makes the answer fall
+        /// out of the prices instead of out of an opinion.
+        /// </summary>
+        public static TroopBoons School(int cleared)
+        {
+            var school = new TroopBoons();
+            if (cleared <= 0) return school;
+
+            // <b>Only what is actually fielded.</b>
+            //
+            // The first version of this bought every sold track on every troop in the game
+            // — thirteen kinds, about thirty tracks, nine hundred gold a round — and
+            // reported that a player is on permanent level one after twenty-nine levels.
+            // That is not the economy, it is the model: nobody upgrades a knight they have
+            // never taken out. The line is six posts of four kinds, which is nine tracks
+            // and two hundred and seventy gold a round, and the answer changes by a factor
+            // of three.
+            //
+            // Read off Wanted, so the thing being paid for is the thing being fielded and
+            // the two cannot drift apart.
+            var fielded = new List<TroopKind>();
+            foreach (var kind in Wanted(cleared))
+                if (!fielded.Contains(kind)) fielded.Add(kind);
+
+            if (!fielded.Contains(TroopKind.Spearmen)) fielded.Add(TroopKind.Spearmen);
+
+            int purse = (int)(cleared * GoldPerLevel * SpentOnTroops);
+
+            for (int level = 0; level < TroopBoonTable.Steps; level++)
+            {
+                int round = 0;
+
+                foreach (var kind in fielded)
+                    foreach (var track in TroopBoonTable.Tracks)
+                        if (TroopBoonTable.Sells(kind, track))
+                            round += TroopBoonTable.Price(kind, track, level);
+
+                if (round <= 0 || round > purse) break;
+
+                purse -= round;
+
+                foreach (var kind in fielded)
+                    foreach (var track in TroopBoonTable.Tracks)
+                        if (TroopBoonTable.Sells(kind, track))
+                            school.Set(kind, track, level + 1);
+            }
+
+            return school;
+        }
+
         public static Squad For(LevelRecipe recipe, int cleared, int smithy, Boons boons = null)
         {
             int points = recipe.SquadBudget + (boons?.ExtraSquadPoints ?? 0);
             int posts = recipe.Posts + (boons?.ExtraPosts ?? 0);
 
-            var squad = new Squad(points, posts);
+            // <b>With what it has bought, which it never used to have.</b> Squad.School is
+            // the permanent side of the smithy and was left empty here, so every gate in
+            // the game measured a player who had never been to the shop. See School.
+            var squad = new Squad(points, posts) { School = School(cleared) };
 
             foreach (var kind in Wanted(cleared))
                 squad.TryPlace(kind);

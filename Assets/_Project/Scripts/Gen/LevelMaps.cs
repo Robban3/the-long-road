@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TheVeil.Sim;
 
 namespace TheVeil.Gen
@@ -34,10 +35,38 @@ namespace TheVeil.Gen
     public static class LevelMaps
     {
         /// <summary>The map for one level, as both the planning screen and the run see it.</summary>
+        /// <summary>
+        /// The maps already worked out, because working one out is no longer cheap.
+        ///
+        /// <b>This regenerated on every call and that was affordable while generation was
+        /// arithmetic.</b> It is not any more: a candidate is now driven down all three of
+        /// its roads before it is accepted, and the planning map, the run, every report
+        /// and a good part of the test suite all ask for the same level over and over.
+        ///
+        /// Keyed by chapter and level, which is the whole of a level's identity — the seed
+        /// is derived from them.
+        /// </summary>
+        static readonly Dictionary<(int Chapter, int Level), LevelMap> _built
+            = new Dictionary<(int, int), LevelMap>();
+
         public static LevelMap For(int chapter, int level)
         {
+            if (_built.TryGetValue((chapter, level), out var known)) return known;
+
+            // <b>Straight to the attempt the catalogue names, where it has one.</b>
+            //
+            // The search below asks whether a caravan can be got down a candidate, which
+            // means driving one — and 1-10 wanted thirty-four candidates before it found
+            // its map. Paying that on a player's device every time they open a chapter is
+            // not a trade anybody would make. The search is done once by an editor tool and
+            // its answer written down; see LevelCatalogue, and the signature that stops a
+            // written answer being trusted after the rules it was written under have moved.
+            int shipped = LevelCatalogue.Shipped(chapter, level);
+
             var map = TerrainGenerator.Generate(Recipe(chapter, level),
-                                                DeterministicRandom.SeedFor(chapter, level));
+                                                DeterministicRandom.SeedFor(chapter, level),
+                                                candidate => Winnable(candidate, chapter, level),
+                                                shipped);
 
             // The ground a castle stands on, levelled — after the generator has finished
             // with the map and can no longer see it. See Strongholds.Flatten for why a
@@ -52,7 +81,64 @@ namespace TheVeil.Gen
             // exists to prevent.
             Strongholds.Flatten(map, level);
 
+            _built[(chapter, level)] = map;
             return map;
+        }
+
+        /// <summary>
+        /// Whether the escort the difficulty curve assumes can get down any of a
+        /// candidate's roads.
+        ///
+        /// <b>The promise the generator makes and had never once checked.</b> It re-rolls
+        /// for corridors that differ, for encounters worth the name, for crossings that
+        /// can be waded — and for survivability it used an estimate: the points of the
+        /// groups a route meets, against a band measured over chapter one. That estimate
+        /// is why every change in this corner has cost a chapter. Straightening the
+        /// corridors at their crossings took 2-7 and 1-10 from winnable to not and the
+        /// estimate passed them both; the tests found it hours later, which is the wrong
+        /// place and the wrong hour.
+        ///
+        /// So the question is asked properly: field the line ReferenceSquad says a player
+        /// would have here, drive each corridor to the end, and ship the map only if one of
+        /// them arrives. It is slow — three simulated runs per surviving candidate — and it
+        /// is paid once per level, behind the cache above.
+        ///
+        /// One road, not three. A level where every road is comfortable is a level with no
+        /// decision on it; what the chapter promises is that the decision has a right
+        /// answer, not that every answer is right.
+        /// </summary>
+        public static bool Winnable(LevelMap map, int chapter, int level)
+        {
+            if (map?.Corridors == null || map.Corridors.Count == 0) return false;
+
+            var recipe = Recipe(chapter, level);
+
+            // <b>The quietest road first, because this stops at the first one that works.</b>
+            //
+            // Asking in the order the finder returns them drives three runs on a level that
+            // any of the three would have satisfied, and a run is the expensive thing here:
+            // a level that needs thirty-four attempts pays for a hundred of them, and one
+            // EditMode test went over three minutes and was killed. Sorted by the danger
+            // the finder already measured, the first road asked is the one most likely to
+            // answer yes, and the usual case is one run rather than three.
+            //
+            // A sort and not a guess: AmbushExposure is the generator's own reading of what
+            // a route carries, and it is deterministic, so this changes how long the answer
+            // takes and never what it is.
+            var roads = new List<Corridor>(map.Corridors);
+            roads.Sort((a, b) => a.AmbushExposure.CompareTo(b.AmbushExposure));
+
+            foreach (var corridor in roads)
+            {
+                var squad = ReferenceSquad.For(recipe,
+                                               ReferenceSquad.LevelsCleared(chapter, level),
+                                               ReferenceSquad.Smithy(chapter));
+
+                var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
+                if (run.RunToCompletion() == RunOutcome.Arrived) return true;
+            }
+
+            return false;
         }
 
         /// <summary>

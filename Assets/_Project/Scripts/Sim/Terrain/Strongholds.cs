@@ -153,9 +153,41 @@ namespace TheVeil.Sim
                     int x = cx + dx, y = cy + dy;
                     if (!map.Grid.InBounds(x, y)) continue;
 
+                    // <b>Not the water, and not the ground that holds it in.</b>
+                    //
+                    // A river is cut below the banks beside it and the whole look of one
+                    // depends on that staying true — TerrainGeneratorTests checks every
+                    // bankside tile on every level. Levelling a fifteen-tile square without
+                    // asking what was in it put ten of 1-10's bank tiles at or above the
+                    // dry ground next to them, which is a stream running along the top of
+                    // its own valley.
+                    //
+                    // So water keeps its bed and the tiles touching it keep their fall. The
+                    // yard is nowhere near either: the castle stands on ground the placer
+                    // already found dry.
+                    if (Wet(map.Grid, x, y)) continue;
+
                     map.Grid.SetElevation(map.Grid.ToIndex(x, y), floor);
                 }
             }
+        }
+
+        /// <summary>Whether a tile is water, or stands on the bank of some.</summary>
+        static bool Wet(TileGrid grid, int x, int y)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int nx = x + dx, ny = y + dy;
+                    if (!grid.InBounds(nx, ny)) continue;
+
+                    var terrain = grid[nx, ny];
+                    if (terrain == TerrainType.Water || terrain == TerrainType.Ford) return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

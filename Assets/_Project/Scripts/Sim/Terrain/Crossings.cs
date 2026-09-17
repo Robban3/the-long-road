@@ -114,17 +114,186 @@ namespace TheVeil.Sim
                 // column was straight for one tile and then turned — on the deck, which
                 // is exactly the thing this was written to stop and exactly what it still
                 // looked like. Sixteen metres clears any landing the decorator builds.
-                for (int b = 1; b <= RunUp; b++)
-                {
-                    changed |= Aim(grid, straight, from - b, row);
-                    changed |= Aim(grid, straight, to + b, row);
-                }
+                // And a run-up on each bank, laid rather than nudged.
+                //
+                // <b>Nudging could not work, and the measurements said so.</b> This pulled
+                // one tile at a time onto the row and refused any move that left the route
+                // not touching its neighbours — the right guard, since without it a route
+                // stops being a walk and becomes a list of places. But a tile four rows off
+                // the ford can never move one step without tearing the road, so almost
+                // every move was refused: over a hundred and sixteen crossings it took the
+                // wander off the ford's row from 4.48 tiles to 4.37.
+                changed |= Approach(grid, straight, ref from, ref to, row, true);
+                changed |= Approach(grid, straight, ref from, ref to, row, false);
 
-                i = to;
+                // Forward only. The near bank's splice can shorten the route, which walks
+                // the wet run back down the list — resuming at its new index puts the scan
+                // behind where it already was, it straightens the same crossing again, and
+                // it shortens again. An EditMode test sat in that for twelve minutes.
+                i = to > i ? to : i;
             }
 
             return changed ? straight : route;
         }
+
+        /// <summary>
+        /// Lays one bank's approach: a straight run out from the water along the ford's
+        /// row, and a walk from the route onto the end of it.
+        ///
+        /// <b>Where this is called from is the whole of why it works.</b> Straightening a
+        /// road at a crossing moves it, and a road that moves passes different ground. Run
+        /// on a finished level that costs a chapter: the corner the line went round is a
+        /// corner something is standing in, and on 1-10 the travel time did not change at
+        /// all while the fighting grew by seventy seconds. Every guard written to stop that
+        /// — no longer than the line it replaces, never nearer a group — bought the safety
+        /// by refusing to do the work, and the whole rewrite then straightened one crossing
+        /// in a hundred and sixteen.
+        ///
+        /// In the generator the order is the other way round. TerrainGenerator finds the
+        /// corridors, and only then does EncounterPlacer distribute the fighting over the
+        /// ground a route can be drawn through. Straighten the corridor first and the
+        /// encounters are laid out around the straightened road: there is nothing to walk
+        /// into, because nothing has been put anywhere yet. What was an argument between
+        /// two finished things is a question of which happens first.
+        ///
+        /// Gives up rather than compromising. A bank with no room for a run worth having,
+        /// or a walk that cannot be made without crossing ground nobody could drive, keeps
+        /// the line it was found with — a crossing taken at an angle is a fault, and a
+        /// route that steps through a cliff to avoid one is a bug.
+        /// </summary>
+        static bool Approach(TileGrid grid, List<int> route, ref int from, ref int to,
+                             int row, bool back)
+        {
+            int edge = back ? from : to;
+            int outward = back ? -1 : 1;
+
+            int beside = edge + outward;
+            if (beside < 0 || beside >= route.Count) return false;
+
+            grid.ToCoords(route[edge], out int ex, out int ey);
+            grid.ToCoords(route[beside], out int bx, out _);
+
+            // The wet tile this bank runs up to has to be on the row, or the run is laid
+            // along a line the water is not on and the last step before the deck is a jump.
+            if (ey != row) return false;
+
+            int dir = bx > ex ? 1 : (bx < ex ? -1 : 0);
+            if (dir == 0) return false;
+
+            var run = new List<int>();
+
+            for (int step = 1; step <= RunUp; step++)
+            {
+                int x = ex + dir * step;
+                if (!grid.InBounds(x, row) || !grid.IsPassable(x, row)) break;
+
+                int tile = grid.ToIndex(x, row);
+                if (grid[tile] == TerrainType.Ford) break;
+
+                run.Add(tile);
+            }
+
+            if (run.Count < LeastRunUp) return false;
+
+            // Where the route is picked up, costed rather than assumed: how far it has
+            // wandered by any given tile is whatever it did, so a fixed pick-up gives a
+            // long walk about as often as a short one.
+            int anchor = -1;
+            int cheapest = int.MaxValue;
+            int head = run[run.Count - 1];
+
+            for (int d = run.Count + 1; d <= run.Count + Reach; d++)
+            {
+                int at = edge + outward * d;
+                if (at < 0 || at >= route.Count) break;
+
+                int steps = Steps(grid, route[at], head);
+                if (steps < 1) continue;
+
+                int cost = (steps - 1) + run.Count - (d - 1);
+                if (cost >= cheapest) continue;
+
+                cheapest = cost;
+                anchor = at;
+            }
+
+            if (anchor < 0 || route[anchor] == head) return false;
+
+            var walk = Walk(grid, route[anchor], head);
+            if (walk == null) return false;
+
+            // Laid in the order they are driven, which is opposite on the two banks — and
+            // that is true of the walk as well as the run. Appended unreversed on the far
+            // bank it jumped from the head of the run to a tile beside the pick-up: a
+            // stride of nine squares, and seventy-four routes of ninety torn.
+            if (back) run.Reverse();
+            else walk.Reverse();
+
+            var laid = new List<int>(walk.Count + run.Count);
+
+            if (back) { laid.AddRange(walk); laid.AddRange(run); }
+            else { laid.AddRange(run); laid.AddRange(walk); }
+
+            int first = back ? anchor + 1 : edge + 1;
+            int last = back ? edge - 1 : anchor - 1;
+            int removed = last - first + 1;
+
+            if (removed < 0) return false;
+
+            route.RemoveRange(first, removed);
+            route.InsertRange(first, laid);
+
+            int shift = laid.Count - removed;
+            if (back) { from += shift; to += shift; }
+
+            return true;
+        }
+
+        /// <summary>How many steps apart two tiles are, walking diagonally where that helps.</summary>
+        static int Steps(TileGrid grid, int a, int b)
+        {
+            grid.ToCoords(a, out int ax, out int ay);
+            grid.ToCoords(b, out int bx, out int by);
+
+            int dx = ax > bx ? ax - bx : bx - ax;
+            int dy = ay > by ? ay - by : by - ay;
+
+            return dx > dy ? dx : dy;
+        }
+
+        /// <summary>
+        /// The tiles between two squares, walked a step at a time and diagonally where that
+        /// is shorter. Null if any of them is ground nobody could drive. Both ends
+        /// excluded: the caller already has them.
+        /// </summary>
+        static List<int> Walk(TileGrid grid, int a, int b)
+        {
+            grid.ToCoords(a, out int x, out int y);
+            grid.ToCoords(b, out int bx, out int by);
+
+            var walk = new List<int>();
+
+            while (x != bx || y != by)
+            {
+                x += System.Math.Sign(bx - x);
+                y += System.Math.Sign(by - y);
+
+                if (!grid.InBounds(x, y) || !grid.IsPassable(x, y)) return null;
+
+                int tile = grid.ToIndex(x, y);
+                if (tile == b) break;
+
+                walk.Add(tile);
+            }
+
+            return walk;
+        }
+
+        /// <summary>The shortest run-up worth laying, in tiles.</summary>
+        public const int LeastRunUp = 3;
+
+        /// <summary>How far behind the run the route may be picked up, in tiles.</summary>
+        public const int Reach = 8;
 
         /// <summary>
         /// Pulls one tile of a route onto a row, if that leaves a road somebody could drive.

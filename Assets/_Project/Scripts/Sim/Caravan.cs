@@ -120,6 +120,26 @@ namespace TheVeil.Sim
         public const float CartHalf = 5.4f;
 
         /// <summary>
+        /// How near a cart anything hostile may stand, in metres.
+        ///
+        /// <b>A floor, not a range.</b> Four — the cart is about three metres across and a
+        /// horse is three long, so this keeps the two apart without holding an attacker so
+        /// far off that he cannot reach anybody.
+        ///
+        /// Measured off the point the wagon is tracked by, which means it is generous along
+        /// the column and tight across it. That is the right way round: the length of a
+        /// cart is where a rider cutting across the line ends up, and the width is where he
+        /// is meant to be able to come and fight.
+        ///
+        /// It exists because nothing else could do this job. Which cart he goes for, how
+        /// far off he stops, and how near he must be for the column to halt are all about
+        /// what he intends; none of them is about where he is allowed to be, and he closes
+        /// on the escort rather than on the carts — so his line to a spearman on the far
+        /// flank runs through them whatever his ranges say.
+        /// </summary>
+        public const float CartKeep = 4f;
+
+        /// <summary>
         /// Metres of road behind the start line, for the column to form up on.
         ///
         /// Without it every wagon begins on the start tile, stacked, and the third one

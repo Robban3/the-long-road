@@ -173,21 +173,44 @@ namespace TheVeil.Tests
                 var recipe = LevelMaps.Recipe(2, level);
                 var map = LevelMaps.For(2, level);
 
-                int survivable = 0;
+                // <b>The escort the curve is built for, and the one it used to measure,
+                // side by side.</b>
+                //
+                // This asserted on a fixed six — spears, bows, a crossbow and a sword, at
+                // no weapon level, with an empty School — which is chapter two's line for a
+                // player who has cleared nineteen levels and never once been to the shop.
+                // The generator does not promise that player anything: ChapterRecipe sets
+                // EscortStrength from ReferenceSquad, every road it accepts is judged
+                // against ReferenceSquad, and since LevelMaps started asking whether a
+                // level can be won it asks with ReferenceSquad too.
+                //
+                // So the promise is asserted against the player it is made to. The old
+                // number is kept and printed rather than thrown away: the gap between the
+                // two is the climb a player is expected to make, and it is worth being able
+                // to watch it move.
+                int survivable = 0, period = 0;
+
                 foreach (var corridor in map.Corridors)
                 {
-                    var run = new LevelRun(map, corridor.Tiles, Escort(recipe.SquadBudget, recipe.Posts),
-                                           recipe.EnemyStrength);
-                    if (run.RunToCompletion() == RunOutcome.Arrived) survivable++;
+                    var assumed = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(2, level),
+                                                     ReferenceSquad.Smithy(2));
+
+                    if (new LevelRun(map, corridor.Tiles, assumed, recipe.EnemyStrength)
+                        .RunToCompletion() == RunOutcome.Arrived) survivable++;
+
+                    if (new LevelRun(map, corridor.Tiles, Escort(recipe.SquadBudget, recipe.Posts),
+                                     recipe.EnemyStrength)
+                        .RunToCompletion() == RunOutcome.Arrived) period++;
                 }
 
-                report.Append($" 2-{level}:{survivable}");
+                report.Append($" 2-{level}:{survivable}/{period}");
                 total += survivable;
 
                 Assert.GreaterOrEqual(survivable, 1, $"level 2-{level} has no road that can be fought through;{report}");
             }
 
-            UnityEngine.Debug.Log($"[The Veil] Chapter 2 survivable routes:{report} (total {total})");
+            UnityEngine.Debug.Log($"[The Veil] Chapter 2 survivable routes, assumed/period:"
+                                  + $"{report} (assumed total {total})");
         }
     }
 }

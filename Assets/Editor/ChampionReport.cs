@@ -82,6 +82,89 @@ namespace TheVeil.Editor
         /// means knowing what the rider is called there, and guessing wrong does not fail
         /// — it binds a man to a horse's neck. So it is looked up.
         /// </summary>
+        /// <summary>
+        /// What the fast road costs, in smithy levels: `The Veil > Price Of The Fast Road`.
+        ///
+        /// <b>Written because "the fast road loses" was said without knowing what it
+        /// meant.</b> A road that loses to the escort a player has when they arrive is one
+        /// of two completely different things: a gate they can buy their way through, which
+        /// is what a shop is for, or a trap that cannot be won at any price, which is a
+        /// level lying to them. Nothing here could tell them apart.
+        ///
+        /// So the same road is driven at a rising smithy and the first level that gets down
+        /// it is reported. Against what a player would actually be holding — ReferenceSquad
+        /// puts chapter one at nought and chapter three at two — that number is the price.
+        ///
+        /// Read it with what the shop sells in mind. TroopBoonTable has thirty steps per
+        /// track and ReferenceSquad never models more than five, so a player who spends on
+        /// the smithy is somewhere this file has never looked.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.ChampionReport.FastRoad
+        /// </summary>
+        [MenuItem("The Veil/Price Of The Fast Road")]
+        public static void FastRoad()
+        {
+            var sheet = new StringBuilder();
+            sheet.AppendLine("[Fast] what each road costs in smithy levels");
+
+            for (int chapter = 1; chapter <= Chapters; chapter++)
+            {
+                int level = Campaign.LevelsPerChapter;
+                var recipe = LevelMaps.Recipe(chapter, level);
+                var map = LevelMaps.For(chapter, level);
+
+                int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+                var school = ReferenceSquad.School(cleared);
+                // Read back off the school rather than worked out twice. Every sold track
+                // is bought in step, so one of them is the whole picture.
+                int bought = school.Level(TroopKind.Spearmen, UpgradeTrack.Weapon);
+
+                sheet.AppendLine($"[Fast] {chapter}-{level}: {cleared} levels cleared, "
+                                 + $"{cleared * ReferenceSquad.GoldPerLevel * ReferenceSquad.SpentOnTroops:0} gold on troops, "
+                                 + $"permanent level {bought} of {TroopBoonTable.Steps}, "
+                                 + $"run smithy {ReferenceSquad.Smithy(chapter)}");
+
+                foreach (var corridor in map.Corridors)
+                {
+                    int won = -1;
+                    string how = "";
+
+                    for (int smithy = 0; smithy <= Affordable; smithy++)
+                    {
+                        var squad = ReferenceSquad.For(recipe,
+                                                       ReferenceSquad.LevelsCleared(chapter, level),
+                                                       smithy);
+
+                        var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
+                        if (run.RunToCompletion() != RunOutcome.Arrived) continue;
+
+                        int standing = 0;
+                        foreach (var group in run.Squad.Slots)
+                            if (group != null && group.ModelsAlive > 0) standing++;
+
+                        won = smithy;
+                        how = $"{standing} group(s) standing, {run.ElapsedSeconds:0}s";
+                        break;
+                    }
+
+                    sheet.AppendLine(won < 0
+                        ? $"[Fast]   {corridor.Kind,-5} never, up to smithy {Affordable}"
+                        : $"[Fast]   {corridor.Kind,-5} from smithy {won} — {how}");
+                }
+            }
+
+            Debug.Log(sheet.ToString());
+        }
+
+        /// <summary>
+        /// How far up the smithy the sweep looks.
+        ///
+        /// Eight. ReferenceSquad caps its own picture at five and the shop sells thirty, so
+        /// this is past the first and nowhere near the second — far enough to tell a gate
+        /// from a wall without pretending to know what a player who keeps spending can do.
+        /// </summary>
+        const int Affordable = 8;
+
         [MenuItem("The Veil/Report Cavalry Riders")]
         public static void Mounts()
         {

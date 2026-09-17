@@ -313,18 +313,32 @@ namespace TheVeil.Tests
             // Every level still owes at least one. That is the promise, and it is the one
             // that was actually broken when this was written — 1-5 offered none at all
             // and the caravan died at seven percent of the route.
-            var chapter = new ChapterRecipe();
-
+            // <b>The level the player plays, and the player the level is built for.</b>
+            //
+            // This generated its own map — `TerrainGenerator.Generate` straight, from
+            // `new ChapterRecipe()` — so the promise was checked on a country nobody
+            // drives: without the winnability search LevelMaps now runs, without the
+            // castle's ground levelled, and from a recipe that is only accidentally the
+            // same as `ChapterRecipe.For(1)`. LevelMaps exists precisely because two
+            // places generating from one seed get two different landscapes, and its own
+            // notes open with it. A gate that regenerates is that fault wearing a test's
+            // clothes.
+            //
+            // And it fielded Bowmen, a third escort model beside ChapterDifficultyTests's
+            // fixed six and ReferenceSquad — none of which agreed, and only one of which
+            // the generator has ever promised anything to.
             for (int level = 1; level <= 10; level++)
             {
-                var recipe = chapter.ForLevel(level);
-                var map = TerrainGenerator.Generate(recipe, DeterministicRandom.SeedFor(1, level));
+                var recipe = LevelMaps.Recipe(1, level);
+                var map = LevelMaps.For(1, level);
 
                 int survivable = 0;
                 foreach (var corridor in map.Corridors)
                 {
-                    var run = new LevelRun(map, corridor.Tiles,
-                                           Bowmen(recipe.SquadBudget), recipe.EnemyStrength);
+                    var squad = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(1, level),
+                                                   ReferenceSquad.Smithy(1));
+
+                    var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
                     if (run.RunToCompletion() == RunOutcome.Arrived) survivable++;
                 }
 
@@ -365,18 +379,22 @@ namespace TheVeil.Tests
             // The band rule above could be read as a licence for the whole chapter to
             // narrow to one road, so this holds the other end of it: across ten levels
             // there has to be a choice worth calling a choice.
-            var chapter = new ChapterRecipe();
+            // Through LevelMaps and against ReferenceSquad, for the reasons the gate above
+            // carries: a promise about the levels a player plays has to be checked on the
+            // levels a player plays, by the player the curve is drawn for.
             int total = 0;
 
             for (int level = 1; level <= 10; level++)
             {
-                var recipe = chapter.ForLevel(level);
-                var map = TerrainGenerator.Generate(recipe, DeterministicRandom.SeedFor(1, level));
+                var recipe = LevelMaps.Recipe(1, level);
+                var map = LevelMaps.For(1, level);
 
                 foreach (var corridor in map.Corridors)
                 {
-                    var run = new LevelRun(map, corridor.Tiles,
-                                           Escort(recipe.SquadBudget), recipe.EnemyStrength);
+                    var squad = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(1, level),
+                                                   ReferenceSquad.Smithy(1));
+
+                    var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
                     if (run.RunToCompletion() == RunOutcome.Arrived) total++;
                 }
             }

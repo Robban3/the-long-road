@@ -38,16 +38,52 @@ namespace TheVeil.Gen
         const int EdgeBand = 3;
         const int PairAttempts = 48;
 
-        public static LevelMap Generate(LevelRecipe recipe, int seed)
+        /// <param name="playable">
+        /// Asked of a candidate that has passed every cheap test, and the last word on
+        /// whether it ships.
+        ///
+        /// <b>Because the cheap tests are an estimate and they were believed.</b>
+        /// PassableRoutes below counts the points of the groups a route meets and compares
+        /// them against a band measured over chapter one, and its own note says why:
+        /// simulating a run per attempt was too slow to do at load time. That was true and
+        /// it is not free. Straightening the corridors at their crossings moved two levels
+        /// of thirty — 1-5.s successor 2-7, and 1-10 — from winnable to not, and the
+        /// estimate waved both through. Nothing found it but the tests, hours later.
+        ///
+        /// So the caller may hand in the real question, and LevelMaps does: can the escort
+        /// the difficulty curve assumes get down at least one of these roads. It is slow,
+        /// it is paid once per level behind LevelMaps.s cache, and it is the only check
+        /// here that cannot be wrong about what it measures.
+        /// </param>
+        /// <param name="only">
+        /// The attempt to build, where a previous search has already found which one this
+        /// level ships — see Gen.LevelCatalogue. Everything below is deterministic from the
+        /// seed and the attempt number, so going straight to it gives the same map the
+        /// search would have arrived at, without the search.
+        ///
+        /// <b>Which is the difference between a level that loads and one that does not.</b>
+        /// Asking whether a candidate can be won means driving a caravan down it, and a
+        /// level that takes thirty-four attempts pays for thirty-four of those. That is
+        /// affordable once, on a machine here; it is not affordable on a player.s device
+        /// every time they open a chapter.
+        ///
+        /// Negative searches, which is what building the catalogue does.
+        /// </param>
+        public static LevelMap Generate(LevelRecipe recipe, int seed,
+                                        System.Func<LevelMap, bool> playable = null,
+                                        int only = -1)
         {
             int attempts = Math.Max(1, recipe.MaxGenerationAttempts);
+
+            int from = only < 0 ? 0 : only;
+            if (only >= 0) attempts = only + 1;
 
             LevelMap best = null;
             bool bestKept = false, bestValid = false;
             int bestPassable = -1;
             float bestSpread = -1f;
 
-            for (int attempt = 0; attempt < attempts; attempt++)
+            for (int attempt = from; attempt < attempts; attempt++)
             {
                 // Derive an independent stream per attempt while keeping the level's
                 // public identity — its seed — unchanged.
@@ -71,6 +107,35 @@ namespace TheVeil.Gen
 
                 var corridors = CorridorFinder.Find(grid, sx, sy, gx, gy);
                 if (corridors.Count == 0) continue;
+
+                // <b>Square at the water before anything is judged or placed on them.</b>
+                //
+                // The road a player is offered is drawn from these, and it came at the
+                // bridges crooked — reported over and over from the planning map, where the
+                // angle onto the deck is plain to see. Every attempt to answer it was made
+                // at the other end, on a finished level, and every one of them cost a
+                // chapter: straightening a road moves it, and on a finished level the
+                // ground it moves onto already has the fighting laid out over it. Guarded
+                // against that, the correction refused itself into doing nothing — one
+                // crossing in a hundred and sixteen.
+                //
+                // Here the order is the other way round. EncounterPlacer runs below, on the
+                // ground a route can be drawn through, so straightening first means the
+                // fighting is distributed around the straightened road. There is nothing to
+                // walk into because nothing has been put anywhere yet.
+                //
+                // The maps change, and that is the point rather than the price: a level
+                // whose roads no longer offer a real choice fails IsMeaningfulChoice on the
+                // next line, and one whose fighting no longer works fails the gate below.
+                // Both re-roll. That is what those two exist for.
+                foreach (var corridor in corridors)
+                {
+                    var squared = Crossings.Square(grid, corridor.Tiles);
+                    if (ReferenceEquals(squared, corridor.Tiles)) continue;
+
+                    corridor.Tiles.Clear();
+                    corridor.Tiles.AddRange(squared);
+                }
 
                 bool valid = CorridorFinder.IsMeaningfulChoice(corridors);
 
@@ -124,7 +189,13 @@ namespace TheVeil.Gen
                 // four crossings and ship with one: see LevelRecipe.CrossingsOwed.
                 bool crossable = Crossings.Count(grid) >= recipe.CrossingsOwed;
 
-                if (valid && kept && passes && crossable) return map;
+                // A named attempt is the answer by definition: the search that named it
+                // already asked every question below, and asking again is the cost this
+                // exists to avoid.
+                if (only >= 0) return map;
+
+                if (valid && kept && passes && crossable
+                    && (playable == null || playable(map))) return map;
 
                 // Keep the least-bad candidate: promise first, then a meaningful
                 // choice, then the corridors that differ most.

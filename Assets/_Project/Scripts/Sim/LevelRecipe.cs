@@ -128,7 +128,7 @@ namespace TheVeil.Sim
         /// Seeds that fail corridor validation are re-rolled this many times before
         /// the best candidate so far is accepted (docs/content-pipeline.md §3 step 4).
         /// </summary>
-        public int MaxGenerationAttempts = 12;
+        public int MaxGenerationAttempts = 48;
 
         /// <summary>
         /// Threat points spread across the corridors.
