@@ -1301,6 +1301,7 @@ namespace TheVeil.View
                                  found);
 
             placed -= SweepTheCourtyard(parent);
+            placed -= SweepTheBridges(parent);
 
             Census(parent);
             Tallest(parent);
@@ -1358,6 +1359,81 @@ namespace TheVeil.View
 
         /// <summary>How far inside the castle's outline the courtyard begins, in metres.</summary>
         const float CourtyardMargin = 4f;
+
+        /// <summary>
+        /// How far in from a bridge's outline the roadway is taken to begin, in metres.
+        ///
+        /// A metre. The deck is the middle of the model and the outline includes its
+        /// railings and its feet, so pulling in a little keeps a boulder that the bank
+        /// happens to put against an abutment and takes the things that are actually on
+        /// the planking.
+        /// </summary>
+        const float BridgeMargin = 1f;
+
+        /// <summary>
+        /// Takes everything standing on a bridge off it, for the reason the courtyard is
+        /// swept: canopy does not check the ground.
+        ///
+        /// <b>Reported from a playtest of 1-10 as the bridge being in the wrong place.</b>
+        /// It is not - measured across all thirty levels of the chapters that exist, every
+        /// deck sits on its ford within a tenth of a metre. What was wrong is that a
+        /// spruce was growing through the middle of it. A bridge with a tree in it does not
+        /// read as a bridge with a tree in it; it reads as a bridge somebody dropped on the
+        /// grass, and that is what it was called.
+        ///
+        /// Same cause as the pines in the castle yard, same cure. Bridge reserves its
+        /// ground in <c>occupied</c> and the scatter honours it, but a tree is canopy and
+        /// canopy skips the ground check on purpose so a wood can close over a track.
+        /// Nothing done before the fact answers that. Looking at what is standing there
+        /// when the decorating has finished does.
+        ///
+        /// <b>By what the thing covers, not by where its pivot is.</b> The first try
+        /// asked whether a prop's position fell inside the deck's box, which is the test
+        /// the courtyard uses and is wrong here: the spruce on 1-10 has its trunk a metre
+        /// off the downstream rail and its crown right across the planking. Canopy closing
+        /// over a track is the thing trees are allowed to do, and a bridge is the one
+        /// track it must not close over - you cannot see the caravan on it.
+        ///
+        /// So the two outlines are compared. A trunk on the bank whose branches do not
+        /// reach the deck stays, which is the point of a bridge in a wood: the wood comes
+        /// down to both banks.
+        /// </summary>
+        static int SweepTheBridges(Transform parent)
+        {
+            var decks = parent.GetComponentsInChildren<BridgeDeck>(true);
+            if (decks.Length == 0) return 0;
+
+            var doomed = new List<GameObject>();
+
+            foreach (var deck in decks)
+            {
+                var span = ModelScaling.Measure(deck.gameObject);
+                span.Expand(new Vector3(-BridgeMargin * 2f, 0f, -BridgeMargin * 2f));
+
+                foreach (Transform thing in parent)
+                {
+                    if (thing == deck.transform) continue;
+                    if (thing.IsChildOf(deck.transform)) continue;
+
+                    var box = ModelScaling.Measure(thing.gameObject);
+
+                    // Flattened, because the question is what stands over the roadway and
+                    // not what passes above or below it.
+                    if (box.max.x < span.min.x || box.min.x > span.max.x) continue;
+                    if (box.max.z < span.min.z || box.min.z > span.max.z) continue;
+
+                    if (!doomed.Contains(thing.gameObject)) doomed.Add(thing.gameObject);
+                }
+            }
+
+            foreach (var thing in doomed)
+            {
+                if (Application.isPlaying) Object.Destroy(thing);
+                else Object.DestroyImmediate(thing);
+            }
+
+            return doomed.Count;
+        }
 
         /// <summary>
         /// Says what is actually standing on the map, biggest population first.
@@ -1546,7 +1622,7 @@ namespace TheVeil.View
                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
                               List<Landmark> found, IReadOnlyCollection<int> travelled)
         {
-            int bridged = BridgeTile(grid, seed);
+            int bridged = BridgeTile(grid, seed, travelled);
             if (bridged < 0) return 0;
 
             int placed = 0;
@@ -1591,7 +1667,8 @@ namespace TheVeil.View
         /// player drew their route over a bridge that was somewhere else in the game. A
         /// function of the map alone cannot disagree with itself.
         /// </summary>
-        public static int BridgeTile(TileGrid grid, int seed)
+        public static int BridgeTile(TileGrid grid, int seed,
+                                    IReadOnlyCollection<int> travelled = null)
         {
             // Crossings with banks, counted the same way the generator counts them when it
             // decides whether a map may ship — see TheVeil.Sim.Crossings. A bridge is a
@@ -1611,8 +1688,52 @@ namespace TheVeil.View
 
             if (crossings.Count == 0) return -1;
 
+            // <b>One that somebody actually crosses.</b> This drew at random from every
+            // crossing on the map and never looked at where the roads go, so a level's one
+            // bridge could stand on the ford none of them use: measured over the thirty
+            // levels of the chapters that exist, six of them did, and most of the rest
+            // served one road out of three.
+            //
+            // A level owes three ways over its water and builds one bridge, so two roads
+            // ford and one gets planking - that is the design. Which one gets it should
+            // not be the one nobody takes.
+            //
+            // Narrowed rather than forced: where no crossing is on a road the whole list
+            // stands, because a bridge in an awkward place still says "cross here" and a
+            // level that has got this far has stranger problems than that.
+            if (travelled != null && travelled.Count > 0)
+            {
+                var used = new List<int>();
+
+                foreach (int crossing in crossings)
+                    if (Walked(grid, crossing, travelled)) used.Add(crossing);
+
+                if (used.Count > 0) crossings = used;
+            }
+
             return crossings[new DeterministicRandom(seed ^ BridgeTileSalt).Range(0, crossings.Count)];
         }
+
+        /// <summary>Whether a drawn road passes within a bridge's length of this tile.</summary>
+        static bool Walked(TileGrid grid, int tile, IReadOnlyCollection<int> travelled)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            foreach (int walked in travelled)
+            {
+                grid.ToCoords(walked, out int wx, out int wy);
+
+                int dx = wx - x, dy = wy - y;
+                if (dx * dx + dy * dy <= BridgeReachTiles * BridgeReachTiles) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>How near a road must pass a crossing to be said to use it, in tiles.</summary>
+        // Two. A ford is several tiles wide and a route takes one row of it, so a road
+        // using the crossing beside the one it is drawn through is still using it.
+        const int BridgeReachTiles = 2;
 
         const int BridgeTileSalt = 0x0B21D6E;
         const int BridgeModelSalt = 0x0B21D6F;

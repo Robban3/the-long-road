@@ -27,14 +27,15 @@ namespace TheVeil.Editor
     /// that a road is unfair. It notices that something is in the wrong place, which is
     /// most of what a playtest has been finding.
     ///
-    /// <b>And it cannot be trusted about water.</b> Batch mode renders the river and the
-    /// lakes as a flat white sheet - checked both ways round, with the surface normals
-    /// pointing up and with them recalculated from the mesh, and the picture is identical,
-    /// so it is the pipeline and not the mesh. URP is not fully stood up behind a bare
-    /// Camera.Render, and the water shader is the one thing here that depends on it. Every
-    /// other thing in the frame is where it says it is; the water is the colour of nothing
-    /// at all. A fault reported off these pictures about how water *looks* is a fault in
-    /// this tool.
+    /// <b>Water sometimes comes out white, and it is not the water.</b> On the first run
+    /// after a recompile the river and the lakes render as a flat pale sheet; on a later
+    /// run of the same code they are blue. It was put down to URP not being stood up
+    /// behind a bare Camera.Render - wrongly, since nothing about the pipeline changes
+    /// between two runs of one build. It is the shader not being ready the first time it
+    /// is asked for.
+    ///
+    /// So a white river means run it again, and a fault reported off a first run about
+    /// how water *looks* is a fault in the timing rather than in the game.
     /// </summary>
     public static class Playtest
     {
@@ -180,12 +181,34 @@ namespace TheVeil.Editor
 
                 float across = tiles == 0 ? 0f : (float)over / tiles;
 
+                // <b>And whether anybody crosses there.</b> BridgeTile draws at random
+                // from the crossings that have banks and never looks at where the roads
+                // go, so a level's one bridge can stand on the ford none of them use.
+                var uses = new System.Text.StringBuilder();
+
+                foreach (var road in map.Corridors)
+                {
+                    bool near = false;
+
+                    foreach (int tile in road.Tiles)
+                    {
+                        map.Grid.ToCoords(tile, out int rx, out int ry);
+                        float dx = (rx + 0.5f) * TileGrid.TileSize - at.x;
+                        float dy = (ry + 0.5f) * TileGrid.TileSize - at.z;
+
+                        if (dx * dx + dy * dy <= BridgeReach * BridgeReach) { near = true; break; }
+                    }
+
+                    if (!near) continue;
+
+                    if (uses.Length > 0) uses.Append('+');
+                    uses.Append(road.Kind);
+                }
+
                 said.AppendLine($"[{chapter}-{level}] bridge deck on {under}, {wet:0.0} m from "
-                                + $"water, {drift:0.0} m off its own anchor, "
-                                + $"{box.size.x:0}x{box.size.z:0} m, {across:P0} of its length "
-                                + "over water"
-                                + (under == "Ford" || under == "Water" ? "" : "  <-- DRY LAND")
-                                + (across < 0.35f ? "  <-- LIES ALONG THE RIVER" : ""));
+                                + $"water, {box.size.x:0}x{box.size.z:0} m, used by "
+                                + (uses.Length == 0 ? "NOBODY" : uses.ToString())
+                                + (under == "Ford" || under == "Water" ? "" : "  <-- DRY LAND"));
 
                 Camera(at + new Vector3(0f, 55f, -45f), at,
                        System.IO.Path.Combine(Shots, $"{chapter}-{level}-bridge.png"));
@@ -447,6 +470,15 @@ namespace TheVeil.Editor
 
             Object.DestroyImmediate(root);
         }
+
+        /// <summary>
+        /// How near a road has to pass the bridge to be counted as using it, in metres.
+        ///
+        /// Ten, which is about a bridge's own half-length: a road that comes that close to
+        /// the deck is a road that goes over it, and one that does not is crossing its
+        /// river somewhere else.
+        /// </summary>
+        const float BridgeReach = 10f;
 
         /// <summary>How near the water the column is photographed from, in metres.</summary>
         // Thirty out and thirty past, which at the caravan's pace is about fifteen
