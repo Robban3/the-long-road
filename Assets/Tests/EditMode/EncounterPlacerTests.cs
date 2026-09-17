@@ -36,6 +36,19 @@ namespace TheVeil.Tests
 
         static LevelRecipe Recipe() => new LevelRecipe();
 
+        /// <summary>
+        /// Generated here on purpose, unlike almost everywhere else.
+        ///
+        /// <b>The exemption, written down so nobody tidies it away.</b> Tests that promise
+        /// something about the game — that a level can be won, that a bridge can be
+        /// crossed, that an animal stands on ground — must take the map from Gen.LevelMaps,
+        /// or they prove it about a country nobody drives. A dozen of them did, and were
+        /// moved.
+        ///
+        /// These are not those. They test the placer, and testing a rule means being able
+        /// to hand it a recipe built to isolate that rule — a pool of one kind, a budget of
+        /// nothing. A shipped level cannot be asked those questions.
+        /// </summary>
         static LevelMap Level(int chapter, int level, LevelRecipe recipe = null)
             => TerrainGenerator.Generate(recipe ?? Recipe(), DeterministicRandom.SeedFor(chapter, level));
 

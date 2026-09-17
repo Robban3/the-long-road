@@ -7,9 +7,11 @@ namespace TheVeil.Tests
 {
     public class WildlifeTests
     {
-        static LevelMap Level(int chapter, int level)
-            => TerrainGenerator.Generate(new LevelRecipe(),
-                                         DeterministicRandom.SeedFor(chapter, level));
+        // The level the player plays. This generated its own from `new LevelRecipe()` —
+        // a fourth recipe source — so the feature was tested on a country nobody drives.
+        // See Gen.LevelMaps, which exists because two places generating from one seed get
+        // two different landscapes.
+        static LevelMap Level(int chapter, int level) => LevelMaps.For(chapter, level);
 
         static float Distance(Vec2 a, Vec2 b)
         {

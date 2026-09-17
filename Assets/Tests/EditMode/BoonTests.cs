@@ -16,8 +16,9 @@ namespace TheVeil.Tests
     {
         static LevelRun Run(Squad squad, Boons boons)
         {
-            var recipe = new ChapterRecipe().ForLevel(1);
-            var map = TerrainGenerator.Generate(recipe, DeterministicRandom.SeedFor(1, 1));
+            // The level the player plays, and its own recipe. See Gen.LevelMaps.
+            var recipe = LevelMaps.Recipe(1, 1);
+            var map = LevelMaps.For(1, 1);
 
             return new LevelRun(map, map.Corridors[0].Tiles, squad, recipe.EnemyStrength, boons);
         }

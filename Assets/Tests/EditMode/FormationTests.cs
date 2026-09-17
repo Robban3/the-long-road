@@ -156,8 +156,8 @@ namespace TheVeil.Tests
 
         static LevelRun Run()
         {
-            var map = TerrainGenerator.Generate(new ChapterRecipe().ForLevel(5),
-                                                DeterministicRandom.SeedFor(1, 5));
+            // The level the player plays. See Gen.LevelMaps.
+            var map = LevelMaps.For(1, 5);
             return new LevelRun(map, map.CorridorOf(CorridorKind.Fast).Tiles, Escort());
         }
 

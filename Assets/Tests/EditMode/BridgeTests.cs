@@ -23,8 +23,8 @@ namespace TheVeil.Tests
             for (int chapter = 1; chapter <= 2; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
-                    var map = TerrainGenerator.Generate(new ChapterRecipe().ForLevel(level),
-                                                        DeterministicRandom.SeedFor(chapter, level));
+                    // The level the player crosses, not one generated here. See Gen.LevelMaps.
+                    var map = LevelMaps.For(chapter, level);
 
                     int tile = TerrainDecorator.BridgeTile(map.Grid, map.Seed);
                     if (tile < 0) continue;

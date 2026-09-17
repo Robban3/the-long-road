@@ -66,9 +66,10 @@ namespace TheVeil.Tests
                 "sold an upgrade after the run had ended");
         }
 
-        static LevelMap Map(int chapter, int level)
-            => TerrainGenerator.Generate(new ChapterRecipe().ForLevel(level),
-                                         DeterministicRandom.SeedFor(chapter, level));
+        // The level the player plays. See Gen.LevelMaps: a second place generating from
+        // the same seed gets a different landscape, and a test on that landscape proves
+        // nothing about the game.
+        static LevelMap Map(int chapter, int level) => LevelMaps.For(chapter, level);
 
         static LevelRun Run(int chapter, int level, Squad squad, CorridorKind kind = CorridorKind.Fast)
         {

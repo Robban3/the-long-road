@@ -75,8 +75,8 @@ namespace TheVeil.Tests
 
         static LevelRun Run(Squad squad)
         {
-            var map = TerrainGenerator.Generate(new ChapterRecipe().ForLevel(1),
-                                                DeterministicRandom.SeedFor(1, 1));
+            // The level the player plays. See Gen.LevelMaps.
+            var map = LevelMaps.For(1, 1);
             return new LevelRun(map, map.Corridors[0].Tiles, squad);
         }
 

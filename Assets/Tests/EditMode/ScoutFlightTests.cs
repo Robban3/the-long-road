@@ -6,8 +6,9 @@ namespace TheVeil.Tests
 {
     public class ScoutFlightTests
     {
-        static LevelMap Level(int chapter, int level)
-            => TerrainGenerator.Generate(new LevelRecipe(), DeterministicRandom.SeedFor(chapter, level));
+        // The level the player plays, not one generated here from another recipe.
+        // See Gen.LevelMaps.
+        static LevelMap Level(int chapter, int level) => LevelMaps.For(chapter, level);
 
         [Test]
         public void TheEagleUncoversAboutAQuarterOfTheMap()

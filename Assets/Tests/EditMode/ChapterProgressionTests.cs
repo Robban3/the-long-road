@@ -125,7 +125,8 @@ namespace TheVeil.Tests
         public void EarlyLevelsFieldOnlyWolves()
         {
             var chapter = Chapter();
-            var map = TerrainGenerator.Generate(chapter.ForLevel(1), DeterministicRandom.SeedFor(1, 1));
+            // The level the player plays. See Gen.LevelMaps.
+            var map = LevelMaps.For(1, 1);
 
             foreach (var spawn in map.Encounters.Enemies)
                 Assert.AreEqual(EnemyKind.Wolf, spawn.Kind,

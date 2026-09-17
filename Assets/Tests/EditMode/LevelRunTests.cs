@@ -7,9 +7,8 @@ namespace TheVeil.Tests
 {
     public class LevelRunTests
     {
-        static LevelMap Map(int chapter, int level)
-            => TerrainGenerator.Generate(new ChapterRecipe().ForLevel(level),
-                                         DeterministicRandom.SeedFor(chapter, level));
+        // The level the player plays. See Gen.LevelMaps.
+        static LevelMap Map(int chapter, int level) => LevelMaps.For(chapter, level);
 
         /// <summary>
         /// An escort that spends its budget, as a player would. An earlier version left

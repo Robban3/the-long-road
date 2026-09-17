@@ -357,7 +357,8 @@ namespace TheVeil.Tests
         public void ARealGeneratedLevelCanBeDrivenEndToEnd()
         {
             var chapter = new ChapterRecipe();
-            var map = TerrainGenerator.Generate(chapter.ForLevel(3), DeterministicRandom.SeedFor(1, 3));
+            // The level the player drives. See Gen.LevelMaps.
+            var map = LevelMaps.For(1, 3);
             var fast = map.CorridorOf(CorridorKind.Fast);
 
             var caravan = new Caravan(map.Grid, fast.Tiles);
