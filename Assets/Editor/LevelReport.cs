@@ -69,7 +69,8 @@ namespace TheVeil.Editor
                                      + $" | choice {Yes(choice)} encounters {Yes(kept)} "
                                      + $"crossings {crossings}/{recipe.CrossingsOwed} "
                                      + $"| {ends}"
-                                     + (choice ? "" : " | " + WhyNoChoice(map)));
+                                     + (choice ? "" : " | " + WhyNoChoice(map))
+                                     + " | " + Ground(map));
                 }
             }
 
@@ -83,6 +84,23 @@ namespace TheVeil.Editor
         }
 
         static string Yes(bool held) => held ? "ok" : "NO";
+
+        /// <summary>What the level is made of, as a count per terrain type.</summary>
+        static string Ground(LevelMap map)
+        {
+            var count = new int[8];
+            for (int i = 0; i < map.Grid.TileCount; i++) count[(int)map.Grid[i]]++;
+
+            var said = new StringBuilder();
+            for (int i = 0; i < count.Length; i++)
+            {
+                if (count[i] == 0) continue;
+                if (said.Length > 0) said.Append(' ');
+                said.Append($"{(TerrainType)i} {count[i]}");
+            }
+
+            return said.ToString();
+        }
 
         /// <summary>
         /// Which of IsMeaningfulChoice's five conditions the level falls on.

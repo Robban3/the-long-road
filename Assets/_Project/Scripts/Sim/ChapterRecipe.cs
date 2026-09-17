@@ -135,6 +135,19 @@ namespace TheVeil.Sim
                 // ways through are found. See Towns.
                 Town = Towns.HasTown(Chapter, clamped),
 
+                // <b>And a town owes no crossings, because a town has no river.</b>
+                // Towns.Stamp clears the whole grid - the level is the town and the map's
+                // edge is its wall - so whatever the generator carved is gone before a
+                // street is laid. The level was still being asked for three ways over the
+                // water, could not have one, and was rejected on that every attempt: it
+                // shipped as a compromise every single build, and the decorator stood a
+                // bridge on a ford with no banks because the fallback had nothing better.
+                //
+                // The demand was never about this level. It is about a river being a
+                // decision, and there is no river here - the decision is the high street
+                // against the back lanes.
+                CrossingsOwed = Towns.HasTown(Chapter, clamped) ? 0 : new LevelRecipe().CrossingsOwed,
+
                 // And who is waiting at the end of it. See Champions.
                 GoalRetinue = Champions.Named(Chapter, clamped) ? Champions.Retinue(Chapter) : 0,
                 GoalBlocks = Champions.Named(Chapter, clamped)
@@ -307,7 +320,20 @@ namespace TheVeil.Sim
                 case Biome.Desert:
                     // Sand, rock and one thread of water. No wolves: nothing here hunts in
                     // packs, and the danger is the men who know where the water is.
-                    recipe.TerrainMix = Mix(0.08f, 0.66f, 0.05f, 0.16f, 0.05f);
+                    //
+                    // <b>And there has to be somewhere for those men to be.</b> This was
+                    // eight per cent cover against sixty-six per cent open sand, and six
+                    // of the chapter's ten levels could not be validated: the placer sends
+                    // threat to cover, so every group in the level sat in that eight per
+                    // cent, and a road that missed those few stands met nothing at all.
+                    // The generator shipped the least bad map each time.
+                    //
+                    // Scrub and broken rock rather than more wood - which is what ambush
+                    // country in a desert is, and what the chapter is drawn as. Sixteen
+                    // and twenty-two against fifty-two of open sand: still the emptiest
+                    // country in the game by a wide margin, and no longer so empty that
+                    // nobody can wait in it.
+                    recipe.TerrainMix = Mix(0.16f, 0.52f, 0.05f, 0.22f, 0.05f);
                     recipe.FordsPerRiver = 2;
                     recipe.NoiseScale = 26f;
                     // No wolves, and horsemen from the start: open sand is their country,

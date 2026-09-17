@@ -220,6 +220,11 @@ namespace TheVeil.Sim
             // Every tile of it is town: cleared, level ground with building on it, and
             // whatever the noise and the rivers left is gone. A river through a walled
             // town would be a fourth way in.
+            //
+            // The whole grid, because the whole grid is the town - see Layout, which says
+            // why the level stopped having an outside. That is also why this level owes no
+            // crossings: there is nowhere for water to be. See LevelRecipe.CrossingsOwed
+            // and ChapterRecipe, which sets it to nought here.
             for (int i = 0; i < grid.TileCount; i++) grid[i] = TerrainType.Cliff;
 
             float height = grid.Elevation(grid.ToIndex(grid.Width / 2, gateRow));
@@ -239,8 +244,27 @@ namespace TheVeil.Sim
                 south - 2 - Approach - lane + 1
             };
 
-            foreach (int street in streets)
-                Cut(grid, west + 2, east - 2, street, street + lane - 1);
+            // <b>The main street is a road and the other two are not, and that is the
+            // whole choice this level has.</b>
+            //
+            // All three were cut as the same ground, so the three ways through a town were
+            // three identical ways through a town: measured, the fast road and the
+            // cautious road came out at the same exposure to four decimal places with
+            // three per cent between them in time. IsMeaningfulChoice asks for a road that
+            // costs blood against a road that costs time, and a level with one kind of
+            // ground on it cannot answer, however the corridors are drawn.
+            //
+            // Every other level answers with terrain and a town has only its streets, so
+            // its streets are the terrain. The gate-to-gate street is a road: quick, and
+            // exposed, because a road is where a caravan is expected to be - which is
+            // exactly what the high street of a town is. The two back streets are laid as
+            // open ground, slower by a quarter and less than half as exposed.
+            //
+            // So the level asks what a town asks. Straight down the high street and out
+            // the far gate, or the long way round the back lanes.
+            for (int i = 0; i < streets.Length; i++)
+                Cut(grid, west + 2, east - 2, streets[i], streets[i] + lane - 1,
+                    streets[i] == gateRow ? TerrainType.Road : TerrainType.Plains);
 
             // And the alleys between them, which is what a town has that a road does not.
             //
@@ -274,9 +298,10 @@ namespace TheVeil.Sim
             Cut(grid, west + 2, west + 1 + Approach, top, foot);
             Cut(grid, east - 1 - Approach, east - 2, top, foot);
 
-            // And the gateways, through both rings of the wall.
-            Cut(grid, west, west + 1, gateRow - GateHalf, gateRow + GateHalf);
-            Cut(grid, east - 1, east, gateRow - GateHalf, gateRow + GateHalf);
+            // And the gateways, through both rings of the wall. Road, because they are
+            // the high street's own two ends.
+            Cut(grid, west, west + 1, gateRow - GateHalf, gateRow + GateHalf, TerrainType.Road);
+            Cut(grid, east - 1, east, gateRow - GateHalf, gateRow + GateHalf, TerrainType.Road);
 
             // Then the wall over all of it, which puts back anything the cuts took from
             // the border except the gateways themselves.
@@ -288,12 +313,33 @@ namespace TheVeil.Sim
             return plan;
         }
 
-        /// <summary>Opens a rectangle of ground inside the town, clipped to its walls.</summary>
-        static void Cut(TileGrid grid, int x0, int x1, int y0, int y1)
+        /// <summary>
+        /// Opens a street inside the town, clipped to its walls.
+        ///
+        /// <b>Street, and the terrain type is the whole of what was wrong with this
+        /// level.</b> It laid Plains, and plains is the fastest open ground in the game
+        /// and by a long way the safest - so half of 1-8 became the best country on the
+        /// map to drive a caravan through. Going through the gates was shorter *and*
+        /// quieter than going round, which is not a choice, and the level measured it:
+        /// the fast road and the cautious road came out with the same exposure to four
+        /// decimal places and three per cent between them in time.
+        ///
+        /// A street is a road. The table already knows what that means and says why -
+        /// quick, and exposed, because a road is where a caravan is expected to be. So
+        /// the town is now the fast way and the dangerous way, and the long way round the
+        /// south of it is slow and quiet. That is the level the town was built for.
+        ///
+        /// <b>No water inside the walls, ever.</b> The whole grid is cleared to wall
+        /// before this runs, so whatever river the generator carved is gone by the time a
+        /// street is laid. A town has no river and no ford, which is why the level owes no
+        /// crossings.
+        /// </summary>
+        static void Cut(TileGrid grid, int x0, int x1, int y0, int y1,
+                        TerrainType ground = TerrainType.Plains)
         {
             for (int y = y0; y <= y1; y++)
                 for (int x = x0; x <= x1; x++)
-                    if (grid.InBounds(x, y)) grid[grid.ToIndex(x, y)] = TerrainType.Plains;
+                    if (grid.InBounds(x, y)) grid[grid.ToIndex(x, y)] = ground;
         }
     }
 }
