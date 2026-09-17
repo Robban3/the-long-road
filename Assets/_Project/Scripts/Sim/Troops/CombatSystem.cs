@@ -145,6 +145,23 @@ namespace TheVeil.Sim
             }
         }
 
+        /// <summary>
+        /// What is left of every enemy the run knows about, added together.
+        ///
+        /// For LevelRun.WatchForAStall, which needs to know whether a halted fight is
+        /// getting anywhere. GuardHealth answers the same question for the stand at the
+        /// goal; this is the whole field.
+        /// </summary>
+        public float FieldHealth
+        {
+            get
+            {
+                float left = 0f;
+                foreach (var enemy in _detection.Enemies) left += HealthOf(enemy);
+                return left;
+            }
+        }
+
         /// <summary>What is left of everything posted to hold a goal, added together.</summary>
         public float GuardHealth
         {

@@ -369,6 +369,35 @@ namespace TheVeil.Sim
         public const float StallSeconds = 5f;
 
         /// <summary>
+        /// How fast a halted fight has to be going to count as a fight, in hit points a
+        /// second across everything on the field.
+        ///
+        /// <b>One and a half, and it was four.</b> Ninety runs of the reference escort
+        /// say a fight trades fifteen to thirty-five a second and the three that could not
+        /// end traded half of one, so four looked like a floor nothing real could be
+        /// under. It is not: the reference escort has been to the shop, and a bare
+        /// eighteen points with no boons on it fights far slower. Four killed one of those
+        /// on 1-4 - a fight that was going somewhere, called as a stand-off - which is the
+        /// same mistake as every other number in this repository that was measured against
+        /// one player and applied to all of them.
+        ///
+        /// At a second and a half the slowest real fight measured still clears it by
+        /// several times over, and the stand-offs - two fifths of a hit point a second -
+        /// are still caught with room to spare.
+        /// </summary>
+        public const float GrindPerSecond = 1.5f;
+
+        /// <summary>
+        /// How long a fight may go nowhere before the run is called, in seconds.
+        ///
+        /// Sixty, which is a long time to watch and much shorter than for ever. It
+        /// is deliberately far above StallSeconds: a column stopped on an empty road is
+        /// broken within five seconds, and a column stopped in a fight has earned the
+        /// benefit of the doubt for as long as the fight might still turn.
+        /// </summary>
+        public const float GrindSeconds = 60f;
+
+        /// <summary>
         /// The tile the caravan was standing on when it stopped being able to move, or -1.
         ///
         /// Kept so the app can say *why*. "The run ended" and "the run ended because the
@@ -377,6 +406,9 @@ namespace TheVeil.Sim
         public int StalledOn { get; private set; } = -1;
 
         float _stalled;
+
+        /// <summary>The blood on the field when the halted fight last made progress.</summary>
+        float _lastGround = float.NaN;
         float _wasAt = float.NegativeInfinity;
 
         /// <summary>
@@ -402,7 +434,51 @@ namespace TheVeil.Sim
         /// </summary>
         void WatchForAStall()
         {
-            if (Combat != null && Combat.Halted) { _stalled = 0f; return; }
+            // <b>A fight the column stopped for counts as moving only while it is
+            // actually going somewhere.</b>
+            //
+            // This cleared the clock on every halted step, full stop, which is right for
+            // a fight and wrong for a stand-off: nothing else in the run watches a column
+            // that has stopped to fight, WatchForAStandoff only watches the goal, and so
+            // a fight that cannot finish holds the level open for ever.
+            //
+            // Played, all ninety roads of the chapters that exist: forty-five of them
+            // stop for twenty seconds or more and forty-two of those are fights, trading
+            // seven to eight hundred hit points in twenty to fifty seconds. Three are not.
+            // 1-6's long way round stands for three hundred and twelve seconds and two
+            // hundred hit points change hands in it; 2-8's quick road stands for three
+            // hundred and forty-one, a hundred and twenty metres into its level. Half a
+            // hit point a second against fifteen to thirty-five.
+            //
+            // The cause is that the only healing which runs under fire is the priest's
+            // fifteen a second - the wheelwright and the supply wagon are both stood down
+            // in contact, deliberately - so an escort with a priest and an enemy hitting
+            // at about that rate is a fight neither side can win. That is a balance
+            // question. This is not: whatever the arithmetic, a run that cannot end is a
+            // bug, and the watchdog that exists to catch a caravan going nowhere should
+            // catch this too.
+            if (Combat != null && Combat.Halted)
+            {
+                float blood = Combat.FieldHealth + CaravanHealth();
+
+                // Strictly less, so healing on its own cannot hold the clock open: a blow
+                // landed either way resets it, and being patched up does not.
+                if (float.IsNaN(_lastGround) || blood < _lastGround - GrindPerSecond * StepSeconds)
+                {
+                    _lastGround = blood;
+                    _stalled = 0f;
+                    return;
+                }
+
+                _stalled += StepSeconds;
+                if (_stalled < GrindSeconds) return;
+
+                StalledOn = Caravan.CurrentTile;
+                Outcome = RunOutcome.CaravanLost;
+                return;
+            }
+
+            _lastGround = float.NaN;
 
             float now = Caravan.DistanceTravelled;
 

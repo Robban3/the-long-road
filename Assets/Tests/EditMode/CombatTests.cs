@@ -323,8 +323,24 @@ namespace TheVeil.Tests
         {
             // The missing minute: before combat the caravan rolled through unopposed
             // and levels ran at half their designed length.
+            //
+            // <b>With the escort the curve is built for.</b> It used the fixed line this
+            // file keeps for the purpose, and on 1-4's quick road - which now carries half
+            // the level's threat, see EncounterPlacer.RoadShare - that squad gets into a
+            // fight it can neither win nor lose. Measured: under ninety hit points change
+            // hands in a minute. LevelRun.GrindPerSecond calls that what it is and ends
+            // the run, so the contested caravan finished *sooner* than the empty one and
+            // this read as though fighting had saved time.
+            //
+            // It had not. What is asserted is that a road with enemies on it takes longer
+            // than a road without, and asking it of a player the generator never promised
+            // anything to answers a different question.
+            var recipe = LevelMaps.Recipe(1, 4);
+            var escort = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(1, 4),
+                                            ReferenceSquad.Smithy(1));
+
             var quiet = Run(1, 4, null);
-            var contested = Run(1, 4, Escort());
+            var contested = Run(1, 4, escort);
 
             quiet.RunToCompletion();
             contested.RunToCompletion();
