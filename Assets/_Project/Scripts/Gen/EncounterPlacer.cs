@@ -139,32 +139,104 @@ namespace TheVeil.Gen
         public const float TerritoryMinTiles = 6f;
         public const float TerritoryMaxTiles = 13f;
 
-        /// <summary>Groups the placer works to put on every sampled route.</summary>
-        public const int MinEncounters = 5;
+        /// <summary>
+        /// The least any route a player draws may meet, whichever way they go.
+        ///
+        /// <b>Two, and it used to be five.</b> Five on every route was a floor applied to
+        /// all three roads alike, with a repair loop that moved groups onto whichever one
+        /// met fewest - so the placer spent its effort making the three roads the same.
+        /// Measured over chapter one it succeeded: every road of every level met six to
+        /// eight groups for thirty to fifty points, and the only thing left that told them
+        /// apart was travel time. The long way round 1-1 took a hundred and seventy-two
+        /// against seventy-three and met exactly as much. That is not a choice, it is a
+        /// worse option.
+        ///
+        /// docs/GDD.md says the opposite in as many words. Section 1: the core tension is
+        /// speed against safety. Section 6.2: the dangerous route pays - more enemies,
+        /// more silver, a stronger army at the end and broken wagons; the safe route
+        /// arrives whole and poor. And the consequence it draws for the generator is that
+        /// the silver *per corridor* has to be validated, which only means anything if the
+        /// corridors differ.
+        ///
+        /// So the roads are allowed to differ, and this is no longer a target, it is a
+        /// floor: whatever line is drawn, something is on it. What each road owes on top
+        /// of that is <see cref="RoadShare"/>.
+        /// </summary>
+        public const int MinEncounters = 2;
 
         /// <summary>
-        /// How many groups a level's budget buys before it starts buying strength.
+        /// The share of a level's threat each road carries, by <see cref="CorridorKind"/>.
         ///
-        /// <b>The count the promise is made of was being decided by a dice roll.</b>
-        /// PickAffordable drew uniformly from every enemy kind the remaining budget could
-        /// afford, and those kinds cost anything from a handful of points to sixty - so
-        /// the same budget came out as nine groups on one level and eighteen on another,
-        /// and nothing anywhere knew that the number mattered. It matters more than
-        /// anything else here: the promise is that every route a player might draw meets
-        /// five groups, and five groups on each of three roads that barely touch cannot be
-        /// made out of nine.
+        /// Half on the quick road, a third on the middle one, a fifth on the long way
+        /// round. The quick road is dangerous because it is *predictable* - it is where a
+        /// caravan is expected to be, which is what the terrain table already says about
+        /// roads and why the GDD notes that bandits patrol them. Nobody lies in wait in a
+        /// fen for three hours, so the slog is quiet, and quiet is what the slog is for.
         ///
-        /// Measured over a hundred levels, and the line is sharp. Every level that failed
-        /// to keep the promise had ten groups or fewer - seven, eight, nine, nine, nine,
-        /// ten, ten - and of the ninety-three that kept it, eighty-eight had eleven or
-        /// more, with the mass at twelve to fourteen.
+        /// <b>Allocated by ground rather than by route, which is what the old rule could
+        /// not do.</b> The budget was once spent along the three corridors in inverse
+        /// proportion to their travel time, and that was dropped for a real reason: the
+        /// player draws their own line, and a line drawn between two corridors would have
+        /// met nothing at all. The replacement put threat on the whole band and restated
+        /// the rule per tile as "cover first, then speed" - but cover means woods, woods
+        /// are slow, and the quick road is the one that avoids them. So the restatement
+        /// inverted the rule it was meant to preserve, and the measurement above is what
+        /// that looked like.
         ///
-        /// So twelve is bought first and whatever is left over is spent on strength. The
-        /// budget does not change, which means the groups are individually weaker: this is
-        /// a road harried the length of it rather than three set-piece battles, and that
-        /// is what a promise of five encounters a route was always describing.
+        /// Every tile of the band belongs to whichever road is nearest it, and each road
+        /// spends its share on its own ground. A line drawn between two roads crosses
+        /// tiles belonging to both and meets a mixture of the two - so nothing is empty,
+        /// and the roads still differ.
         /// </summary>
-        public const int GroupsWanted = 12;
+        public static readonly float[] RoadShare = { 0.50f, 0.30f, 0.20f };
+
+        /// <summary>
+        /// How far off its shares a level may be and still be left alone.
+        ///
+        /// A tenth, summed over the three roads, which is about three points of share
+        /// each. Closer than that is chasing a number the player cannot feel, and every
+        /// step costs a group moved out of the cover the placer chose for it.
+        /// </summary>
+        public const float ShareTolerance = 0.10f;
+
+        /// <summary>
+        /// How many groups each road buys with its share, by <see cref="CorridorKind"/>.
+        ///
+        /// Thirteen between them, which is where a hundred levels measured say the
+        /// placement holds - every level that failed its promise had ten or fewer, and
+        /// eighty-eight of the ninety-three that kept it had eleven or more.
+        ///
+        /// <b>The split is not the shares.</b> Seven groups out of half the budget is a
+        /// seventh of it each; two groups out of a fifth is a tenth each. So the long road
+        /// is not simply quieter, it is quieter and worse: fewer fights, and the ones it
+        /// has are heavier than anything on the quick road. A worn squad takes the long
+        /// way for the number of fights, not for their size.
+        /// </summary>
+        public static readonly int[] RoadGroups = { 7, 4, 2 };
+
+        /// <summary>
+        /// How far from its own road a group may drift before it stops counting as that
+        /// road's, in tiles.
+        ///
+        /// <b>Owning a tile is not the same as being met on it, and the difference was
+        /// most of the allocation.</b> Measured on 1-1: the quick road had eleven groups
+        /// laid on its own country and a caravan down it ran into six, while the long way
+        /// round had two laid on its country and ran into six - three times what it was
+        /// given - because it is two and a half times longer and wanders through everybody
+        /// else's ground on the way.
+        ///
+        /// The ownership is a partition of the whole map, so a tile twenty tiles off the
+        /// quick road still belongs to it, and a group put there is one the quick road
+        /// never passes. Five tiles - twenty metres - is about the width of country a
+        /// drawn line actually sweeps, so a group within it is one that road will meet.
+        ///
+        /// A falloff rather than a cutoff, because the ground between the roads has to
+        /// carry something: a line drawn down the middle of nowhere should still find
+        /// somebody, which is the whole reason threat was taken off the corridors in the
+        /// first place.
+        /// </summary>
+        public const float RoadReach = 5f;
+
 
         /// <summary>
         /// What the repair loop aims at, which is one more than the promise.
@@ -220,7 +292,7 @@ namespace TheVeil.Gen
             if (corridors == null || corridors.Count == 0 || startIndex < 0 || goalIndex < 0)
                 return layout;
 
-            var band = ThreatBand.Build(grid, startIndex, goalIndex);
+            var band = ThreatBand.Build(grid, startIndex, goalIndex, corridors);
             if (band == null) return layout;
 
             layout.BandTiles = band.Tiles.Count;
@@ -245,7 +317,7 @@ namespace TheVeil.Gen
             var mined = new HashSet<int>();
 
             budget -= LayTraps(grid, band, corridors, recipe, rng, layout, mined, budget);
-            ScatterEnemies(grid, band, recipe, rng, layout, occupied, mined, budget);
+            ScatterEnemies(grid, band, corridors, recipe, rng, layout, occupied, mined, budget);
 
             AssignTerritories(grid, layout);
             TallySilver(layout, recipe);
@@ -300,7 +372,20 @@ namespace TheVeil.Gen
             public float[] FromGoal;
             public float Fastest;
 
-            public static ThreatBand Build(TileGrid grid, int startIndex, int goalIndex)
+            /// <summary>
+            /// Which road each tile belongs to, as a <see cref="CorridorKind"/>, or -1
+            /// where no road reaches it.
+            ///
+            /// This is what carries <see cref="RoadShare"/> onto the ground. See
+            /// <see cref="Roadside"/>.
+            /// </summary>
+            public int[] Road;
+
+            /// <summary>How far each tile is from the road that owns it, in tiles.</summary>
+            public int[] FromRoad;
+
+            public static ThreatBand Build(TileGrid grid, int startIndex, int goalIndex,
+                                           IReadOnlyList<Corridor> corridors)
             {
                 grid.ToCoords(startIndex, out int sx, out int sy);
                 grid.ToCoords(goalIndex, out int gx, out int gy);
@@ -311,6 +396,9 @@ namespace TheVeil.Gen
                     FromGoal = TravelField(grid, gx, gy),
                     Weight = new float[grid.TileCount]
                 };
+
+                band.Road = Roadside(grid, corridors, out int[] fromRoad);
+                band.FromRoad = fromRoad;
 
                 band.Fastest = band.FromStart[goalIndex];
                 if (float.IsInfinity(band.Fastest) || band.Fastest <= 0f) return null;
@@ -414,6 +502,75 @@ namespace TheVeil.Gen
         /// Cheapest travel cost from one tile to every other, over the same eight
         /// neighbours and the same costs the pathfinder uses.
         /// </summary>
+        /// <summary>
+        /// Which road owns each tile: a breadth-first sweep out from all three at once,
+        /// nearest wins.
+        ///
+        /// Sweeping from every road together rather than one at a time is what makes the
+        /// answer a partition - each tile is reached first by exactly one road, and the
+        /// boundaries fall halfway between them without anybody working out where halfway
+        /// is. The roads are seeded in share order, so a tile two roads reach in the same
+        /// number of steps goes to the busier one.
+        ///
+        /// Steps rather than travel cost, deliberately. The question is which road a line
+        /// drawn near here would be following, and that is about how close the line is,
+        /// not about how long the ground takes to walk.
+        /// </summary>
+        /// <summary>Which road owns each tile, for the report that measures this.</summary>
+        public static int[] RoadsideOf(TileGrid grid, IReadOnlyList<Corridor> corridors)
+            => Roadside(grid, corridors, out _);
+
+        static int[] Roadside(TileGrid grid, IReadOnlyList<Corridor> corridors, out int[] fromRoad)
+        {
+            var road = new int[grid.TileCount];
+            var reach = new int[grid.TileCount];
+
+            for (int i = 0; i < road.Length; i++) { road[i] = -1; reach[i] = int.MaxValue; }
+
+            fromRoad = reach;
+            if (corridors == null) return road;
+
+            var queue = new Queue<int>();
+
+            for (int kind = 0; kind < RoadShare.Length; kind++)
+                foreach (var corridor in corridors)
+                {
+                    if ((int)corridor.Kind != kind) continue;
+
+                    foreach (int tile in corridor.Tiles)
+                    {
+                        if (road[tile] >= 0) continue;
+
+                        road[tile] = kind;
+                        reach[tile] = 0;
+                        queue.Enqueue(tile);
+                    }
+                }
+
+            while (queue.Count > 0)
+            {
+                int at = queue.Dequeue();
+                grid.ToCoords(at, out int x, out int y);
+
+                for (int d = 0; d < 4; d++)
+                {
+                    int nx = x + (d == 0 ? 1 : d == 1 ? -1 : 0);
+                    int ny = y + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                    if (!grid.InBounds(nx, ny)) continue;
+
+                    int next = grid.ToIndex(nx, ny);
+                    if (road[next] >= 0) continue;
+                    if (TerrainTable.Speed(grid[next]) <= 0f) continue;
+
+                    road[next] = road[at];
+                    reach[next] = reach[at] + 1;
+                    queue.Enqueue(next);
+                }
+            }
+
+            return road;
+        }
+
         static float[] TravelField(TileGrid grid, int x, int y)
         {
             int n = grid.TileCount;
@@ -494,10 +651,10 @@ namespace TheVeil.Gen
                 int tile = crossing[crossing.Count / 2];
                 if (occupied.Contains(tile)) continue;
 
-                // The ford guards count towards the level's group tally like anything
-                // else, so they hold back the same reserve. See GroupsWanted.
-                var kind = PickAffordable(recipe.EnemyPool, rng, budget - spent,
-                                          GroupsWanted - layout.Enemies.Count);
+                // A guard is bought outright. The reserve that keeps a road's share
+                // buying enough groups belongs to that road's own pass - see Sow - and a
+                // ford guard is not on a road, it is on the water every road crosses.
+                var kind = PickAffordable(recipe.EnemyPool, rng, budget - spent, 0);
                 if (kind == null) break;
 
                 layout.Enemies.Add(new EnemySpawn
@@ -1248,19 +1405,135 @@ namespace TheVeil.Gen
         }
 
         /// <summary>The rest of the budget, over the band, weighted by how fast the ground is.</summary>
-        static void ScatterEnemies(TileGrid grid, ThreatBand band, LevelRecipe recipe,
+        /// <summary>
+        /// Spends the level's threat, one road at a time.
+        ///
+        /// <b>Three passes, not one, and that is the whole of what tells the roads
+        /// apart.</b> It was a single sweep over the band ordered by cover, which put the
+        /// threat where the *woods* are - and the woods are slow ground, which is the
+        /// ground the quick road avoids. So the quickest way through a level came out no
+        /// more dangerous than the slowest, and measured over chapter one every road of
+        /// every level met six to eight groups for thirty to fifty points. The long way
+        /// round 1-1 took a hundred and seventy-two against seventy-three and met exactly
+        /// as much, which is not a choice.
+        ///
+        /// Each road now spends its own share of the budget (<see cref="RoadShare"/>) on
+        /// its own ground (ThreatBand.Road), buying its own number of groups
+        /// (<see cref="RoadGroups"/>). Inside a road's ground cover still decides which
+        /// tile, so a group still waits where a group would wait and the planning map's
+        /// ambush reading still means something.
+        ///
+        /// Anything left over at the end goes on whatever ground is still free. A road
+        /// whose country is too small or too crowded to take its whole share should not
+        /// hand the difference back.
+        /// </summary>
+        static void ScatterEnemies(TileGrid grid, ThreatBand band, IReadOnlyList<Corridor> corridors,
+                                   LevelRecipe recipe,
                                    DeterministicRandom rng, EncounterLayout layout,
                                    HashSet<int> occupied, HashSet<int> mined, int budget)
         {
             if (budget <= 0) return;
 
+            int left = budget;
+            var share = Shares(corridors);
+
+            for (int road = 0; road < RoadShare.Length; road++)
+            {
+                int purse = (int)(budget * share[road]);
+                if (purse > left) purse = left;
+
+                left -= purse - Sow(grid, band, recipe, rng, layout, occupied, mined,
+                                    purse, road, RoadGroups[road]);
+            }
+
+            // The remainder, anywhere it will go. Ground belonging to no road included:
+            // a player may draw a line out there and should not find it empty.
+            if (left > 0) Sow(grid, band, recipe, rng, layout, occupied, mined, left, -1, 0);
+        }
+
+        /// <summary>
+        /// <see cref="RoadShare"/> per tile of road rather than per road, and then
+        /// normalised back to the whole budget.
+        ///
+        /// <b>A share spread over a longer road is a share a caravan meets more of.</b>
+        /// What a route runs into is how thickly the ground is sown times how far the
+        /// route goes, and the long way round goes two and a half times as far: measured
+        /// on 1-1 with a flat fifth of the budget, it was laid three groups and met seven.
+        /// The allocation was right and the arithmetic under it was not.
+        ///
+        /// So each road's purse is divided by how much longer it is than the quickest,
+        /// which leaves the *density* in proportion to the share and therefore what a
+        /// caravan meets in proportion to it too. That is docs/GDD.md's own rule - the
+        /// budget shared out in inverse proportion to a corridor's travel time - applied
+        /// to the ground instead of to the route, which is what lets a hand-drawn line
+        /// between two roads still find somebody.
+        /// </summary>
+        static float[] Shares(IReadOnlyList<Corridor> corridors)
+        {
+            var share = new float[RoadShare.Length];
+            System.Array.Copy(RoadShare, share, share.Length);
+
+            if (corridors == null) return share;
+
+            float quickest = float.MaxValue;
+            foreach (var corridor in corridors)
+                if (corridor.TravelCost > 0f && corridor.TravelCost < quickest)
+                    quickest = corridor.TravelCost;
+
+            if (float.IsInfinity(quickest) || quickest <= 0f) return share;
+
+            float total = 0f;
+
+            foreach (var corridor in corridors)
+            {
+                int kind = (int)corridor.Kind;
+                if (kind < 0 || kind >= share.Length || corridor.TravelCost <= 0f) continue;
+
+                share[kind] *= quickest / corridor.TravelCost;
+            }
+
+            foreach (float part in share) total += part;
+            if (total <= 0f) return share;
+
+            for (int i = 0; i < share.Length; i++) share[i] /= total;
+            return share;
+        }
+
+        /// <summary>
+        /// Puts one road's share on one road's ground, and gives back what it could not
+        /// spend.
+        /// </summary>
+        /// <param name="road">
+        /// The <see cref="CorridorKind"/> whose ground to use, or -1 for any ground at all.
+        /// </param>
+        /// <param name="wanted">
+        /// How many groups this share is meant to buy. It holds back enough of the share
+        /// to afford them; once they are bought the rest goes on strength. At -1 for the
+        /// road it is nought, which spends freely - by then the counts are met.
+        /// </param>
+        static int Sow(TileGrid grid, ThreatBand band, LevelRecipe recipe,
+                       DeterministicRandom rng, EncounterLayout layout,
+                       HashSet<int> occupied, HashSet<int> mined,
+                       int budget, int road, int wanted)
+        {
+            if (budget <= 0) return 0;
+
             var scored = new List<KeyValuePair<float, int>>();
             foreach (int tile in band.Tiles)
             {
                 if (occupied.Contains(tile)) continue;
-                scored.Add(new KeyValuePair<float, int>(band.Weight[tile] * rng.Range(0.6f, 1.4f), tile));
+                if (road >= 0 && band.Road[tile] != road) continue;
+
+                // Near its own road, falling away with distance. See RoadReach.
+                float near = road < 0 ? 1f
+                    : RoadReach / (RoadReach + band.FromRoad[tile]);
+
+                scored.Add(new KeyValuePair<float, int>(
+                    band.Weight[tile] * near * rng.Range(0.6f, 1.4f), tile));
             }
             scored.Sort((a, b) => b.Key.CompareTo(a.Key));
+
+            int placed = 0;
 
             foreach (var entry in scored)
             {
@@ -1274,8 +1547,7 @@ namespace TheVeil.Gen
                 if (mined.Contains(tile)) continue;
                 if (!SpacedEnough(grid, tile, occupied, GroupSpacingTiles)) continue;
 
-                var kind = PickAffordable(recipe.EnemyPool, rng, budget,
-                                          GroupsWanted - layout.Enemies.Count);
+                var kind = PickAffordable(recipe.EnemyPool, rng, budget, wanted - placed);
                 if (kind == null) break;
 
                 layout.Enemies.Add(new EnemySpawn
@@ -1286,7 +1558,10 @@ namespace TheVeil.Gen
                 });
                 occupied.Add(tile);
                 budget -= EnemyTable.Points(kind.Value);
+                placed++;
             }
+
+            return budget;
         }
 
         /// <summary>Groups arrive one at a time, so nothing is placed on top of anything else.</summary>
@@ -1308,8 +1583,8 @@ namespace TheVeil.Gen
         /// One group, drawn from what the budget can afford - and holding back enough of
         /// it to buy the groups still owed.
         ///
-        /// <paramref name="owed"/> is how many more groups <see cref="GroupsWanted"/>
-        /// still wants. While that is more than one, this may only spend what would leave
+        /// <paramref name="owed"/> is how many more groups this road's share still
+        /// wants. See Sow. While that is more than one, this may only spend what would leave
         /// the rest buyable at the cheapest price in the pool; once the count is met it
         /// spends freely, which is where the strength goes. A pool whose cheapest kind
         /// costs more than the reserve allows falls back to affording anything at all,
@@ -1390,7 +1665,25 @@ namespace TheVeil.Gen
                     if (distance < nearest) nearest = distance;
                 }
 
-                float radius = float.IsInfinity(nearest) ? TerritoryMaxTiles : nearest * 0.5f;
+                // <b>Half the distance to the neighbour is a ceiling, not a size.</b>
+                //
+                // It was the size, and that quietly cancelled the thing the placer had
+                // just spent the budget deciding. Threat is dealt out by road now - half
+                // on the quick way, a fifth on the long way round - so the quick road is
+                // crowded and the slog is sparse. Under the old rule the crowded groups
+                // came out at the six-tile floor and the lonely ones at the thirteen-tile
+                // ceiling, which is four times the ground watched by each. Two groups
+                // watching thirteen tiles sweep up as much as seven watching six, and the
+                // measurement said so: the quick road carried the most threat on only
+                // forty-two levels of a hundred, and the three roads averaged 37, 37 and
+                // 33 points met. The shares were being placed and then undone.
+                //
+                // A territory is how far those men watch, which is a fact about them. The
+                // neighbour rule stays as what stops two of them watching the same ground.
+                float own = EnemyTable.DetectRadius(spawn.Kind) / TileGrid.TileSize;
+                float apart = float.IsInfinity(nearest) ? TerritoryMaxTiles : nearest * 0.5f;
+
+                float radius = own < apart ? own : apart;
                 if (radius < TerritoryMinTiles) radius = TerritoryMinTiles;
                 if (radius > TerritoryMaxTiles) radius = TerritoryMaxTiles;
 
@@ -1413,7 +1706,7 @@ namespace TheVeil.Gen
                                                    DeterministicRandom rng, int startIndex,
                                                    int goalIndex, int count = RouteSamples)
         {
-            var band = ThreatBand.Build(grid, startIndex, goalIndex);
+            var band = ThreatBand.Build(grid, startIndex, goalIndex, corridors);
             return band == null
                 ? new List<List<int>>()
                 : SampleRoutes(grid, band, corridors, rng, startIndex, goalIndex, count);
@@ -1691,6 +1984,10 @@ namespace TheVeil.Gen
             // with no game in it.
             layout.EncountersValidated = fewest >= RepairTarget;
 
+            // And then the part the floor knows nothing about: which road carries how
+            // much. See Balance.
+            Balance(grid, band, corridors, routes, layout, occupied);
+
             TallySilver(layout, recipe);
             TopUpSilver(grid, routes, recipe, layout, occupied);
         }
@@ -1703,6 +2000,154 @@ namespace TheVeil.Gen
         /// another. Without a score at all the loop had no idea which way was up, and
         /// kept every move it made.
         /// </summary>
+        /// <summary>
+        /// How far the three roads are from carrying the shares they owe, as the total
+        /// of each road's error. Nought is exact; anything is possible up to two.
+        ///
+        /// Measured in points met rather than groups met, because a road's danger is what
+        /// is on it and not how many piles it comes in - which is the whole of why the
+        /// long way round has fewer and heavier ones.
+        /// </summary>
+        static float ShareError(TileGrid grid, IReadOnlyList<Corridor> corridors,
+                                EncounterLayout layout, float[] met)
+        {
+            for (int i = 0; i < met.Length; i++) met[i] = 0f;
+
+            float total = 0f;
+
+            foreach (var corridor in corridors)
+            {
+                int kind = (int)corridor.Kind;
+                if (kind < 0 || kind >= met.Length) continue;
+
+                foreach (int group in MetGroups(grid, corridor.Tiles, layout, roadOnly: true))
+                {
+                    float points = EnemyTable.Points(layout.Enemies[group].Kind);
+                    met[kind] += points;
+                    total += points;
+                }
+            }
+
+            if (total <= 0f) return float.MaxValue;
+
+            float error = 0f;
+            for (int i = 0; i < met.Length; i++)
+                error += Math.Abs(met[i] / total - RoadShare[i]);
+
+            return error;
+        }
+
+        /// <summary>
+        /// Moves groups between the roads until each carries roughly its share.
+        ///
+        /// <b>Placement gets most of the way and cannot get all of it.</b> The three roads
+        /// leave from one tile and arrive at another, so whatever stands near either end
+        /// is met by all three; and the long way round crosses the other two on its way
+        /// out and back, picking up their groups as it goes. Sown by road at a density
+        /// scaled for length, the shares came out 38/34/26 against the 50/30/20 they are
+        /// meant to be - better than the 37/37/33 of a single sweep over the band, and
+        /// still not the thing promised.
+        ///
+        /// So the last of it is measured and corrected, which is the only way anything in
+        /// this file has ever been made to hold. A group met by the road carrying too much
+        /// is moved to ground beside the road carrying too little, the whole arrangement
+        /// is scored again, and the move is kept only if the error fell. Nothing is added
+        /// and nothing is taken away, so the level's budget and its silver are exactly
+        /// what they were.
+        ///
+        /// The floor comes first and is not traded against this: a move that leaves a
+        /// drawn route with less than <see cref="MinEncounters"/> on it is refused however
+        /// much it helps the shares. A road nobody meets anything on is a worse level than
+        /// one whose roads are a little too alike.
+        /// </summary>
+        static void Balance(TileGrid grid, ThreatBand band, IReadOnlyList<Corridor> corridors,
+                            List<List<int>> routes, EncounterLayout layout, HashSet<int> occupied)
+        {
+            if (corridors == null || corridors.Count < 2) return;
+
+            var met = new float[RoadShare.Length];
+            float error = ShareError(grid, corridors, layout, met);
+            if (float.IsInfinity(error) || error == float.MaxValue) return;
+
+            for (int attempt = 0; attempt < MaxRepairs * RepairAttempts; attempt++)
+            {
+                if (error <= ShareTolerance) break;
+
+                Corridor over = null, under = null;
+                float most = 0f, least = 0f;
+                float total = 0f;
+                foreach (float part in met) total += part;
+                if (total <= 0f) break;
+
+                foreach (var corridor in corridors)
+                {
+                    int kind = (int)corridor.Kind;
+                    if (kind < 0 || kind >= met.Length) continue;
+
+                    float off = met[kind] / total - RoadShare[kind];
+                    if (off > most) { most = off; over = corridor; }
+                    if (off < least) { least = off; under = corridor; }
+                }
+
+                if (over == null || under == null) break;
+
+                // A group the crowded road meets and the starved one does not, so moving
+                // it can only help both ends of the trade.
+                var spare = MetGroups(grid, over.Tiles, layout, roadOnly: true);
+                var keep = new HashSet<int>(MetGroups(grid, under.Tiles, layout, roadOnly: true));
+
+                var targets = EmptiestStretches(grid, under.Tiles, band, occupied);
+                if (targets.Count == 0) break;
+
+                bool moved = false;
+
+                foreach (int donor in spare)
+                {
+                    if (keep.Contains(donor)) continue;
+                    if (layout.Enemies[donor].Origin == PlacementOrigin.Goal) continue;
+                    if (layout.Enemies[donor].Origin == PlacementOrigin.Guard) continue;
+
+                    var before = layout.Enemies[donor];
+
+                    foreach (int target in targets)
+                    {
+                        var shifted = before;
+                        occupied.Remove(before.Tile);
+                        shifted.Tile = target;
+                        shifted.Origin = PlacementOrigin.Repair;
+                        layout.Enemies[donor] = shifted;
+                        occupied.Add(target);
+                        AssignTerritories(grid, layout);
+
+                        Score(grid, routes, layout, out int fewest, out _, out _);
+                        float now = ShareError(grid, corridors, layout, met);
+
+                        if (fewest >= MinEncounters && now < error)
+                        {
+                            error = now;
+                            layout.Repairs++;
+                            layout.MinEncounters = fewest;
+                            moved = true;
+                            break;
+                        }
+
+                        occupied.Remove(target);
+                        layout.Enemies[donor] = before;
+                        occupied.Add(before.Tile);
+                        AssignTerritories(grid, layout);
+                    }
+
+                    if (moved) break;
+                }
+
+                if (!moved) break;
+
+                ShareError(grid, corridors, layout, met);
+            }
+
+            layout.RoadShareError = error;
+        }
+
         static void Score(TileGrid grid, List<List<int>> routes, EncounterLayout layout,
                           out int fewest, out int tied, out int worst)
         {

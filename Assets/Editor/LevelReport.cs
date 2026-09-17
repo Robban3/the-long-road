@@ -70,7 +70,7 @@ namespace TheVeil.Editor
                     // every level so the two can be seen together.
                     groups.Add((kept ? "kept " : "SHORT") + $" {chapter}-{level}: "
                                + $"{map.Encounters.Enemies.Count} groups, worst route "
-                               + $"{map.Encounters.MinEncounters}");
+                               + $"{map.Encounters.MinEncounters} | " + PerRoad(map));
 
                     if (map.Accepted && winnable && !damp) continue;
 
@@ -99,6 +99,50 @@ namespace TheVeil.Editor
         }
 
         static string Yes(bool held) => held ? "ok" : "NO";
+
+        /// <summary>
+        /// What each of the three roads meets, and what it costs in time and exposure.
+        ///
+        /// The design says the three roads carry different weights of enemy - the quick
+        /// comfortable one crawling with them, the hard slog nearly empty - and the placer
+        /// says every road must meet at least MinEncounters, with a repair loop that moves
+        /// groups onto whichever road meets fewest. Those two cannot both be true, and
+        /// this is the number that says which one is winning.
+        /// </summary>
+        static string PerRoad(LevelMap map)
+        {
+            var said = new StringBuilder();
+            var owner = EncounterPlacer.RoadsideOf(map.Grid, map.Corridors);
+
+            foreach (var corridor in map.Corridors)
+            {
+                int met = EncounterPlacer.MetGroups(map.Grid, corridor.Tiles, map.Encounters,
+                                                    roadOnly: true).Count;
+                int points = 0;
+                foreach (int group in EncounterPlacer.MetGroups(map.Grid, corridor.Tiles,
+                                                                map.Encounters, roadOnly: true))
+                    points += EnemyTable.Points(map.Encounters.Enemies[group].Kind);
+
+                if (said.Length > 0) said.Append("  ");
+                // What the road was given, beside what a caravan down it actually runs
+                // into. The first is the allocation; the second is the allocation after
+                // every road has wandered through every other road's country.
+                int laid = 0, laidPoints = 0;
+                for (int i = 0; i < map.Encounters.Enemies.Count; i++)
+                {
+                    if (owner == null || owner[map.Encounters.Enemies[i].Tile] != (int)corridor.Kind)
+                        continue;
+
+                    laid++;
+                    laidPoints += EnemyTable.Points(map.Encounters.Enemies[i].Kind);
+                }
+
+                said.Append($"{corridor.Kind} laid {laid}g/{laidPoints}p met {met}g/{points}p "
+                            + $"t{corridor.TravelCost:0} x{corridor.AmbushExposure:0.00}");
+            }
+
+            return said.ToString();
+        }
 
         /// <summary>
         /// How far short of its promise the placement came, and what it had to work with.

@@ -15,31 +15,7 @@ namespace TheVeil.Sim
         const int Count = 8;
 
         // Indexed by (int)TerrainType.
-        // Speed: road, plains, forest, marsh, ford, pass.
-        //
-        // <b>Forest went from 0.70 to 0.92, and it is the reason the game has a choice
-        // in it at all.</b> Measured over a hundred levels: fifty-two of them shipped a
-        // map the generator would not accept, and every one of those failed because the
-        // cautious road was not enough slower than the fast one. Not one failed on the
-        // two roads being the same line - they were different lines offering the same
-        // deal.
-        //
-        // The cause was here rather than in the search. Forest carries by far the most
-        // ambush weight and carried nearly the most travel cost, and plains is the
-        // fastest open ground and the safest, so *avoiding danger was free*: twenty tiles
-        // of wood cost 28.6 and twenty-six tiles of meadow round it cost 26. The detour
-        // paid for itself. There was no trade, so there was no decision, and no weight in
-        // the corridor search can invent one where the ground does not offer it.
-        //
-        // What a wood actually is, is cover. A cart track through trees is not much
-        // slower than a meadow; what the trees give is somewhere for men to wait. So the
-        // danger stays where it is - forest is five times the exposure of open ground -
-        // and the time comes off. Now the short way is through the wood and the safe way
-        // is the long way round, and the long way round costs what going round costs.
-        //
-        // Marsh keeps its 0.45. It is the slog, and it is meant to be a bad bargain on
-        // both counts: that is what makes the odd route odd rather than a third road.
-        static readonly float[] _speed = { 1.25f, 1.00f, 0.92f, 0.45f, 0.50f, 0.60f, 0f, 0f };
+        static readonly float[] _speed = { 1.25f, 1.00f, 0.70f, 0.45f, 0.50f, 0.60f, 0f, 0f };
         static readonly float[] _sight = { 1.00f, 1.30f, 0.55f, 0.75f, 1.10f, 0.90f, 0f, 0f };
         // Ambush: road, plains, forest, marsh, ford, pass.
         //

@@ -100,6 +100,12 @@ namespace TheVeil.Sim
         /// </summary>
         public bool EncountersValidated;
 
+        /// <summary>
+        /// How far the three roads ended up from the shares they owe, summed. See
+        /// EncounterPlacer.RoadShare — nought is exact, and the placer stops at a tenth.
+        /// </summary>
+        public float RoadShareError;
+
         /// <summary>Tiles a sane crossing could pass through — the ground placement covers.</summary>
         public int BandTiles;
 

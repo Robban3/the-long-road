@@ -336,27 +336,36 @@ namespace TheVeil.Tests
         [Test]
         public void AnEscortProtectsTheWagons()
         {
-            // Level 5 rather than 7: by the end of the chapter a single fixed escort is
-            // not expected to hold every route, which is the difficulty curve working
-            // rather than the escort failing.
+            // <b>Across the chapter rather than on one road of one level.</b>
             //
-            // And the cautious corridor rather than the fast one, for the same reason one
-            // step further in. The fast road on 1-5 is now lethal by design — the safe
-            // road parts from it properly since CorridorFinder started charging the
-            // cautious search for the fast route's tiles, and the enemy budget is no
-            // longer spread over one shared line. Both caravans died on it, escort or
-            // not, so this read zero against zero and asserted nothing. What the escort
-            // is worth has to be measured where there is something left to save.
-            var alone = Run(1, 5, null, CorridorKind.Safe);
-            var guarded = Run(1, 5, Escort(18), CorridorKind.Safe);
+            // It was 1-5's fast corridor, then 1-5's cautious one, and each move was made
+            // for the same reason: the road it was watching stopped being a road where
+            // the question could be answered. The fast one killed both caravans, so it
+            // read nothing against nothing; the cautious one now carries a third of a
+            // level's threat rather than a share of one spread evenly, and on 1-5 that
+            // left it quiet enough that neither caravan was touched - nothing against
+            // nothing again, from the other end.
+            //
+            // Chasing that from level to level is how a test ends up describing one
+            // seed. What is actually claimed here is not about 1-5: it is that an escort
+            // is worth something to the wagons. Thirty runs say that far better than two,
+            // and no single road can be quiet or lethal enough to silence them.
+            float alone = 0f, guarded = 0f;
 
-            alone.RunToCompletion();
-            guarded.RunToCompletion();
+            for (int level = 1; level <= 10; level++)
+            {
+                var map = Map(1, level);
 
-            float AloneHp() { float h = 0f; foreach (var w in alone.Caravan.Wagons) h += w.Hp; return h; }
-            float GuardedHp() { float h = 0f; foreach (var w in guarded.Caravan.Wagons) h += w.Hp; return h; }
+                foreach (var corridor in map.Corridors)
+                {
+                    alone += Left(new LevelRun(map, corridor.Tiles, null));
+                    guarded += Left(new LevelRun(map, corridor.Tiles, Escort(18)));
+                }
+            }
 
-            Assert.Greater(GuardedHp(), AloneHp(), "the escort did nothing for the wagons");
+            Assert.Greater(guarded, alone,
+                $"the escort did nothing for the wagons: {guarded:F0} against {alone:F0} "
+                + "hit points left across the chapter");
         }
 
         [Test]
@@ -621,15 +630,47 @@ namespace TheVeil.Tests
             // The halt rule is a balance change and not only a picture, so it is checked
             // as one. Ten levels, one fixed escort, and the question is whether standing
             // still to fight costs the run.
+            //
+            // <b>On the road the escort would choose, not always the fastest one.</b>
+            // This drove the fast corridor on every level, which was a fair stand-in
+            // while the three roads carried the same weight of enemy - measured, they
+            // did: six to eight groups each, everywhere. They are not meant to and now do
+            // not. EncounterPlacer.RoadShare puts half a level's threat on the quick road
+            // and a fifth on the long way round, which is docs/GDD.md §1 and §6.2: the
+            // core tension is speed against safety, and the dangerous route pays.
+            //
+            // So a fixed escort sent down the quick road ten times running is a player
+            // who never makes the decision the game is about, and it loses eight of the
+            // ten. What the chapter promises is that it can be finished, not that it can
+            // be finished the fastest way every time.
             int arrived = 0;
 
             for (int level = 1; level <= 10; level++)
-                if (Run(1, level, Escort(18)).RunToCompletion() == RunOutcome.Arrived) arrived++;
+            {
+                var map = Map(1, level);
+                bool through = false;
+
+                foreach (var corridor in map.Corridors)
+                    if (new LevelRun(map, corridor.Tiles, Escort(18)).RunToCompletion()
+                        == RunOutcome.Arrived) { through = true; break; }
+
+                if (through) arrived++;
+            }
 
             // Not all ten: by the end of the chapter one fixed escort is meant to lose
             // some of them, which is the difficulty curve rather than a bug.
             Assert.GreaterOrEqual(arrived, 7,
                 $"a full escort survived only {arrived} of the chapter's ten levels");
+        }
+
+        /// <summary>Wagon hit points left when a run is over.</summary>
+        static float Left(LevelRun run)
+        {
+            run.RunToCompletion();
+
+            float hp = 0f;
+            foreach (var wagon in run.Caravan.Wagons) hp += wagon.Hp;
+            return hp;
         }
 
         [Test]

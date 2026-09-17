@@ -93,9 +93,18 @@ namespace TheVeil.Tests
             {
                 var layout = Level(1, level).Encounters;
 
-                Assert.GreaterOrEqual(layout.MinEncounters, EncounterPlacer.RepairTarget,
+                // <b>The floor, which is what the loop is now for.</b> It asked for
+                // RepairTarget - one above a promise of five on every route - and that
+                // promise has gone, because keeping it was the machine that made the
+                // three roads the same. Half a level's threat belongs on the quick road
+                // and a fifth on the long way round (EncounterPlacer.RoadShare), so a
+                // route through the quiet country is *meant* to meet little.
+                //
+                // What may never happen is a drawn line that meets nothing at all, and
+                // that is exactly what MinEncounters is now: a floor, not a target.
+                Assert.GreaterOrEqual(layout.MinEncounters, EncounterPlacer.MinEncounters,
                     $"level 1-{level}: repaired to {layout.MinEncounters} in "
-                    + $"{layout.Repairs} moves, target is {EncounterPlacer.RepairTarget}");
+                    + $"{layout.Repairs} moves, floor is {EncounterPlacer.MinEncounters}");
             }
         }
 
