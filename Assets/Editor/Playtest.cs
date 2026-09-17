@@ -89,6 +89,165 @@ namespace TheVeil.Editor
         }
 
         /// <summary>
+        /// Whether the bridge the planning map shows is the bridge the run builds.
+        ///
+        /// <b>Reported from a playtest: the route was drawn over the bridge on the map and
+        /// there was no bridge there in the game.</b> The two are decorated by the same
+        /// call with the same seed and the same road, so they ought to agree - and "ought
+        /// to" has been wrong about something every hour of this. The planning map and the
+        /// run are the pair of answers this codebase has had the most trouble keeping
+        /// together, and the honest thing is to build both and look.
+        ///
+        /// Decorated twice per level with the two callers' own arguments, taken from
+        /// App.LevelPreview and App.LevelRunner rather than invented here, and the bridge
+        /// found in each. A tile apart is the same crossing; anything more is the fault.
+        /// </summary>
+        [MenuItem("The Veil/Bridge On Both Maps")]
+        public static void BothMaps()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/_Project/Scenes/PlayLevel.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Single);
+
+            var runner = Object.FindAnyObjectByType<LevelRunner>();
+            if (runner == null) { Debug.LogError("[Both] PlayLevel has no LevelRunner."); return; }
+
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Both] the bridge the map shows against the bridge the run builds");
+
+            int apart = 0, missing = 0;
+
+            for (int chapter = 1; chapter <= 3; chapter++)
+            {
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    var map = LevelMaps.For(chapter, level);
+                    var biome = Biomes.Of(chapter);
+                    var look = runner.LookFor(biome);
+                    var decor = look != null && look.Dressed ? look.Decor : runner.Decor;
+
+                    // What BridgeTile answers, which is what both callers ask it.
+                    int named = TerrainDecorator.BridgeTile(map.Grid, map.Seed,
+                                                            LevelPreview.Travelled(map));
+
+                    var plan = Where(Decorated(map, decor, runner, chapter, level, plan: true), map);
+                    var road = Where(Decorated(map, decor, runner, chapter, level, plan: false), map);
+
+                    if (plan < 0 || road < 0)
+                    {
+                        said.AppendLine($"[Both] {chapter}-{level}: BridgeTile says {named}, "
+                                        + $"map built {plan}, run built {road}"
+                                        + (plan != road ? "  <-- ONE OF THEM HAS NO BRIDGE" : ""));
+                        if (plan != road) missing++;
+                        continue;
+                    }
+
+                    map.Grid.ToCoords(plan, out int px, out int py);
+                    map.Grid.ToCoords(road, out int rx, out int ry);
+
+                    int gap = Mathf.Abs(px - rx) + Mathf.Abs(py - ry);
+                    if (gap > 1) apart++;
+
+                    // <b>And whether a caravan driving the road goes over the deck or
+                    // past it.</b> The route is squared onto the row the middle of its
+                    // ford is on (Crossings.Square) and the bridge is laid on the tile
+                    // BridgeTile named; if those are different rows, the player draws a
+                    // line over the bridge on the map and drives beside it in the game,
+                    // which is what a playtest just reported.
+                    int off = int.MaxValue;
+                    string whose = "nobody";
+
+                    foreach (var corridor in map.Corridors)
+                    {
+                        var driven = TheVeil.Sim.Crossings.Square(map.Grid, corridor.Tiles);
+
+                        foreach (int tile in driven)
+                        {
+                            map.Grid.ToCoords(tile, out int dx, out int dy);
+                            int away = Mathf.Abs(dx - rx) + Mathf.Abs(dy - ry);
+
+                            if (away >= off) continue;
+                            off = away;
+                            whose = corridor.Kind.ToString();
+                        }
+                    }
+
+                    said.AppendLine($"[Both] {chapter}-{level}: map at {px},{py}, "
+                                    + $"run at {rx},{ry}, {gap} tile(s) apart; nearest "
+                                    + $"driven road is {whose} at {off} tile(s)"
+                                    + (gap > 1 ? "  <-- DIFFERENT CROSSINGS" : "")
+                                    + (off > 1 ? "  <-- NOBODY DRIVES OVER IT" : ""));
+                }
+            }
+
+            said.AppendLine($"[Both] {apart} of 30 disagree, {missing} build one bridge only");
+            Write("bridges.txt", said);
+        }
+
+        /// <summary>
+        /// One level decorated the way the planning map does it, or the way the run does.
+        ///
+        /// The arguments are the two callers' own, copied rather than paraphrased. Where
+        /// they differ is the whole point of the comparison, so a shared helper that
+        /// smoothed the difference away would answer nothing.
+        /// </summary>
+        static GameObject Decorated(LevelMap map, BiomeDecor decor, LevelRunner runner,
+                                    int chapter, int level, bool plan)
+        {
+            var root = new GameObject(plan ? "Plan" : "Run");
+            var town = LevelMaps.Recipe(chapter, level).Town
+                ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
+                : Towns.None;
+
+            if (plan)
+                TerrainDecorator.Decorate(root.transform, map.Grid, map.Seed, decor,
+                    keepClear: null, heightScale: runner.HeightScale,
+                    maxProps: runner.MaxProps,
+                    ruinSites: TrapSigns.Sites(map), horizon: false,
+                    campSites: CampSignal.Tiles(map), travelled: LevelPreview.Travelled(map),
+                    village: Settlements.Site(map, chapter, level),
+                    settled: Settlements.Settled(biome: Biomes.Of(chapter)),
+                    town: town,
+                    guard: Champions.Post(map),
+                    goalTile: level >= Campaign.LevelsPerChapter ? map.GoalIndex : -1);
+            else
+                TerrainDecorator.Decorate(root.transform, map.Grid, map.Seed, decor,
+                    keepClear: null, heightScale: runner.HeightScale,
+                    maxProps: runner.MaxProps,
+                    apronOpenings: new[] { map.StartIndex, map.GoalIndex },
+                    ruinSites: TrapSigns.Sites(map),
+                    driveLine: LevelPreview.Travelled(map),
+                    campSites: CampSignal.Tiles(map), driveMargin: 0,
+                    travelled: LevelPreview.Travelled(map),
+                    goalTile: level >= Campaign.LevelsPerChapter ? map.GoalIndex : -1,
+                    landmarkScale: runner.LandmarkScale,
+                    densityScale: 1f,
+                    village: Settlements.Site(map, chapter, level),
+                    settled: Settlements.Settled(Biomes.Of(chapter)),
+                    town: town,
+                    guard: Champions.Post(map));
+
+            return root;
+        }
+
+        /// <summary>The tile the built bridge stands on, or -1 where none was built.</summary>
+        static int Where(GameObject root, LevelMap map)
+        {
+            var bridge = Deepest(root.transform, "Bridge");
+            int tile = -1;
+
+            if (bridge != null)
+            {
+                var at = ModelScaling.Measure(bridge.gameObject).center;
+                int x = (int)(at.x / TileGrid.TileSize), y = (int)(at.z / TileGrid.TileSize);
+                if (map.Grid.InBounds(x, y)) tile = map.Grid.ToIndex(x, y);
+            }
+
+            Object.DestroyImmediate(root);
+            return tile;
+        }
+
+        /// <summary>
         /// Drives every level of the chapters that exist and writes down what happened.
         ///
         /// <b>Thirty levels, three roads each, played rather than counted.</b> Every fault
