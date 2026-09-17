@@ -53,6 +53,24 @@ namespace TheVeil.Sim
             Attempts = attempts;
         }
 
+        /// <summary>
+        /// Whether the generator accepted this map, or ran out of attempts and kept the
+        /// least bad one it had seen.
+        ///
+        /// <b>The two came back indistinguishable, and the difference is the whole of
+        /// what the generator promises.</b> Generate returns the first candidate that
+        /// satisfies every condition, and when none of them does it returns the best of a
+        /// bad lot - with an ordinary <see cref="Attempts"/> on it, which is the attempt
+        /// that candidate happened to be found at and not how hard the search tried. So a
+        /// level that exhausted ninety-six attempts and shipped a compromise looked from
+        /// outside exactly like a level that was answered on the fourth, and the tool that
+        /// writes the level catalogue wrote both down the same way.
+        ///
+        /// Set by the generator on the way out and read by that tool. Nothing in a run
+        /// reads it: by then the map is the map.
+        /// </summary>
+        public bool Accepted { get; set; }
+
         public int StartIndex => Grid.ToIndex(StartX, StartY);
         public int GoalIndex => Grid.ToIndex(GoalX, GoalY);
 

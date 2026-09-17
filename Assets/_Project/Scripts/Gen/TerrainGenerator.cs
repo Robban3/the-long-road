@@ -189,13 +189,29 @@ namespace TheVeil.Gen
                 // four crossings and ship with one: see LevelRecipe.CrossingsOwed.
                 bool crossable = Crossings.Count(grid) >= recipe.CrossingsOwed;
 
-                // A named attempt is the answer by definition: the search that named it
-                // already asked every question below, and asking again is the cost this
-                // exists to avoid.
-                if (only >= 0) return map;
+                // <b>A named attempt is the answer, and it is not necessarily a good
+                // one.</b> The search that named it asked every question below and the
+                // catalogue's signature is what stops a stale name being trusted, so
+                // asking again is the cost this exists to avoid. But the catalogue
+                // records what the search *arrived* at, and a search that runs out
+                // arrives at a compromise - so claiming this one was accepted, as this
+                // did, is claiming something nobody checked.
+                //
+                // The four cheap conditions are already worked out on the line above and
+                // cost nothing to report. The fifth - whether a caravan can be got down
+                // it - is the expensive one and stays where it is.
+                if (only >= 0)
+                {
+                    map.Accepted = valid && kept && passes && crossable;
+                    return map;
+                }
 
                 if (valid && kept && passes && crossable
-                    && (playable == null || playable(map))) return map;
+                    && (playable == null || playable(map)))
+                {
+                    map.Accepted = true;
+                    return map;
+                }
 
                 // Keep the least-bad candidate: promise first, then a meaningful
                 // choice, then the corridors that differ most.
@@ -914,6 +930,7 @@ namespace TheVeil.Gen
             var path = new List<int>();
 
             int bestStart = -1, bestGoal = -1, bestTiles = -1;
+            bool bestDry = false;
 
             int attempts = Math.Min(PairAttempts, left.Count * right.Count);
             for (int i = 0; i < attempts; i++)
@@ -935,14 +952,24 @@ namespace TheVeil.Gen
 
                 if (!pathfinder.TryFindPath(sx, sy, gx, gy, path, out _)) continue;
 
-                if (path.Count > bestTiles)
+                // Dry ground at both ends, wanted but not demanded. See Dry: a level may
+                // be wet to both edges, and refusing to place a road on one would bias
+                // generation towards dry maps rather than fix anything.
+                bool dry = Dry(grid, sx, sy) && Dry(grid, gx, gy);
+
+                if (dry && !bestDry || dry == bestDry && path.Count > bestTiles)
                 {
+                    bestDry = dry;
                     bestTiles = path.Count;
                     bestStart = s;
                     bestGoal = g;
                 }
 
-                if (path.Count >= recipe.MinRouteTiles) break;
+                // A long enough road, and not one that begins in the river. Stopping on
+                // length alone is what shipped the wet ones: the first pair that cleared
+                // MinRouteTiles won, and whether the caravan would be standing in water
+                // when the level opened was not a question anybody asked.
+                if (dry && path.Count >= recipe.MinRouteTiles) break;
             }
 
             if (bestStart < 0) return false;
@@ -952,6 +979,14 @@ namespace TheVeil.Gen
             return true;
         }
 
+        /// <summary>
+        /// How much dry ground an endpoint wants around it, in tiles.
+        ///
+        /// Two. The caravan is not a point: it stands in the level before it has moved a
+        /// wheel, and the wagons behind the lead one occupy the ground back from it.
+        /// </summary>
+        const int DryRadius = 2;
+
         static List<int> CollectBand(TileGrid grid, int xFrom, int xTo)
         {
             var result = new List<int>();
@@ -959,6 +994,43 @@ namespace TheVeil.Gen
                 for (int y = 0; y < grid.Height; y++)
                     if (grid.IsPassable(x, y)) result.Add(grid.ToIndex(x, y));
             return result;
+        }
+
+        /// <summary>
+        /// Whether a tile is ground the caravan could be standing on before it sets off.
+        ///
+        /// <b>The caravan began the level in the lake.</b> The pairing took anything
+        /// passable, and a ford is passable - it is the one wet tile that is - so an end
+        /// of the road could be drawn on a crossing, or on the tile beside one with the
+        /// column's rear still out over the water. Reported from a playtest of 1-10.
+        ///
+        /// A ford is water shallow enough to wade, and the water surface is drawn over it
+        /// for exactly that reason - see WaterMeshBuilder.IsWet. So neither the tile nor
+        /// the ground within DryRadius of it may be wet. This is about where a level
+        /// begins and ends, not about where it may go: the road is welcome to cross all
+        /// the water it likes in between, which is what the crossings are for.
+        ///
+        /// <b>A preference in the pairing rather than a filter on the band, and the
+        /// difference is every map in the game.</b> Filtering was the first attempt and it
+        /// was measured: the bands are what the pairing walks, so dropping tiles from them
+        /// reorders the search and lands somewhere else even on the levels whose ends were
+        /// already dry. A hundred maps moved to fix the handful that were wet, and four
+        /// tests that had been green for a reason went red. Asked as a preference, it
+        /// changes the answer only where the old answer was standing in water.
+        /// </summary>
+        static bool Dry(TileGrid grid, int x, int y)
+        {
+            for (int dy = -DryRadius; dy <= DryRadius; dy++)
+                for (int dx = -DryRadius; dx <= DryRadius; dx++)
+                {
+                    int nx = x + dx, ny = y + dy;
+                    if (!grid.InBounds(nx, ny)) continue;
+
+                    var at = grid[grid.ToIndex(nx, ny)];
+                    if (at == TerrainType.Water || at == TerrainType.Ford) return false;
+                }
+
+            return true;
         }
 
         static int ForceOpen(TileGrid grid, int x, int y)

@@ -50,7 +50,8 @@ namespace TheVeil.Editor
             var sheet = new StringBuilder();
             sheet.AppendLine("[Catalogue] the map each level ships");
 
-            int walked = 0, searched = 0;
+            int walked = 0, searched = 0, stuck = 0, settled = 0;
+            var beaten = new StringBuilder();
 
             for (int chapter = 1; chapter <= LevelCatalogue.Chapters; chapter++)
             {
@@ -69,6 +70,32 @@ namespace TheVeil.Editor
 
                     // Attempts counts from one and the generator's loop from nought.
                     int attempt = map.Attempts - 1;
+
+                    // <b>A search that ran out is not an answer, and it looks exactly like
+                    // one from here.</b> Generate keeps the least bad candidate and hands
+                    // it back when the ceiling is reached, so a level nobody can get down
+                    // arrives as an ordinary row with a high attempt number on it. Written
+                    // into the table it becomes the shipped map, and the one gate that
+                    // would have caught it is the gate that already gave up.
+                    //
+                    // So what is about to be written down is asked the question one more
+                    // time. It costs one more run on the levels that searched hardest and
+                    // it is the difference between a catalogue that records a search and a
+                    // catalogue that records a promise.
+                    if (!map.Accepted)
+                    {
+                        beaten.AppendLine($"[Catalogue] {chapter}-{level}: the search ran "
+                                          + "out and this is the least bad candidate, found "
+                                          + $"at attempt {attempt}");
+                        settled++;
+                    }
+
+                    if (!LevelMaps.Winnable(map, chapter, level))
+                    {
+                        beaten.AppendLine($"[Catalogue] {chapter}-{level}: no road the "
+                                          + "reference escort can get down");
+                        stuck++;
+                    }
 
                     table.AppendLine($"{chapter} {level} {attempt}");
                     walked++;
@@ -90,6 +117,15 @@ namespace TheVeil.Editor
             sheet.AppendLine($"[Catalogue] signature {LevelCatalogue.Signature()}");
 
             Debug.Log(sheet.ToString());
+
+            // Loud, and after the table, so the numbers above are there to read beside it.
+            // The table is still written: a level that cannot be won is a level whose
+            // recipe or whose map wants changing, and refusing to write the catalogue
+            // would only take the rest of the game away while that is worked out.
+            if (stuck > 0 || settled > 0)
+                Debug.LogWarning($"[The Veil] {settled} level(s) ship a compromise and "
+                                 + $"{stuck} ship a map the reference escort cannot get "
+                                 + $"down:\n{beaten}");
         }
 
         /// <summary>

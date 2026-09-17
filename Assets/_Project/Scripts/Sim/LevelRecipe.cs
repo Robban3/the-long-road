@@ -127,6 +127,25 @@ namespace TheVeil.Sim
         /// <summary>
         /// Seeds that fail corridor validation are re-rolled this many times before
         /// the best candidate so far is accepted (docs/content-pipeline.md §3 step 4).
+        ///
+        /// <b>Ninety-six, and it turned out that most levels were never being answered at
+        /// all.</b> The search stops at the first candidate that satisfies every
+        /// condition; when it runs out it keeps the best of a bad lot instead, and that
+        /// map comes back looking like any other. Raised from forty-eight, the number of
+        /// levels that found a candidate satisfying the whole recipe went from a handful
+        /// to all but one of a hundred - which means the rest had been quietly shipping
+        /// compromises, some of them found on the third or fourth attempt and looking for
+        /// all the world like an easy answer.
+        ///
+        /// It was twelve while the accept conditions were arithmetic, and it went to
+        /// forty-eight when a candidate started being judged by driving a caravan down it.
+        /// That judgement is strict and it should be: what it asks is the promise the
+        /// chapter makes to the player.
+        ///
+        /// The cost is paid by the editor tool that writes the level catalogue, once, and
+        /// never by a player: LevelCatalogue records the attempt each level landed on and
+        /// the game goes straight to it. See LevelMap.Accepted for how a compromise is
+        /// told from an answer, which it could not be before.
         /// </summary>
         public int MaxGenerationAttempts = 48;
 

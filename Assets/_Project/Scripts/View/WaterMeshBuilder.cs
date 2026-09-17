@@ -50,6 +50,102 @@ namespace TheVeil.View
         const int Levelling = 2;
 
         /// <summary>
+        /// And the widest that window ever opens, in tiles.
+        ///
+        /// <b>Two tiles is a river's answer, and it was being given to lakes.</b> A
+        /// window that size flattens a channel across and leaves its fall along it, which
+        /// is what a river does and the reason the number is small. Open water is the
+        /// opposite case: a lake twenty tiles across got a surface that followed its own
+        /// bed twenty tiles down, which is not a lake, it is wet ground.
+        ///
+        /// So the window is the water's own breadth here, out to eight tiles. A channel
+        /// never reaches that - nothing two tiles from a bank does - so rivers come out
+        /// exactly as they were, and only water broad enough to have a middle is levelled
+        /// like it has one.
+        /// </summary>
+        const int Pond = 8;
+
+        /// <summary>
+        /// How wide a window this corner's water wants, in tiles: its own breadth, held
+        /// between <see cref="Levelling"/> and <see cref="Pond"/>.
+        ///
+        /// The broadest of the four tiles meeting the corner, so the middle of a lake
+        /// levels like a lake and a shore corner does not drag the sheet down to the one
+        /// bank it happens to touch.
+        /// </summary>
+        static int Window(TileGrid grid, int[] breadth, int cornerX, int cornerY)
+        {
+            int widest = 0;
+
+            for (int dy = -1; dy <= 0; dy++)
+                for (int dx = -1; dx <= 0; dx++)
+                {
+                    int tx = cornerX + dx, ty = cornerY + dy;
+                    if (!grid.InBounds(tx, ty)) continue;
+
+                    int here = breadth[grid.ToIndex(tx, ty)];
+                    if (here > widest) widest = here;
+                }
+
+            if (widest < Levelling) return Levelling;
+            return widest > Pond ? Pond : widest;
+        }
+
+        /// <summary>
+        /// How far every wet tile is from the nearest dry one, in tiles.
+        ///
+        /// A breadth-first sweep out from the banks. It is a fact about the water and not
+        /// about the terrain type: a river three tiles wide never reads more than two,
+        /// and the middle of a lake reads as far as the lake is wide. That number is the
+        /// whole of what tells a channel from open water here.
+        ///
+        /// The map's edge is not a bank. Water running off the side of the level is as
+        /// open there as it is anywhere else, and counting the edge as dry would pull a
+        /// lake's surface down to it.
+        /// </summary>
+        static int[] Breadth(TileGrid grid, bool[] wet)
+        {
+            var reach = new int[wet.Length];
+            var queue = new Queue<int>();
+
+            for (int i = 0; i < wet.Length; i++)
+            {
+                if (wet[i]) { reach[i] = int.MaxValue; continue; }
+
+                reach[i] = 0;
+                queue.Enqueue(i);
+            }
+
+            int[] dx = { 1, -1, 0, 0 };
+            int[] dy = { 0, 0, 1, -1 };
+
+            while (queue.Count > 0)
+            {
+                int at = queue.Dequeue();
+                grid.ToCoords(at, out int x, out int y);
+
+                for (int d = 0; d < 4; d++)
+                {
+                    int nx = x + dx[d], ny = y + dy[d];
+                    if (!grid.InBounds(nx, ny)) continue;
+
+                    int next = grid.ToIndex(nx, ny);
+                    if (reach[next] <= reach[at] + 1) continue;
+
+                    reach[next] = reach[at] + 1;
+                    queue.Enqueue(next);
+                }
+            }
+
+            // Water that never met a bank - a level wet from edge to edge - would still
+            // be holding int.MaxValue. It levels as flat as the window allows.
+            for (int i = 0; i < reach.Length; i++)
+                if (reach[i] == int.MaxValue) reach[i] = Pond;
+
+            return reach;
+        }
+
+        /// <summary>
         /// The height the water stands at here: the bed, levelled.
         ///
         /// <b>This is what gives the river a depth at all.</b> The surface used to be the
@@ -66,15 +162,17 @@ namespace TheVeil.View
         /// Wet tiles only. Averaging the meadow in would lift the surface onto the grass,
         /// which is the artefact this whole builder was written to remove.
         /// </summary>
-        static float Bedding(TileGrid grid, bool[] wetMask, int cornerX, int cornerY,
-                             float tileSize, float heightScale)
+        static float Bedding(TileGrid grid, bool[] wetMask, int[] breadth, int cornerX,
+                             int cornerY, float tileSize, float heightScale)
         {
             float sum = 0f;
             int counted = 0;
 
-            for (int dy = -Levelling; dy <= Levelling - 1; dy++)
+            int window = Window(grid, breadth, cornerX, cornerY);
+
+            for (int dy = -window; dy <= window - 1; dy++)
             {
-                for (int dx = -Levelling; dx <= Levelling - 1; dx++)
+                for (int dx = -window; dx <= window - 1; dx++)
                 {
                     int tx = cornerX + dx, ty = cornerY + dy;
                     if (!grid.InBounds(tx, ty)) continue;
@@ -321,6 +419,10 @@ namespace TheVeil.View
             var uvs = new List<Vector2>();
             var depths = new List<float>();
 
+            // Once per sheet rather than per corner: see Bedding, which reads it to tell
+            // a channel from open water.
+            var breadth = Breadth(grid, wet);
+
             // One vertex per shared corner, made on demand. The key is the corner's grid
             // coordinate, which is what makes neighbouring tiles agree.
             var corners = new Dictionary<int, int>();
@@ -332,10 +434,10 @@ namespace TheVeil.View
                 {
                     if (!wet[grid.ToIndex(x, y)]) continue;
 
-                    int a = Corner(grid, wet, corners, vertices, uvs, depths, x, y, tileSize, heightScale, depth, shelve, stride);
-                    int b = Corner(grid, wet, corners, vertices, uvs, depths, x + 1, y, tileSize, heightScale, depth, shelve, stride);
-                    int c = Corner(grid, wet, corners, vertices, uvs, depths, x + 1, y + 1, tileSize, heightScale, depth, shelve, stride);
-                    int d = Corner(grid, wet, corners, vertices, uvs, depths, x, y + 1, tileSize, heightScale, depth, shelve, stride);
+                    int a = Corner(grid, wet, breadth, corners, vertices, uvs, depths, x, y, tileSize, heightScale, depth, shelve, stride);
+                    int b = Corner(grid, wet, breadth, corners, vertices, uvs, depths, x + 1, y, tileSize, heightScale, depth, shelve, stride);
+                    int c = Corner(grid, wet, breadth, corners, vertices, uvs, depths, x + 1, y + 1, tileSize, heightScale, depth, shelve, stride);
+                    int d = Corner(grid, wet, breadth, corners, vertices, uvs, depths, x, y + 1, tileSize, heightScale, depth, shelve, stride);
 
                     triangles.Add(a); triangles.Add(d); triangles.Add(c);
                     triangles.Add(a); triangles.Add(c); triangles.Add(b);
@@ -351,7 +453,23 @@ namespace TheVeil.View
             mesh.SetUVs(0, uvs);
             mesh.SetColors(Deeps(depths));
             mesh.SetTriangles(triangles, 0);
-            mesh.RecalculateNormals();
+
+            // <b>Straight up, rather than whatever the bed underneath is doing.</b>
+            //
+            // RecalculateNormals reads the slope of the sheet, and the sheet's height is
+            // the bed levelled - so every gentle roll in the bottom of a lake was handed
+            // to the shader as a tilt in the *surface*. A few degrees is nothing on a
+            // matte material and everything on a specular one: the sky lands on one patch
+            // of a lake and not on the patch beside it, with a hard edge between them
+            // where the tilt crosses over. Reported from a playtest as the water not
+            // matching itself within one lake, which is what it was.
+            //
+            // A water surface's normal is up. The ripples are arithmetic in the shader
+            // and may tilt it from there; the mesh has no business doing it, and nothing
+            // else here reads these normals.
+            var up = new Vector3[vertices.Count];
+            for (int i = 0; i < up.Length; i++) up[i] = Vector3.up;
+            mesh.SetNormals(up);
 
             // Tangents, which our own shader does not read and every bought one does.
             //
@@ -443,7 +561,8 @@ namespace TheVeil.View
         /// Its position is the grid corner drawn in toward that same water — see
         /// <see cref="Inset"/>.
         /// </summary>
-        static int Corner(TileGrid grid, bool[] wetMask, Dictionary<int, int> corners,
+        static int Corner(TileGrid grid, bool[] wetMask, int[] breadth,
+                          Dictionary<int, int> corners,
                           List<Vector3> vertices, List<Vector2> uvs, List<float> depths,
                           int x, int y, float tileSize, float heightScale, float depth,
                           bool shelve, int stride)
@@ -489,7 +608,7 @@ namespace TheVeil.View
             // The ground mesh's own corner height is the only number that cannot do
             // that, because it is where the ground actually is.
             float surface = shelve
-                ? Mathf.Max(Bedding(grid, wetMask, x, y, tileSize, heightScale) + depth,
+                ? Mathf.Max(Bedding(grid, wetMask, breadth, x, y, tileSize, heightScale) + depth,
                             lowest + Film)
                 : TerrainMeshBuilder.CornerHeight(grid, x, y, heightScale) + depth;
 

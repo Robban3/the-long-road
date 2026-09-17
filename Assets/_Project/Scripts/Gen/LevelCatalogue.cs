@@ -134,7 +134,8 @@ namespace TheVeil.Gen
                 "weapon=" + TroopBoonTable.WeaponCap.ToString("0.00", culture),
                 "armour=" + TroopBoonTable.ArmourHealthCap.ToString("0.00", culture),
                 "reduce=" + TroopBoonTable.ArmourReductionCap.ToString("0.00", culture),
-                $"smithy={RunEconomy.MaxTrackLevel}"
+                $"smithy={RunEconomy.MaxTrackLevel}",
+                "terrain=" + Landscape()
             };
 
             for (int chapter = 1; chapter <= Chapters; chapter++)
@@ -148,6 +149,54 @@ namespace TheVeil.Gen
             }
 
             return string.Join(" ", parts);
+        }
+
+        static string _landscape;
+
+        /// <summary>
+        /// A fingerprint of the country the generator builds, so a catalogue cannot
+        /// outlive the landscape it was searched through.
+        ///
+        /// <b>Everything else in the signature is a number somebody types, and this is
+        /// the one thing that is not.</b> A recorded attempt is an index into a search,
+        /// and the search runs over whatever TerrainGenerator produces: change how a
+        /// river is cut or where a road is allowed to begin, and attempt thirty-four is a
+        /// different map with the same number on it. No amount of listing constants
+        /// catches that, because no constant moved - the code did.
+        ///
+        /// So one map is actually built and its ground is hashed. Attempt zero of 1-1,
+        /// with no winnability check asked for, which is a terrain field and a corridor
+        /// search and nothing expensive. Any change to the shape of the world moves this
+        /// number, the catalogue is refused rather than trusted, and the worst case is a
+        /// rebuild rather than a level nobody can win.
+        ///
+        /// Worked out once per process. It is the same answer every time it is asked.
+        /// </summary>
+        static string Landscape()
+        {
+            if (_landscape != null) return _landscape;
+
+            var map = TerrainGenerator.Generate(ChapterRecipe.For(1).ForLevel(1),
+                                                DeterministicRandom.SeedFor(1, 1), null, 0);
+
+            unchecked
+            {
+                uint hash = 2166136261u;
+
+                for (int i = 0; i < map.Grid.TileCount; i++)
+                {
+                    hash ^= (byte)map.Grid[i];
+                    hash *= 16777619u;
+                }
+
+                foreach (int end in new[] { map.StartIndex, map.GoalIndex })
+                {
+                    hash ^= (uint)end;
+                    hash *= 16777619u;
+                }
+
+                return _landscape = hash.ToString("x8");
+            }
         }
 
         /// <summary>How many chapters the signature covers. The rest are the same rules.</summary>

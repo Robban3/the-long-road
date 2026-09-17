@@ -216,6 +216,44 @@ namespace TheVeil.Sim
             return true;
         }
 
+        /// <summary>
+        /// Counts the road again after its crossings were squared.
+        ///
+        /// The fords and the travel cost were read off each leg as it was solved, and a
+        /// splice at the water changes both: it can move the route onto a different row of
+        /// a ford, and it trades tiles for tiles of other terrain. Left alone, the preview
+        /// would quote a crossing list and a time for a road that is no longer the one
+        /// drawn - which is the fault this squaring exists to close, arriving by the back
+        /// door.
+        ///
+        /// The legs' First and Last spans are left pointing into the road as it was
+        /// solved. Nothing reads them, and a splice made at the water belongs to the
+        /// crossing rather than to either leg either side of it.
+        /// </summary>
+        void Retally(RouteResult result)
+        {
+            result.Crossings.Clear();
+            result.TravelCost = 0f;
+
+            for (int i = 0; i < result.Tiles.Count; i++)
+            {
+                int tile = result.Tiles[i];
+
+                if (_grid[tile] == TerrainType.Ford && !result.Crossings.Contains(tile))
+                    result.Crossings.Add(tile);
+
+                if (i == 0) continue;
+
+                _grid.ToCoords(result.Tiles[i - 1], out int px, out int py);
+                _grid.ToCoords(tile, out int x, out int y);
+
+                float step = TerrainTable.TravelCost(_grid[tile]);
+                if (px != x && py != y) step *= Sqrt2;
+
+                result.TravelCost += step;
+            }
+        }
+
         /// <summary>Straight-line distance between two tiles, in tiles.</summary>
         float Apart(int a, int b)
         {
@@ -305,6 +343,28 @@ namespace TheVeil.Sim
                 result.TravelCost += legCost;
                 fromX = toX;
                 fromY = toY;
+            }
+
+            // <b>Squared at the water, because this is the line the player is shown.</b>
+            //
+            // LevelRun squares the road it is handed - see Crossings.Square - so the
+            // column comes at a crossing straight instead of crabbing over the deck. That
+            // correction was only ever applied on the way into a run, so the planning map
+            // drew one road and the caravan drove another, and the two differed exactly
+            // where the difference is most visible: at the bridge. The player was left
+            // nudging waypoints to straighten an approach that was going to be
+            // straightened anyway, and could not see that it had been.
+            //
+            // The same call, on the same road, at the one place both answers come from.
+            // It is idempotent, so the run squaring it again changes nothing.
+            var squared = Crossings.Square(_grid, result.Tiles);
+
+            if (!ReferenceEquals(squared, result.Tiles))
+            {
+                result.Tiles.Clear();
+                foreach (int tile in squared) result.Tiles.Add(tile);
+
+                Retally(result);
             }
 
             float ambush = 0f;

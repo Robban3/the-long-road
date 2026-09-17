@@ -660,7 +660,29 @@ namespace TheVeil.View
 
             // And so do the horses, which is the same argument: a team standing still
             // in the traces while the wagon behind it moves is worse than no team.
-            foreach (var horse in _draught) Animate(horse, pace, false, false);
+            //
+            // <b>And each of them stands on the ground it is actually over.</b> The team
+            // is parented to its wagon so it follows every turn the road makes for free,
+            // which is right for where a horse is and wrong for how high it is: the
+            // parent hands down the wagon's height, and the horses are eight metres
+            // further along the road than the wagon is. On the flat nobody can tell. At a
+            // bridge it is the whole of the illusion - the team walks through the deck at
+            // bank height and only steps onto the planking when the cart behind it
+            // reaches them, which reads as horses wading through a bridge. Reported from
+            // a playtest, and the same is true, less visibly, of every hill the level has.
+            //
+            // The world position is set rather than the local one: the parent's rotation
+            // is a yaw and its scale need not be one, and x and z are the parent's
+            // business - only the height is this line's.
+            foreach (var horse in _draught)
+            {
+                Animate(horse, pace, false, false);
+
+                var over = horse.position;
+                _standing.TryGetValue(horse, out float lift);
+                horse.position = new Vector3(over.x, GroundAt(new Vec2(over.x, over.z)) + lift,
+                                             over.z);
+            }
 
             foreach (var pair in _troops)
             {
