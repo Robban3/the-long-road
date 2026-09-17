@@ -63,9 +63,12 @@ namespace TheVeil.Gen
             // written answer being trusted after the rules it was written under have moved.
             int shipped = LevelCatalogue.Shipped(chapter, level);
 
-            var map = TerrainGenerator.Generate(Recipe(chapter, level),
+            var recipe = Recipe(chapter, level);
+
+            var map = TerrainGenerator.Generate(recipe,
                                                 DeterministicRandom.SeedFor(chapter, level),
-                                                candidate => Winnable(candidate, chapter, level),
+                                                candidate => RoadsThrough(candidate, chapter, level,
+                                                                          recipe.RoutesOwed),
                                                 shipped);
 
             // The ground a castle stands on, levelled — after the generator has finished
@@ -108,8 +111,29 @@ namespace TheVeil.Gen
         /// answer, not that every answer is right.
         /// </summary>
         public static bool Winnable(LevelMap map, int chapter, int level)
+            => RoadsThrough(map, chapter, level, 1) >= 1;
+
+        /// <summary>
+        /// How many of a level's roads the reference escort can actually be got down,
+        /// counted up to <paramref name="wanted"/> and no further.
+        ///
+        /// <b>The generator had an estimate for this and the estimate was the thing that
+        /// was wrong.</b> It summed the points of the groups a route meets and compared
+        /// them against a band measured over chapter one, because driving a caravan per
+        /// attempt was far too slow to do while a player waited. That reason is gone:
+        /// nothing searches at load time any more, LevelCatalogue records the answer and
+        /// the game reads it. What the estimate was still costing was plain once it could
+        /// be seen - of sixty levels shipping a map the generator would not accept,
+        /// thirty-four were rejected by arithmetic calling a road fatal that a driven
+        /// caravan arrived down.
+        ///
+        /// Stops at <paramref name="wanted"/> because that is all any caller asks: the
+        /// recipe owes two roads, or one through the escalation band, and the difference
+        /// between two and three is a simulated run nobody reads.
+        /// </summary>
+        public static int RoadsThrough(LevelMap map, int chapter, int level, int wanted)
         {
-            if (map?.Corridors == null || map.Corridors.Count == 0) return false;
+            if (map?.Corridors == null || map.Corridors.Count == 0) return 0;
 
             var recipe = Recipe(chapter, level);
 
@@ -128,6 +152,8 @@ namespace TheVeil.Gen
             var roads = new List<Corridor>(map.Corridors);
             roads.Sort((a, b) => a.AmbushExposure.CompareTo(b.AmbushExposure));
 
+            int through = 0;
+
             foreach (var corridor in roads)
             {
                 var squad = ReferenceSquad.For(recipe,
@@ -135,10 +161,12 @@ namespace TheVeil.Gen
                                                ReferenceSquad.Smithy(chapter));
 
                 var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
-                if (run.RunToCompletion() == RunOutcome.Arrived) return true;
+                if (run.RunToCompletion() == RunOutcome.Arrived) through++;
+
+                if (through >= wanted) break;
             }
 
-            return false;
+            return through;
         }
 
         /// <summary>

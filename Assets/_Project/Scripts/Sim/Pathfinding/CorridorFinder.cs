@@ -35,7 +35,12 @@ namespace TheVeil.Sim
     /// </summary>
     public static class CorridorFinder
     {
-        /// <summary>How hard the cautious route avoids ambush terrain.</summary>
+        /// <summary>
+        /// The cautious road's starting weight, and the detour's only one.
+        ///
+        /// It was the cautious road's only weight too, until a hundred levels were
+        /// measured against it - see <see cref="Caution"/>, which begins here and climbs.
+        /// </summary>
         const float SafetyWeight = 2.4f;
 
         /// <summary>
@@ -130,28 +135,14 @@ namespace TheVeil.Sim
             //    encounter placer spreads the same budget over three times the ground and
             //    on 1-5 that left one survivable way through where the chapter owes two.
             //    That is a balance pass, not a line — so it was made as part of one, with
-            //    SurvivableDanger measuring the consequence and the generator re-rolling
+            //    LevelMaps.RoadsThrough measuring the consequence and the generator re-rolling
             //    on it.
             //
             //    Adjacent tiles carry half the charge. Without that the cautious route
             //    steps one tile aside and runs alongside the fast one, which satisfies
             //    an overlap measure and looks to the player exactly like the same road.
-            var safetyCost = new float[grid.TileCount];
-            for (int i = 0; i < safetyCost.Length; i++)
-            {
-                float ambush = TerrainTable.AmbushWeight(grid[i]);
-                safetyCost[i] = ambush > NeutralAmbush ? (ambush - NeutralAmbush) * SafetyWeight : 0f;
-            }
-
-            // The call the comment above has been describing. Made now, because what held
-            // it back was a balance pass and this is inside one.
-            Surcharge(grid, result[0].Tiles, safetyCost, TakenSurcharge, NeighbourSurcharge);
-
-            if (pathfinder.TryFindPath(startX, startY, goalX, goalY, buffer, out _, safetyCost))
-            {
-                float trueCost = MeasureTravelCost(grid, buffer);
-                result.Add(Build(CorridorKind.Safe, grid, buffer, trueCost));
-            }
+            var cautious = Cautious(grid, pathfinder, result[0], startX, startY, goalX, goalY);
+            if (cautious != null) result.Add(cautious);
 
             // 3. Odd: routed through the point furthest from everything found so far.
             //
@@ -206,6 +197,109 @@ namespace TheVeil.Sim
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// How hard the cautious road is asked to avoid ambush country, tried in order
+        /// until the road that comes back is genuinely a different offer.
+        ///
+        /// <b>One weight was measured against a hundred levels and it does not
+        /// work.</b> Sixty-six of them shipped a map the generator never accepted, and
+        /// fifty-two of those failed on this: the fast road and the cautious road were
+        /// not far enough apart to be a choice. Not one failed on overlap. The two roads
+        /// are different lines - the surcharge sees to that - they are simply not
+        /// different *offers*, and on two dozen levels the danger spread came out
+        /// negative, meaning the road the game calls safe was the more exposed of the
+        /// two.
+        ///
+        /// That last part is the tell, and it says what a single weight cannot fix. The
+        /// cautious search is pulled by two things at once: away from ambush country, and
+        /// away from the fast road. Where the fast road already had the good ground, the
+        /// second pull wins and the cautious road is not the safe one, it is merely the
+        /// other one.
+        ///
+        /// So the weight is not a constant, it is a question. A stronger one buys both
+        /// spreads at once - a road that detours further around bad country is slower and
+        /// less exposed together - so the ladder climbs until the pair clears, and stops
+        /// there. The first weight is the one that was there before, which means a level
+        /// that was already offering a real choice gets the road it was getting.
+        ///
+        /// The ladder ends. Some country cannot offer this: a level that is open ground
+        /// from end to end has no safer way round, and no weight invents one. Those maps
+        /// fail IsMeaningfulChoice and the generator rolls again, which is what it is for.
+        /// </summary>
+        static readonly float[] Caution = { 2.4f, 4f, 6.5f, 10f, 15f, 22f };
+
+        /// <summary>
+        /// The cautious road: the one a driver takes when they would rather arrive late.
+        ///
+        /// Climbs <see cref="Caution"/> and keeps the first road that is a real
+        /// alternative to the fast one. Where none of them is, it keeps the one that came
+        /// closest - the level is probably about to be re-rolled, and handing back the
+        /// nearest miss gives the generator's own ranking something honest to compare.
+        /// </summary>
+        static Corridor Cautious(TileGrid grid, GridPathfinder pathfinder, Corridor fast,
+                                 int startX, int startY, int goalX, int goalY)
+        {
+            var buffer = new List<int>();
+            Corridor nearest = null;
+            float best = float.MinValue;
+
+            foreach (float weight in Caution)
+            {
+                // Adjacent tiles carry half the charge. Without that the cautious route
+                // steps one tile aside and runs alongside the fast one, which satisfies
+                // an overlap measure and looks to the player exactly like the same road.
+                var cost = new float[grid.TileCount];
+                for (int i = 0; i < cost.Length; i++)
+                {
+                    float ambush = TerrainTable.AmbushWeight(grid[i]);
+                    cost[i] = ambush > NeutralAmbush ? (ambush - NeutralAmbush) * weight : 0f;
+                }
+
+                Surcharge(grid, fast.Tiles, cost, TakenSurcharge, NeighbourSurcharge);
+
+                if (!pathfinder.TryFindPath(startX, startY, goalX, goalY, buffer, out _, cost))
+                    continue;
+
+                var road = Build(CorridorKind.Safe, grid, buffer, MeasureTravelCost(grid, buffer));
+
+                // Judged by the same measure that is about to judge the level, so the
+                // finder cannot be looking for one thing while the gate asks for another.
+                float margin = Margin(fast, road);
+                if (margin >= 0f) return road;
+
+                if (margin > best)
+                {
+                    best = margin;
+                    nearest = road;
+                }
+            }
+
+            return nearest;
+        }
+
+        /// <summary>
+        /// How far a pair of roads is from being a choice: the worse of the two spreads,
+        /// as a share of what is asked of it. Zero or above is a pair that clears.
+        ///
+        /// Both are normalised against their own threshold so that a time spread short by
+        /// a tenth and a danger spread short by a tenth count the same. They are measured
+        /// in different units and there is no other honest way to rank them together.
+        /// </summary>
+        static float Margin(Corridor fast, Corridor safe)
+        {
+            if (fast == null || safe == null) return float.MinValue;
+            if (Overlap(fast, safe) > MaxOverlap) return float.MinValue;
+            if (fast.TravelCost <= 0f || safe.AmbushExposure <= 0f) return float.MinValue;
+
+            float time = (safe.TravelCost - fast.TravelCost) / fast.TravelCost;
+            float danger = (fast.AmbushExposure - safe.AmbushExposure) / safe.AmbushExposure;
+
+            float timeMargin = time / MinTimeSpread - 1f;
+            float dangerMargin = danger / MinDangerSpread - 1f;
+
+            return timeMargin < dangerMargin ? timeMargin : dangerMargin;
         }
 
         /// <summary>
@@ -368,10 +462,19 @@ namespace TheVeil.Sim
         /// it costs is measured too: see the note in Find. The two belong together and
         /// they want a balance pass with them.
         /// </summary>
+        /// <summary>How much of the cautious road may be the fast road, 0 to 1.</summary>
+        public const float MaxOverlap = 0.62f;
+
+        /// <summary>How much slower the cautious road must be, as a share of the fast one.</summary>
+        public const float MinTimeSpread = 0.12f;
+
+        /// <summary>How much more exposed the fast road must be, as a share of the cautious one.</summary>
+        public const float MinDangerSpread = 0.08f;
+
         public static bool IsMeaningfulChoice(IReadOnlyList<Corridor> corridors,
-                                              float maxOverlap = 0.62f,
-                                              float minTimeSpread = 0.12f,
-                                              float minDangerSpread = 0.08f)
+                                              float maxOverlap = MaxOverlap,
+                                              float minTimeSpread = MinTimeSpread,
+                                              float minDangerSpread = MinDangerSpread)
         {
             if (corridors == null || corridors.Count < 3) return false;
 

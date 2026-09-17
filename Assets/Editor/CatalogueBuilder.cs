@@ -137,9 +137,12 @@ namespace TheVeil.Editor
         /// </summary>
         static LevelMap Fresh(int chapter, int level)
         {
-            return TerrainGenerator.Generate(LevelMaps.Recipe(chapter, level),
+            var recipe = LevelMaps.Recipe(chapter, level);
+
+            return TerrainGenerator.Generate(recipe,
                                              DeterministicRandom.SeedFor(chapter, level),
-                                             candidate => LevelMaps.Winnable(candidate, chapter, level));
+                                             candidate => LevelMaps.RoadsThrough(candidate, chapter,
+                                                                                 level, recipe.RoutesOwed));
         }
 
     }

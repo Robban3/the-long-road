@@ -16,12 +16,10 @@ namespace TheVeil.Editor
     /// condition* the compromises fall on, which is the question that decides whether the
     /// answer is a looser recipe, a longer search, or a fault in the placer.
     ///
-    /// Four of the five accept conditions can be read off a finished map from out here.
-    /// The fifth — PassableRoutes against RoutesOwed — is private to the generator and
-    /// its estimate, and the honest stand-in is the thing that estimate is an estimate of:
-    /// whether the reference escort can actually get down a road. Both are printed, per
-    /// corridor, so a level that fails only the estimate can be told from one that fails
-    /// in earnest.
+    /// Every accept condition can be read off a finished map from out here, now that the
+    /// last of them is a measurement rather than a proxy: how many of a level's roads the
+    /// reference escort can be got down. So a level that shows every condition holding and
+    /// COMPROMISE beside it is a level that fails on the road count, and nothing else.
     /// </summary>
     public static class LevelReport
     {

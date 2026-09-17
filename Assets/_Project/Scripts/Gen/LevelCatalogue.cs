@@ -164,11 +164,18 @@ namespace TheVeil.Gen
         /// different map with the same number on it. No amount of listing constants
         /// catches that, because no constant moved - the code did.
         ///
-        /// So one map is actually built and its ground is hashed. Attempt zero of 1-1,
-        /// with no winnability check asked for, which is a terrain field and a corridor
-        /// search and nothing expensive. Any change to the shape of the world moves this
-        /// number, the catalogue is refused rather than trusted, and the worst case is a
-        /// rebuild rather than a level nobody can win.
+        /// So one map is actually built and hashed. Attempt zero of 1-1, with no road
+        /// count asked for, which is a terrain field and a corridor search and nothing
+        /// expensive.
+        ///
+        /// <b>The ground is not enough, and the first version of this only hashed the
+        /// ground.</b> The corridor search was then changed - the cautious road is looked
+        /// for rather than assumed now - and every level landed on a different attempt
+        /// while this number did not move a digit. A catalogue built the day before would
+        /// have been taken at face value and pointed at maps that no longer existed,
+        /// which is the exact failure this guards against, walking in through the guard.
+        /// So the roads go in too: they are what the accept conditions are mostly about,
+        /// and a change to how they are found or judged shows up here.
         ///
         /// Worked out once per process. It is the same answer every time it is asked.
         /// </summary>
@@ -194,6 +201,14 @@ namespace TheVeil.Gen
                     hash ^= (uint)end;
                     hash *= 16777619u;
                 }
+
+                // And the roads found across it, which is what the accept conditions read.
+                foreach (var corridor in map.Corridors)
+                    foreach (int tile in corridor.Tiles)
+                    {
+                        hash ^= (uint)tile;
+                        hash *= 16777619u;
+                    }
 
                 return _landscape = hash.ToString("x8");
             }

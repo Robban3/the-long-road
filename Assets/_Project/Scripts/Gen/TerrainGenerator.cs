@@ -38,39 +38,36 @@ namespace TheVeil.Gen
         const int EdgeBand = 3;
         const int PairAttempts = 48;
 
-        /// <param name="playable">
-        /// Asked of a candidate that has passed every cheap test, and the last word on
-        /// whether it ships.
+        /// <param name="roadsThrough">
+        /// How many of a candidate's roads the escort the difficulty curve assumes can
+        /// actually be got down. Asked of a candidate that has answered every cheap
+        /// question, and the last word on whether it ships.
         ///
-        /// <b>Because the cheap tests are an estimate and they were believed.</b>
-        /// PassableRoutes below counts the points of the groups a route meets and compares
-        /// them against a band measured over chapter one, and its own note says why:
-        /// simulating a run per attempt was too slow to do at load time. That was true and
-        /// it is not free. Straightening the corridors at their crossings moved two levels
-        /// of thirty — 1-5.s successor 2-7, and 1-10 — from winnable to not, and the
-        /// estimate waved both through. Nothing found it but the tests, hours later.
+        /// <b>There was an estimate here and it was believed.</b> PassableRoutes counted
+        /// the points of the groups a route meets against a band measured over chapter
+        /// one, and its own note said why: simulating a run per attempt was too slow to
+        /// do while a player waited for a chapter to open. That was true and it was never
+        /// free. Straightening the corridors at their crossings moved two levels of
+        /// thirty from winnable to not and the estimate waved both through; nothing found
+        /// it but the tests, hours later. Measured the other way round, over a hundred
+        /// levels, it called thirty-four roads impassable that a caravan walks down.
         ///
-        /// So the caller may hand in the real question, and LevelMaps does: can the escort
-        /// the difficulty curve assumes get down at least one of these roads. It is slow,
-        /// it is paid once per level behind LevelMaps.s cache, and it is the only check
-        /// here that cannot be wrong about what it measures.
+        /// So the caller hands in the real question, and LevelMaps does - see
+        /// RoadsThrough. It is slow, and it is paid once per level by the tool that
+        /// writes LevelCatalogue rather than by anybody playing.
+        ///
+        /// Null answers RoutesOwed, which accepts on the cheap questions alone. That is
+        /// for callers with no simulation to hand: the tests that build their own
+        /// terrain, and Fallback.
         /// </param>
         /// <param name="only">
-        /// The attempt to build, where a previous search has already found which one this
-        /// level ships — see Gen.LevelCatalogue. Everything below is deterministic from the
-        /// seed and the attempt number, so going straight to it gives the same map the
-        /// search would have arrived at, without the search.
-        ///
-        /// <b>Which is the difference between a level that loads and one that does not.</b>
-        /// Asking whether a candidate can be won means driving a caravan down it, and a
-        /// level that takes thirty-four attempts pays for thirty-four of those. That is
-        /// affordable once, on a machine here; it is not affordable on a player.s device
-        /// every time they open a chapter.
-        ///
-        /// Negative searches, which is what building the catalogue does.
+        /// One attempt by number, skipping the search entirely, or -1 to search. This is
+        /// how a level the catalogue already knows is built - see Gen.LevelCatalogue.
+        /// Everything below is deterministic from the seed and the attempt number, so
+        /// going straight to it gives the same map the search would have arrived at.
         /// </param>
         public static LevelMap Generate(LevelRecipe recipe, int seed,
-                                        System.Func<LevelMap, bool> playable = null,
+                                        System.Func<LevelMap, int> roadsThrough = null,
                                         int only = -1)
         {
             int attempts = Math.Max(1, recipe.MaxGenerationAttempts);
@@ -170,24 +167,34 @@ namespace TheVeil.Gen
                 // which fixed three levels of ten offering the same road twice — spent
                 // that luck, and 1-5 came out with all three routes fatal.
                 //
-                // Simulating a run per attempt is far too slow to do at load time, but
-                // the arithmetic is not: the danger a route carries is the points of the
-                // groups that route meets, and the measurement is unambiguous. Over
-                // chapter 1, routes that arrive carry thirty to forty-five points and
-                // routes that end with the caravan destroyed carry fifty to seventy,
-                // with enemy strength scaling both. See SurvivableDanger.
-                int passable = PassableRoutes(grid, corridors, encounters, recipe);
+                // <b>Driven, not estimated.</b> This was PassableRoutes: the points of
+                // the groups a route meets against a band measured over chapter one,
+                // because simulating a run per attempt was too slow to do while a player
+                // waited for a chapter to open. Nothing searches at load time any more -
+                // see LevelCatalogue - so the estimate has no reason left, and it was
+                // costing thirty-four levels that it called impassable and a caravan
+                // walked down. See LevelMaps.RoadsThrough.
+                //
+                // Asked only of candidates that have already answered the cheap questions,
+                // because it is the expensive one by a wide margin.
+                int passable = 0;
 
                 // Two promises, ranked apart rather than folded together. Conflated into
                 // one flag, a level with no encounters worth the name could outrank one
                 // whose encounters were right — and 1-1 shipped without them.
                 bool kept = encounters.EncountersValidated;
-                bool passes = passable >= recipe.RoutesOwed;
 
                 // And that the water can be got over in more than one place. The fords are
                 // cut before the country is drawn around them, so a level can be handed
                 // four crossings and ship with one: see LevelRecipe.CrossingsOwed.
                 bool crossable = Crossings.Count(grid) >= recipe.CrossingsOwed;
+
+                if (valid && kept && crossable)
+                    passable = roadsThrough == null
+                        ? recipe.RoutesOwed
+                        : roadsThrough(map);
+
+                bool passes = passable >= recipe.RoutesOwed;
 
                 // <b>A named attempt is the answer, and it is not necessarily a good
                 // one.</b> The search that named it asked every question below and the
@@ -206,8 +213,7 @@ namespace TheVeil.Gen
                     return map;
                 }
 
-                if (valid && kept && passes && crossable
-                    && (playable == null || playable(map)))
+                if (valid && kept && passes && crossable)
                 {
                     map.Accepted = true;
                     return map;
@@ -231,64 +237,27 @@ namespace TheVeil.Gen
         }
 
         /// <summary>
-        /// The danger one route may carry and still be survivable, in enemy points
-        /// scaled by the level's enemy strength.
+        /// What a level owes comes from the chapter shape - LevelRecipe.RoutesOwed -
+        /// rather than from one number here. Two everywhere was the first gate and it is
+        /// the wrong shape: 2-10 is the boss of a harder chapter, owes one, and spent
+        /// twelve attempts failing to find two before shipping the least bad anyway.
         ///
-        /// Forty-two, and the number is a measurement rather than a judgement. Across
-        /// chapter 1: routes that arrived carried 45.0, 30.0, 40.0, 39.5, 42.1, 48.6,
-        /// 40.3 and 39.2 of it; routes that ended with the caravan destroyed carried
-        /// 59.4, 60.3, 81.2 and 58.0.
+        /// <b>And how many a level has is driven rather than estimated now.</b> There was
+        /// a SurvivableDanger constant here and a PassableRoutes beside it, summing the
+        /// points of the groups a route meets against a band measured over chapter one.
+        /// Its own note recorded what that cost: the threshold moved from fifty-two to
+        /// forty-two when the placer's preference for cover was sharpened, because the
+        /// points a route meets are the same and a group that meets them from a wood is
+        /// worth more of them. A proxy calibrated against one version of the placement
+        /// has to be recalibrated whenever the placement moves, and nobody remembers to.
         ///
-        /// That reading put it at fifty-two, and the same measurement moved it to
-        /// forty-two the moment the placer's preference for cover was sharpened: the
-        /// points a route meets are the same, and a group that meets them from a forest
-        /// rather than from a plain is worth more of them. A proxy calibrated against
-        /// one version of the placement has to be recalibrated when the placement
-        /// changes, which is the cost of not simulating — and simulating a run per
-        /// generation attempt is far beyond a load-time budget. Below thirty-eight the
-        /// gate stops finding any map it likes and ships the least-bad instead, which is
-        /// how a threshold that is too strict fails.
+        /// It existed because a simulated run per attempt was beyond a load-time budget.
+        /// Nothing searches at load time any more - LevelCatalogue records which attempt
+        /// each level ships and the game goes straight to it - so the budget that forced
+        /// the estimate is gone, and with it the estimate. Of a hundred levels it was
+        /// calling thirty-four impassable that a caravan walks down. See
+        /// LevelMaps.RoadsThrough.
         /// </summary>
-        const float SurvivableDanger = 42f;
-
-        // What a level owes comes from the chapter shape now — LevelRecipe.RoutesOwed —
-        // rather than from one number here. Two everywhere was the first gate, and it is
-        // the wrong shape: 2-10 is the boss of a harder chapter, owes one, and spent
-        // twelve attempts failing to find two before shipping the least-bad anyway.
-
-        static int PassableRoutes(TileGrid grid, IReadOnlyList<Corridor> corridors,
-                                  EncounterLayout encounters, LevelRecipe recipe)
-        {
-            int passable = 0;
-
-            foreach (var corridor in corridors)
-            {
-                float danger = 0f;
-
-                // The road, and not the stand at its end.
-                //
-                // This is an estimate calibrated on chapter one: routes that arrive carry
-                // thirty to forty-five points, routes that die carry fifty to seventy. A
-                // champion is sixty on his own, met by every route by construction, so
-                // counting him made every corridor of every tenth level read as fatal —
-                // and the generator then went looking for a map that did not exist and
-                // shipped the least-bad one. 3-10 lost two roads the escort had been
-                // winning that way, with the champion untouched at the goal.
-                //
-                // What waits at the goal is measured by playing it (The Veil > Champion
-                // Report), which is the only honest way to measure one fight, and this
-                // stays what it was calibrated to be: an estimate about a road.
-                foreach (int met in EncounterPlacer.MetGroups(grid, corridor.Tiles, encounters,
-                                                              roadOnly: true))
-                    danger += EnemyTable.Points(encounters.Enemies[met].Kind);
-
-                // Measured against chapter one's squad; later chapters say how far the
-                // player has come since. See LevelRecipe.EscortStrength.
-                if (danger * recipe.EnemyStrength <= SurvivableDanger * recipe.EscortStrength) passable++;
-            }
-
-            return passable;
-        }
 
         /// <summary>Ranks two failed attempts, worst-case promise first.</summary>
         static bool Better(bool kept, bool valid, int passable, float spread,
