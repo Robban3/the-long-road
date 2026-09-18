@@ -89,6 +89,138 @@ namespace TheVeil.Editor
         }
 
         /// <summary>
+        /// The crows on the planning map, where the road is chosen, photographed the way
+        /// the player sees them.
+        ///
+        /// The planning map flies real flocks at CrowScale times life size, and its own
+        /// note says the number was guessed and nobody had looked at a render. A signal
+        /// that cannot be seen from where the decision is made is not a signal.
+        /// </summary>
+        [MenuItem("The Veil/Crows On The Plan")]
+        public static void CrowsOnThePlan()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/_Project/Scenes/LevelPreview.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Single);
+
+            var preview = Object.FindAnyObjectByType<LevelPreview>();
+            if (preview == null) { Debug.LogError("[Crows] no LevelPreview."); return; }
+
+            preview.Chapter = 1;
+            preview.Level = 10;
+            preview.Rebuild();
+
+            var map = LevelMaps.For(1, 10);
+            var said = new System.Text.StringBuilder();
+
+            // Flown for a few seconds first. The flocks circle when the plan is up, and a
+            // still taken the instant they are built shows every bird on the one spot it
+            // was spawned on, which is not what anybody looking at the map sees.
+            var tick = typeof(LevelPreview).GetMethod("TickCrows",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            for (int i = 0; i < 60 && tick != null; i++) tick.Invoke(preview, new object[] { 0.1f });
+
+            var flocks = new List<Transform>();
+            foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))
+                if (t.name.StartsWith("Crows_")) flocks.Add(t);
+
+            said.AppendLine($"[Crows] 1-10 plan: {flocks.Count} flock(s), CrowScale {preview.CrowScale}");
+
+            foreach (var flock in flocks)
+            {
+                var box = ModelScaling.Measure(flock.gameObject);
+                said.AppendLine($"[Crows] {flock.name} at {flock.position.x:0},{flock.position.z:0}: "
+                                + $"{box.size.x:0.0} x {box.size.z:0.0} m from above");
+            }
+
+            Overhead(map, System.IO.Path.Combine(Shots, "crows-plan-1-10.png"));
+            Write("crows.txt", said);
+        }
+
+        /// <summary>
+        /// Whether the country tells the truth about which road is dangerous.
+        ///
+        /// There is no risk readout any more - the landscape is how a road is judged - so
+        /// the signals have to carry it. Per road, what a player can see along it before
+        /// setting out (crows within a flock's hint of the road, bones beside it) against
+        /// what is actually on it (the enemy points a caravan down it runs into). The
+        /// question is whether the road that looks worst is the road that is worst.
+        /// </summary>
+        [MenuItem("The Veil/Signals Along The Roads")]
+        public static void SignalsAlongTheRoads()
+        {
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Signs] per road: crows and bones a player can see, against what is there");
+
+            int levels = 0, crowsRight = 0, bonesRight = 0, bothRight = 0;
+
+            for (int chapter = 1; chapter <= 3; chapter++)
+            {
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    var map = LevelMaps.For(chapter, level);
+                    var flocks = CrowSignal.Place(map);
+                    var heaps = TrapSigns.Sites(map) ?? new List<int>();
+
+                    var line = new System.Text.StringBuilder();
+                    CorridorKind worst = CorridorKind.Fast, loudest = CorridorKind.Fast, boniest = CorridorKind.Fast;
+                    int worstPoints = -1, mostCrows = -1, mostBones = -1, signs = -1;
+                    CorridorKind signed = CorridorKind.Fast;
+
+                    foreach (var road in map.Corridors)
+                    {
+                        int points = 0;
+                        foreach (int g in EncounterPlacer.MetGroups(map.Grid, road.Tiles, map.Encounters, roadOnly: true))
+                            points += EnemyTable.Points(map.Encounters.Enemies[g].Kind);
+
+                        int crows = 0;
+                        foreach (var flock in flocks)
+                            if (Within(map, road.Tiles, flock.Tile, CrowSignal.HintTiles)) crows++;
+
+                        int bones = 0;
+                        foreach (int heap in heaps)
+                            if (Within(map, road.Tiles, heap, 2)) bones++;
+
+                        line.Append($"  {road.Kind} {points}p crows {crows} bones {bones}");
+
+                        if (points > worstPoints) { worstPoints = points; worst = road.Kind; }
+                        if (crows > mostCrows) { mostCrows = crows; loudest = road.Kind; }
+                        if (bones > mostBones) { mostBones = bones; boniest = road.Kind; }
+                        if (crows + bones > signs) { signs = crows + bones; signed = road.Kind; }
+                    }
+
+                    levels++;
+                    if (loudest == worst) crowsRight++;
+                    if (boniest == worst) bonesRight++;
+                    if (signed == worst) bothRight++;
+
+                    said.AppendLine($"[Signs] {chapter}-{level}: worst is {worst}, most crows {loudest}, "
+                                    + $"most bones {boniest}, most of both {signed}"
+                                    + (signed == worst ? "" : "  <--") + " |" + line);
+                }
+            }
+
+            said.AppendLine($"[Signs] {levels} levels: crows point at the worst road on {crowsRight}, "
+                            + $"bones on {bonesRight}, the two together on {bothRight}");
+            Write("signals.txt", said);
+        }
+
+        /// <summary>Whether a tile is within so many tiles of any tile of a road.</summary>
+        static bool Within(LevelMap map, List<int> road, int tile, float tiles)
+        {
+            map.Grid.ToCoords(tile, out int x, out int y);
+
+            foreach (int step in road)
+            {
+                map.Grid.ToCoords(step, out int rx, out int ry);
+                float dx = rx - x, dy = ry - y;
+                if (dx * dx + dy * dy <= tiles * tiles) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Whether every trap has bones beside it, in the game and on the planning map,
         /// before anything has gone off.
         ///

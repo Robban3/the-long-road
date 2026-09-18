@@ -192,16 +192,22 @@ namespace TheVeil.App
         public bool ShowCrows = true;
 
         /// <summary>
-        /// Draws the crow *symbol* as well, which is off because the birds replace it.
+        /// Draws the crow *symbol* as well as the birds.
         ///
-        /// Kept as a switch rather than deleted, and for a reason with history: a crow is
-        /// about a metre across, the map is 256 m wide and read from four hundred back,
-        /// and "kråkorna syns inte" is exactly the report that produced the symbol in the
-        /// first place. <see cref="CrowScale"/> is the answer to that and it is a number
-        /// nobody has looked at yet. If the birds turn out to be specks, this is one tick
-        /// box away from having the plate back.
+        /// It was off, on the argument that birds which circle read as birds and an icon
+        /// reads as a note somebody left about birds - with this note beside it saying
+        /// that if the birds turned out to be specks, this was one tick box from having
+        /// the plate back. They were measured, on the planning camera, flown for six
+        /// seconds so they had spread into their circles: one and a half metres across
+        /// from above, on a map two hundred and fifty-six wide. A speck, and not one that
+        /// could be found even knowing where to look.
+        ///
+        /// Now that the planning panel carries no reading of danger, the crows are what
+        /// tells a player which road is the busy one. A signal that cannot be seen from
+        /// where the road is chosen is no signal at all, so the plate is back, beside the
+        /// birds rather than instead of them.
         /// </summary>
-        public bool ShowCrowSymbols;
+        public bool ShowCrowSymbols = true;
 
         /// <summary>
         /// How much bigger than life the flock is drawn.
@@ -866,6 +872,19 @@ namespace TheVeil.App
         /// from the overlay in <see cref="ApplyOverlay"/>. What the fog is for is hiding
         /// where the enemies are now.
         /// </summary>
+        /// <summary>
+        /// The landmarks that are a warning or a way, rather than a building: what the
+        /// road is chosen by, and so drawn on the plan whether or not the rest of the
+        /// symbols are.
+        ///
+        /// Not the totem. Every trap has one beside its bones, so drawing both put two
+        /// plates on every trap and doubled the clutter on exactly the part of the map a
+        /// player has to read - for nothing, since the skull already says what the map is
+        /// allowed to say: that something is there.
+        /// </summary>
+        static bool Warns(LandmarkKind kind)
+            => kind == LandmarkKind.Bones || kind == LandmarkKind.Bridge;
+
         void BuildSymbols(LevelMap map)
         {
             Clear("Symbols");
@@ -879,13 +898,21 @@ namespace TheVeil.App
                 _symbolMesh = null;
             }
 
-            if (!ShowSymbols) return;
-
             var signs = new List<MapSymbols.Sign>();
 
             if (_landmarks != null)
                 foreach (var landmark in _landmarks)
                 {
+                    // <b>The warnings are drawn whatever ShowSymbols says.</b> The switch
+                    // turned the whole layer off, on the argument that the buildings are
+                    // drawn big enough to name now and a plate over a house is a label
+                    // over the thing it labels. True of a house. Not true of a heap of
+                    // bones two metres across on a map two hundred and fifty-six wide, and
+                    // so the one sign the planning map most had to carry - the bones at
+                    // every trap, the thing that says something is there - was noted,
+                    // counted, and never drawn at all. The buildings keep the switch.
+                    if (!ShowSymbols && !Warns(landmark.Kind)) continue;
+
                     int slot = MapSymbols.SlotOf(landmark.Kind);
                     if (slot >= 0) signs.Add(new MapSymbols.Sign(slot, landmark.Tile));
                 }
