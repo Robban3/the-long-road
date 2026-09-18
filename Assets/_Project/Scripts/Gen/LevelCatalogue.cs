@@ -210,6 +210,23 @@ namespace TheVeil.Gen
                         hash *= 16777619u;
                     }
 
+                // And what stands on the country. Halving the traps changed no tile of the
+                // ground and no step of a road, so a fingerprint of those two alone would
+                // have trusted a catalogue built before it - while every level's fights,
+                // and so which attempt its escort can get through, had moved. The groups
+                // and the traps are what the road count is a judgement of.
+                foreach (var spawn in map.Encounters.Enemies)
+                {
+                    hash ^= (uint)(spawn.Tile * 31 + (int)spawn.Kind);
+                    hash *= 16777619u;
+                }
+
+                foreach (var trap in map.Encounters.Traps)
+                {
+                    hash ^= (uint)trap.Tile;
+                    hash *= 16777619u;
+                }
+
                 return _landscape = hash.ToString("x8");
             }
         }

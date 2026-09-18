@@ -106,8 +106,20 @@ namespace TheVeil.Gen
         ///
         /// A constant tuned as a product of two things breaks silently when either moves.
         /// This is the third time that has happened here.
+        ///
+        /// <b>0.09, half of that, and this time for what it looks like.</b> Every trap has
+        /// its heap of bones beside it now, drawn on the planning map as a skull, and at
+        /// eighteen per cent chapter one ran from three traps on its first level to twelve
+        /// on its last - five of them at one crossing on 1-10. Seen on the plan, that is
+        /// not a warning, it is wallpaper: a player cannot weigh twelve skulls, and a
+        /// skull that does not make somebody stop and think is not doing its job. Halved,
+        /// the chapter runs two to six.
+        ///
+        /// The points do not go away. What the traps no longer spend is spent on the
+        /// groups, so a level is as dangerous as it was; less of the danger is hidden in
+        /// the ground and more of it is walking about where the crows can see it.
         /// </summary>
-        public const float TrapBudgetShare = 0.18f;
+        public const float TrapBudgetShare = 0.09f;
 
         /// <summary>
         /// The share of the trap allowance laid at the crossing's narrow points. The
