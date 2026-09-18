@@ -192,22 +192,16 @@ namespace TheVeil.App
         public bool ShowCrows = true;
 
         /// <summary>
-        /// Draws the crow *symbol* as well as the birds.
+        /// Draws the crow *symbol* as well as the birds. Off.
         ///
-        /// It was off, on the argument that birds which circle read as birds and an icon
-        /// reads as a note somebody left about birds - with this note beside it saying
-        /// that if the birds turned out to be specks, this was one tick box from having
-        /// the plate back. They were measured, on the planning camera, flown for six
-        /// seconds so they had spread into their circles: one and a half metres across
-        /// from above, on a map two hundred and fifty-six wide. A speck, and not one that
-        /// could be found even knowing where to look.
-        ///
-        /// Now that the planning panel carries no reading of danger, the crows are what
-        /// tells a player which road is the busy one. A signal that cannot be seen from
-        /// where the road is chosen is no signal at all, so the plate is back, beside the
-        /// birds rather than instead of them.
+        /// It was turned on once the birds were measured on the planning camera at a metre
+        /// and a half across from above - a speck on a map two hundred and fifty-six wide.
+        /// Seen on the plan, the plate read as a black disc nobody could name, and it was
+        /// taken off again: an icon a player has to ask about is not a signal either. The
+        /// birds are still there. If they are to be read from the plan, it is CrowScale
+        /// that has to move, not this.
         /// </summary>
-        public bool ShowCrowSymbols = true;
+        public bool ShowCrowSymbols;
 
         /// <summary>
         /// How much bigger than life the flock is drawn.
