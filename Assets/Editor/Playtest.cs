@@ -89,6 +89,126 @@ namespace TheVeil.Editor
         }
 
         /// <summary>
+        /// The planning map and the game, photographed from straight above in the same
+        /// frame, with where each one's bridge stands.
+        ///
+        /// <b>Built by their own code, not by a copy of it.</b> The first comparison
+        /// decorated both worlds with arguments written out here, and said they agreed on
+        /// every level - while a playtest drew a route over the bridge on the map and
+        /// found it somewhere else in the game. A tool that restates what the planning map
+        /// does can only ever confirm the restatement. This opens LevelPreview.unity and
+        /// asks it to Rebuild, which is what the player sees, and puts the run's world
+        /// beside it.
+        ///
+        /// Orthographic and square over the whole grid, so the two pictures overlay
+        /// exactly: a bridge in a different place is a different place in the frame.
+        /// </summary>
+        [MenuItem("The Veil/Map Against Game")]
+        public static void MapAgainstGame() => MapAgainstGame(1, 10);
+
+        public static void MapAgainstGame(int chapter, int level)
+        {
+            var said = new System.Text.StringBuilder();
+            said.AppendLine($"[Map] {chapter}-{level}: the planning map against the game");
+
+            // The planning map, by its own hand.
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/_Project/Scenes/LevelPreview.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Single);
+
+            var preview = Object.FindAnyObjectByType<LevelPreview>();
+            if (preview == null) { Debug.LogError("[Map] LevelPreview.unity has no LevelPreview."); return; }
+
+            preview.Chapter = chapter;
+            preview.Level = level;
+            preview.Rebuild();
+
+            var map = LevelMaps.For(chapter, level);
+
+            said.AppendLine("[Map] on the planning map: " + Bridges(map));
+            Overhead(map, System.IO.Path.Combine(Shots, $"map-{chapter}-{level}.png"));
+
+            // And the game, the way LevelRunner stands it up - see SmokeTest.Build.
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/_Project/Scenes/PlayLevel.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Single);
+
+            var runner = Object.FindAnyObjectByType<LevelRunner>();
+            if (runner == null) { Debug.LogError("[Map] PlayLevel has no LevelRunner."); return; }
+
+            var root = SmokeTest.Build(runner, chapter, level, out map);
+
+            said.AppendLine("[Map] in the game:         " + Bridges(map));
+            Overhead(map, System.IO.Path.Combine(Shots, $"game-{chapter}-{level}.png"));
+
+            Object.DestroyImmediate(root);
+            Write($"map-{chapter}-{level}.txt", said);
+        }
+
+        /// <summary>Every bridge standing in the open scene, by tile, with its bearing.</summary>
+        static string Bridges(LevelMap map)
+        {
+            var decks = Object.FindObjectsByType<BridgeDeck>(FindObjectsSortMode.None);
+            if (decks.Length == 0) return "no bridge";
+
+            var said = new System.Text.StringBuilder();
+
+            foreach (var deck in decks)
+            {
+                var box = ModelScaling.Measure(deck.gameObject);
+                int x = (int)(box.center.x / TileGrid.TileSize);
+                int y = (int)(box.center.z / TileGrid.TileSize);
+
+                if (said.Length > 0) said.Append("; ");
+                said.Append($"tile {x},{y} at {box.center.x:0},{box.center.z:0} m, "
+                            + $"{box.size.x:0}x{box.size.z:0} m, yaw {deck.transform.eulerAngles.y:0}");
+            }
+
+            return said.ToString();
+        }
+
+        /// <summary>Straight down on the whole grid, the same frame every time.</summary>
+        static void Overhead(LevelMap map, string path)
+        {
+            float wide = map.Grid.Width * TileGrid.TileSize;
+            float deep = map.Grid.Height * TileGrid.TileSize;
+            var middle = new Vector3(wide * 0.5f, 0f, deep * 0.5f);
+
+            var go = new GameObject("Overhead camera");
+            var camera = go.AddComponent<UnityEngine.Camera>();
+
+            camera.orthographic = true;
+            camera.orthographicSize = Mathf.Max(wide, deep) * 0.5f;
+            camera.aspect = 1f;
+            camera.transform.position = middle + Vector3.up * 400f;
+            camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            camera.nearClipPlane = 1f;
+            camera.farClipPlane = 1000f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.55f, 0.63f, 0.72f);
+
+            const int size = 1024;
+
+            var rt = new RenderTexture(size, size, 24);
+            camera.targetTexture = rt;
+            camera.Render();
+
+            RenderTexture.active = rt;
+            var tex = new Texture2D(size, size, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, size, size), 0, 0);
+            tex.Apply();
+            RenderTexture.active = null;
+
+            camera.targetTexture = null;
+            rt.Release();
+            Object.DestroyImmediate(rt);
+            Object.DestroyImmediate(go);
+
+            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            Object.DestroyImmediate(tex);
+        }
+
+        /// <summary>
         /// Whether the bridge the planning map shows is the bridge the run builds.
         ///
         /// <b>Reported from a playtest: the route was drawn over the bridge on the map and
