@@ -122,6 +122,21 @@ namespace TheVeil.Gen
         public const float TrapBudgetShare = 0.09f;
 
         /// <summary>
+        /// The fewest traps a level may have, whatever its share of the budget buys.
+        ///
+        /// Two. Halving the share took the first level of the game down to one, and one
+        /// skull on a map teaches nothing: a player who sees a single heap of bones and
+        /// drives past it has learned that bones are scenery. Two is the least that makes
+        /// it a pattern - here, and there, and both times something was waiting - which is
+        /// what the first levels of a chapter are for.
+        ///
+        /// Paid for from the level's budget like any other trap, so the level is no
+        /// harder for it; a little less of the danger is standing about and a little more
+        /// is in the ground.
+        /// </summary>
+        public const int MinTraps = 2;
+
+        /// <summary>
         /// The share of the trap allowance laid at the crossing's narrow points. The
         /// rest is strewn over the band by terrain, as all of it used to be.
         ///
@@ -998,6 +1013,14 @@ namespace TheVeil.Gen
             spent += Strew(grid, band, rng, layout, occupied,
                            (int)(allowance * (1f - ThroatShare)));
 
+            // And up to the floor, where the share did not reach it. Allowed as much as
+            // the dearest trap costs for each one missing, so the top-up can always afford
+            // what it is asked for and never buys more than the floor.
+            int missing = MinTraps - layout.Traps.Count;
+            if (missing > 0)
+                spent += Strew(grid, band, rng, layout, occupied,
+                               missing * TrapTable.MostPoints, MinTraps);
+
             return spent;
         }
 
@@ -1160,7 +1183,8 @@ namespace TheVeil.Gen
         /// used to be placed. See <see cref="ThroatShare"/> for why both halves exist.
         /// </summary>
         static int Strew(TileGrid grid, ThreatBand band, DeterministicRandom rng,
-                         EncounterLayout layout, HashSet<int> occupied, int allowance)
+                         EncounterLayout layout, HashSet<int> occupied, int allowance,
+                         int upTo = int.MaxValue)
         {
             if (allowance <= 0) return 0;
 
@@ -1182,6 +1206,7 @@ namespace TheVeil.Gen
             foreach (var entry in scored)
             {
                 if (spent >= allowance) break;
+                if (layout.Traps.Count >= upTo) break;
                 spent += Lay(grid, rng, layout, occupied, entry.Value, allowance - spent);
             }
 

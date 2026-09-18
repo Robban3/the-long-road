@@ -200,6 +200,17 @@ namespace TheVeil.Sim
 
         public static int Points(TrapKind k) => _points[(int)k];
 
+        /// <summary>What the dearest trap costs, for anything that must be able to afford one.</summary>
+        public static int MostPoints
+        {
+            get
+            {
+                int most = 0;
+                foreach (int points in _points) if (points > most) most = points;
+                return most;
+            }
+        }
+
         /// <summary>Silver for disarming rather than triggering — the engineer's income.</summary>
         public static int DisarmSilver(TrapKind k) => _disarmSilver[(int)k];
 
