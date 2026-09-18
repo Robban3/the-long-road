@@ -110,13 +110,79 @@ namespace TheVeil.View
         /// TerrainDecorator.Bridge and DeckClearance. The footings end up in the channel,
         /// which is where a bridge keeps them.
         /// </summary>
+        /// <summary>
+        /// How far a model reaches along one horizontal direction, in metres, whatever way
+        /// it is turned.
+        ///
+        /// <b>The bounding box cannot answer this and two methods here were asking it
+        /// to.</b> Measure returns a box aligned to the world, which is the model's width
+        /// and length only while the model is aligned to the world too. A bridge is laid on
+        /// its river's bearing and rivers do not run north: 1-10's lies at seventy-nine
+        /// degrees, where the box's depth is mostly the bridge's *length*. Widen divided the
+        /// width it wanted by that, and the deck came out at half the nine metres it was
+        /// asked for - reported from a playtest as the bridge being too small again, which
+        /// is what it was.
+        ///
+        /// Each mesh's own bounds are in the mesh's own frame, so their corners carried
+        /// into the world and laid against the direction give the true reach at any angle.
+        /// The corners of a mesh's box rather than every vertex: a touch generous on a
+        /// rounded model, exact on a plank one, and a few dozen points rather than
+        /// thousands.
+        /// </summary>
+        public static float ExtentAlong(GameObject instance, Vector3 direction)
+        {
+            if (instance == null) return 0f;
+
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 1e-8f) return 0f;
+            direction.Normalize();
+
+            float low = float.MaxValue, high = float.MinValue;
+
+            void Take(Transform frame, Bounds box)
+            {
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = new Vector3((i & 1) == 0 ? box.min.x : box.max.x,
+                                             (i & 2) == 0 ? box.min.y : box.max.y,
+                                             (i & 4) == 0 ? box.min.z : box.max.z);
+
+                    float along = Vector3.Dot(frame.TransformPoint(corner), direction);
+                    if (along < low) low = along;
+                    if (along > high) high = along;
+                }
+            }
+
+            foreach (var filter in instance.GetComponentsInChildren<MeshFilter>())
+                if (filter.sharedMesh != null) Take(filter.transform, filter.sharedMesh.bounds);
+
+            foreach (var skin in instance.GetComponentsInChildren<SkinnedMeshRenderer>())
+                if (skin.sharedMesh != null) Take(skin.transform, skin.sharedMesh.bounds);
+
+            return high > low ? high - low : 0f;
+        }
+
         public static void FitToCrossing(GameObject instance, float deck, float span,
-                                         float groundY = 0f)
+                                         float groundY = 0f, Vector3 alongWorld = default)
         {
             var bounds = Measure(instance);
 
-            float across = Mathf.Min(bounds.size.x, bounds.size.z);
-            float along = Mathf.Max(bounds.size.x, bounds.size.z);
+            // The box's longer side is the length only for a model laid along an axis.
+            // Given the direction the crossing runs, the length is measured along it -
+            // see ExtentAlong.
+            float across, along;
+
+            if (alongWorld.sqrMagnitude > 1e-8f)
+            {
+                along = ExtentAlong(instance, alongWorld);
+                across = ExtentAlong(instance, new Vector3(alongWorld.z, 0f, -alongWorld.x));
+            }
+            else
+            {
+                across = Mathf.Min(bounds.size.x, bounds.size.z);
+                along = Mathf.Max(bounds.size.x, bounds.size.z);
+            }
+
             if (across <= 0.0001f || along <= 0.0001f) return;
 
             instance.transform.localScale *= Mathf.Max(deck / across, span / along);
@@ -149,13 +215,15 @@ namespace TheVeil.View
         {
             if (instance == null || targetWidth <= 0.0001f) return;
 
-            var bounds = Measure(instance);
-
-            // How wide it is now, along that direction. The crossings are cut square to
-            // their rivers, so this is the bounding box's own x or z rather than a
-            // projection — and whichever of the two the direction leans on is the one.
+            // How wide it is now, along that direction, measured the way the model is
+            // actually turned.
+            //
+            // <b>This read the world box's x or z, on the grounds that crossings are cut
+            // square to their rivers.</b> The crossings are; the rivers are not. A bridge
+            // laid at seventy-nine degrees has a box whose depth is mostly its length, and
+            // the deck was divided down by it - see ExtentAlong.
             var across = acrossWorld.normalized;
-            float now = Mathf.Abs(across.x) >= Mathf.Abs(across.z) ? bounds.size.x : bounds.size.z;
+            float now = ExtentAlong(instance, across);
             if (now <= 0.0001f) return;
 
             float factor = targetWidth / now;

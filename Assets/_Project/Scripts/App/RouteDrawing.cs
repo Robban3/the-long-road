@@ -17,7 +17,7 @@ namespace TheVeil.App
     /// went much further than the player drew. The encounter placer validates its work
     /// against sixty-four *drawn* routes rather than against the three corridors, on the
     /// stated grounds that a player draws whatever they like. The planning map has fog,
-    /// a scouting bird and a risk readout.
+    /// and a scouting bird.
     ///
     /// And the runner took its road from a CorridorKind field in the Inspector, so what
     /// the player actually got was one of the generator's own samples, the same one
@@ -244,7 +244,7 @@ namespace TheVeil.App
             _hud.Show(_planner.WaypointCount, _planner.MaxWaypoints, _route.IsValid,
                       _route.FailedLeg, _route.EstimatedSeconds(),
                       _route.ShareOf(TerrainType.Forest), _route.ShareOf(TerrainType.Marsh),
-                      _route.ShareOf(TerrainType.Road), _route.AmbushExposure,
+                      _route.ShareOf(TerrainType.Road),
                       _route.Crossings.Count, _route.DetourLegs);
         }
     }

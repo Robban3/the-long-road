@@ -35,7 +35,7 @@ namespace TheVeil.UI
         public int Level = 1;
 
         RectTransform _screen;
-        Text _title, _points, _time, _terrain, _cover, _fords, _warning;
+        Text _title, _points, _time, _terrain, _fords, _warning;
         Button _play;
         Button _scout;
         UnityEngine.UI.Text _goldText;
@@ -139,7 +139,6 @@ namespace TheVeil.UI
             _points = Line(panel.transform, ref y);
             _time = Line(panel.transform, ref y);
             _terrain = Line(panel.transform, ref y);
-            _cover = Line(panel.transform, ref y);
             _fords = Line(panel.transform, ref y);
             _warning = Line(panel.transform, ref y);
             _warning.color = Theme.Danger;
@@ -231,9 +230,20 @@ namespace TheVeil.UI
         /// Fills the panel in from a solved route. Everything is passed in because the
         /// menu assembly does not know what a RouteResult is, and should not.
         /// </summary>
+        /// <b>No reading of danger, and that is the design rather than an omission.</b>
+        /// There was a line here - "cover for an ambush", the mean ambush weight of the
+        /// ground under the route - and it has gone. The landscape is how a player judges
+        /// a road: the wood thick enough to hide men, the bones beside the track, the crows
+        /// over the far ridge. A number that says which road is dangerous takes that
+        /// judgement away and makes the choice for them; and this one was wrong about which
+        /// road was dangerous on a third of the levels in the chapters that exist.
+        ///
+        /// What is left are facts about the road - how long it takes, what ground it
+        /// crosses, how many fords - which are things the player could measure for
+        /// themselves and should not have to.
         public void Show(int waypoints, int maxWaypoints, bool valid, int failedLeg,
                          float seconds, float forest, float marsh, float road,
-                         float exposure, int fords, int detours)
+                         int fords, int detours)
         {
             if (_points == null) return;
 
@@ -243,7 +253,6 @@ namespace TheVeil.UI
             {
                 _time.text = Loc.T("No passable road.");
                 _terrain.text = Loc.F("Leg {0} cannot be walked.", failedLeg + 1);
-                _cover.text = "";
                 _fords.text = "";
                 _warning.text = Loc.T("Move the point to firmer ground.");
             }
@@ -251,7 +260,6 @@ namespace TheVeil.UI
             {
                 _time.text = Loc.F("Travel time  {0:F0} s", seconds);
                 _terrain.text = Loc.F("Forest {0:P0}   marsh {1:P0}   road {2:P0}", forest, marsh, road);
-                _cover.text = Loc.F("Cover for an ambush  {0:F2}", exposure);
                 _fords.text = Loc.F("Fords  {0}", fords);
                 _warning.text = detours > 0 ? Loc.F("{0} leg(s) go far around.", detours) : "";
             }

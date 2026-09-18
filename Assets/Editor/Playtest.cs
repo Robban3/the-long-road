@@ -89,6 +89,157 @@ namespace TheVeil.Editor
         }
 
         /// <summary>
+        /// Whether every trap has bones beside it, in the game and on the planning map,
+        /// before anything has gone off.
+        ///
+        /// <b>Reported, and not for the first time: no skeletons at the traps until they
+        /// spring, and none on the map.</b> Measured in the world the run stands up and in
+        /// the landmarks the planning map draws symbols from, trap by trap - because the
+        /// signs were being placed one per neighbourhood, twelve metres off, then pushed off
+        /// the road, and "some traps have bones somewhere" was never the promise. Every one
+        /// was.
+        ///
+        /// Within a tile and a half, which is the eight tiles touching the trap and the
+        /// width of the heap spread round its centre.
+        /// </summary>
+        [MenuItem("The Veil/Bones At The Traps")]
+        public static void BonesAtTheTraps()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/_Project/Scenes/PlayLevel.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Single);
+
+            var runner = Object.FindAnyObjectByType<LevelRunner>();
+            if (runner == null) { Debug.LogError("[Bones] PlayLevel has no LevelRunner."); return; }
+
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Bones] every trap, and the nearest bones in the game and on the map");
+
+            int traps = 0, bare = 0, unmarked = 0;
+            float near = TileGrid.TileSize * 1.5f;
+
+            for (int chapter = 1; chapter <= 3; chapter++)
+            {
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    var root = SmokeTest.Build(runner, chapter, level, out var map);
+
+                    var bones = new List<Vector3>();
+                    foreach (var thing in root.GetComponentsInChildren<Transform>(true))
+                    {
+                        string name = thing.name;
+                        if (name.Contains("Skull") || name.Contains("Skeleton")
+                            || name.Contains("Bone") || name.Contains("Grave"))
+                            bones.Add(thing.position);
+                    }
+
+                    // The planning map's own receipt: the landmarks it draws symbols from.
+                    var marks = new List<Landmark>();
+                    var plan = new GameObject("Plan");
+                    TerrainDecorator.Decorate(plan.transform, map.Grid, map.Seed,
+                        runner.LookFor(Biomes.Of(chapter)) is var look && look != null && look.Dressed
+                            ? look.Decor : runner.Decor,
+                        heightScale: runner.HeightScale, maxProps: runner.MaxProps,
+                        ruinSites: TrapSigns.Sites(map), horizon: false,
+                        keepClear: Corridors(map),
+                        campSites: CampSignal.Tiles(map), travelled: LevelPreview.Travelled(map),
+                        found: marks,
+
+                        // Everything LevelPreview passes that can take ground first. Left out,
+                        // 1-8 read as fully marked on the map while its town - which claims
+                        // the whole grid - had quietly kept every heap off it in both.
+                        village: Settlements.Site(map, chapter, level),
+                        settled: Settlements.Settled(Biomes.Of(chapter)),
+                        town: LevelMaps.Recipe(chapter, level).Town
+                            ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
+                            : Towns.None,
+                        guard: Champions.Post(map),
+                        goalTile: level >= Campaign.LevelsPerChapter ? map.GoalIndex : -1);
+                    Object.DestroyImmediate(plan);
+
+                    int here = 0, bareHere = 0, unmarkedHere = 0;
+
+                    foreach (var trap in map.Encounters.Traps)
+                    {
+                        here++;
+                        var at = Vec2.FromTile(map.Grid, trap.Tile);
+
+                        float nearest = float.MaxValue;
+                        foreach (var bone in bones)
+                        {
+                            float dx = bone.x - at.X, dz = bone.z - at.Y;
+                            float apart = Mathf.Sqrt(dx * dx + dz * dz);
+                            if (apart < nearest) nearest = apart;
+                        }
+
+                        if (nearest > near) bareHere++;
+
+                        map.Grid.ToCoords(trap.Tile, out int tx, out int ty);
+                        bool symbol = false;
+
+                        foreach (var mark in marks)
+                        {
+                            if (mark.Kind != LandmarkKind.Bones) continue;
+                            map.Grid.ToCoords(mark.Tile, out int mx, out int my);
+                            if (Mathf.Abs(mx - tx) <= 1 && Mathf.Abs(my - ty) <= 1) { symbol = true; break; }
+                        }
+
+                        if (!symbol) unmarkedHere++;
+                    }
+
+                    traps += here;
+                    bare += bareHere;
+                    unmarked += unmarkedHere;
+
+                    // A picture of the first trap from where the player sits, so the heap
+                    // is seen as a player sees it and not only counted.
+                    if (map.Encounters.Traps.Count > 0 && (level == 1 || level == 10))
+                    {
+                        var first = Vec2.FromTile(map.Grid, map.Encounters.Traps[0].Tile);
+                        var at = new Vector3(first.X,
+                            map.Grid.SurfaceElevation(first.X, first.Y) * runner.HeightScale, first.Y);
+
+                        Camera(at + new Vector3(0f, 47f, -40f), at,
+                               System.IO.Path.Combine(Shots, $"trap-{chapter}-{level}.png"));
+                        Camera(at + new Vector3(0f, 14f, -12f), at,
+                               System.IO.Path.Combine(Shots, $"trap-{chapter}-{level}-close.png"));
+                    }
+
+                    // And the bridge's true size, measured in its own frame.
+                    var span = Deepest(root.transform, "Bridge");
+                    if (span != null)
+                    {
+                        DeckSize(span.gameObject, out float wide, out float lengthOf);
+                        said.AppendLine($"[Deck] {chapter}-{level}: {wide:0.0} m wide, "
+                                        + $"{lengthOf:0.0} m long"
+                                        + (wide < TerrainDecorator.FordDeck - 0.5f ? "  <-- TOO NARROW" : ""));
+                    }
+
+                    said.AppendLine($"[Bones] {chapter}-{level}: {here} trap(s), "
+                                    + $"{bareHere} with no bones within {near:0} m in the game, "
+                                    + $"{unmarkedHere} with no bones symbol beside it on the map"
+                                    + (bareHere + unmarkedHere > 0 ? "  <--" : ""));
+
+                    Object.DestroyImmediate(root);
+                }
+            }
+
+            said.AppendLine($"[Bones] {traps} traps: {bare} bare in the game, {unmarked} unmarked on the map");
+            Write("bones.txt", said);
+        }
+
+        /// <summary>
+        /// Every tile of the three roads: what the planning map keeps clear of scenery so
+        /// its ribbons can be seen. LevelPreview.CorridorTiles, without the instance.
+        /// </summary>
+        static HashSet<int> Corridors(LevelMap map)
+        {
+            var tiles = new HashSet<int>();
+            foreach (var corridor in map.Corridors) tiles.UnionWith(corridor.Tiles);
+            return tiles;
+        }
+
+        /// <summary>
         /// The planning map and the game, photographed from straight above in the same
         /// frame, with where each one's bridge stands.
         ///
@@ -484,8 +635,13 @@ namespace TheVeil.Editor
                     uses.Append(road.Kind);
                 }
 
+                DeckSize(bridge.gameObject, out float deckWide, out float deckLong);
+
                 said.AppendLine($"[{chapter}-{level}] bridge deck on {under}, {wet:0.0} m from "
-                                + $"water, {box.size.x:0}x{box.size.z:0} m, used by "
+                                + $"water, {deckWide:0.0} m wide x {deckLong:0.0} m long"
+                                + (deckWide < TerrainDecorator.FordDeck - 0.5f ? "  <-- TOO NARROW" : "")
+                                + ", used by "
+                                + (uses.Length == 0 ? "NOBODY" : uses.ToString())
                                 + (uses.Length == 0 ? "NOBODY" : uses.ToString())
                                 + (under == "Ford" || under == "Water" ? "" : "  <-- DRY LAND"));
 
@@ -604,6 +760,34 @@ namespace TheVeil.Editor
                 foreach (var enemy in run.Detection.Enemies) total += run.Combat.HealthOf(enemy);
 
             return total;
+        }
+
+        /// <summary>
+        /// A deck's true width and length, however it is turned.
+        ///
+        /// The narrowest a rectangle reaches over every heading is its width, and it
+        /// reaches its length a quarter turn from there. Swept every two degrees with
+        /// ModelScaling.ExtentAlong, which measures in the model's own frame - the world
+        /// box around a bridge at seventy-nine degrees is mostly its length in both
+        /// directions, which is how a nine-metre deck was being reported as eight.
+        /// </summary>
+        static void DeckSize(GameObject bridge, out float width, out float length)
+        {
+            width = float.MaxValue;
+            float at = 0f;
+
+            for (float heading = 0f; heading < 180f; heading += 2f)
+            {
+                float rad = heading * Mathf.Deg2Rad;
+                float reach = ModelScaling.ExtentAlong(bridge,
+                    new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad)));
+
+                if (reach < width) { width = reach; at = heading; }
+            }
+
+            float turned = (at + 90f) * Mathf.Deg2Rad;
+            length = ModelScaling.ExtentAlong(bridge,
+                new Vector3(Mathf.Sin(turned), 0f, Mathf.Cos(turned)));
         }
 
         /// <summary>How far a world point is from the nearest wet tile, in metres.</summary>

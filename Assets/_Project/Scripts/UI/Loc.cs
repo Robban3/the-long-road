@@ -254,7 +254,6 @@ namespace TheVeil.UI
             ["Move the point to firmer ground."] = "Flytta punkten till fastare mark.",
             ["Travel time  {0:F0} s"] = "Restid  {0:F0} s",
             ["Forest {0:P0}   marsh {1:P0}   road {2:P0}"] = "Skog {0:P0}   träsk {1:P0}   väg {2:P0}",
-            ["Cover for an ambush  {0:F2}"] = "Skydd åt ett bakhåll  {0:F2}",
             ["Fords  {0}"] = "Vadställen  {0}",
             ["{0} leg(s) go far around."] = "{0} etapp(er) går långt runt.",
 

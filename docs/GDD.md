@@ -68,7 +68,7 @@ Rutten är spelarens, inte generatorns. Kartan visar ingen färdig väg och inga
 
 - Spelaren trycker ut upp till 6 waypoints. Varje etapp löses med terrängviktad A*, så en grovt dragen linje blir en väg en karavanförare faktiskt hade tagit: den kramar snabb mark och skyr kärr i stället för att skära rakt igenom.
 - Rutten valideras: den får inte korsa ofarbar terräng. Ogiltiga etapper visas röda och går inte att starta med.
-- **Ruttförhandsvisning** uppdateras live och visar: total sträcka, uppskattad restid, andel per terrängtyp, och en risk-indikator baserad på bakhållsvikt. Detta är spelarens enda hårda beslutsunderlag — det måste vara tydligt. Risktalet läses **enbart av terrängen**: ett tal som konsulterade fiendelistan hade gett bort gratis det örnen säljs för (§3.6). Det säger *det här är bakhållsmark*, aldrig *det står fyra bakom åsen*.
+- **Ruttförhandsvisning** uppdateras live och visar fakta om vägen: total sträcka, uppskattad restid, andel per terrängtyp och antal vadställen. **Den visar inget risktal.** Faran bedöms av landskapet — skog tät nog att gömma folk, benhögar vid vägen, kråkor över åsen (§3.5) — och ett tal som sa vilken väg som är farlig skulle ta bort själva beslutet. Vad som faktiskt står där köps med örnen (§3.6) eller betalas med blod.
 - Vissa waypoints kan sättas som **specialpunkter**: `Rasta` (läker trupper, kostar 15 s), `Spana` (avslöjar 25 m radie, kostar 8 s).
 
 **Passagerna måste synas.** Floden går tvärs färdriktningen och kan bara korsas vid sina vadställen, så vadställena är kartans viktigaste information. De markeras som byggda saker — en bro, ett märke — inte som en ljusare ruta vatten. Den etapp som korsar floden lyfter fram vilket vadställe den använder, för det är där beslutet ligger.
@@ -103,7 +103,7 @@ Synliga i terrängöversikten redan under planeringen. De antyder fara utan att 
 | Cirklande kråkor | Fiendegrupp inom ~6 tiles | 20 % |
 | Brända vagnsvrak | Bakhållsplats på tilen | 10 % |
 | Spår i leran | Trupp har passerat nyligen | 25 % |
-| Benhögar / totem | Fällfält i närheten | 15 % |
+| Benhögar / totem | En fälla alldeles intill — det finns något där, inte vad | 15 % |
 | Övergiven lägerplats | Säker tile, bra rastplats | 0 % |
 
 Falska positiva är avsiktliga: signaler ska vara *information*, inte *facit*.

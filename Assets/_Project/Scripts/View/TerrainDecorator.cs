@@ -1302,6 +1302,7 @@ namespace TheVeil.View
 
             placed -= SweepTheCourtyard(parent);
             placed -= SweepTheBridges(parent);
+            placed -= SweepTheBones(parent, grid);
 
             Census(parent);
             Tallest(parent);
@@ -1360,6 +1361,67 @@ namespace TheVeil.View
         /// <summary>How far inside the castle's outline the courtyard begins, in metres.</summary>
         const float CourtyardMargin = 4f;
 
+        /// <summary>The tiles a trap's bones went down on, for SweepTheBones.</summary>
+        static readonly List<int> _boneSites = new List<int>();
+
+        /// <summary>
+        /// How tall a thing standing over a heap of bones may be and still leave it seen,
+        /// in metres.
+        ///
+        /// A metre and a half: grass, a stone, a stump stay; a bush, a boulder and every
+        /// tree go. A skeleton is under half a metre high and the camera is forty-seven
+        /// up, so anything taller than a person between them is a thing it hides behind.
+        /// </summary>
+        const float OverBones = 1.5f;
+
+        /// <summary>
+        /// Clears whatever would hide a trap's bones, last of all, for the reason the
+        /// courtyard and the bridges are swept: canopy does not check the ground.
+        ///
+        /// A heap of bones under a spruce is a heap of bones nobody sees, and a warning
+        /// nobody sees is no warning. The heap claims its tile when it goes down, but a
+        /// tree is canopy and canopy stands where it likes so a wood can close over a
+        /// track - so the ground round every heap is looked at when the decorating is
+        /// done, and anything tall standing on it is taken away.
+        ///
+        /// Never a bridge. Traps are laid at the throats and a ford is a throat, so a
+        /// heap can land beside one; the bridge is the thing that is meant to be there.
+        /// </summary>
+        static int SweepTheBones(Transform parent, TileGrid grid)
+        {
+            if (_boneSites.Count == 0) return 0;
+
+            var doomed = new List<GameObject>();
+            float reach = BonePileSpread + 0.5f;
+
+            foreach (int site in _boneSites)
+            {
+                var at = Vec2.FromTile(grid, site);
+
+                foreach (Transform thing in parent)
+                {
+                    if (thing.GetComponentInChildren<BridgeDeck>() != null) continue;
+
+                    var box = ModelScaling.Measure(thing.gameObject);
+                    if (box.size.y < OverBones) continue;
+
+                    if (box.max.x < at.X - reach || box.min.x > at.X + reach) continue;
+                    if (box.max.z < at.Y - reach || box.min.z > at.Y + reach) continue;
+
+                    if (!doomed.Contains(thing.gameObject)) doomed.Add(thing.gameObject);
+                }
+            }
+
+            foreach (var thing in doomed)
+            {
+                if (Application.isPlaying) Object.Destroy(thing);
+                else Object.DestroyImmediate(thing);
+            }
+
+            _boneSites.Clear();
+            return doomed.Count;
+        }
+
         /// <summary>
         /// How far in from a bridge's outline the roadway is taken to begin, in metres.
         ///
@@ -1414,6 +1476,11 @@ namespace TheVeil.View
                 {
                     if (thing == deck.transform) continue;
                     if (thing.IsChildOf(deck.transform)) continue;
+
+                    // Except a trap's bones. Traps go to the throats and a ford is a
+                    // throat, so a heap can fall on the planking; a skeleton on a bridge
+                    // is a warning about the bridge, which is what it is there to be.
+                    if (IsBones(thing.gameObject)) continue;
 
                     var box = ModelScaling.Measure(thing.gameObject);
 
@@ -2039,7 +2106,11 @@ namespace TheVeil.View
             // dragged a twelve-metre crossing out to a twenty-one-metre bridge. The length
             // is what the ford measures and the width is what a wagon needs, and they are
             // not the same question.
-            ModelScaling.FitToCrossing(instance, 0f, span, groundY);
+            // Along the bearing it has just been turned onto, so the span is measured as
+            // the bridge's length rather than as the longer side of a box around it.
+            float lengthwise = across * Mathf.Deg2Rad;
+            ModelScaling.FitToCrossing(instance, 0f, span, groundY,
+                                       new Vector3(Mathf.Sin(lengthwise), 0f, Mathf.Cos(lengthwise)));
 
             // Square to the run the bridge lies along.
             float widthwise = (across + 90f) * Mathf.Deg2Rad;
@@ -3441,9 +3512,13 @@ namespace TheVeil.View
 
             if (ruinSites != null && decor.Ruins.Any)
             {
+                _boneSites.Clear();
+
                 foreach (int wanted in ruinSites)
                 {
-                    if (placed >= MaxLandmarks) break;
+                    // <b>No cap.</b> MaxLandmarks is a budget for scenery and these are not
+                    // scenery: every trap has its bones, and a level with more traps than
+                    // the budget had its last ones marked by nothing at all.
 
                     // Moved off the lane rather than dropped on it, and this is the whole
                     // of whether the tell works.
@@ -3461,8 +3536,19 @@ namespace TheVeil.View
                     // was the one beside the trap the caravan actually drives onto. What
                     // survived stood 37 m out on ground nobody crosses. The player met no
                     // warning and the map drew no bones, and both came of the same line.
-                    int tile = OffTheLane(grid, wanted, clear, road, occupied);
-                    if (tile < 0) continue;
+                    // <b>Exactly where TrapSigns put it, beside its trap.</b> This used to
+                    // move the site off the road and off the planning map's corridors, and
+                    // both moves were wrong. Off the road took the warning away from the
+                    // road being driven, so the trap the caravan was about to hit was the
+                    // one whose bones had been carried out of its way. And the corridors
+                    // are only kept clear on the planning map, so the same trap's bones
+                    // stood on one tile in the plan and another in the game.
+                    //
+                    // Bones are too low to be anything the column walks round (see Block),
+                    // so on the road is fine; nothing before this has claimed ground but
+                    // the castle, the town and the village, which are the same on both
+                    // maps, so a site that is taken is taken on both and skipped on both.
+                    int tile = wanted;
 
                     // Claimed after the wreck stands, not before it is attempted. Place
                     // asks for its whole footprint now, and a tile claimed up front is
@@ -3471,9 +3557,19 @@ namespace TheVeil.View
                     // RuinWidth and the landmark scale it comes to exactly a tile's four
                     // metres, so the tell has been standing on the boundary of switching
                     // itself off. It should not depend on that number.
+                    // <b>Whatever else stands there.</b> A heap of bones is a hand's
+                    // height off the ground and covers two metres of it; there is nothing
+                    // it has to be kept apart from. Asking it to find its ground free was
+                    // how every trap in 1-8's town went unmarked - the town claims the whole
+                    // map before anything else is placed, streets and all - and how the one
+                    // beside a village's field lost its bones to the field. So the heap goes
+                    // down on its own tile and then claims it, so nothing is put on top of
+                    // it afterwards.
                     int built = Wreck(parent, grid, tile, rng, decor, heightScale,
-                                      occupied, found);
+                                      new HashSet<int>(), found);
                     if (built == 0) continue;
+
+                    _boneSites.Add(tile);
 
                     occupied.Add(tile);
                     placed += built;
@@ -3723,59 +3819,6 @@ namespace TheVeil.View
             var bounds = ModelScaling.Measure(instance);
             instance.transform.position += new Vector3(0f, groundY - bounds.min.y, 0f);
         }
-
-        /// <summary>
-        /// The nearest ground a trap sign may stand on, or -1 if there is none close by.
-        ///
-        /// Rings outward from the tile that was asked for and takes the first that will
-        /// have it, so a site that is already fine does not move at all and one that is
-        /// not moves the least it can. Three tiles is the reach, which is what
-        /// <c>TrapSigns.Offset</c> allows in the first place: a sign further from its
-        /// field than the offset that placed it is no longer a sign for that field.
-        ///
-        /// Deliberately the same three that the lane is wide either side of its middle,
-        /// so a site dead in the road can always get out of it — anything less and the
-        /// worst case, which is the case that matters, would still be dropped.
-        ///
-        /// Scanned in a fixed order rather than sampled, because the sites come from a
-        /// seed and two runs of one map must lay the same ground.
-        /// </summary>
-        static int OffTheLane(TileGrid grid, int tile, HashSet<int> clear,
-                              HashSet<int> road, HashSet<int> occupied)
-        {
-            grid.ToCoords(tile, out int x, out int y);
-
-            for (int ring = 0; ring <= SignReach; ring++)
-            {
-                for (int dy = -ring; dy <= ring; dy++)
-                {
-                    for (int dx = -ring; dx <= ring; dx++)
-                    {
-                        // Only the ring's own edge; the inside was walked already.
-                        if (ring > 0 && Mathf.Abs(dx) != ring && Mathf.Abs(dy) != ring) continue;
-
-                        int nx = x + dx;
-                        int ny = y + dy;
-                        if (!grid.InBounds(nx, ny)) continue;
-
-                        var terrain = grid[nx, ny];
-                        if (terrain == TerrainType.Water || terrain == TerrainType.Cliff) continue;
-
-                        int candidate = grid.ToIndex(nx, ny);
-                        if (clear != null && clear.Contains(candidate)) continue;
-                        if (road != null && road.Contains(candidate)) continue;
-                        if (occupied.Contains(candidate)) continue;
-
-                        return candidate;
-                    }
-                }
-            }
-
-            return -1;
-        }
-
-        /// <summary>How far a trap sign may be pushed to get out of the lane, in tiles.</summary>
-        const int SignReach = 3;
 
         /// <summary>
         /// Builds the scene at a trap site rather than dropping one prop on it.

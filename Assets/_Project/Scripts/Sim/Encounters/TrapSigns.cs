@@ -3,89 +3,76 @@ using System.Collections.Generic;
 namespace TheVeil.Sim
 {
     /// <summary>
-    /// The ground that shows a caravan came to grief here: bones, a wrecked cart, a
-    /// dropped chest, a cold fire.
+    /// The bones beside every trap: the warning that something is there, without saying
+    /// what.
     ///
-    /// This is the soft signal the design asks for (docs/GDD.md §2, §5): the player is
-    /// meant to learn to read the country rather than be told what is in it. So a sign
-    /// is placed near a trap field, **never on one** — one per neighbourhood, offset by
-    /// a few tiles. Marking the trap itself would hand over the position of the thing
-    /// the whole detection system exists to keep hidden, and a risk you can see exactly
-    /// is no longer a risk.
+    /// <b>Around each trap, before it springs, and on the planning map as well.</b> That
+    /// is the design and it has been the design from the first day - the landscape is how
+    /// a player judges a road, and a skeleton in the grass is the landscape saying that
+    /// somebody did not get past here. It was built as something else: one sign per six
+    /// tiles of trap field, stood up to three tiles off, then pushed further still if it
+    /// landed on a road. Six traps in a throat got one heap twelve metres away, and a trap
+    /// on the road the player was driving had its warning moved off that road - so the
+    /// bones were where nobody drove, and the ones anybody saw were the ones the view puts
+    /// down after a trap has already gone off.
     ///
-    /// Near enough to be worth noticing, far enough that noticing it tells you to be
-    /// careful rather than where to step.
+    /// The old note here argued that bones at the trap give its position away. They give
+    /// away that something is there. What it is - a pit, a snare, a fall of logs, or only
+    /// an old grave - is still found by driving onto it or sending a scout, which is the
+    /// risk the detection system exists to keep.
     ///
-    /// It lives in the simulation rather than in the view because both views need it and
-    /// only one of them had it. The planning map marked its trap fields and **the play
-    /// view marked nothing at all** — `LevelRunner` never passed the sites to the
-    /// decorator — so the tell existed on the map the player reads before the level and
-    /// was absent from the country they then drove through, which is the half where it
-    /// was supposed to do its work.
+    /// Never on the trap tile itself: the trap is still a trap, and the bones are around
+    /// it. In the simulation because both views read it, and a warning drawn on the map
+    /// and missing in the country - or the other way about - is the fault this class was
+    /// first written to close.
     /// </summary>
     public static class TrapSigns
     {
-        /// <summary>Trap fields are grouped into neighbourhoods this many tiles across.</summary>
-        public const int ClusterTiles = 6;
-
-        /// <summary>How far from its field a sign may stand, in tiles.</summary>
-        public const int Offset = 3;
-
         public static List<int> Sites(LevelMap map)
         {
             var traps = map?.Encounters?.Traps;
             if (traps == null || traps.Count == 0) return null;
 
-            var tiles = new List<int>();
-            foreach (var trap in traps) tiles.Add(trap.Tile);
+            var trapTiles = new HashSet<int>();
+            foreach (var trap in traps) trapTiles.Add(trap.Tile);
 
-            return Near(map, tiles, map.Seed ^ 0x2117);
-        }
-
-        /// <summary>
-        /// Ground beside the given tiles: one site per neighbourhood, offset by a few
-        /// tiles, and never on one of them.
-        ///
-        /// The rule both signals share. "Never on one" is the whole of the tell, and it
-        /// was once said and not done: the offset is drawn from [-3, 3] in both axes,
-        /// which includes (0, 0), and nothing checked the marked tiles. A sign marked a
-        /// trap exactly, on one of nine sites on 1-5.
-        /// </summary>
-        static List<int> Near(LevelMap map, List<int> marked, int seed)
-        {
-            var avoid = new HashSet<int>(marked);
-            var rng = new DeterministicRandom(seed);
-            var neighbourhoods = new HashSet<int>();
+            var rng = new DeterministicRandom(map.Seed ^ 0x2117);
+            var taken = new HashSet<int>();
             var sites = new List<int>();
+            var ring = new List<int>(8);
 
-            foreach (int tile in marked)
+            foreach (var trap in traps)
             {
-                map.Grid.ToCoords(tile, out int x, out int y);
+                map.Grid.ToCoords(trap.Tile, out int x, out int y);
+                ring.Clear();
 
-                // One per neighbourhood. A field of six traps is one thing that happened,
-                // not six; a band of raiders sleeps in one camp.
-                int cell = (y / ClusterTiles) * map.Grid.Width + x / ClusterTiles;
-                if (!neighbourhoods.Add(cell)) continue;
+                // The eight tiles touching it. Close enough that the bones are the
+                // trap's, not some other thing's; off the tile so the trap is untouched.
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
 
-                for (int attempt = 0; attempt < 10; attempt++)
-                {
-                    int nx = x + rng.Range(-Offset, Offset + 1);
-                    int ny = y + rng.Range(-Offset, Offset + 1);
-                    if (!map.Grid.InBounds(nx, ny)) continue;
+                        int nx = x + dx, ny = y + dy;
+                        if (!map.Grid.InBounds(nx, ny)) continue;
 
-                    var terrain = map.Grid[nx, ny];
-                    if (terrain == TerrainType.Water || terrain == TerrainType.Cliff) continue;
+                        var terrain = map.Grid[nx, ny];
+                        if (terrain == TerrainType.Water || terrain == TerrainType.Cliff) continue;
 
-                    int site = map.Grid.ToIndex(nx, ny);
-                    if (avoid.Contains(site)) continue;
+                        int tile = map.Grid.ToIndex(nx, ny);
+                        if (trapTiles.Contains(tile) || taken.Contains(tile)) continue;
 
-                    sites.Add(site);
-                    break;
-                }
+                        ring.Add(tile);
+                    }
+
+                if (ring.Count == 0) continue;
+
+                int site = ring[rng.Range(0, ring.Count)];
+                taken.Add(site);
+                sites.Add(site);
             }
 
             return sites;
         }
-
     }
 }
