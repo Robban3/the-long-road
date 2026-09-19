@@ -88,6 +88,41 @@ namespace TheVeil.Editor
                 Shoot(1, 10, road);
         }
 
+        /// <summary>What the arid pack's bones import as: size, materials, and a picture.</summary>
+        [MenuItem("The Veil/Arid Bones Report")]
+        public static void AridBones()
+        {
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Arid] the bone models as Unity imported them");
+
+            foreach (string name in new[] { "AD2_BonePile_01", "AD2_BonePile_02", "AD2_Ribcage_01",
+                                            "AD2_AnimalSkeleton_01", "AD2_HornedSkull_01" })
+            {
+                string path = $"Assets/ThirdParty/AridDesertBiomeV2/Models_FBX/{name}.fbx";
+                var model = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                if (model == null) { said.AppendLine($"[Arid] {name}: NOT IMPORTED"); continue; }
+
+                var instance = Object.Instantiate(model);
+                var box = ModelScaling.Measure(instance);
+
+                var mats = new System.Text.StringBuilder();
+                foreach (var renderer in instance.GetComponentsInChildren<MeshRenderer>())
+                    foreach (var mat in renderer.sharedMaterials)
+                    {
+                        if (mats.Length > 0) mats.Append(", ");
+                        mats.Append(mat == null ? "none" : mat.name);
+                    }
+
+                said.AppendLine($"[Arid] {name}: {box.size.x:0.00} x {box.size.y:0.00} x "
+                                + $"{box.size.z:0.00} m, materials [{mats}]");
+
+                Object.DestroyImmediate(instance);
+            }
+
+            Write("arid.txt", said);
+        }
+
         /// <summary>
         /// The crows on the planning map, where the road is chosen, photographed the way
         /// the player sees them.

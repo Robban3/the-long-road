@@ -1433,6 +1433,24 @@ namespace TheVeil.Editor
                         "SM_Prop_Chest_Wood_01", "SM_Prop_Grave_03", "SM_Prop_CampFire_01"
                     }),
 
+                    // <b>And the bone piles, which is what a trap sign wanted all along.</b>
+                    //
+                    // The note above says the trouble plainly: the nature pack has one
+                    // skeleton and one skull, one prop goes down per site, so what stood
+                    // at a trap was a body or a head. The decorator answered by scattering
+                    // a dozen loose bones round it - more of them rather than a bigger one
+                    // - and that is still a workaround for a set with no heap in it.
+                    //
+                    // These are heaps. A pile, a ribcage, a horned skull, an animal picked
+                    // clean: each one reads as remains from the height the game is played
+                    // at without anything being scaled past life size, which is the fault
+                    // that produced the eight-metre skull.
+                    Load(AridDir, new[]
+                    {
+                        "AD2_BonePile_01", "AD2_BonePile_02", "AD2_Ribcage_01",
+                        "AD2_AnimalSkeleton_01", "AD2_HornedSkull_01"
+                    }),
+
                     // **The generic pack's skeleton is gone, and its skull stays.**
                     //
                     // It was loaded from Characters, and that is what it is: a figure
@@ -2228,6 +2246,24 @@ namespace TheVeil.Editor
 
         /// <summary>POLYGON Knights, the medieval pack. Y-up like the rest of Synty.</summary>
         const string SyntyKnightsDir = "Assets/Synty/PolygonKnights/Prefabs";
+
+        /// <summary>
+        /// The arid biome pack's models, which this project has for its bones.
+        ///
+        /// It arrived as a zip whose end was missing - thirty-six models came through and
+        /// the materials and textures that followed them did not - so these are meshes
+        /// with no surface of their own. That is what ColourUntexturedMaterials is for,
+        /// and bleached bone is a colour rather than a picture anyway.
+        ///
+        /// The rest of it is cactus, mesa and dead tree for a desert that is not built
+        /// yet. It is kept whole rather than pruned to the five that are used: the archive
+        /// it came from cannot be opened again.
+        /// </summary>
+        /// <summary>
+        /// Where AridImporter leaves what it built. Not the FBX folder: Unity reads those
+        /// files and produces nothing at all - see AridImporter, which reads them itself.
+        /// </summary>
+        const string AridDir = "Assets/_Project/Prefabs/Arid";
 
         static PropSet Knights(string group, params string[] names)
             => new PropSet(false, Load($"{SyntyKnightsDir}/{group}", names));

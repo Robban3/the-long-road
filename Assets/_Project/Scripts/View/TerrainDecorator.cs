@@ -4002,8 +4002,12 @@ namespace TheVeil.View
 
             string name = prefab.name;
 
+            // Ribcage and carcass as well as the obvious four: the arid pack names its
+            // heaps AD2_Ribcage_01 and AD2_BonePile_01, and a sign this did not recognise
+            // as bones was noted on the planning map as a wreck and never got its heap.
             return name.Contains("Skull") || name.Contains("Skeleton")
-                || name.Contains("Bone") || name.Contains("Grave");
+                || name.Contains("Bone") || name.Contains("Grave")
+                || name.Contains("Ribcage") || name.Contains("Carcass");
         }
 
         /// <summary>How wide a loose piece of wreckage is, and how far it lies from the cart.</summary>
