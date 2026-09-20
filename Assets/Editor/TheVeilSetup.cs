@@ -2203,10 +2203,22 @@ namespace TheVeil.Editor
                     // height where a torch on the ground does not.
                     Density = 1.45f,
                     Weather = One($"{SyntyNatureDir}/FX/FX_Fireflies_01.prefab"),
+                    // <b>A haze, not a wall.</b> It was 0.014, and exponential-squared
+                    // fog at that density leaves 14% of a thing showing at a hundred
+                    // metres - which is about how far the camera sees. Photographed side
+                    // by side, all ten levels of the chapter came out as the same grey-
+                    // green smear: the fen's own dead trunks, its pools, its roots and the
+                    // bones at its traps were all equally gone, and a country nobody can
+                    // see is not a country.
+                    //
+                    // 0.008 halves the reach of it: near ground is clear, the middle
+                    // distance softens, the horizon still closes. The colour and the sky
+                    // are lifted with it, because a lighter fog of the same dark green
+                    // reads as dusk rather than as standing air.
                     Fog = true,
-                    FogColor = new Color(0.34f, 0.40f, 0.38f),
-                    FogDensity = 0.014f,
-                    SkyColor = new Color(0.40f, 0.46f, 0.44f)
+                    FogColor = new Color(0.42f, 0.48f, 0.45f),
+                    FogDensity = 0.008f,
+                    SkyColor = new Color(0.50f, 0.56f, 0.53f)
                 }
             };
         }

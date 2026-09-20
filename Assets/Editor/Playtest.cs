@@ -333,6 +333,149 @@ namespace TheVeil.Editor
         /// building ground. One of the two was wrong and neither could be believed while
         /// the only thing either reported was a verdict.
         /// </summary>
+        /// <summary>
+        /// How far apart the fights stand on each road: `The Veil > Spacing Along The
+        /// Roads`.
+        ///
+        /// <b>Because a road can be too hard without having too much on it.</b> Played
+        /// through, the fast road arrives on fifteen levels of thirty and the other two
+        /// on twenty-nine and twenty-seven. The shares are what we agreed - half the
+        /// level's threat on the fast road, a third on the middle, a fifth on the long
+        /// one - and half a level's threat is not meant to be a death sentence.
+        ///
+        /// The suspicion this measures: the fast road is also the shortest, so the same
+        /// share of fights is packed into fewer metres and they run into each other. A
+        /// squad that meets three groups with a hundred metres between them heals and
+        /// re-forms between each; the same three in thirty metres is one fight against
+        /// all of them. Nothing in the placer knows the difference - it counts points, and
+        /// points do not say how far apart they stand.
+        ///
+        /// So: where along each road every fight is met, the gaps between them in metres,
+        /// and the smallest gap on each. Measured before anything is changed.
+        /// </summary>
+        [MenuItem("The Veil/Spacing Along The Roads")]
+        public static void SpacingAlongTheRoads()
+        {
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Spacing] every road of every level: fights, length, and the gaps between them");
+
+            var gapsBy = new Dictionary<CorridorKind, List<float>>();
+            var fightsBy = new Dictionary<CorridorKind, List<int>>();
+            var lengthBy = new Dictionary<CorridorKind, List<float>>();
+
+            foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+            {
+                gapsBy[kind] = new List<float>();
+                fightsBy[kind] = new List<int>();
+                lengthBy[kind] = new List<float>();
+            }
+
+            for (int chapter = 1; chapter <= 3; chapter++)
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    var map = LevelMaps.For(chapter, level);
+
+                    foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+                    {
+                        var corridor = map.CorridorOf(kind);
+                        if (corridor == null) continue;
+
+                        var route = corridor.Tiles;
+
+                        // How far along the road each tile of it is, in metres. Diagonal
+                        // steps are longer than straight ones and a road is mostly
+                        // diagonal, so counting tiles would understate every gap.
+                        var along = new float[route.Count];
+                        for (int i = 1; i < route.Count; i++)
+                        {
+                            map.Grid.ToCoords(route[i - 1], out int px, out int py);
+                            map.Grid.ToCoords(route[i], out int cx, out int cy);
+
+                            float step = px != cx && py != cy ? 1.41421f : 1f;
+                            along[i] = along[i - 1] + step * TileGrid.TileSize;
+                        }
+
+                        float length = route.Count > 0 ? along[route.Count - 1] : 0f;
+
+                        // Where on the road each fight is met: the nearest point of the
+                        // road to the group that meets it.
+                        var met = EncounterPlacer.MetGroups(map.Grid, route, map.Encounters,
+                                                            roadOnly: true);
+                        var where = new List<float>();
+
+                        foreach (int index in met)
+                        {
+                            map.Grid.ToCoords(map.Encounters.Enemies[index].Tile, out int ex, out int ey);
+
+                            float best = float.MaxValue, at = 0f;
+                            for (int i = 0; i < route.Count; i++)
+                            {
+                                map.Grid.ToCoords(route[i], out int rx, out int ry);
+                                float dx = rx - ex, dy = ry - ey;
+                                float apart = dx * dx + dy * dy;
+
+                                if (apart >= best) continue;
+                                best = apart;
+                                at = along[i];
+                            }
+
+                            where.Add(at);
+                        }
+
+                        where.Sort();
+
+                        var gaps = new List<float>();
+                        for (int i = 1; i < where.Count; i++) gaps.Add(where[i] - where[i - 1]);
+
+                        gapsBy[kind].AddRange(gaps);
+                        fightsBy[kind].Add(where.Count);
+                        lengthBy[kind].Add(length);
+
+                        said.AppendLine($"[Spacing] {chapter}-{level} {kind}: {where.Count} fight(s) "
+                                        + $"over {length:0} m, gaps "
+                                        + (gaps.Count == 0 ? "-" : $"least {Least(gaps):0} m, "
+                                           + $"middling {Middle(gaps):0} m"));
+                    }
+                }
+
+            said.AppendLine();
+            foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+            {
+                var gaps = gapsBy[kind];
+                int tight = 0;
+                foreach (float gap in gaps) if (gap < 40f) tight++;
+
+                said.AppendLine($"[Spacing] {kind}: {Sum(fightsBy[kind]):0} fights over "
+                                + $"{Middle(lengthBy[kind]):0} m of road (middling), gap "
+                                + $"least {Least(gaps):0} m, middling {Middle(gaps):0} m, "
+                                + $"{tight} of {gaps.Count} gaps under 40 m");
+            }
+
+            Write("spacing.txt", said);
+        }
+
+        static float Least(List<float> numbers)
+        {
+            float least = float.MaxValue;
+            foreach (float number in numbers) least = Mathf.Min(least, number);
+            return numbers.Count == 0 ? 0f : least;
+        }
+
+        static float Middle(List<float> numbers)
+        {
+            if (numbers.Count == 0) return 0f;
+            var sorted = new List<float>(numbers);
+            sorted.Sort();
+            return sorted[sorted.Count / 2];
+        }
+
+        static float Sum(List<int> numbers)
+        {
+            float total = 0f;
+            foreach (int number in numbers) total += number;
+            return total;
+        }
+
         [MenuItem("The Veil/Water And Bridges")]
         public static void WaterAndBridges()
         {
