@@ -631,11 +631,35 @@ namespace TheVeil.Tests
                         if (distance < nearest) nearest = distance;
                     }
 
-                    float toWagons = Vec2.Distance(enemy.Position, run.Caravan.LeadPosition);
-                    if (toWagons < nearest) nearest = toWagons;
+                    // Every wagon, not only the lead one. The column halts for anything
+                    // within CombatSystem.HaltRadius of a *wagon* as well as of a troop,
+                    // and a raider standing at the tailgate of the third cart is thirty
+                    // metres from the lead position - so measuring to the lead alone
+                    // reported a legal halt as a halt for something across the field.
+                    for (int wagon = 0; wagon < run.Caravan.Wagons.Count; wagon++)
+                    {
+                        float toWagon = Vec2.Distance(enemy.Position,
+                                                      run.Caravan.WagonPosition(wagon));
+                        if (toWagon < nearest) nearest = toWagon;
+                    }
                 }
 
-                Assert.LessOrEqual(nearest, CombatSystem.HaltRadius + 0.01f,
+                // The rule the sim actually has, plus one step of movement.
+                //
+                // A wagon is a point to the simulation and ten metres of timber on the
+                // screen, so an attacker at the cart halts the column from Caravan.CartHalf
+                // further out than one at a troop - that is CombatSystem's own wagon
+                // branch, and this was asserting the troop radius against both. And Halted
+                // is decided inside the step from the positions as they stand, then
+                // everything moves; at a twentieth of a second the quickest thing in the
+                // sim covers a fifth of a metre.
+                //
+                // The old tolerance was a centimetre, which held only while no map put a
+                // halt near the edge. One duly did: 1-5 halted for something measured at
+                // 5.06 m, and then at 5.34 m, under a rule the sim was obeying exactly.
+                const float Moved = LevelRun.StepSeconds * 4f;
+
+                Assert.LessOrEqual(nearest, CombatSystem.HaltRadius + Caravan.CartHalf + Moved,
                     $"the column stopped for something {nearest:F1} m away");
             }
         }

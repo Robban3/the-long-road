@@ -359,6 +359,7 @@ namespace TheVeil.Editor
             var said = new System.Text.StringBuilder();
             said.AppendLine("[Spacing] every road of every level: fights, length, and the gaps between them");
 
+            var blame = new Dictionary<string, int>();
             var gapsBy = new Dictionary<CorridorKind, List<float>>();
             var fightsBy = new Dictionary<CorridorKind, List<int>>();
             var lengthBy = new Dictionary<CorridorKind, List<float>>();
@@ -374,6 +375,17 @@ namespace TheVeil.Editor
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var map = LevelMaps.For(chapter, level);
+
+                    // Spacing buys itself with ground, and ground is finite: a rule that
+                    // spread the groups out and quietly left a third of the budget unspent
+                    // would read as a success here and play as an easier game.
+                    // The goal's guard is paid for out of its own purse (Champions.Purse)
+                    // and is counted in TotalPoints, so a level reads a little over its
+                    // enemy budget and that is right rather than an overspend.
+                    said.AppendLine($"[Spacing] {chapter}-{level}: {map.Encounters.TotalPoints} "
+                                    + $"points on the ground against a budget of "
+                                    + $"{LevelMaps.Recipe(chapter, level).EnemyBudget} plus the goal, "
+                                    + $"{map.Encounters.Enemies.Count} group(s)");
 
                     foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
                     {
@@ -402,9 +414,11 @@ namespace TheVeil.Editor
                         var met = EncounterPlacer.MetGroups(map.Grid, route, map.Encounters,
                                                             roadOnly: true);
                         var where = new List<float>();
+                        var who = new List<PlacementOrigin>();
 
                         foreach (int index in met)
                         {
+                            who.Add(map.Encounters.Enemies[index].Origin);
                             map.Grid.ToCoords(map.Encounters.Enemies[index].Tile, out int ex, out int ey);
 
                             float best = float.MaxValue, at = 0f;
@@ -422,10 +436,34 @@ namespace TheVeil.Editor
                             where.Add(at);
                         }
 
-                        where.Sort();
+                        // Sorted together, so a gap can still say which two placements
+                        // made it. A rule that spaces the scatter does nothing about a
+                        // pile-up the repair loop puts back, and the only way to know
+                        // which is which is to carry the origin along.
+                        var order = new List<int>();
+                        for (int i = 0; i < where.Count; i++) order.Add(i);
+                        order.Sort((a, b) => where[a].CompareTo(where[b]));
+
+                        var sortedWhere = new List<float>();
+                        var sortedWho = new List<PlacementOrigin>();
+                        foreach (int i in order) { sortedWhere.Add(where[i]); sortedWho.Add(who[i]); }
+                        where = sortedWhere;
+                        who = sortedWho;
 
                         var gaps = new List<float>();
-                        for (int i = 1; i < where.Count; i++) gaps.Add(where[i] - where[i - 1]);
+                        for (int i = 1; i < where.Count; i++)
+                        {
+                            gaps.Add(where[i] - where[i - 1]);
+
+                            if (where[i] - where[i - 1] >= 40f) continue;
+
+                            string pair = who[i - 1].CompareTo(who[i]) <= 0
+                                ? $"{who[i - 1]}+{who[i]}"
+                                : $"{who[i]}+{who[i - 1]}";
+
+                            blame.TryGetValue(pair, out int seen);
+                            blame[pair] = seen + 1;
+                        }
 
                         gapsBy[kind].AddRange(gaps);
                         fightsBy[kind].Add(where.Count);
@@ -451,6 +489,10 @@ namespace TheVeil.Editor
                                 + $"{tight} of {gaps.Count} gaps under 40 m");
             }
 
+            said.AppendLine();
+            said.AppendLine("[Spacing] what makes a gap under 40 m, by how the two were placed");
+            foreach (var pair in blame) said.AppendLine($"[Spacing] {pair.Key}: {pair.Value}");
+
             Write("spacing.txt", said);
         }
 
@@ -474,6 +516,65 @@ namespace TheVeil.Editor
             float total = 0f;
             foreach (int number in numbers) total += number;
             return total;
+        }
+
+        /// <summary>
+        /// What a plain twelve-point escort meets on the fast road of 1-5, and what it
+        /// earns: `The Veil > The Plain Escort`.
+        ///
+        /// The three combat tests that broke when the spacing rule went in all run this
+        /// one level with this one squad, and all three say the same thing - a full level
+        /// of fighting earned nothing. Either the road has nothing left on it or what is
+        /// on it kills the escort before it can swing, and a verdict cannot tell which.
+        /// </summary>
+        [MenuItem("The Veil/The Plain Escort")]
+        public static void ThePlainEscort()
+        {
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Escort] 1-5, the fast road, a twelve-point escort");
+
+            var map = LevelMaps.For(1, 5);
+            var corridor = map.CorridorOf(CorridorKind.Fast);
+
+            var met = EncounterPlacer.MetGroups(map.Grid, corridor.Tiles, map.Encounters,
+                                                roadOnly: true);
+
+            foreach (int index in met)
+            {
+                var spawn = map.Encounters.Enemies[index];
+                // How far along the road it is met, because a fight the caravan is in
+                // before it has moved is a different fault from a fight it loses.
+                float at = float.MaxValue;
+                map.Grid.ToCoords(spawn.Tile, out int ex, out int ey);
+                map.Grid.ToCoords(map.StartIndex, out int sx, out int sy);
+                at = Mathf.Sqrt((ex - sx) * (ex - sx) + (ey - sy) * (ey - sy)) * TileGrid.TileSize;
+
+                said.AppendLine($"[Escort] meets {spawn.Kind} ({EnemyTable.Points(spawn.Kind)} points, "
+                                + $"{EnemyTable.GroupSize(spawn.Kind)} figures), placed {spawn.Origin}, "
+                                + $"{at:0} m from the start, territory {spawn.Territory:0.0} tiles");
+            }
+
+            var squad = new Squad(12);
+            squad.TryPlace(FormationSlot.Van, TroopKind.Shieldbearer);
+            squad.TryPlace(FormationSlot.Rear, TroopKind.Spearmen);
+            squad.TryPlace(FormationSlot.RightVan, TroopKind.Archers);
+            squad.TryPlace(FormationSlot.LeftVan, TroopKind.Scout);
+            squad.TryPlace(FormationSlot.RightRear, TroopKind.Swordsmen);
+            squad.TryPlace(FormationSlot.LeftRear, TroopKind.Priest);
+
+            var run = new LevelRun(map, corridor.Tiles, squad);
+            var outcome = run.RunToCompletion();
+
+            int standing = 0;
+            foreach (var group in run.Squad.Slots)
+                if (group != null && group.ModelsAlive > 0) standing++;
+
+            said.AppendLine($"[Escort] {outcome} after {run.TravelSeconds:0} s, "
+                            + $"earned {run.Economy.TotalEarned}, woke {run.Detection.AwakeCount}, "
+                            + $"{standing} troop(s) standing, {run.Caravan.Wagons.Count} wagon(s), "
+                            + $"seed {map.Seed}");
+
+            Write("escort.txt", said);
         }
 
         [MenuItem("The Veil/Water And Bridges")]

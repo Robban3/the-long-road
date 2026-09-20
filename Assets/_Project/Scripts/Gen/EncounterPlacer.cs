@@ -56,6 +56,27 @@ namespace TheVeil.Gen
         /// </summary>
         public const int SafeEndTiles = 5;
 
+        /// <summary>
+        /// The same rule again, plus the ground a group watches from where it stands.
+        ///
+        /// <b>Keeping a group five tiles off the start does not keep its arrows off
+        /// it.</b> Territory was added to the placer after this rule was written - a group
+        /// holds a stretch of country and wakes at its edge, and the smallest stretch any
+        /// group holds is <see cref="TerritoryMinTiles"/>, six. So a bandit archer parked
+        /// six tiles from the start line is legal by the old rule and is shooting at the
+        /// caravan before it has moved.
+        ///
+        /// Found on 1-5, and it does not end the level with a fight, it ends it with
+        /// nothing: the column halts in the first stride, never re-forms, and the stall
+        /// watch closes the run at two seconds with three troops still standing, nothing
+        /// killed and nothing earned. Three combat tests caught it, all of them saying "a
+        /// full level of fighting earned nothing", and the fault had been reachable since
+        /// the day territory was invented.
+        ///
+        /// Eleven tiles - five, plus the six a group watches at its tightest.
+        /// </summary>
+        public const int SafeEndReachTiles = SafeEndTiles + (int)TerritoryMinTiles;
+
         public const float GroupSpacingTiles = 5f;
 
         /// <summary>
@@ -264,6 +285,29 @@ namespace TheVeil.Gen
         /// </summary>
         public const float RoadReach = 5f;
 
+        /// <summary>
+        /// Metres of road between two fights the same road runs into.
+        ///
+        /// <b>Because spacing was being measured as the crow flies.</b>
+        /// <see cref="GroupSpacingTiles"/> keeps groups five tiles apart in a straight
+        /// line, which is twenty metres - and <see cref="EngageRadiusTiles"/> is four, so
+        /// a group wakes at sixteen. Two groups laid at the legal minimum are therefore
+        /// inside each other's reach along the road, and what the caravan meets is not
+        /// two fights but one fight against both.
+        ///
+        /// Measured over all thirty levels before this existed: the fast road ran a fight
+        /// every 34 m with a middling gap of 20 m, 242 of its 295 gaps under 40 m, and
+        /// played through it arrived on 15 levels of 30 against the safe road's 29. The
+        /// shares were not the fault - half the threat on the fast road is what was
+        /// agreed - the packing was.
+        ///
+        /// Forty-five metres: two engagements and a little, so a squad that has just
+        /// fought is out of contact before the next group notices it. Along the road,
+        /// not across the map, because the caravan drives one road and two groups either
+        /// side of a hill never meet each other.
+        /// </summary>
+        public const float RoadGapMetres = 45f;
+
 
         /// <summary>
         /// What the repair loop aims at, which is one more than the promise.
@@ -344,12 +388,18 @@ namespace TheVeil.Gen
             var mined = new HashSet<int>();
 
             budget -= LayTraps(grid, band, corridors, recipe, rng, layout, mined, budget);
-            ScatterEnemies(grid, band, corridors, recipe, rng, layout, occupied, mined, budget);
+
+            // The three roads as rulers, made here so that everything which puts a group
+            // down or moves one measures against the same marks. See RoadGapMetres.
+            var lines = Rulers(grid, corridors, layout);
+
+            ScatterEnemies(grid, band, corridors, recipe, rng, layout, occupied, mined,
+                           budget, lines);
 
             AssignTerritories(grid, layout);
             TallySilver(layout, recipe);
             VerifyAndRepair(grid, band, corridors, recipe, rng, layout, occupied,
-                            startIndex, goalIndex);
+                            startIndex, goalIndex, lines);
 
             // After everything, so everything above is untouched by it. It moves a trap
             // rather than adding one, so the points and the silver are what they were and
@@ -521,7 +571,7 @@ namespace TheVeil.Gen
                 int dx = x - ex;
                 int dy = y - ey;
 
-                return dx * dx + dy * dy < SafeEndTiles * SafeEndTiles;
+                return dx * dx + dy * dy < SafeEndReachTiles * SafeEndReachTiles;
             }
         }
 
@@ -1467,7 +1517,8 @@ namespace TheVeil.Gen
         static void ScatterEnemies(TileGrid grid, ThreatBand band, IReadOnlyList<Corridor> corridors,
                                    LevelRecipe recipe,
                                    DeterministicRandom rng, EncounterLayout layout,
-                                   HashSet<int> occupied, HashSet<int> mined, int budget)
+                                   HashSet<int> occupied, HashSet<int> mined, int budget,
+                                   RoadLine[] lines)
         {
             if (budget <= 0) return;
 
@@ -1480,12 +1531,32 @@ namespace TheVeil.Gen
                 if (purse > left) purse = left;
 
                 left -= purse - Sow(grid, band, recipe, rng, layout, occupied, mined,
-                                    purse, road, RoadGroups[road]);
+                                    purse, road, RoadGroups[road], lines);
             }
 
             // The remainder, anywhere it will go. Ground belonging to no road included:
             // a player may draw a line out there and should not find it empty.
-            if (left > 0) Sow(grid, band, recipe, rng, layout, occupied, mined, left, -1, 0);
+            //
+            // Held to the same gap as the rest. This pass is where a road's leftover
+            // money goes, and spent without the rule it would put back exactly the
+            // pile-ups the rule was written to stop.
+            if (left > 0) left = Sow(grid, band, recipe, rng, layout, occupied, mined,
+                                     left, -1, 0, lines);
+
+            // And whatever still will not fit goes into the groups already standing.
+            //
+            // <b>Because the gap rule takes ground away, and the budget is the level.</b>
+            // Spacing the groups along the road at forty-five metres cost a third of
+            // them - 317 fights on the fast road became 218 - and the points they would
+            // have cost were simply never spent. A level whose threat budget goes unspent
+            // is not a better balanced level, it is an easier one, and that is not what
+            // was asked for.
+            //
+            // So the money that has nowhere to stand is spent on who is standing: a group
+            // is traded up for a dearer kind out of the same pool. Fewer fights, each of
+            // them worth more, which is the shape the long way round was always meant to
+            // have and is now what a crowded road gets too.
+            if (left > 0) left = Enrich(recipe, rng, layout, left);
         }
 
         /// <summary>
@@ -1551,7 +1622,7 @@ namespace TheVeil.Gen
         static int Sow(TileGrid grid, ThreatBand band, LevelRecipe recipe,
                        DeterministicRandom rng, EncounterLayout layout,
                        HashSet<int> occupied, HashSet<int> mined,
-                       int budget, int road, int wanted)
+                       int budget, int road, int wanted, RoadLine[] lines)
         {
             if (budget <= 0) return 0;
 
@@ -1584,6 +1655,11 @@ namespace TheVeil.Gen
                 if (mined.Contains(tile)) continue;
                 if (!SpacedEnough(grid, tile, occupied, GroupSpacingTiles)) continue;
 
+                // And far enough along every road that reaches it. See RoadGapMetres:
+                // the straight-line rule above allows two groups twenty metres apart,
+                // which is inside the distance at which each of them wakes.
+                if (!Room(lines, tile)) continue;
+
                 var kind = PickAffordable(recipe.EnemyPool, rng, budget, wanted - placed);
                 if (kind == null) break;
 
@@ -1594,11 +1670,266 @@ namespace TheVeil.Gen
                     Origin = PlacementOrigin.Scattered
                 });
                 occupied.Add(tile);
+                Mark(lines, tile);
                 budget -= EnemyTable.Points(kind.Value);
                 placed++;
             }
 
             return budget;
+        }
+
+        /// <summary>
+        /// One road, as a ruler: how far along it each tile beside it lies, and where the
+        /// fights already are.
+        ///
+        /// Worked out once per road and read per candidate tile, rather than walking the
+        /// route for every tile the scatter considers. The placer runs up to forty-eight
+        /// times per level while the generator looks for a map it will keep, so the
+        /// difference is minutes.
+        /// </summary>
+        sealed class RoadLine
+        {
+            /// <summary>Metres along the road, or -1 for ground the road does not reach.</summary>
+            float[] _at;
+
+            readonly List<float> _taken = new List<float>();
+
+            public static RoadLine Of(TileGrid grid, IReadOnlyList<int> route)
+            {
+                if (route == null || route.Count == 0) return null;
+
+                var line = new RoadLine { _at = new float[grid.TileCount] };
+                var apart = new float[grid.TileCount];
+
+                for (int i = 0; i < grid.TileCount; i++) { line._at[i] = -1f; apart[i] = float.MaxValue; }
+
+                // Diagonal steps are longer than straight ones and a road is mostly
+                // diagonal, so counting tiles would understate every gap by a third.
+                float along = 0f;
+
+                // <b>As far as a group is met from, not as far as it engages.</b> This
+                // reached EngageRadiusTiles, four, and the rule it feeds did nothing for
+                // more than half the pile-ups it was written to stop: a group is met by a
+                // road when the road comes within its *territory*, which is six tiles at
+                // the smallest and thirteen at the largest. Everything sitting further out
+                // than four had no place on the ruler at all and was waved through.
+                //
+                // The smallest territory rather than the largest, because a group that far
+                // out is only sometimes met and this should not empty ground that a road
+                // may never touch.
+                int reach = (int)Math.Ceiling((double)TerritoryMinTiles);
+
+                for (int i = 0; i < route.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        grid.ToCoords(route[i - 1], out int px, out int py);
+                        grid.ToCoords(route[i], out int cx, out int cy);
+                        along += (px != cx && py != cy ? 1.41421f : 1f) * TileGrid.TileSize;
+                    }
+
+                    grid.ToCoords(route[i], out int rx, out int ry);
+
+                    for (int dy = -reach; dy <= reach; dy++)
+                        for (int dx = -reach; dx <= reach; dx++)
+                        {
+                            int x = rx + dx, y = ry + dy;
+                            if (!grid.InBounds(x, y)) continue;
+
+                            float away = dx * dx + dy * dy;
+                            if (away > TerritoryMinTiles * TerritoryMinTiles) continue;
+
+                            int tile = grid.ToIndex(x, y);
+                            if (away >= apart[tile]) continue;
+
+                            apart[tile] = away;
+                            line._at[tile] = along;
+                        }
+                }
+
+                return line;
+            }
+
+            /// <summary>Whether a group here would be far enough from the ones already met.</summary>
+            public bool Room(int tile)
+            {
+                float at = _at[tile];
+                if (at < 0f) return true;
+
+                foreach (float other in _taken)
+                    if (Math.Abs(other - at) < RoadGapMetres) return false;
+
+                return true;
+            }
+
+            public void Add(int tile)
+            {
+                if (_at[tile] >= 0f) _taken.Add(_at[tile]);
+            }
+
+            /// <summary>Forgets a group that has moved away from here.</summary>
+            public void Remove(int tile)
+            {
+                if (_at[tile] < 0f) return;
+                _taken.Remove(_at[tile]);
+            }
+        }
+
+        /// <summary>
+        /// The three roads as rulers, with whatever is already placed marked on them.
+        ///
+        /// Seeded from the layout rather than started empty, because the ford guards and
+        /// anything else posted before the scatter are fights the road runs into too, and
+        /// a scattered group laid beside a ford guard is the same pile-up by another
+        /// name. What stands at the goal is left out: every road meets it by
+        /// construction, and it is the end of the road rather than an encounter on it.
+        /// </summary>
+        static RoadLine[] Rulers(TileGrid grid, IReadOnlyList<Corridor> corridors,
+                                 EncounterLayout layout)
+        {
+            if (corridors == null) return new RoadLine[0];
+
+            var lines = new RoadLine[corridors.Count];
+
+            for (int i = 0; i < corridors.Count; i++)
+            {
+                lines[i] = RoadLine.Of(grid, corridors[i].Tiles);
+                if (lines[i] == null) continue;
+
+                foreach (var spawn in layout.Enemies)
+                {
+                    if (spawn.Origin == PlacementOrigin.Goal) continue;
+                    lines[i].Add(spawn.Tile);
+                }
+            }
+
+            return lines;
+        }
+
+        static bool Room(RoadLine[] lines, int tile)
+        {
+            foreach (var line in lines)
+                if (line != null && !line.Room(tile)) return false;
+
+            return true;
+        }
+
+        static void Mark(RoadLine[] lines, int tile)
+        {
+            foreach (var line in lines)
+                if (line != null) line.Add(tile);
+        }
+
+        /// <summary>A group that has moved: off the ruler where it was, onto it where it is.</summary>
+        static void Shift(RoadLine[] lines, int from, int to)
+        {
+            foreach (var line in lines)
+            {
+                if (line == null) continue;
+                line.Remove(from);
+                line.Add(to);
+            }
+        }
+
+        /// <summary>
+        /// The same targets, with the ones that leave a gap tried first.
+        ///
+        /// <b>Preferred, not required.</b> The repair loop exists to keep the promise the
+        /// whole route-drawing mechanic rests on - draw what you like and you will still
+        /// have a game - and a level that cannot keep it is re-rolled. Spacing is worth a
+        /// lot and it is not worth that, so a crowded tile is still tried when no spaced
+        /// one will do the job.
+        ///
+        /// It is worth a great deal in practice all the same: measured after the scatter
+        /// learned the rule, 130 of the 351 remaining pile-ups had a repaired group on one
+        /// side of them.
+        /// </summary>
+        static List<int> Spread(RoadLine[] lines, List<int> targets)
+        {
+            var roomy = new List<int>();
+            var rest = new List<int>();
+
+            foreach (int target in targets)
+            {
+                if (Room(lines, target)) roomy.Add(target);
+                else rest.Add(target);
+            }
+
+            roomy.AddRange(rest);
+            return roomy;
+        }
+
+        /// <summary>
+        /// Trades groups up for dearer kinds until the money runs out or nothing can be
+        /// traded, and returns what is left.
+        ///
+        /// <b>One step at a time, over and over, not the dearest kind that fits.</b> The
+        /// first try took each group as far up the pool as the money allowed, and three
+        /// combat tests fell over: a plain twelve-point escort met a bandit leader on the
+        /// first fight of 1-5, died without killing anything, and the level earned nothing
+        /// at all. Trading up to the next dearer kind and sweeping again spends exactly
+        /// the same money and spreads it, so a road with room for ten groups gets ten
+        /// harder fights rather than four impossible ones.
+        ///
+        /// Guards and the stand at the goal are left alone - they are placed promises with
+        /// their own purses, and making the ford guard quietly dearer would move the
+        /// level's difficulty somewhere the design did not put it.
+        /// </summary>
+        static int Enrich(LevelRecipe recipe, DeterministicRandom rng, EncounterLayout layout,
+                          int left)
+        {
+            var pool = recipe.EnemyPool != null && recipe.EnemyPool.Length > 0
+                ? recipe.EnemyPool : EnemyTable.All;
+
+            bool traded = true;
+
+            while (left > 0 && traded)
+            {
+                traded = false;
+
+                // A fresh order every sweep, so the same few groups are not fattened
+                // while the rest of the road stays as it was.
+                var order = new List<int>();
+                for (int i = 0; i < layout.Enemies.Count; i++) order.Add(i);
+
+                for (int i = order.Count - 1; i > 0; i--)
+                {
+                    int j = rng.Range(0, i + 1);
+                    (order[i], order[j]) = (order[j], order[i]);
+                }
+
+                foreach (int i in order)
+                {
+                    var spawn = layout.Enemies[i];
+                    if (spawn.Origin != PlacementOrigin.Scattered
+                        && spawn.Origin != PlacementOrigin.Repair) continue;
+
+                    int was = EnemyTable.Points(spawn.Kind);
+
+                    EnemyKind? best = null;
+                    int next = int.MaxValue;
+
+                    foreach (var kind in pool)
+                    {
+                        int points = EnemyTable.Points(kind);
+                        if (points <= was || points >= next || points - was > left) continue;
+
+                        next = points;
+                        best = kind;
+                    }
+
+                    if (best == null) continue;
+
+                    left -= next - was;
+                    spawn.Kind = best.Value;
+                    layout.Enemies[i] = spawn;
+                    traded = true;
+
+                    if (left <= 0) break;
+                }
+            }
+
+            return left;
         }
 
         /// <summary>Groups arrive one at a time, so nothing is placed on top of anything else.</summary>
@@ -1953,7 +2284,7 @@ namespace TheVeil.Gen
         static void VerifyAndRepair(TileGrid grid, ThreatBand band, IReadOnlyList<Corridor> corridors,
                                     LevelRecipe recipe, DeterministicRandom rng,
                                     EncounterLayout layout, HashSet<int> occupied,
-                                    int startIndex, int goalIndex)
+                                    int startIndex, int goalIndex, RoadLine[] lines)
         {
             var routes = SampleRoutes(grid, band, corridors, rng, startIndex, goalIndex, RouteSamples);
             layout.SampledRoutes = routes.Count;
@@ -1972,7 +2303,7 @@ namespace TheVeil.Gen
                 int donor = IdlestGroup(grid, routes, layout, rejected);
                 if (donor < 0) break;
 
-                var targets = EmptiestStretches(grid, routes[worst], band, occupied);
+                var targets = Spread(lines, EmptiestStretches(grid, routes[worst], band, occupied));
                 if (targets.Count == 0) break;
 
                 var before = layout.Enemies[donor];
@@ -1995,6 +2326,7 @@ namespace TheVeil.Gen
                         tied = nowTied;
                         worst = nowWorst;
                         kept = true;
+                        Shift(lines, before.Tile, target);
                         break;
                     }
 
@@ -2023,7 +2355,7 @@ namespace TheVeil.Gen
 
             // And then the part the floor knows nothing about: which road carries how
             // much. See Balance.
-            Balance(grid, band, corridors, routes, layout, occupied);
+            Balance(grid, band, corridors, routes, layout, occupied, lines);
 
             TallySilver(layout, recipe);
             TopUpSilver(grid, routes, recipe, layout, occupied);
@@ -2098,7 +2430,8 @@ namespace TheVeil.Gen
         /// one whose roads are a little too alike.
         /// </summary>
         static void Balance(TileGrid grid, ThreatBand band, IReadOnlyList<Corridor> corridors,
-                            List<List<int>> routes, EncounterLayout layout, HashSet<int> occupied)
+                            List<List<int>> routes, EncounterLayout layout,
+                            HashSet<int> occupied, RoadLine[] lines)
         {
             if (corridors == null || corridors.Count < 2) return;
 
@@ -2133,7 +2466,7 @@ namespace TheVeil.Gen
                 var spare = MetGroups(grid, over.Tiles, layout, roadOnly: true);
                 var keep = new HashSet<int>(MetGroups(grid, under.Tiles, layout, roadOnly: true));
 
-                var targets = EmptiestStretches(grid, under.Tiles, band, occupied);
+                var targets = Spread(lines, EmptiestStretches(grid, under.Tiles, band, occupied));
                 if (targets.Count == 0) break;
 
                 bool moved = false;
@@ -2165,6 +2498,7 @@ namespace TheVeil.Gen
                             layout.Repairs++;
                             layout.MinEncounters = fewest;
                             moved = true;
+                            Shift(lines, before.Tile, target);
                             break;
                         }
 
