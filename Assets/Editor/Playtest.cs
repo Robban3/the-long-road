@@ -88,6 +88,61 @@ namespace TheVeil.Editor
                 Shoot(1, 10, road);
         }
 
+        /// <summary>
+        /// What is actually standing at the traps, by name.
+        ///
+        /// Asked because it is the kind of thing that is easy to believe and hard to know:
+        /// new models were wired into the set, the set is drawn from at random, and a
+        /// picture of some bones is not proof that they are the new bones.
+        /// </summary>
+        [MenuItem("The Veil/What Stands At The Traps")]
+        public static void AtTheTraps()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/_Project/Scenes/PlayLevel.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Single);
+
+            var runner = Object.FindAnyObjectByType<LevelRunner>();
+            if (runner == null) { Debug.LogError("[AtTraps] no LevelRunner."); return; }
+
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[AtTraps] every prop within three metres of a trap, by name");
+
+            var tally = new Dictionary<string, int>();
+
+            for (int chapter = 1; chapter <= 3; chapter++)
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    var root = SmokeTest.Build(runner, chapter, level, out var map);
+
+                    foreach (var trap in map.Encounters.Traps)
+                    {
+                        var at = Vec2.FromTile(map.Grid, trap.Tile);
+
+                        foreach (var thing in root.GetComponentsInChildren<Transform>(true))
+                        {
+                            float dx = thing.position.x - at.X, dz = thing.position.z - at.Y;
+                            if (dx * dx + dz * dz > 9f) continue;
+
+                            string name = thing.name.Replace("(Clone)", "");
+                            if (name.Length == 0 || name == "Props" || name == "Ground") continue;
+
+                            tally.TryGetValue(name, out int seen);
+                            tally[name] = seen + 1;
+                        }
+                    }
+
+                    Object.DestroyImmediate(root);
+                }
+
+            var names = new List<string>(tally.Keys);
+            names.Sort((a, b) => tally[b].CompareTo(tally[a]));
+
+            foreach (string name in names) said.AppendLine($"[AtTraps] {tally[name],4}  {name}");
+
+            Write("attraps.txt", said);
+        }
+
         /// <summary>What the arid pack's bones import as: size, materials, and a picture.</summary>
         [MenuItem("The Veil/Arid Bones Report")]
         public static void AridBones()
