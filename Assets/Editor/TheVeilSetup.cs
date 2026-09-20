@@ -896,6 +896,9 @@ namespace TheVeil.Editor
             return asset;
         }
 
+        /// <summary>Where the simplified wagon WagonImporter builds is kept.</summary>
+        const string WreckDir = "Assets/_Project/Prefabs/Wreck";
+
         /// <summary>Where the snowed copies setup makes of the nature pack's models are kept.</summary>
         const string WinterPrefabDir = "Assets/_Project/Prefabs/Winter";
 
@@ -1491,6 +1494,12 @@ namespace TheVeil.Editor
                         "SM_Gen_Prop_Barrel_Wood_01", "SM_Gen_Prop_Barrel_Wood_02",
                         "SM_Gen_Prop_Barrel_Wood_03"
                     })),
+
+                // The broken wagon that lies at every trap, which came from the user as a
+                // generated model and went through WagonImporter to get here: two and a
+                // third million triangles down to four thousand, and its two thousand
+                // pixel maps down to a thousand.
+                Wrecks = Mixed(Load(WreckDir, new[] { "BrokenWagon" })),
 
                 // **The skull is no longer debris.** Wreckage is fitted to DebrisWidth,
                 // 1.3 m across, which is about what a wheel, a crate and a barrel are and

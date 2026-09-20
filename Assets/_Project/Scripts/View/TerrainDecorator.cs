@@ -285,6 +285,18 @@ namespace TheVeil.View
 
         public PropSet Wreckage = new PropSet();
 
+        /// <summary>
+        /// The broken wagon that lies at a trap, whole rather than in pieces.
+        ///
+        /// <b>Its own set because it is a site, and Wreckage is not.</b> Every model in
+        /// Wreckage is fitted to DebrisWidth, 1.3 m, because a wheel, a crate and a
+        /// barrel are all about that across and the set is drawn from as a bag of loose
+        /// pieces. This is one model, one metre ninety long, and it is the thing the
+        /// player is meant to read from the air: put it in that bag and it would be sized
+        /// to a barrel and dealt out one time in six.
+        /// </summary>
+        public PropSet Wrecks = new PropSet();
+
         public PropSet Ruins = new PropSet();
 
         /// <summary>
@@ -1365,6 +1377,17 @@ namespace TheVeil.View
         static readonly List<int> _boneSites = new List<int>();
 
         /// <summary>
+        /// The broken wagons laid at those traps, which the sweep must not take.
+        ///
+        /// Held as the objects rather than tested by name or by height, because both of
+        /// those have already failed here: the sweep takes anything over 1.5 m standing
+        /// within three metres of a heap, and the wagon is 1.57 m tall and stands 3.2 m
+        /// away. It was swept off all hundred and twenty-one traps the moment it was
+        /// turned the right way up, and the photographs showed an empty field.
+        /// </summary>
+        static readonly List<GameObject> _trapWrecks = new List<GameObject>();
+
+        /// <summary>
         /// How tall a thing standing over a heap of bones may be and still leave it seen,
         /// in metres.
         ///
@@ -1386,6 +1409,9 @@ namespace TheVeil.View
         ///
         /// Never a bridge. Traps are laid at the throats and a ford is a throat, so a
         /// heap can land beside one; the bridge is the thing that is meant to be there.
+        ///
+        /// And never the trap's own wagon, for the same reason: it was put beside the
+        /// heap on purpose, by the code that put the heap down.
         /// </summary>
         static int SweepTheBones(Transform parent, TileGrid grid)
         {
@@ -1401,6 +1427,7 @@ namespace TheVeil.View
                 foreach (Transform thing in parent)
                 {
                     if (thing.GetComponentInChildren<BridgeDeck>() != null) continue;
+                    if (_trapWrecks.Contains(thing.gameObject)) continue;
 
                     var box = ModelScaling.Measure(thing.gameObject);
                     if (box.size.y < OverBones) continue;
@@ -1419,6 +1446,7 @@ namespace TheVeil.View
             }
 
             _boneSites.Clear();
+            _trapWrecks.Clear();
             return doomed.Count;
         }
 
@@ -3513,6 +3541,7 @@ namespace TheVeil.View
             if (ruinSites != null && decor.Ruins.Any)
             {
                 _boneSites.Clear();
+                _trapWrecks.Clear();
 
                 foreach (int wanted in ruinSites)
                 {
@@ -3911,33 +3940,43 @@ namespace TheVeil.View
                 }
             }
 
-            if (!decor.Wreckage.Any) return placed;
+            // <b>And the broken wagon, which is what a trap sign was always for.</b>
+            //
+            // This used to be one to three loose pieces out of Wreckage: a wheel, a
+            // crate, three barrels. Looked at from the height the game is played at, a
+            // barrel beside some bones is a barrel beside some bones — it was asked
+            // outright what the thing at the trap was meant to be, because on the photo
+            // it read as a barrel and nothing else.
+            //
+            // One wagon says the whole sentence instead. Somebody came along this road
+            // with a load, and what is left of them is lying here. The bones above are
+            // the other half of it and the two together are the warning; the barrels
+            // were neither half.
+            if (!decor.Wrecks.Any) return placed;
 
-            int pieces = rng.Range(1, 4);
-            for (int i = 0; i < pieces; i++)
-            {
-                var debris = new Choice(decor.Wreckage, Any(decor.Wreckage, rng),
-                                        DebrisWidth, byWidth: true, canopy: true);
+            var wreck = Any(decor.Wrecks, rng);
+            if (wreck == null) return placed;
 
-                var position = Vec2.FromTile(grid, tile);
-                float x = position.X + rng.Range(-DebrisSpread, DebrisSpread);
-                float z = position.Y + rng.Range(-DebrisSpread, DebrisSpread);
-                float groundY = grid.SurfaceElevation(x, z) * heightScale;
+            // Beside the bones rather than on them. Far enough not to stand in the heap,
+            // near enough that the eye takes the two as one thing.
+            float angle = rng.Range(0f, Mathf.PI * 2f);
+            var where = Vec2.FromTile(grid, tile);
+            float wx = where.X + Mathf.Cos(angle) * WreckStandoff;
+            float wz = where.Y + Mathf.Sin(angle) * WreckStandoff;
+            float wy = grid.SurfaceElevation(wx, wz) * heightScale;
 
-                var instance = Object.Instantiate(debris.Prefab, parent);
-                instance.transform.position = new Vector3(x, groundY, z);
-                instance.transform.rotation = debris.ZUp
-                    ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
-                    : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+            var wagon = Object.Instantiate(wreck, parent);
+            wagon.transform.position = new Vector3(wx, wy, wz);
+            wagon.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
 
-                ModelScaling.FitToFootprint(instance, DebrisWidth, groundY);
-                LayFlat(instance, groundY);
-                Mark(instance);
+            // At the size it was drawn. It is a wagon and the game is full of wagons the
+            // player's own caravan is made of; one sized to a footprint instead would be
+            // a toy or a barn depending on which way round it was facing.
+            Ground(wagon, wy);
+            Mark(wagon);
+            _trapWrecks.Add(wagon);
 
-                placed++;
-            }
-
-            return placed;
+            return placed + 1;
         }
 
         /// <summary>
@@ -4011,6 +4050,16 @@ namespace TheVeil.View
         }
 
         /// <summary>How wide a loose piece of wreckage is, and how far it lies from the cart.</summary>
+        /// <summary>
+        /// How far the broken wagon lies from the bones at a trap, in metres.
+        ///
+        /// Three metres two. Not guessed: BonePileSpread throws bones 2.5 m from the
+        /// middle and the wagon is 1.9 m long, so anything under three metres parks it
+        /// inside the ribcage - which is what the first photograph showed it doing. A
+        /// stray bone under a wheel is right; a wagon inside a ribcage is not.
+        /// </summary>
+        public const float WreckStandoff = 3.2f;
+
         public const float DebrisWidth = 1.3f;
         public const float DebrisSpread = 2.6f;
 

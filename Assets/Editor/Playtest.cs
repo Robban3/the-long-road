@@ -347,9 +347,16 @@ namespace TheVeil.Editor
                     var root = SmokeTest.Build(runner, chapter, level, out var map);
 
                     var bones = new List<Vector3>();
+                    var wagons = new List<Vector3>();
+
                     foreach (var thing in root.GetComponentsInChildren<Transform>(true))
                     {
                         string name = thing.name;
+
+                        // Counted, because looking for it in a photograph is how a prop
+                        // that was never placed gets called a prop that is hard to see.
+                        if (name.Contains("BrokenWagon")) wagons.Add(thing.position);
+
                         if (name.Contains("Skull") || name.Contains("Skeleton")
                             || name.Contains("Bone") || name.Contains("Grave"))
                             bones.Add(thing.position);
@@ -436,6 +443,97 @@ namespace TheVeil.Editor
                                         + $"{lengthOf:0.0} m long"
                                         + (wide < TerrainDecorator.FordDeck - 0.5f ? "  <-- TOO NARROW" : ""));
                     }
+
+                    // The wreck stands off from the *bones*, and the bones stand off
+                    // from the trap - TrapSigns puts them on a neighbouring tile - so a
+                    // wreck is allowed both distances. Measured against the trap's own
+                    // tile at six metres it read as missing on half the levels while the
+                    // photographs showed it lying right there.
+                    float wreckReach = near + TerrainDecorator.WreckStandoff;
+
+                    // How near a crossing a heap has to be for its missing wreck to be
+                    // the sweep's doing. A deck is 22 m long and the sweep works on
+                    // outlines, so a heap half a deck away can still have had a wreck
+                    // overlapping it.
+                    const float DeckReach = 16f;
+
+                    int wagonless = 0;
+                    foreach (var trap in map.Encounters.Traps)
+                    {
+                        var at = Vec2.FromTile(map.Grid, trap.Tile);
+                        bool close = false;
+
+                        foreach (var wagon in wagons)
+                        {
+                            float dx = wagon.x - at.X, dz = wagon.z - at.Y;
+                            if (dx * dx + dz * dz <= wreckReach * wreckReach) { close = true; break; }
+                        }
+
+                        if (!close) wagonless++;
+                    }
+
+                    // Against the heaps rather than against the traps, because two traps
+                    // side by side are given the same sign tile and share one heap - and
+                    // one wreck is what belongs beside one heap. A count of wrecks against
+                    // a count of traps says a level is short when it is not.
+                    var heaps = new HashSet<int>(TrapSigns.Sites(map));
+
+                    // <b>A heap may lose its wreck to a crossing, and only to that.</b>
+                    // Traps are laid at the throats, a ford is a throat, and
+                    // SweepTheBridges takes anything standing on a deck that is not bones -
+                    // which is right, a wagon parked on the bridge is worse than no wagon.
+                    // So a wreckless heap beside a crossing is the rule working; one out in
+                    // the open is a fault, and only that is marked.
+                    int stranded = 0;
+
+                    if (wagons.Count < heaps.Count)
+                    {
+                        var goalAt = Vec2.FromTile(map.Grid, map.GoalIndex);
+
+                        foreach (int heap in heaps)
+                        {
+                            var at = Vec2.FromTile(map.Grid, heap);
+
+                            float nearest = float.MaxValue;
+                            foreach (var wagon in wagons)
+                            {
+                                float dx = wagon.x - at.X, dz = wagon.z - at.Y;
+                                nearest = Mathf.Min(nearest, Mathf.Sqrt(dx * dx + dz * dz));
+                            }
+
+                            if (nearest <= TerrainDecorator.WreckStandoff + 1f) continue;
+
+                            float fromGoal = Mathf.Sqrt((at.X - goalAt.X) * (at.X - goalAt.X)
+                                                        + (at.Y - goalAt.Y) * (at.Y - goalAt.Y));
+
+                            // And from the nearest crossing, which is the other thing that
+                            // sweeps ground clear: traps are laid at the throats, a ford is
+                            // a throat, and SweepTheBridges takes anything standing on a
+                            // deck that is not bones.
+                            float fromDeck = float.MaxValue;
+                            foreach (var deck in root.GetComponentsInChildren<BridgeDeck>(true))
+                            {
+                                float dx = deck.transform.position.x - at.X;
+                                float dz = deck.transform.position.z - at.Y;
+                                fromDeck = Mathf.Min(fromDeck, Mathf.Sqrt(dx * dx + dz * dz));
+                            }
+
+                            bool atCrossing = fromDeck <= DeckReach;
+                            if (!atCrossing) stranded++;
+
+                            said.AppendLine($"[Wagon] {chapter}-{level}: heap at tile {heap} "
+                                            + $"has no wreck ({fromGoal:0} m from the goal, "
+                                            + (fromDeck < float.MaxValue
+                                                ? $"{fromDeck:0} m from a crossing)"
+                                                : "no crossing on the level)")
+                                            + (atCrossing ? " - swept off the deck" : "  <--"));
+                        }
+                    }
+
+                    said.AppendLine($"[Wagon] {chapter}-{level}: {wagons.Count} wreck(s) for "
+                                    + $"{heaps.Count} heap(s) at {here} trap(s), {wagonless} "
+                                    + $"trap(s) with none within {wreckReach:0} m"
+                                    + (stranded > 0 ? "  <--" : ""));
 
                     said.AppendLine($"[Bones] {chapter}-{level}: {here} trap(s), "
                                     + $"{bareHere} with no bones within {near:0} m in the game, "
