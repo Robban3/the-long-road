@@ -1771,16 +1771,20 @@ namespace TheVeil.View
             // stands in open water with its ends in the air, which is what 3-1 did.
             var crossings = Crossings.All(grid);
 
-            if (crossings.Count == 0)
-            {
-                // Nothing with banks. Rather than leave the water unbridged, take any
-                // ford: a bridge in an awkward place still says "cross here", and a level
-                // that reaches this line has already failed the generator's own check.
-                for (int i = 0; i < grid.TileCount; i++)
-                    if (grid[i] == TerrainType.Ford && Apart(grid, i, crossings, 4f))
-                        crossings.Add(i);
-            }
-
+            // <b>And no bridge at all where nothing has banks.</b> This used to fall back
+            // to any ford it could find, on the reasoning that a bridge in an awkward
+            // place still says "cross here" and that a level reaching that line had
+            // already failed the generator's own check.
+            //
+            // Both halves were wrong. 1-8 is a town, it owes no crossings, it has failed
+            // nothing - and its water has no ford with ground on two sides, so the
+            // fallback stood a bridge in the middle of open water with its ends in the
+            // air. That is the same fault the banks test was written for, arriving by the
+            // door beside it, and the smoke test has been reporting it every run.
+            //
+            // A level that owes crossings and has none is caught where it belongs: the
+            // generator's crossing count, and the smoke test's "only N ways over the
+            // water". Neither needs a bridge planted in a lake to say so.
             if (crossings.Count == 0) return -1;
 
             // <b>One that somebody actually crosses.</b> This drew at random from every

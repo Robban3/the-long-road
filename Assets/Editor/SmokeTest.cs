@@ -261,9 +261,18 @@ namespace TheVeil.Editor
             if (crossings < recipe.CrossingsOwed)
                 faults.Add($"{chapter}-{level}: only {crossings} way(s) over the water");
 
-            int bridge = TerrainDecorator.BridgeTile(map.Grid, map.Seed);
-            if (bridge < 0 || !Crossings.Spans(map.Grid, bridge))
+            // The same question the game asks, with the roads in it. Without them this
+            // asked for a bridge over any crossing while the decorator asks for one over
+            // a crossing somebody drives to, so the tool could report a fault about a
+            // bridge that is not the bridge the level builds.
+            int bridge = TerrainDecorator.BridgeTile(map.Grid, map.Seed,
+                                                     LevelPreview.Travelled(map));
+
+            if (bridge >= 0 && !Crossings.Spans(map.Grid, bridge))
                 faults.Add($"{chapter}-{level}: the bridge stands in open water");
+            else if (bridge < 0 && recipe.CrossingsOwed > 0)
+                faults.Add($"{chapter}-{level}: no bridge, and the level owes "
+                           + $"{recipe.CrossingsOwed} way(s) over its water");
 
             int built = 0;
             foreach (var renderer in props.GetComponentsInChildren<MeshRenderer>(false))

@@ -324,6 +324,53 @@ namespace TheVeil.Editor
         /// Within a tile and a half, which is the eight tiles touching the trap and the
         /// width of the heap spread round its centre.
         /// </summary>
+        /// <summary>
+        /// What water each level has, and whether it gets a bridge: `The Veil > Water And
+        /// Bridges`.
+        ///
+        /// Written to answer one question flatly - how can the town level have a bridge -
+        /// because the smoke test said it had one and the town clears its whole grid to
+        /// building ground. One of the two was wrong and neither could be believed while
+        /// the only thing either reported was a verdict.
+        /// </summary>
+        [MenuItem("The Veil/Water And Bridges")]
+        public static void WaterAndBridges()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/_Project/Scenes/PlayLevel.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Single);
+
+            var runner = Object.FindAnyObjectByType<LevelRunner>();
+            if (runner == null) { Debug.LogError("[Water] PlayLevel has no LevelRunner."); return; }
+
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Water] what each level has to cross, and what stands over it");
+
+            for (int chapter = 1; chapter <= 3; chapter++)
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    var map = LevelMaps.For(chapter, level);
+
+                    int water = 0, fords = 0;
+                    for (int i = 0; i < map.Grid.TileCount; i++)
+                    {
+                        if (map.Grid[i] == TerrainType.Water) water++;
+                        else if (map.Grid[i] == TerrainType.Ford) fords++;
+                    }
+
+                    int bridge = TerrainDecorator.BridgeTile(map.Grid, map.Seed,
+                                                             LevelPreview.Travelled(map));
+
+                    said.AppendLine($"[Water] {chapter}-{level}: {water} water tile(s), "
+                                    + $"{fords} ford tile(s), {TheVeil.Sim.Crossings.Count(map.Grid)} "
+                                    + $"crossing(s) with banks, owed "
+                                    + $"{LevelMaps.Recipe(chapter, level).CrossingsOwed}, bridge "
+                                    + (bridge < 0 ? "none" : $"at tile {bridge}"));
+                }
+
+            Write("water.txt", said);
+        }
+
         [MenuItem("The Veil/Bones At The Traps")]
         public static void BonesAtTheTraps()
         {
