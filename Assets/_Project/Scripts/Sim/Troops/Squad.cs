@@ -19,6 +19,12 @@ namespace TheVeil.Sim
         public float Hp;
         public Vec2 Position;
 
+        /// <summary>
+        /// How far this group has stepped off its post to reach an enemy, as an offset from
+        /// the post. Zero while it stands where it is posted. See CombatSystem.Close.
+        /// </summary>
+        public Vec2 Sally;
+
         public int WeaponLevel;
         public int ArmourLevel;
         public int SpecialLevel;
@@ -271,7 +277,14 @@ namespace TheVeil.Sim
         /// </summary>
         public const float FormationSpan = VanLead + 1f;
 
-        /// <summary>How far a troop will chase before returning to its post.</summary>
+        /// <summary>
+        /// How far a troop will chase before returning to its post.
+        ///
+        /// For a long time this was only a filter on what a troop could hit - nobody ever
+        /// chased anything, the posts were set from the column every step - and that is
+        /// how an archer standing 4.8 m from a spearman with 2.5 m of reach held a caravan
+        /// still until the run was called lost. See CombatSystem.Close.
+        /// </summary>
         public const float Leash = 10f;
 
         /// <summary>
@@ -671,7 +684,7 @@ namespace TheVeil.Sim
                 var post = PostFor(group, i, caravan.ColumnHalfLength);
                 var anchor = caravan.PositionAt(centre + post.X);
 
-                var wanted = new Vec2(anchor.X + rx * post.Y, anchor.Y + ry * post.Y);
+                var wanted = new Vec2(anchor.X + rx * post.Y, anchor.Y + ry * post.Y) + group.Sally;
 
                 // Round what is standing there rather than through it. The post itself is
                 // unchanged — the group is put at the nearest clear spot to it, and drops
@@ -704,7 +717,7 @@ namespace TheVeil.Sim
 
                 var wanted = new Vec2(
                     centre.X + hx * post.X + rx * post.Y,
-                    centre.Y + hy * post.X + ry * post.Y);
+                    centre.Y + hy * post.X + ry * post.Y) + group.Sally;
 
                 group.Position = Obstacles == null ? wanted : Obstacles.Clear(wanted, TroopRadius);
             }

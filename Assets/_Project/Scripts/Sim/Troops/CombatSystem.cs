@@ -576,6 +576,9 @@ namespace TheVeil.Sim
                 // wherever it is on the column. That is what buying reach buys.
                 var target = NearestEnemyInReach(group, reach);
                 group.Target = target;
+
+                Close(group, target, reach, deltaTime);
+
                 if (target == null) continue;
 
                 InContact = true;
@@ -778,6 +781,85 @@ namespace TheVeil.Sim
                 found = enemy;
             }
             return found;
+        }
+
+        /// <summary>
+        /// How fast a troop steps off its post towards an enemy, and back again.
+        ///
+        /// A brisk walk rather than a run: this is men stepping out of the line to meet
+        /// somebody, not a charge, and a charge is the cavalry's.
+        /// </summary>
+        public const float SallySpeed = 3f;
+
+        /// <summary>
+        /// Steps a troop off its post towards the enemy it cannot reach but should, and
+        /// back onto the post when there is nothing to reach.
+        ///
+        /// <b>Because nobody ever moved to a fight.</b> The posts were set from the column
+        /// every step and a troop struck only what came within its own reach, so an
+        /// enemy that stopped just outside it could not be answered at all. Found on 2-5's
+        /// long road: a bandit archer on a ford stood 4.8 m from the rear spearmen - inside
+        /// the five metres that halt the column, outside the 2.5 the spear reaches - and
+        /// shot. The crossbows were 23 m off with 20.5 of reach, the swords 9 m off with
+        /// 1.8. Nobody was out of the fight and nobody was in it, and after a minute of
+        /// that the stall watch called the run lost with four troops standing and every
+        /// wagon whole.
+        ///
+        /// Two things a troop closes on, and nothing else, so the formation stays a
+        /// formation: whoever is striking <i>it</i>, and - while the column is halted -
+        /// whoever is striking anyone. Never further than <see cref="Squad.Leash"/> from
+        /// the post, and only to the edge of its own reach, so a crossbow steps up to
+        /// shooting distance and no nearer. A troop that has something in reach holds
+        /// where it is; one that has nothing to close on walks back.
+        /// </summary>
+        void Close(TroopGroup group, TrackedEnemy target, float reach, float deltaTime)
+        {
+            float step = SallySpeed * deltaTime;
+            var sally = group.Sally;
+
+            if (target != null) return;
+
+            TrackedEnemy attacker = null;
+            float best = float.MaxValue;
+            float range = Squad.Leash + reach;
+
+            foreach (var enemy in _detection.Enemies)
+            {
+                if (!enemy.Awake || !enemy.Striking || IsDefeated(enemy)) continue;
+
+                bool onMe = enemy.Engaging == group;
+                if (!onMe && !Halted) continue;
+
+                float distance = Vec2.Distance(enemy.Position, group.Position);
+                if (distance > range) continue;
+
+                // Whoever is hitting this troop comes first, whatever else is nearer.
+                float rank = onMe ? distance - range : distance;
+                if (rank >= best) continue;
+
+                best = rank;
+                attacker = enemy;
+            }
+
+            if (attacker != null)
+            {
+                var toward = attacker.Position - group.Position;
+                float distance = Vec2.Distance(attacker.Position, group.Position);
+                float short_ = distance - reach * 0.9f;
+
+                if (distance > 0.0001f && short_ > 0f)
+                    sally = sally + toward * (System.Math.Min(step, short_) / distance);
+            }
+            else
+            {
+                float away = Vec2.Distance(sally, Vec2.Zero);
+                sally = away <= step ? Vec2.Zero : sally * ((away - step) / away);
+            }
+
+            float out_ = Vec2.Distance(sally, Vec2.Zero);
+            if (out_ > Squad.Leash) sally = sally * (Squad.Leash / out_);
+
+            group.Sally = sally;
         }
 
         /// <summary>A wounded group hits proportionally softer, as troops do.</summary>

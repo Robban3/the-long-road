@@ -49,18 +49,24 @@ namespace TheVeil.Sim
         /// 30 levels of 30, the long road on 29 and the fast road on 29. Upgrading changed
         /// nothing because nothing needed upgrading for.
         ///
-        /// Fifteen per cent, swept rather than felt, against two players: the one the
+        /// Thirty-five per cent, swept rather than felt, against two players: the one the
         /// curve assumes, and a prepared one - the right line for the road, all the gold
-        /// in the troops, and the silver spent deep at the field smithy. At 1.15 the first
-        /// gets down the safe and the long road on 28 levels of 30 and the fast road on 19,
-        /// and the second gets down every road of every level, which the generator now
-        /// refuses to ship without (LevelMaps.EveryRoadWinnable). At 1.25 the safe and long
-        /// roads fell to 25 and 24; at 1.5 the prepared player lost nine fast roads.
+        /// in the troops, and the silver spent deep at the field smithy. At 1.35 the first
+        /// gets down the safe road on 28 levels of 30, the long one on 29 and the fast one
+        /// on 17, and the second gets down every road of every level, which the generator
+        /// refuses to ship without (LevelMaps.EveryRoadWinnable).
+        ///
+        /// It was 1.15 for a day, and that number was measured on a combat that could
+        /// deadlock: troops never stepped off their posts, so an enemy standing just
+        /// outside a troop's reach held the column until the stall watch called the run
+        /// lost. Part of what read as the curve being hard was that. With the troops able
+        /// to close on their attacker (CombatSystem.Close), 1.15 let the ordinary escort
+        /// down the fast road on 28 levels of 30, and the hardness was swept again.
         ///
         /// On the enemies and not on the escort: the escort is what the player built, and
         /// EscortStrength and the silver multiplier keep describing that player.
         /// </summary>
-        public const float EnemyHardness = 1.15f;
+        public const float EnemyHardness = 1.35f;
 
         public float EnemyStrengthStart = 1.00f;
         public float EnemyStrengthEnd = 1.35f;

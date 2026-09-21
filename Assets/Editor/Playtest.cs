@@ -730,6 +730,188 @@ namespace TheVeil.Editor
             Write($"roads-{trial:0.00}.txt", said);
         }
 
+        /// <summary>
+        /// The runs that are lost with almost nothing earned, stepped through one at a time:
+        /// `The Veil > Early Deaths`.
+        ///
+        /// Four roads of thirty levels lose the escort the curve assumes with fifteen to
+        /// thirty silver in the purse - dead, or stopped, before the first real fight was
+        /// over. That is the shape the archer at 1-5's start line had, and a verdict cannot
+        /// say whether it is the same fault: this says what woke first, how far the caravan
+        /// had come, who was standing there and how the run was ended.
+        /// </summary>
+        [MenuItem("The Veil/Early Deaths")]
+        public static void EarlyDeaths()
+        {
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Early] runs lost before the first fight was over");
+
+            // Every road of every level, and only the ones that die early are written up,
+            // so the list is found rather than remembered.
+            for (int chapter = 1; chapter <= 3; chapter++)
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    var map = LevelMaps.For(chapter, level);
+                    var recipe = LevelMaps.Recipe(chapter, level);
+                    int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+
+                    foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+                    {
+                        var corridor = map.CorridorOf(kind);
+                        if (corridor == null) continue;
+
+                        var run = ReferenceSquad.Play(map, corridor.Tiles, recipe, cleared);
+                        var woke = new List<string>();
+                        var seen = new HashSet<TrackedEnemy>();
+
+                        while (run.Outcome == RunOutcome.InProgress && run.ElapsedSeconds < 900f)
+                        {
+                            run.Step();
+
+                            foreach (var enemy in run.Detection.Enemies)
+                            {
+                                if (!enemy.Awake || !seen.Add(enemy) || woke.Count >= 4) continue;
+
+                                int index = -1;
+                                for (int i = 0; i < map.Encounters.Enemies.Count; i++)
+                                    if (map.Encounters.Enemies[i].Tile == enemy.Tile) { index = i; break; }
+
+                                var spawn = index >= 0 ? map.Encounters.Enemies[index] : default;
+
+                                map.Grid.ToCoords(enemy.Tile, out int ex, out int ey);
+                                map.Grid.ToCoords(map.StartIndex, out int sx, out int sy);
+                                float fromStart = Mathf.Sqrt((ex - sx) * (ex - sx) + (ey - sy) * (ey - sy))
+                                                  * TileGrid.TileSize;
+
+                                woke.Add($"{enemy.Kind} woke at {run.ElapsedSeconds:0.0} s with the caravan "
+                                         + $"{run.Caravan.DistanceTravelled:0} m along; placed {spawn.Origin}, "
+                                         + $"{fromStart:0} m from the start, territory {spawn.Territory:0.0} tiles");
+                            }
+                        }
+
+                        if (run.Outcome == RunOutcome.Arrived || run.Economy.TotalEarned > 40) continue;
+
+                        int standing = 0;
+                        foreach (var group in run.Squad.Slots)
+                            if (group != null && group.Alive) standing++;
+
+                        float wagons = 0f;
+                        foreach (var wagon in run.Caravan.Wagons) wagons += wagon.Hp;
+
+                        string why = run.Caravan.Destroyed ? "the wagons were destroyed"
+                                   : run.HeldAtTheGate ? "held at the gate"
+                                   : run.StalledOn >= 0 ? $"stalled on tile {run.StalledOn} ({map.Grid[run.StalledOn]})"
+                                   : "timed out";
+
+                        said.AppendLine($"[Early] {chapter}-{level} {kind}: lost after {run.ElapsedSeconds:0} s, "
+                                        + $"{run.Caravan.DistanceTravelled:0} of {run.Caravan.TotalDistance:0} m, "
+                                        + $"earned {run.Economy.TotalEarned}, {standing} troop(s) standing, "
+                                        + $"wagons at {wagons:0} hp - {why}");
+
+                        foreach (string line in woke) said.AppendLine($"[Early]     {line}");
+                    }
+                }
+
+            Write("early.txt", said);
+        }
+
+        /// <summary>
+        /// One run followed second by second: `The Veil > Follow One Run`, with -follow
+        /// chapter level road on the command line. Written for 2-5's long road, where the
+        /// caravan stopped in a forest with four troops standing and every wagon whole.
+        /// </summary>
+        [MenuItem("The Veil/Follow One Run")]
+        public static void FollowOneRun()
+        {
+            int chapter = 2, level = 5;
+            var road = CorridorKind.Odd;
+
+            var args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i + 3 < args.Length; i++)
+                if (args[i] == "-follow")
+                {
+                    int.TryParse(args[i + 1], out chapter);
+                    int.TryParse(args[i + 2], out level);
+                    System.Enum.TryParse(args[i + 3], out road);
+                }
+
+            var map = LevelMaps.For(chapter, level);
+            var recipe = LevelMaps.Recipe(chapter, level);
+            var corridor = map.CorridorOf(road);
+            var run = ReferenceSquad.Play(map, corridor.Tiles, recipe,
+                                          ReferenceSquad.LevelsCleared(chapter, level));
+
+            var said = new System.Text.StringBuilder();
+            said.AppendLine($"[Follow] {chapter}-{level} {road}");
+
+            float next = 0f;
+            while (run.Outcome == RunOutcome.InProgress && run.ElapsedSeconds < 900f)
+            {
+                run.Step();
+                if (run.ElapsedSeconds < next) continue;
+                next = run.ElapsedSeconds + 2f;
+
+                var lead = run.Caravan.LeadPosition;
+                string nearest = "none awake";
+                float best = float.MaxValue;
+
+                foreach (var enemy in run.Detection.Enemies)
+                {
+                    if (!enemy.Awake || run.Combat == null || run.Combat.HealthOf(enemy) <= 0f) continue;
+                    float d = Vec2.Distance(enemy.Position, lead);
+                    if (d >= best) continue;
+                    best = d;
+
+                    map.Grid.ToCoords(enemy.Tile, out int ex, out int ey);
+                    nearest = $"{enemy.Kind} at {run.Combat.HealthOf(enemy):0} hp {d:0} m from the lead wagon, "
+                              + $"posted on {map.Grid[enemy.Tile]}";
+                }
+
+                int engaged = 0, standing = 0;
+                foreach (var group in run.Squad.Slots)
+                {
+                    if (group == null || !group.Alive) continue;
+                    standing++;
+                    if (group.Engaged) engaged++;
+                }
+
+                said.AppendLine($"[Follow] {run.ElapsedSeconds,5:0} s  {run.Caravan.DistanceTravelled,4:0} m  "
+                                + $"on {map.Grid[run.Caravan.CurrentTile]}  "
+                                + $"halted {run.Combat?.Halted}  contact {run.Combat?.InContact}  "
+                                + $"engaged {engaged}/{standing}  silver {run.Economy.Silver}  "
+                                + $"nearest: {nearest}");
+            }
+
+            said.AppendLine($"[Follow] {run.Outcome} at {run.ElapsedSeconds:0} s, stalled on {run.StalledOn}");
+
+            // Who was standing where when it ended, and what the enemy holding the column
+            // was doing - because "halted, and nobody fighting" is two facts that should
+            // not both be true.
+            foreach (var enemy in run.Detection.Enemies)
+            {
+                if (!enemy.Awake || run.Combat.HealthOf(enemy) <= 0f) continue;
+
+                string target = enemy.Engaging == null ? "nobody"
+                    : $"{enemy.Engaging.Kind} at {Vec2.Distance(enemy.Position, enemy.Engaging.Position):0.0} m";
+                said.AppendLine($"[Follow] enemy {enemy.Kind} on {map.Grid[enemy.Tile]} at "
+                                + $"{run.Combat.HealthOf(enemy):0} hp: engaging {target}, striking {enemy.Striking}");
+
+                foreach (var group in run.Squad.Slots)
+                {
+                    if (group == null) continue;
+                    said.AppendLine($"[Follow]   {group.Slot} {group.Kind}: alive {group.Alive}, "
+                                    + $"engaged {group.Engaged}, {Vec2.Distance(enemy.Position, group.Position):0.0} m "
+                                    + $"from it, reach {group.AttackRange(TerrainType.Plains):0.0} m, "
+                                    + $"hp {group.Hp:0}");
+                }
+
+                for (int w = 0; w < run.Caravan.Wagons.Count; w++)
+                    said.AppendLine($"[Follow]   wagon {w}: {Vec2.Distance(enemy.Position, run.Caravan.WagonPosition(w)):0.0} m from it");
+            }
+
+            Write("follow.txt", said);
+        }
+
         [MenuItem("The Veil/Water And Bridges")]
         public static void WaterAndBridges()
         {

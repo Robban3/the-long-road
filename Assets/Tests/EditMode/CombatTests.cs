@@ -409,9 +409,15 @@ namespace TheVeil.Tests
 
                 // The scout is allowed her lead: she walks ahead of the van on purpose
                 // now, and falls back into the ranks whenever anything is in contact.
-                float allowed = group.Kind == TroopKind.Scout
+                //
+                // And everybody is allowed the leash, which is what the leash is: a troop
+                // steps off its post to reach an enemy that is striking it, never more
+                // than Squad.Leash, and the run may end with it still out there. What
+                // this guards against is the formation dissolving - a chase with no end -
+                // and a leash is the end.
+                float allowed = (group.Kind == TroopKind.Scout
                     ? Squad.FormationSpan + Squad.ScoutLead
-                    : Squad.FormationSpan;
+                    : Squad.FormationSpan) + Squad.Leash;
 
                 Assert.LessOrEqual(nearest, allowed + 0.5f,
                     $"the {group.Kind} wandered {nearest:F1} m from the column");

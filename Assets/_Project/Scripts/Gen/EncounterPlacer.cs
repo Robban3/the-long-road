@@ -331,6 +331,23 @@ namespace TheVeil.Gen
         /// </summary>
         public const float FastRoadGapMetres = 18f;
 
+        /// <summary>
+        /// The first stretch of every road, in metres, on which it meets one group at most.
+        ///
+        /// <b>Because a run starts with no silver.</b> The field smithy is where a level is
+        /// decided, and it is bought with what the fighting pays - so the first fight is
+        /// always fought with nothing from it. Measured over the thirty levels, eight roads
+        /// lost the escort the curve assumes before it had earned thirty silver, and every
+        /// one of them was the same picture: three or four groups inside the first sixty
+        /// metres, met one on top of another by a caravan that had not had a chance to buy
+        /// anything. That is not the fast road being treacherous. Treachery is danger that
+        /// adds up; this was a wall at the gate.
+        ///
+        /// Eighty metres is the first ten seconds or so of the drive. One fight in it, then
+        /// the purse has something in it and the road can begin.
+        /// </summary>
+        public const float OpeningMetres = 80f;
+
 
         /// <summary>
         /// What the repair loop aims at, which is one more than the promise.
@@ -472,6 +489,9 @@ namespace TheVeil.Gen
             public float[] FromGoal;
             public float Fastest;
 
+            /// <summary>The two ends of the level, which EmptiestStretches counts as occupied.</summary>
+            public int Start, Goal;
+
             /// <summary>
             /// Which road each tile belongs to, as a <see cref="CorridorKind"/>, or -1
             /// where no road reaches it.
@@ -494,7 +514,9 @@ namespace TheVeil.Gen
                 {
                     FromStart = TravelField(grid, sx, sy),
                     FromGoal = TravelField(grid, gx, gy),
-                    Weight = new float[grid.TileCount]
+                    Weight = new float[grid.TileCount],
+                    Start = startIndex,
+                    Goal = goalIndex
                 };
 
                 band.Road = Roadside(grid, corridors, out int[] fromRoad);
@@ -1781,11 +1803,26 @@ namespace TheVeil.Gen
             {
                 float at = _at[tile];
                 if (at < 0f) return true;
+                if (Crowds(tile)) return false;
 
                 foreach (float other in _taken)
                     if (Math.Abs(other - at) < _gap) return false;
 
                 return true;
+            }
+
+            /// <summary>
+            /// Whether a group here would be a second one in the opening. See OpeningMetres.
+            /// </summary>
+            public bool Crowds(int tile)
+            {
+                float at = _at[tile];
+                if (at < 0f || at >= OpeningMetres) return false;
+
+                foreach (float other in _taken)
+                    if (other < OpeningMetres) return true;
+
+                return false;
             }
 
             public void Add(int tile)
@@ -1841,6 +1878,14 @@ namespace TheVeil.Gen
             return true;
         }
 
+        static bool Crowded(RoadLine[] lines, int tile)
+        {
+            foreach (var line in lines)
+                if (line != null && line.Crowds(tile)) return true;
+
+            return false;
+        }
+
         static void Mark(RoadLine[] lines, int tile)
         {
             foreach (var line in lines)
@@ -1878,6 +1923,11 @@ namespace TheVeil.Gen
 
             foreach (int target in targets)
             {
+                // A second group in a road's opening is never offered at all - the gap
+                // elsewhere is a preference, this is a rule. See OpeningMetres. A level
+                // that cannot be repaired without one is re-rolled.
+                if (Crowded(lines, target)) continue;
+
                 if (Room(lines, target)) roomy.Add(target);
                 else rest.Add(target);
             }
@@ -2789,6 +2839,35 @@ namespace TheVeil.Gen
                     grid.ToCoords(other, out int ox, out int oy);
                     float dx = ox - x, dy = oy - y;
                     float distance = dx * dx + dy * dy;
+                    if (distance < nearest) nearest = distance;
+                }
+
+                // <b>And the two ends, as if something stood on them.</b> The ground round
+                // the start is kept empty on purpose, so the stretch just past it always
+                // read as the emptiest ground on the map - nothing "watched" it - and every
+                // repair went there. Every sampled route passes through it as well, so one
+                // group there counts for all of them, which made it the cheapest repair on
+                // every level. Measured over the thirty levels, eight roads lost the escort
+                // the curve assumes before it had earned thirty silver: three and four
+                // groups in the first sixty metres, most of them put there by this loop,
+                // met by a caravan that had not yet had anything to spend at the forge.
+                //
+                // The start zone is not unwatched ground. It is empty because the level
+                // begins there, and the ground next to it is no emptier than the ground
+                // next to a group.
+                //
+                // Measured from the edge of the zone and not its middle. From the middle, the
+                // edge is eleven tiles away - further than groups stand from each other on a
+                // busy road - so the edge still read as the emptiest ground there was, and
+                // the first try at this changed not one repair on any level.
+                foreach (int end in new[] { band.Start, band.Goal })
+                {
+                    if (end < 0) continue;
+                    grid.ToCoords(end, out int ex, out int ey);
+                    float dx = ex - x, dy = ey - y;
+                    float beyond = (float)Math.Sqrt(dx * dx + dy * dy) - SafeEndReachTiles;
+                    if (beyond < 0f) beyond = 0f;
+                    float distance = beyond * beyond;
                     if (distance < nearest) nearest = distance;
                 }
 
