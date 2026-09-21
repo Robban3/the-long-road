@@ -24,28 +24,36 @@ namespace TheVeil.Sim
         /// <summary>
         /// What each step adds to the price of the next.
         ///
-        /// <b>So that a troop is finished across the campaign, not across a chapter.</b>
-        /// At six per cent a player who put every gold piece into one troop had it
-        /// finished in sixty levels - six chapters of a thousand-level game, and then
-        /// nothing left on it to want. The rule is that finishing a troop takes at least
-        /// nine hundred levels even for a player who buys nothing else.
+        /// <b>So that a player's troops are finished at the end of the campaign.</b> The
+        /// game is a thousand levels. A player who spends the way ReferenceSquad assumes -
+        /// half the gold on the troops, spread over the line they field - should have that
+        /// line finished at about the last level, and not before. At six per cent it was
+        /// finished at level 420, with nothing left on the troops to want for more than half
+        /// the game.
         ///
-        /// Twenty-two per cent does it, worked out with the game's own rounding rather
-        /// than guessed: a track comes to about 53 000 gold, a troop with two tracks to
-        /// 965 levels of <see cref="ReferenceSquad.GoldPerLevel"/>, and one with three -
-        /// the bow, the scout - to about 1 450. The first steps barely move: 30, 35, 45,
-        /// 55, 65 against 30, 35, 40, 45, 50. The early game is the game it was; what
-        /// changed is that the end of a track is far away, and the last step costs close
-        /// to ninety levels' gold on its own.
+        /// Twelve point three per cent does it, worked out with the game's own price
+        /// rounding and the reference player's own way of buying (a step on every fielded
+        /// track a round, while the gold lasts): the line is finished at level 975. On the
+        /// way it has two steps of thirty after the first chapter, twelve after a hundred
+        /// levels and twenty-four after five hundred - equal steps getting dearer, so the
+        /// last few are the second half of the game.
+        ///
+        /// A player who puts every gold piece into one troop and nothing else can finish it
+        /// sooner, at about level 140 - chapter fourteen - which is the price of neglecting
+        /// everything else, and still nowhere near one chapter. (It was 1.22 for a day,
+        /// priced so that even that player needed nine hundred levels; that left an
+        /// ordinary player never finishing anything in the whole game.)
+        ///
+        /// The first steps do not move at all: 30, 35, 40, 45, 50.
         /// </summary>
-        public const float PriceGrowth = 1.22f;
+        public const float PriceGrowth = 1.123f;
         public const float Falloff = BoonTable.Falloff;
 
         /// <summary>
         /// Cheaper to start than the general boons, because there are twenty of these
-        /// tracks and nobody is going to fill them all: a full one costs about 53 000
-        /// gold (see <see cref="PriceGrowth"/>), and finishing even one troop is the work
-        /// of most of a campaign. What that buys is a reason to deepen the three or four
+        /// tracks and nobody is going to fill them all: a full one costs about 7 700
+        /// gold (see <see cref="PriceGrowth"/>), and finishing the line you field is the
+        /// work of the whole campaign. What that buys is a reason to deepen the three or four
         /// troops you actually field, which ties the shop to the formation rather than to
         /// a shopping list.
         /// </summary>
@@ -115,10 +123,10 @@ namespace TheVeil.Sim
         /// the rest of the track was a long walk for very little. It should be the other
         /// way round: hard to get far, and every step worth the same as the last.
         ///
-        /// The first step costs thirty gold and each costs twenty-two per cent more than the
-        /// last (see <see cref="PriceGrowth"/>), so one level buys the first three or four
-        /// steps of a track and every step after is further away than the one before.
-        /// Finishing a troop is a campaign's work, not a level's.
+        /// The first step costs thirty gold and each costs twelve per cent more than the
+        /// last (see <see cref="PriceGrowth"/>), so one level buys the first three steps of
+        /// a track and every step after is further away than the one before. Finishing a
+        /// troop is a campaign's work, not a level's.
         /// </summary>
         public static float Share(int level)
         {

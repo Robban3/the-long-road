@@ -348,16 +348,42 @@ namespace TheVeil.Tests
         }
 
         /// <summary>
-        /// Nobody finishes a troop in under nine hundred levels, even pouring every gold
-        /// piece into that one troop and nothing else.
+        /// A player who spends the way the curve assumes has the line they field finished
+        /// at the end of the thousand-level campaign - not long before it, and not never.
         ///
-        /// The rule the permanent tracks are priced to, and so the thing a price change
-        /// has to answer to: at the old six per cent growth a troop was finished in sixty
-        /// levels, six chapters of a thousand-level campaign. Measured in levels of the
-        /// gold the reference player earns, because that is the unit a player feels.
+        /// Both halves are the rule. Six per cent growth finished the line at level 420,
+        /// leaving more than half the game with nothing to buy for the troops; twenty-two
+        /// per cent, tried for a day, meant an ordinary player finished nothing at all.
         /// </summary>
         [Test]
-        public void NoTroopIsFinishedInUnderNineHundredLevels()
+        public void TheLineIsFinishedAtTheEndOfTheCampaign()
+        {
+            int finished = -1;
+
+            for (int cleared = 850; cleared <= 1100 && finished < 0; cleared += 5)
+            {
+                var school = ReferenceSquad.School(cleared);
+                bool all = true;
+
+                foreach (var kind in new[] { TroopKind.Spearmen, TroopKind.Swordsmen, TroopKind.Crossbowmen })
+                    foreach (var track in TroopBoonTable.Tracks)
+                        if (TroopBoonTable.Sells(kind, track)
+                            && school.Level(kind, track) < TroopBoonTable.Steps)
+                            all = false;
+
+                if (all) finished = cleared;
+            }
+
+            Assert.GreaterOrEqual(finished, 900, "the line is finished before the campaign is");
+            Assert.LessOrEqual(finished, 1000, $"the line is only finished at level {finished}, if at all");
+        }
+
+        /// <summary>
+        /// And nobody finishes a troop within a chapter, even with every gold piece put into
+        /// that one troop and nothing else.
+        /// </summary>
+        [Test]
+        public void NoTroopIsFinishedWithinAChapter()
         {
             foreach (TroopKind kind in System.Enum.GetValues(typeof(TroopKind)))
             {
@@ -369,9 +395,10 @@ namespace TheVeil.Tests
 
                 if (gold == 0) continue;
 
+                // A hundred rather than ten: the rule is "not within a chapter", and a troop
+                // finished in two would keep it only on the letter.
                 long levels = gold / ReferenceSquad.GoldPerLevel;
-                Assert.GreaterOrEqual(levels, 900,
-                    $"{kind} can be finished in {levels} levels of gold");
+                Assert.GreaterOrEqual(levels, 100, $"{kind} can be finished in {levels} levels of gold");
             }
         }
 
