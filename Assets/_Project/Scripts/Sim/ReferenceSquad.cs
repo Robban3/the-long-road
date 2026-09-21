@@ -106,7 +106,17 @@ namespace TheVeil.Sim
         /// the gold runs out — which is how a player spends, and what makes the answer fall
         /// out of the prices instead of out of an opinion.
         /// </summary>
-        public static TroopBoons School(int cleared)
+        public static TroopBoons School(int cleared) => School(cleared, SpentOnTroops);
+
+        /// <summary>The permanent levels bought with <paramref name="share"/> of the gold.</summary>
+        public static TroopBoons School(int cleared, float share)
+            => School(cleared, share, Wanted(cleared));
+
+        /// <summary>
+        /// The permanent levels bought with <paramref name="share"/> of the gold, on the
+        /// troops of <paramref name="line"/> - a player invests in what they take out.
+        /// </summary>
+        public static TroopBoons School(int cleared, float share, TroopKind[] line)
         {
             var school = new TroopBoons();
             if (cleared <= 0) return school;
@@ -124,12 +134,12 @@ namespace TheVeil.Sim
             // Read off Wanted, so the thing being paid for is the thing being fielded and
             // the two cannot drift apart.
             var fielded = new List<TroopKind>();
-            foreach (var kind in Wanted(cleared))
+            foreach (var kind in line)
                 if (!fielded.Contains(kind)) fielded.Add(kind);
 
             if (!fielded.Contains(TroopKind.Spearmen)) fielded.Add(TroopKind.Spearmen);
 
-            int purse = (int)(cleared * GoldPerLevel * SpentOnTroops);
+            int purse = (int)(cleared * GoldPerLevel * share);
 
             for (int level = 0; level < TroopBoonTable.Steps; level++)
             {
@@ -154,6 +164,14 @@ namespace TheVeil.Sim
         }
 
         public static Squad For(LevelRecipe recipe, int cleared, int smithy, Boons boons = null)
+            => For(recipe, cleared, smithy, SpentOnTroops, boons);
+
+        public static Squad For(LevelRecipe recipe, int cleared, int smithy, float schoolShare,
+                                Boons boons = null)
+            => For(recipe, cleared, smithy, schoolShare, Wanted(cleared), boons);
+
+        public static Squad For(LevelRecipe recipe, int cleared, int smithy, float schoolShare,
+                                TroopKind[] line, Boons boons = null)
         {
             int points = recipe.SquadBudget + (boons?.ExtraSquadPoints ?? 0);
             int posts = recipe.Posts + (boons?.ExtraPosts ?? 0);
@@ -161,9 +179,9 @@ namespace TheVeil.Sim
             // <b>With what it has bought, which it never used to have.</b> Squad.School is
             // the permanent side of the smithy and was left empty here, so every gate in
             // the game measured a player who had never been to the shop. See School.
-            var squad = new Squad(points, posts) { School = School(cleared) };
+            var squad = new Squad(points, posts) { School = School(cleared, schoolShare, line) };
 
-            foreach (var kind in Wanted(cleared))
+            foreach (var kind in line)
                 squad.TryPlace(kind);
 
             // Whatever points and posts are left over go to spears, which is what a player
@@ -183,6 +201,101 @@ namespace TheVeil.Sim
             }
 
             return squad;
+        }
+
+        /// <summary>
+        /// Share of the gold the player who has invested in their troops puts into them:
+        /// all of it, and none on boons. What "upgraded far enough" means when a level is
+        /// promised to be winnable by anybody who has - see LevelMaps.EveryRoadWinnable.
+        /// </summary>
+        public const float AllOnTroops = 1f;
+
+        /// <summary>
+        /// A run of this level down one road, played the way it is played: the escort
+        /// walks in with nothing from the field smithy and buys it with the silver the
+        /// fighting pays, as it pays it. See FieldSmith for why this replaced handing the
+        /// squad its smithy levels at the start.
+        ///
+        /// <paramref name="schoolShare"/> is how much of the gold went on permanent troop
+        /// upgrades between levels: <see cref="SpentOnTroops"/> for the player the curve
+        /// assumes, <see cref="AllOnTroops"/> for the one who put everything into the line.
+        /// </summary>
+        public static LevelRun Play(LevelMap map, IReadOnlyList<int> route, LevelRecipe recipe,
+                                    int cleared, float schoolShare = SpentOnTroops)
+        {
+            var squad = For(recipe, cleared, 0, schoolShare);
+            return new LevelRun(map, route, squad, recipe.EnemyStrength) { Shops = true };
+        }
+
+        /// <summary>
+        /// Whether a prepared player gets down this road: the right troops for it, all
+        /// their gold put into those troops, and the run's silver spent at the field
+        /// smithy as it comes in.
+        ///
+        /// <b>"The right troops" is a choice, so it is made.</b> The line the curve
+        /// assumes is one compromise between holding, shooting and mending, and a road
+        /// built to wear an escort down may want a different one. A player who reads the
+        /// road takes a wall of shields and a priest down a gauntlet, and horse down a
+        /// road where one heavy fight has to be ended quickly. So the lines in
+        /// <see cref="Lines"/> are all tried, each with the school bought for its own
+        /// troops, and the road counts as won if any of them wins it.
+        /// </summary>
+        public static bool Prepared(LevelMap map, IReadOnlyList<int> route, LevelRecipe recipe,
+                                    int cleared, float enemyScale = 1f)
+            => PreparedLine(map, route, recipe, cleared, enemyScale) >= 0;
+
+        /// <summary>Which of <see cref="Lines"/> gets down the road first, or -1 for none.</summary>
+        public static int PreparedLine(LevelMap map, IReadOnlyList<int> route, LevelRecipe recipe,
+                                       int cleared, float enemyScale = 1f)
+        {
+            var lines = Lines(cleared);
+
+            // Deep first: the prepared player is the one who has thought about the forge.
+            // Wide as well, because on a road of many small fights spreading the armour
+            // can be the right answer, and a player who reads the road knows that too.
+            foreach (bool deep in new[] { true, false })
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    var squad = For(recipe, cleared, 0, AllOnTroops, lines[i]);
+                    var run = new LevelRun(map, route, squad, recipe.EnemyStrength * enemyScale)
+                    {
+                        Shops = true,
+                        ShopsDeep = deep
+                    };
+
+                    if (run.RunToCompletion() == RunOutcome.Arrived) return i;
+                }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// The lines a player who reads the road chooses between, in the order they are
+        /// tried, each filled from the front until the points run out and topped up with
+        /// spears.
+        ///
+        /// The curve's own line first; then a wall - a shieldbearer to take the blows and
+        /// a priest behind it, for a road of many fights with no breath between; then
+        /// weight - the heaviest horse the player has earned and swords beside it, for a
+        /// road of few fights that have to be finished; then shot behind a shield, for
+        /// open ground where the enemy can be thinned before it arrives.
+        /// </summary>
+        public static TroopKind[][] Lines(int cleared)
+        {
+            var shot = Best(cleared, TroopKind.Crossbowmen, TroopKind.Archers);
+            var horse = Best(cleared, TroopKind.Knights, TroopKind.NobleCavalry,
+                             TroopKind.HeavyCavalry, TroopKind.Cavalry);
+
+            return new[]
+            {
+                Wanted(cleared),
+                new[] { TroopKind.Shieldbearer, TroopKind.Priest, shot, shot,
+                        TroopKind.Spearmen, TroopKind.Spearmen },
+                new[] { horse, TroopKind.Swordsmen, shot, TroopKind.Swordsmen,
+                        TroopKind.Spearmen, TroopKind.Spearmen },
+                new[] { TroopKind.Shieldbearer, shot, shot, shot,
+                        TroopKind.Priest, TroopKind.Spearmen }
+            };
         }
 
         /// <summary>

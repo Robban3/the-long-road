@@ -308,6 +308,29 @@ namespace TheVeil.Gen
         /// </summary>
         public const float RoadGapMetres = 45f;
 
+        /// <summary>
+        /// The same gap on the fast road, which is shorter on purpose.
+        ///
+        /// <b>The fast road is meant to be the treacherous one</b> - the road that looks
+        /// easiest on the map, shortest and over the best ground, and turns out to be the
+        /// hardest. Spaced like the others it arrived on 27 levels of 30 against 29 and
+        /// 30: hardest, but by three levels, which is not a road that fools anybody.
+        ///
+        /// What makes it treacherous is not a bigger fight but less breath between them.
+        /// Every fight on it looks like one the escort can take; the supply wagon heals
+        /// only out of contact, and here it gets less time out of contact than anywhere
+        /// else. It is the adding up that kills.
+        ///
+        /// Eighteen metres, which is inside the smallest territory a group holds (24): the
+        /// next group on the fast road wakes while the last fight is still ending. That is
+        /// a little of the pile-up RoadGapMetres was written against, allowed back on this
+        /// road only and on purpose - it is what makes the road that looks easiest the one
+        /// most likely to end the run. Measured, at 24 m the escort the curve assumes got
+        /// down it on 20 levels of 30 and at 18 on 18, with the safe and long roads
+        /// unmoved and every road still won by a prepared player.
+        /// </summary>
+        public const float FastRoadGapMetres = 18f;
+
 
         /// <summary>
         /// What the repair loop aims at, which is one more than the promise.
@@ -1660,7 +1683,7 @@ namespace TheVeil.Gen
                 // which is inside the distance at which each of them wakes.
                 if (!Room(lines, tile)) continue;
 
-                var kind = PickAffordable(recipe.EnemyPool, rng, budget, wanted - placed);
+                var kind = PickAffordable(recipe.EnemyPool, rng, budget, wanted - placed, Lean(road));
                 if (kind == null) break;
 
                 layout.Enemies.Add(new EnemySpawn
@@ -1692,13 +1715,16 @@ namespace TheVeil.Gen
             /// <summary>Metres along the road, or -1 for ground the road does not reach.</summary>
             float[] _at;
 
+            /// <summary>How far apart this road keeps its fights. See RoadGapMetres.</summary>
+            float _gap;
+
             readonly List<float> _taken = new List<float>();
 
-            public static RoadLine Of(TileGrid grid, IReadOnlyList<int> route)
+            public static RoadLine Of(TileGrid grid, IReadOnlyList<int> route, float gap)
             {
                 if (route == null || route.Count == 0) return null;
 
-                var line = new RoadLine { _at = new float[grid.TileCount] };
+                var line = new RoadLine { _at = new float[grid.TileCount], _gap = gap };
                 var apart = new float[grid.TileCount];
 
                 for (int i = 0; i < grid.TileCount; i++) { line._at[i] = -1f; apart[i] = float.MaxValue; }
@@ -1757,7 +1783,7 @@ namespace TheVeil.Gen
                 if (at < 0f) return true;
 
                 foreach (float other in _taken)
-                    if (Math.Abs(other - at) < RoadGapMetres) return false;
+                    if (Math.Abs(other - at) < _gap) return false;
 
                 return true;
             }
@@ -1793,7 +1819,8 @@ namespace TheVeil.Gen
 
             for (int i = 0; i < corridors.Count; i++)
             {
-                lines[i] = RoadLine.Of(grid, corridors[i].Tiles);
+                float gap = corridors[i].Kind == CorridorKind.Fast ? FastRoadGapMetres : RoadGapMetres;
+                lines[i] = RoadLine.Of(grid, corridors[i].Tiles, gap);
                 if (lines[i] == null) continue;
 
                 foreach (var spawn in layout.Enemies)
@@ -1857,6 +1884,122 @@ namespace TheVeil.Gen
 
             roomy.AddRange(rest);
             return roomy;
+        }
+
+        /// <summary>
+        /// Makes the long way round what it was agreed to be: fewer fights, each of them
+        /// worse. Two groups that only the long road meets become one group of a dearer
+        /// kind, paid for by both.
+        ///
+        /// <b>On what the road meets, not on what it buys.</b> The first attempt leaned the
+        /// long road's own purchases towards the dearest kind, and the average did not
+        /// move: 6.8 points a fight before and after, the same as the fast road. Measured
+        /// by who put each fight there, the long road buys about two groups a level and
+        /// meets nearly four - the rest are the ford guard on its crossing, the repair
+        /// loop's moves, and the next road's groups watching across the gap. A rule about
+        /// what it buys could never reach them.
+        ///
+        /// So this runs last, after the shares are balanced, on the groups only the long
+        /// road meets: the two cheapest are merged whenever a kind in the pool costs more
+        /// than either and no more than both. The points stay on the road - less the few a
+        /// pair does not divide into exactly - so the split between the roads is what it
+        /// was. What changes is how it arrives.
+        ///
+        /// Guards are left alone, and so is anything another road also meets: making a
+        /// group the fast road shares into a bandit captain would make the fast road
+        /// worse per fight, which is the long road's character given to the wrong road.
+        /// Every merge is checked against the sampled routes and undone if it leaves any
+        /// of them short of <see cref="MinEncounters"/>.
+        ///
+        /// In chapter one the pool tops out at a bandit, eight points, so this can make
+        /// two wolves into a bandit and nothing more. The long road is as much worse per
+        /// fight as the chapter has to give.
+        /// </summary>
+        static void Harden(TileGrid grid, IReadOnlyList<Corridor> corridors, List<List<int>> routes,
+                           LevelRecipe recipe, EncounterLayout layout, HashSet<int> occupied,
+                           RoadLine[] lines)
+        {
+            Corridor odd = null;
+            foreach (var corridor in corridors)
+                if (corridor.Kind == CorridorKind.Odd) odd = corridor;
+            if (odd == null) return;
+
+            var pool = recipe.EnemyPool != null && recipe.EnemyPool.Length > 0
+                ? recipe.EnemyPool : EnemyTable.All;
+
+            for (int round = 0; round < MaxRepairs; round++)
+            {
+                var shared = new HashSet<int>();
+                foreach (var corridor in corridors)
+                    if (corridor != odd)
+                        shared.UnionWith(MetGroups(grid, corridor.Tiles, layout, roadOnly: true));
+
+                var own = new List<int>();
+                foreach (int i in MetGroups(grid, odd.Tiles, layout, roadOnly: true))
+                {
+                    if (shared.Contains(i)) continue;
+
+                    var origin = layout.Enemies[i].Origin;
+                    if (origin != PlacementOrigin.Scattered && origin != PlacementOrigin.Repair) continue;
+
+                    own.Add(i);
+                }
+
+                if (own.Count < 2) break;
+
+                own.Sort((a, b) => EnemyTable.Points(layout.Enemies[a].Kind)
+                                        .CompareTo(EnemyTable.Points(layout.Enemies[b].Kind)));
+
+                bool merged = false;
+
+                for (int x = 0; x + 1 < own.Count && !merged; x++)
+                {
+                    int a = own[x], b = own[x + 1];
+                    int pa = EnemyTable.Points(layout.Enemies[a].Kind);
+                    int pb = EnemyTable.Points(layout.Enemies[b].Kind);
+
+                    EnemyKind? kind = null;
+                    int worth = Math.Max(pa, pb);
+
+                    foreach (var candidate in pool)
+                    {
+                        int points = EnemyTable.Points(candidate);
+                        if (points <= worth || points > pa + pb) continue;
+
+                        worth = points;
+                        kind = candidate;
+                    }
+
+                    if (kind == null) continue;
+
+                    var before = new List<EnemySpawn>(layout.Enemies);
+                    var gone = layout.Enemies[a];
+
+                    var kept = layout.Enemies[b];
+                    kept.Kind = kind.Value;
+                    layout.Enemies[b] = kept;
+                    layout.Enemies.RemoveAt(a);
+                    occupied.Remove(gone.Tile);
+                    AssignTerritories(grid, layout);
+
+                    Score(grid, routes, layout, out int fewest, out _, out _);
+
+                    if (fewest >= MinEncounters)
+                    {
+                        layout.MinEncounters = fewest;
+                        foreach (var line in lines) if (line != null) line.Remove(gone.Tile);
+                        merged = true;
+                        continue;
+                    }
+
+                    layout.Enemies.Clear();
+                    layout.Enemies.AddRange(before);
+                    occupied.Add(gone.Tile);
+                    AssignTerritories(grid, layout);
+                }
+
+                if (!merged) break;
+            }
         }
 
         /// <summary>
@@ -1959,7 +2102,7 @@ namespace TheVeil.Gen
         /// because a group placed is worth more than a count kept.
         /// </summary>
         static EnemyKind? PickAffordable(EnemyKind[] pool, DeterministicRandom rng, int budget,
-                                         int owed)
+                                         int owed, int lean = 0)
         {
             var source = pool != null && pool.Length > 0 ? pool : EnemyTable.All;
 
@@ -1985,7 +2128,45 @@ namespace TheVeil.Gen
                     if (EnemyTable.Points(kind) <= budget) affordable.Add(kind);
 
             if (affordable.Count == 0) return null;
-            return affordable[rng.Range(0, affordable.Count)];
+
+            // Drawn whatever the lean, so every road takes the same number of rolls off
+            // the dice and one road's character does not reshuffle the next one's ground.
+            int roll = rng.Range(0, affordable.Count);
+            if (lean == 0) return affordable[roll];
+
+            affordable.Sort((a, b) => EnemyTable.Points(a).CompareTo(EnemyTable.Points(b)));
+
+            // The long way round: the worst it can afford, every time.
+            if (lean > 0) return affordable[affordable.Count - 1];
+
+            // The quick road: from the cheaper half, so it stays varied - wolves one
+            // stretch, archers the next - rather than one kind repeated down its length.
+            int half = (affordable.Count + 1) / 2;
+            return affordable[roll % half];
+        }
+
+        /// <summary>
+        /// What kind of group each road buys, as a lean on the draw: the cheaper half for
+        /// the quick road, the dearest affordable for the long way round, and anything
+        /// for the road between.
+        ///
+        /// <b>Because "fewer but worse" had only ever been "fewer".</b> Every road drew its
+        /// kinds at random from what its purse could afford, so the long road's smaller
+        /// share bought the same kind of fight in smaller number. Measured over the thirty
+        /// levels: 6.8 points a fight on the fast road, 7.2 on the middle one, and 6.8 on
+        /// the long one - the same wolves and the same bandits, just fewer of them. That
+        /// is a quieter road, not a different one, and it is not what was agreed.
+        ///
+        /// The quick road leaning cheap is the other half of the same thing. Its half of
+        /// the threat is meant to arrive as many fights, each one looking beatable, so
+        /// that it is the adding up that kills - which is what makes it look like the easy
+        /// road until it is too late to take another.
+        /// </summary>
+        static int Lean(int road)
+        {
+            if (road == (int)CorridorKind.Fast) return -1;
+            if (road == (int)CorridorKind.Odd) return 1;
+            return 0;
         }
 
         /// <summary>
@@ -2356,6 +2537,7 @@ namespace TheVeil.Gen
             // And then the part the floor knows nothing about: which road carries how
             // much. See Balance.
             Balance(grid, band, corridors, routes, layout, occupied, lines);
+            Harden(grid, corridors, routes, recipe, layout, occupied, lines);
 
             TallySilver(layout, recipe);
             TopUpSilver(grid, routes, recipe, layout, occupied);

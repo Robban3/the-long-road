@@ -46,8 +46,11 @@ namespace TheVeil.Tests
             var first = two.ForLevel(1);
             var last = two.ForLevel(two.LevelsPerChapter);
 
-            Assert.AreEqual(1.35f, first.EnemyStrength, 0.001f);
-            Assert.AreEqual(1.70f, last.EnemyStrength, 0.001f);
+            // The agreed curve, times the hardness every enemy carries on top of it. The
+            // curve is the chapter's shape and stays pinned here; ChapterRecipe.EnemyHardness
+            // is the one number that says how hard the whole of it is, and why.
+            Assert.AreEqual(1.35f * ChapterRecipe.EnemyHardness, first.EnemyStrength, 0.001f);
+            Assert.AreEqual(1.70f * ChapterRecipe.EnemyHardness, last.EnemyStrength, 0.001f);
             Assert.AreEqual(1.0f, first.TrapDensity, 0.001f);
             Assert.AreEqual(1.6f, last.TrapDensity, 0.001f);
             Assert.AreEqual(16, first.SquadBudget);

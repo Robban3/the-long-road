@@ -553,10 +553,21 @@ namespace TheVeil.Tests
             easy.RunToCompletion();
             hard.RunToCompletion();
 
-            float EasyHp() { float h = 0f; foreach (var w in easy.Caravan.Wagons) h += w.Hp; return h; }
-            float HardHp() { float h = 0f; foreach (var w in hard.Caravan.Wagons) h += w.Hp; return h; }
+            // The escort's health as well as the wagons'. Counting the wagons alone read
+            // nothing once the escort got good at its job: on the 1-6 the placer now draws,
+            // no raider reaches a cart at single strength or at double, so both runs ended
+            // with every wagon whole and the assertion compared 1200 with 1200. The
+            // doubled enemy was taking it out of the men instead, which is still the level
+            // being harder - it is just paid for by somebody the test was not counting.
+            float Left(LevelRun run)
+            {
+                float h = 0f;
+                foreach (var w in run.Caravan.Wagons) h += w.Hp;
+                foreach (var group in run.Squad.Slots) if (group != null) h += group.Hp;
+                return h;
+            }
 
-            Assert.Less(HardHp(), EasyHp(), "doubling enemy strength changed nothing");
+            Assert.Less(Left(hard), Left(easy), "doubling enemy strength changed nothing");
         }
 
         [Test]

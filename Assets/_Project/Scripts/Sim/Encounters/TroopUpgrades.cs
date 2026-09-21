@@ -14,8 +14,23 @@ namespace TheVeil.Sim
     /// </summary>
     public static class TroopUpgrades
     {
-        public const float WeaponPerLevel = 0.18f;
-        public const float ArmourHpPerLevel = 0.15f;
+        /// <summary>
+        /// What one level of the field smithy is worth.
+        ///
+        /// <b>Raised to what the design says the field layer is.</b> docs/economy.md §3
+        /// puts the combat upgrades at +150 % at their cap and the permanent layers
+        /// together at well under half of that, because the silver spent in a level is
+        /// what is meant to decide it. At eighteen per cent a level the cap was +90 % -
+        /// barely above what gold buys - and measured, a player who shopped well in the
+        /// field could not be told from one who did not. Thirty a level is +150 % at five.
+        ///
+        /// The prices do not move: 20, 32, 51, 82 and 131 silver, 316 for a finished
+        /// track, where a level pays a hundred to a hundred and seventy. Nobody finishes a
+        /// troop in one level; somebody who spends deep on the right one gets far more
+        /// out of the same silver than somebody who spreads it.
+        /// </summary>
+        public const float WeaponPerLevel = 0.30f;
+        public const float ArmourHpPerLevel = 0.25f;
         public const float ArmourReductionPerLevel = 0.04f;
 
         /// <summary>

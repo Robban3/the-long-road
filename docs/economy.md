@@ -41,6 +41,13 @@ Tre system höjer samma siffror. Om de inte hålls isär blir spelet obegripligt
 
 **Balansregeln: stridslagret måste dominera metalagret.** Om de permanenta uppgraderingarna växer sig starkare än banans egen kurva kommer en spelare i kapitel 40 att köra över kapitel 5 utan att fatta ett enda beslut — och då kollapsar 1000 banor till en grind. Metalagret höjer golvet, stridslagret avgör utfallet. Därför är silvertaket dubbelt så högt som de två permanenta lagren tillsammans.
 
+**Så är det byggt (mätt 2026-09-21).**
+
+- **Stridsuppgraderingar:** +30 % skada och +25 % liv per nivå, fem nivåer, alltså +150 % vid taket. Priserna är 20 / 32 / 51 / 82 / 131 silver, 316 för ett fullt spår, medan en bana betalar 100–170 silver. Ingen trupp maxas på en bana; den som satsar djupt på rätt trupp får ut betydligt mer av samma silver än den som sprider det.
+- **Smedjan (guld):** +60 % skada, +50 % liv och 15 % skadereduktion vid fullt spår, i **trettio jämna steg**. Stegen var tidigare framtunga — de tre första, som en enda vunnen bana betalar, gav en femtedel av allt spåret någonsin gav. Nu är varje steg värt lika mycket, ett fullt spår kostar cirka 2 400 guld (runt tjugo banors guld på ett enda spår) och en bana köper en tiondel av det.
+
+**Två spelare som varje bana mäts mot.** *Kurvspelaren* har kurvans uppställning, lägger halva guldet på trupperna och handlar brett i fältsmedjan medan silvret kommer in. *Den förberedda spelaren* väljer uppställning efter vägen (kurvans, sköldmur med präst, tungt kavalleri, eller skyttar bakom sköld), lägger allt guld på trupperna den tar med och satsar djupt i fältsmedjan. Generatorn släpper aldrig en karta där den förberedda spelaren inte kommer ner för **varje** väg — ingen väg är en mur. Kurvspelaren kommer fram på den snabba vägen på ungefär 19 banor av 30 och på de andra två på 28.
+
 ---
 
 ## 4. Guldflöden

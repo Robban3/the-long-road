@@ -67,8 +67,8 @@ namespace TheVeil.Gen
 
             var map = TerrainGenerator.Generate(recipe,
                                                 DeterministicRandom.SeedFor(chapter, level),
-                                                candidate => RoadsThrough(candidate, chapter, level,
-                                                                          recipe.RoutesOwed),
+                                                candidate => Gate(candidate, chapter, level,
+                                                                  recipe.RoutesOwed),
                                                 shipped);
 
             // The ground a castle stands on, levelled — after the generator has finished
@@ -114,6 +114,56 @@ namespace TheVeil.Gen
             => RoadsThrough(map, chapter, level, 1) >= 1;
 
         /// <summary>
+        /// The whole of what a candidate has to answer: enough roads for the escort the
+        /// curve assumes, and no road that nobody could get down.
+        ///
+        /// Returns the road count the generator already understands, and nought for a map
+        /// with a wall on it, so nothing about how the search ranks its candidates has to
+        /// change.
+        /// </summary>
+        static int Gate(LevelMap map, int chapter, int level, int wanted)
+        {
+            int through = RoadsThrough(map, chapter, level, wanted);
+            if (through < wanted) return through;
+
+            return EveryRoadWinnable(map, chapter, level) ? through : 0;
+        }
+
+        /// <summary>
+        /// Whether every road on the map can be won by the escort the curve assumes, with
+        /// the forge bought out.
+        ///
+        /// <b>The promise, as the generator's rule rather than as the dice's.</b> The fast
+        /// road is meant to be the treacherous one and to kill the ordinary escort more
+        /// often than the other two - and every level, on every road, is still meant to be
+        /// winnable by a player with the right troops who has upgraded them far enough.
+        /// Tuning the difficulty toward the first promise put a wall on 2-9: its fast road
+        /// could not be won at any smithy the game sells. Nothing had checked, so nothing
+        /// would have stopped it shipping.
+        ///
+        /// "The right troops, upgraded far enough" is ReferenceSquad.Prepared: the line
+        /// chosen for the road, all the gold put into it between levels, and the run's
+        /// silver spent at the field smithy as it comes in - the most a player can actually
+        /// have, rather than a smithy bought out before the first silver was earned, which
+        /// is what this first asked and nobody can field.
+        ///
+        /// Asked after the cheaper question has passed, because it is three more simulated
+        /// runs and most candidates never get this far.
+        /// </summary>
+        public static bool EveryRoadWinnable(LevelMap map, int chapter, int level)
+        {
+            if (map?.Corridors == null) return false;
+
+            var recipe = Recipe(chapter, level);
+            int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+
+            foreach (var corridor in map.Corridors)
+                if (!ReferenceSquad.Prepared(map, corridor.Tiles, recipe, cleared)) return false;
+
+            return true;
+        }
+
+        /// <summary>
         /// How many of a level's roads the reference escort can actually be got down,
         /// counted up to <paramref name="wanted"/> and no further.
         ///
@@ -156,11 +206,10 @@ namespace TheVeil.Gen
 
             foreach (var corridor in roads)
             {
-                var squad = ReferenceSquad.For(recipe,
-                                               ReferenceSquad.LevelsCleared(chapter, level),
-                                               ReferenceSquad.Smithy(chapter));
-
-                var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
+                // As the player plays it: nothing from the field smithy at the start, and
+                // the run's silver spent on it as it comes in. See FieldSmith.
+                var run = ReferenceSquad.Play(map, corridor.Tiles, recipe,
+                                              ReferenceSquad.LevelsCleared(chapter, level));
                 if (run.RunToCompletion() == RunOutcome.Arrived) through++;
 
                 if (through >= wanted) break;

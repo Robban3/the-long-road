@@ -619,6 +619,117 @@ namespace TheVeil.Editor
             Write("escort.txt", said);
         }
 
+        /// <summary>
+        /// Every road of every level, played by the escort the curve assumes and then by
+        /// the same escort fully upgraded: `The Veil > Roads Against Upgrades`.
+        ///
+        /// Two promises, and they pull against each other, so both are measured at once.
+        /// The fast road is to kill more often than the others - it is the treacherous
+        /// one - and yet every one of the thirty levels, on every road, is to be winnable
+        /// by a player with the right troops who has upgraded them far enough. A change
+        /// that satisfies the first by breaking the second is a wall, not a road.
+        ///
+        /// Both played the way the game is played: nothing from the field smithy at the
+        /// start, the run's silver spent on it as it comes in (FieldSmith). "Far enough" is
+        /// the player who put all their gold into the line between levels.
+        /// </summary>
+        [MenuItem("The Veil/Roads Against Upgrades")]
+        public static void RoadsAgainstUpgrades()
+        {
+            // A trial strength from the command line, so the curve can be swept before
+            // any number in the game is changed: -strength 1.5 plays every enemy half as
+            // strong again as the chapter makes it.
+            float trial = 1f;
+            var args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i + 1 < args.Length; i++)
+                if (args[i] == "-strength")
+                    float.TryParse(args[i + 1], System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out trial);
+
+            var said = new System.Text.StringBuilder();
+            said.AppendLine($"[Roads] each road at the curve's smithy, and at the top of the smithy, "
+                            + $"enemies at {trial:0.00} of the chapter's strength");
+
+            var usual = new Dictionary<CorridorKind, int>();
+            var upgraded = new Dictionary<CorridorKind, int>();
+            int refused = 0;
+            var lineBy = new int[ReferenceSquad.Lines(0).Length];
+            var earnedBy = new Dictionary<CorridorKind, int>();
+            var spentBy = new Dictionary<CorridorKind, int>();
+
+            foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+            {
+                usual[kind] = 0;
+                upgraded[kind] = 0;
+                earnedBy[kind] = 0;
+                spentBy[kind] = 0;
+            }
+
+            for (int chapter = 1; chapter <= 3; chapter++)
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    var map = LevelMaps.For(chapter, level);
+                    var recipe = LevelMaps.Recipe(chapter, level);
+                    int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+
+                    // Whether the generator found a map that answered every question, or ran
+                    // out of attempts and shipped its best compromise - the gate that refuses
+                    // walls is only worth anything if it can still be met.
+                    if (!map.Accepted) refused++;
+
+                    var line = new System.Text.StringBuilder($"[Roads] {chapter}-{level}"
+                                                             + (map.Accepted ? ":" : " (COMPROMISE):"));
+
+                    foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+                    {
+                        var corridor = map.CorridorOf(kind);
+                        if (corridor == null) continue;
+
+                        // Built by hand rather than through ReferenceSquad.Play only so the
+                        // trial strength can be put on the enemies; the squad and the
+                        // shopping are Play's own.
+                        var plainRun = new LevelRun(map, corridor.Tiles,
+                                                    ReferenceSquad.For(recipe, cleared, 0, ReferenceSquad.SpentOnTroops),
+                                                    recipe.EnemyStrength * trial) { Shops = true };
+                        var plain = plainRun.RunToCompletion();
+
+                        int chosen = ReferenceSquad.PreparedLine(map, corridor.Tiles, recipe, cleared, trial);
+                        var best = chosen >= 0 ? RunOutcome.Arrived : RunOutcome.CaravanLost;
+                        if (chosen >= 0) lineBy[chosen]++;
+
+                        if (plain == RunOutcome.Arrived) usual[kind]++;
+                        if (best == RunOutcome.Arrived) upgraded[kind]++;
+
+                        // What the fighting paid and what went on the forge, because the
+                        // model now buys with it and a road that pays nothing cannot be
+                        // upgraded for.
+                        earnedBy[kind] += plainRun.Economy.TotalEarned;
+                        spentBy[kind] += plainRun.Economy.TotalSpent;
+
+                        line.Append($"  {kind} {(plain == RunOutcome.Arrived ? "through" : "LOST")}"
+                                    + $" / {(best == RunOutcome.Arrived ? "through" : "LOST")}"
+                                    + $" (earned {plainRun.Economy.TotalEarned}, spent {plainRun.Economy.TotalSpent})");
+                    }
+
+                    said.AppendLine(line.ToString() + (line.ToString().Contains("/ LOST") ? "  <-- NOT WINNABLE" : ""));
+                }
+
+            said.AppendLine();
+            foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+            {
+                said.AppendLine($"[Roads] {kind}: {usual[kind]}/30 through as the curve plays it, "
+                                + $"{upgraded[kind]}/30 prepared");
+
+                said.AppendLine($"[Roads] {kind}: {earnedBy[kind] / 30} silver earned a level, "
+                                + $"{spentBy[kind] / 30} of it spent at the forge");
+            }
+
+            said.AppendLine($"[Roads] {refused} of 30 levels shipped a compromise the generator did not accept");
+            said.AppendLine($"[Roads] prepared lines that won: curve {lineBy[0]}, wall {lineBy[1]}, "
+                            + $"weight {lineBy[2]}, shot {lineBy[3]}");
+            Write($"roads-{trial:0.00}.txt", said);
+        }
+
         [MenuItem("The Veil/Water And Bridges")]
         public static void WaterAndBridges()
         {

@@ -40,6 +40,28 @@ namespace TheVeil.Sim
         /// enemies stops working. Later chapters get harder by fielding tougher
         /// enemies, not more of them — the map simply has nowhere to put more.
         /// </summary>
+        /// <summary>
+        /// How much stronger every enemy is than the curve below describes, everywhere.
+        ///
+        /// <b>Because the forge had nothing to do.</b> Played the way the game is played -
+        /// nothing from the field smithy at the start, the run's silver spent on it as it
+        /// comes in (FieldSmith) - the escort the curve assumes got down the safe road on
+        /// 30 levels of 30, the long road on 29 and the fast road on 29. Upgrading changed
+        /// nothing because nothing needed upgrading for.
+        ///
+        /// Fifteen per cent, swept rather than felt, against two players: the one the
+        /// curve assumes, and a prepared one - the right line for the road, all the gold
+        /// in the troops, and the silver spent deep at the field smithy. At 1.15 the first
+        /// gets down the safe and the long road on 28 levels of 30 and the fast road on 19,
+        /// and the second gets down every road of every level, which the generator now
+        /// refuses to ship without (LevelMaps.EveryRoadWinnable). At 1.25 the safe and long
+        /// roads fell to 25 and 24; at 1.5 the prepared player lost nine fast roads.
+        ///
+        /// On the enemies and not on the escort: the escort is what the player built, and
+        /// EscortStrength and the silver multiplier keep describing that player.
+        /// </summary>
+        public const float EnemyHardness = 1.15f;
+
         public float EnemyStrengthStart = 1.00f;
         public float EnemyStrengthEnd = 1.35f;
 
@@ -115,7 +137,8 @@ namespace TheVeil.Sim
             var recipe = new LevelRecipe
             {
                 EnemyBudget = Lerp(EnemyBudgetStart, EnemyBudgetEnd, t),
-                EnemyStrength = EnemyStrengthStart + (EnemyStrengthEnd - EnemyStrengthStart) * t,
+                EnemyStrength = (EnemyStrengthStart + (EnemyStrengthEnd - EnemyStrengthStart) * t)
+                                * EnemyHardness,
                 EscortStrength = EscortStrength,
                 TrapDensity = TrapDensityStart + (TrapDensityEnd - TrapDensityStart) * t,
                 MinRouteTiles = Lerp(RouteTilesStart, RouteTilesEnd, t),

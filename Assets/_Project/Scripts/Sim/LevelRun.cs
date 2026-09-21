@@ -198,9 +198,21 @@ namespace TheVeil.Sim
         }
 
         /// <summary>One fixed simulation step.</summary>
+        /// <summary>
+        /// Whether this run spends its silver at the field smithy as it earns it, the way
+        /// a player does. See FieldSmith. Off by default: a run in a test is a run with the
+        /// squad it was given, and the game's own runs are shopped by the player.
+        /// </summary>
+        public bool Shops;
+
+        /// <summary>Whether the shopping goes deep on the troops that matter. See FieldSmith.Deep.</summary>
+        public bool ShopsDeep;
+
         public void Step()
         {
             if (Outcome != RunOutcome.InProgress) return;
+
+            if (Shops) FieldSmith.Spend(this);
 
             ElapsedSeconds += StepSeconds;
             if ((Combat == null || !Combat.Halted) && !HoldingTheGoal) TravelSeconds += StepSeconds;

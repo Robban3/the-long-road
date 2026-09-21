@@ -32,7 +32,18 @@ namespace TheVeil.Sim
         /// </summary>
         public const int BasePrice = 30;
 
-        /// <summary>Caps, reached to 90% at thirty steps.</summary>
+        /// <summary>
+        /// What a finished track is worth, reached in thirty even steps.
+        ///
+        /// <b>The meta layer's ceilings, and they stay low on purpose.</b> docs/economy.md
+        /// §3: the combat layer has to dominate the meta layer, or a player in chapter
+        /// forty drives over chapter five without making a decision and a thousand levels
+        /// collapse into a grind. Gold raises the floor; the silver spent in the level
+        /// decides it. These were raised once, to +150 % damage, to widen the gap between
+        /// a player who invests and one who does not - and that turned the rule upside
+        /// down, so the gap is found in the field layer instead (TroopUpgrades), which is
+        /// where the design puts it.
+        /// </summary>
         public const float WeaponCap = 0.60f;
         public const float ArmourHealthCap = 0.50f;
         public const float ArmourReductionCap = 0.15f;
@@ -73,16 +84,29 @@ namespace TheVeil.Sim
             return BoonTable.Rounded(BasePrice, PriceGrowth, owned);
         }
 
-        /// <summary>How far along the curve this many steps is, from nothing to one.</summary>
+        /// <summary>
+        /// How far along the track this many steps is, from nothing to one: evenly, a
+        /// thirtieth a step.
+        ///
+        /// <b>Not front-loaded any more, and that is the point of it.</b> This used the
+        /// general boons' curve, where each step closes 7.5 % of what is left - so the
+        /// first three steps, which one won level pays for, were a fifth of everything the
+        /// track would ever give, and every step after cost more and gave less. A player
+        /// was most of the way to finished on a troop almost as soon as they started, and
+        /// the rest of the track was a long walk for very little. It should be the other
+        /// way round: hard to get far, and every step worth the same as the last.
+        ///
+        /// The prices are unchanged - thirty gold, six per cent more a step, about 2 400
+        /// for a finished track, which is some twenty levels' gold spent on nothing else.
+        /// So one level buys a tenth of one track, and finishing a troop is a campaign's
+        /// decision rather than a level's.
+        /// </summary>
         public static float Share(int level)
         {
             if (level <= 0) return 0f;
             if (level > Steps) level = Steps;
 
-            float remaining = 1f;
-            for (int i = 0; i < level; i++) remaining *= Falloff;
-
-            return 1f - remaining;
+            return level / (float)Steps;
         }
     }
 
