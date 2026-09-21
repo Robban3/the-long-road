@@ -66,16 +66,9 @@ namespace TheVeil.Editor
             int walked = 0, searched = 0, stuck = 0, settled = 0;
             var beaten = new StringBuilder();
 
-            // How hard the last level turned out, so a level that came out easier than the
-            // one before it is named in the sheet.
-            float before = 0f;
-
-            // How many of this chapter's fast roads have killed the escort the curve assumes.
-            // See Best: about half of them should.
-            int fastKills = 0;
-
-
+            // The built levels are chosen together, before anything is written: see Choose.
             LevelCatalogue.ClearTuning();
+            var chosen = Choose(sheet);
 
             for (int chapter = 1; chapter <= LevelCatalogue.Chapters; chapter++)
             {
@@ -84,39 +77,9 @@ namespace TheVeil.Editor
                     // From nothing, every time. Reading the old catalogue here would let a
                     // stale answer copy itself into the new one, which is the one way a
                     // table like this goes wrong and stays wrong.
-                    LevelMap map;
-                    if (level == 1) fastKills = 0;
-
-                    if (chapter <= BuiltChapters)
-                    {
-                        // A kill wanted when the chapter is behind half: none on the first
-                        // level, one by the second, two by the fourth - so the first level of a
-                        // chapter has a fast road that hurts and does not end the run, and
-                        // after that it ends it about every other time.
-                        bool wantKill = fastKills < level / 2;
-
-                        // Aimed at what the level has to reach: its target, or the level
-                        // before it if that came out higher. Calibrated to the target alone,
-                        // the typical map sat below a floor the levels before had lifted, and
-                        // 3-9 found no map at or over it: 40 per cent after 53.
-                        float aim = Math.Max(DifficultyCurve.Target(chapter, level), before);
-
-                        float factor = Calibrate(chapter, level, aim, out float typical);
-                        LevelCatalogue.Tune(chapter, level, factor);
-
-                        map = Best(chapter, level, wantKill, before, aim, out float difficulty, out bool killed, out string how);
-                        if (killed) fastKills++;
-
-                        how += $", strength x{factor:0.000} (typical map {typical:P0})";
-                        sheet.AppendLine($"[Catalogue] {chapter}-{level}: difficulty {difficulty:P0}, "
-                                         + $"target {DifficultyCurve.Target(chapter, level):P0} - {how}"
-                                         + (difficulty < before ? "  <-- easier than the level before" : ""));
-                        before = difficulty;
-                    }
-                    else
-                    {
-                        map = Fresh(chapter, level, before);
-                    }
+                    LevelMap map = chapter <= BuiltChapters && chosen.TryGetValue((chapter, level), out var pick)
+                        ? pick
+                        : Fresh(chapter, level, 0f);
 
                     if (map == null)
                     {
@@ -197,36 +160,9 @@ namespace TheVeil.Editor
         /// the tool would find last week's answer and copy it forward, and a catalogue that
         /// launders its own stale rows is worse than none.
         /// </summary>
-        /// <summary>
-        /// Every attempt of a built level looked at, and the one kept nearest its place on
-        /// the curve.
-        ///
-        /// <b>Every attempt, not the first that will do.</b> The search stops at the first
-        /// candidate that passes, and inside a window a tenth either side of the target the
-        /// first to pass sat anywhere in it - so two neighbouring levels could land a fifth
-        /// apart, and in either order.
-        ///
-        /// <b>And no chain.</b> The first version also held each level to at least the
-        /// difficulty of the one before, which is the rule written down. It ran away: a
-        /// level's difficulty is measured from three runs and comes in lumps, so a level
-        /// that overshot lifted the floor for the rest of the chapter and by 2-7 nothing
-        /// lay between 59 and 76 per cent - eighteen levels of thirty became compromises
-        /// and the third chapter's boss cost 89 per cent. Held to its own target instead,
-        /// each level lands within a few points of it, and a level that comes out easier
-        /// than the one before is named in the sheet rather than forced.
-        ///
-        /// In order of preference: every hard rule (the roads the level owes, and a prepared
-        /// player down every road), then the fast road hardest, then no easier than the
-        /// level before, then the fast road ending the ordinary escort's run on the levels
-        /// it is meant to (about half of them), then nearest the target.
-        ///
-        /// <b>Why the half is chosen here and not left to fall out.</b> Left alone it fell
-        /// out one of ten in the first chapter and eight of ten in the second: nearest the
-        /// target on average, the first chapter's easy settings kept the fast road
-        /// survivable and the second's made it lethal, and neither is a road that fools
-        /// anybody. The road that looks easiest should end a run often enough to be feared
-        /// and seldom enough to be tried.
-        /// </summary>
+        /// <summary>How much harder each level must be than the one before: a point.</summary>
+        const float Step = 0.01f;
+
         /// <summary>How many of a level's maps the calibration measures the typical one over.</summary>
         const int CalibrationMaps = 24;
 
@@ -327,67 +263,192 @@ namespace TheVeil.Editor
         /// </summary>
         const int BuiltAttempts = 160;
 
-        static LevelMap Best(int chapter, int level, bool wantKill, float floor, float aim, out float difficulty,
-                             out bool killed, out string how)
+        /// <summary>One attempt of a built level, measured.</summary>
+        sealed class Candidate
         {
-            var recipe = LevelMaps.Recipe(chapter, level);
-            int seed = DeterministicRandom.SeedFor(chapter, level);
-            float target = DifficultyCurve.Target(chapter, level);
+            public int Attempt;
+            public LevelMaps.Judgement Judged;
+            public float Cost;
+        }
 
-            LevelMap best = null;
-            float bestScore = float.MaxValue;
-            difficulty = 1f;
-            killed = false;
-            how = "no candidate passed the hard rules";
+        /// <summary>
+        /// The map every built level ships, chosen for all of them at once.
+        ///
+        /// <b>Together, not one at a time.</b> Chosen level by level, each had to be
+        /// harder than the one already picked, and where no map sat just above it the level
+        /// jumped - 2-7 from 35 to 41 per cent - and every level after inherited the jump,
+        /// until the third chapter ended at 69 against a curve that asked for 47. Nothing
+        /// chosen early could make room for what came later.
+        ///
+        /// So every built level is calibrated to its own target first and every one of its
+        /// attempts measured; then one pass over the whole campaign finds the sequence that
+        /// rises by at least a point every level and lies nearest the curve overall. A level
+        /// may take a slightly harder map than its target if that is what keeps a later one
+        /// from having to jump. It is a small problem - thirty levels, a hundred and sixty
+        /// maps each - and it is solved exactly.
+        ///
+        /// What each candidate costs, largest first: failing a hard rule (never chosen), the
+        /// fast road not the hardest road, the level before not being beaten by a point, then
+        /// the fast road killing or sparing against the chapter's pattern (every second level
+        /// kills, the first of a chapter spares), then the distance from the curve.
+        /// </summary>
+        static System.Collections.Generic.Dictionary<(int, int), LevelMap> Choose(StringBuilder sheet)
+        {
+            var levels = new System.Collections.Generic.List<(int Chapter, int Level)>();
+            for (int chapter = 1; chapter <= BuiltChapters; chapter++)
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                    levels.Add((chapter, level));
 
-            for (int attempt = 0; attempt < BuiltAttempts; attempt++)
+            var candidates = new System.Collections.Generic.List<System.Collections.Generic.List<Candidate>>();
+            var factors = new float[levels.Count];
+
+            for (int i = 0; i < levels.Count; i++)
             {
-                var map = TerrainGenerator.Generate(recipe, seed, null, attempt);
-                if (map == null || !map.Accepted) continue;
+                var (chapter, level) = levels[i];
+                float target = DifficultyCurve.Target(chapter, level);
 
-                var judged = LevelMaps.Judge(map, chapter, level, recipe.RoutesOwed);
-                if (!judged.Hard) continue;
+                float factor = Calibrate(chapter, level, target, out float typical);
+                LevelCatalogue.Tune(chapter, level, factor);
+                factors[i] = factor;
 
-                float score = Math.Abs(judged.Difficulty - aim);
-                if (!judged.Treacherous) score += 10f;
+                var recipe = LevelMaps.Recipe(chapter, level);
+                int seed = DeterministicRandom.SeedFor(chapter, level);
+                bool wantKill = level % 2 == 0;
 
-                // No easier than the level before: the rule itself. Weighed above the fast
-                // road's quota, which asks for about half and can give a level either way,
-                // and far below the fast road being the hardest at all.
-                //
-                // The floor never above the level's own target and tolerance, though. A
-                // level that overshot would otherwise lift every level after it: the third
-                // chapter climbed from 53 per cent at 3-3 to 84 at 3-10 that way, each level
-                // held to the one before rather than to its place on the curve.
-                float held = Math.Min(floor, aim + DifficultyCurve.Tolerance);
-                if (judged.Difficulty < held) score += 0.3f + (held - judged.Difficulty);
+                var list = new System.Collections.Generic.List<Candidate>();
 
-                // And no harder than the tolerance allows, on the same footing. Without it a
-                // level with no map near its target and the right fast road took one a dozen
-                // points over rather than break the fast road's quota - which is how 3-3 got
-                // to 53 against 41, and the chapter after it.
-                float over = judged.Difficulty - (aim + DifficultyCurve.Tolerance);
-                if (over > 0f) score += 0.3f + over;
+                for (int attempt = 0; attempt < BuiltAttempts; attempt++)
+                {
+                    var map = TerrainGenerator.Generate(recipe, seed, null, attempt);
+                    if (map == null || !map.Accepted) continue;
 
-                // The fast road ends the ordinary escort's run about every other level: a
-                // strong preference, weighed above a few points of difficulty. See the note
-                // where it is asked for.
-                if (judged.FastLost != wantKill) score += 0.2f;
+                    var judged = LevelMaps.Judge(map, chapter, level, recipe.RoutesOwed);
+                    if (!judged.Hard) continue;
 
-                if (score >= bestScore) continue;
+                    float cost = Math.Abs(judged.Difficulty - target);
+                    if (!judged.Treacherous) cost += 10f;
+                    if (judged.FastLost != wantKill) cost += FastPattern;
 
-                bestScore = score;
-                best = map;
-                difficulty = judged.Difficulty;
-                killed = judged.FastLost;
-                how = (judged.Treacherous ? "" : "fast road NOT the hardest, ")
-                      + (judged.FastLost == wantKill ? "" : (wantKill ? "fast road wanted a kill, " : "fast road wanted to spare, "))
-                      + (judged.FastLost ? "fast kills, " : "fast spares, ")
-                      + $"attempt {attempt}";
+                    list.Add(new Candidate { Attempt = attempt, Judged = judged, Cost = cost });
+                }
+
+                sheet.AppendLine($"[Catalogue] {chapter}-{level}: {list.Count} candidates at strength "
+                                 + $"x{factor:0.000}, typical map {typical:P0} against a target of {target:P0}");
+                candidates.Add(list);
             }
 
-            return best ?? Fresh(chapter, level, 0f);
+            // The pass over the campaign: best[i][c] is the least total cost of any choice of
+            // levels up to i that ends with candidate c.
+            var best = new System.Collections.Generic.List<float[]>();
+            var from = new System.Collections.Generic.List<int[]>();
+
+            for (int i = 0; i < levels.Count; i++)
+            {
+                var list = candidates[i];
+                var cost = new float[list.Count];
+                var back = new int[list.Count];
+
+                for (int c = 0; c < list.Count; c++)
+                {
+                    if (i == 0 || candidates[i - 1].Count == 0)
+                    {
+                        cost[c] = list[c].Cost;
+                        back[c] = -1;
+                        continue;
+                    }
+
+                    float least = float.MaxValue;
+                    int leastFrom = -1;
+                    var previous = candidates[i - 1];
+
+                    for (int p = 0; p < previous.Count; p++)
+                    {
+                        float need = previous[p].Judged.Difficulty + Step;
+                        float step = list[c].Judged.Difficulty >= need - 0.0001f
+                            ? 0f
+                            : Dip + (need - list[c].Judged.Difficulty);
+
+                        float total = best[i - 1][p] + step;
+                        if (total >= least) continue;
+
+                        least = total;
+                        leastFrom = p;
+                    }
+
+                    cost[c] = least + list[c].Cost;
+                    back[c] = leastFrom;
+                }
+
+                best.Add(cost);
+                from.Add(back);
+            }
+
+            // Back from the cheapest end.
+            var picks = new int[levels.Count];
+            for (int i = 0; i < picks.Length; i++) picks[i] = -1;
+
+            int last = levels.Count - 1;
+            if (candidates[last].Count > 0)
+            {
+                int at = 0;
+                for (int c = 1; c < best[last].Length; c++)
+                    if (best[last][c] < best[last][at]) at = c;
+
+                for (int i = last; i >= 0 && at >= 0; i--)
+                {
+                    picks[i] = at;
+                    at = from[i][at];
+                }
+            }
+
+            var chosen = new System.Collections.Generic.Dictionary<(int, int), LevelMap>();
+            float before = 0f;
+            int kills = 0;
+
+            for (int i = 0; i < levels.Count; i++)
+            {
+                var (chapter, level) = levels[i];
+                if (level == 1) kills = 0;
+
+                if (picks[i] < 0)
+                {
+                    sheet.AppendLine($"[Catalogue] {chapter}-{level}: no candidate kept every hard rule");
+                    continue;
+                }
+
+                var pick = candidates[i][picks[i]];
+                var recipe = LevelMaps.Recipe(chapter, level);
+                chosen[(chapter, level)] = TerrainGenerator.Generate(recipe, DeterministicRandom.SeedFor(chapter, level),
+                                                                     null, pick.Attempt);
+
+                if (pick.Judged.FastLost) kills++;
+                float difficulty = pick.Judged.Difficulty;
+
+                sheet.AppendLine($"[Catalogue] {chapter}-{level}: difficulty {difficulty:P0}, "
+                                 + $"target {DifficultyCurve.Target(chapter, level):P0} - "
+                                 + (pick.Judged.Treacherous ? "" : "fast road NOT the hardest, ")
+                                 + (pick.Judged.FastLost ? "fast kills" : "fast spares")
+                                 + $" ({kills} this chapter), strength x{factors[i]:0.000}, attempt {pick.Attempt}"
+                                 + (difficulty < before + Step - 0.0001f ? "  <-- not harder than the level before" : ""));
+                before = difficulty;
+            }
+
+            return chosen;
         }
+
+        /// <summary>
+        /// What breaking the climb costs in the choice: more than any distance from the
+        /// curve, so the choice only ever takes it when there is no other way.
+        /// </summary>
+        const float Dip = 1f;
+
+        /// <summary>
+        /// What a fast road that kills where the pattern wanted it to spare, or the other
+        /// way round, costs in the choice: three points of distance from the curve. Enough
+        /// that the pattern holds wherever it can; not so much that it pushes a level away
+        /// from where it should be.
+        /// </summary>
+        const float FastPattern = 0.03f;
 
         static LevelMap Fresh(int chapter, int level, float floor)
         {
