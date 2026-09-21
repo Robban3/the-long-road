@@ -538,6 +538,9 @@ namespace TheVeil.Editor
             Write("spacing.txt", said);
         }
 
+        static float Left(Dictionary<(int, CorridorKind), float> left, int chapter, CorridorKind kind)
+            => left.TryGetValue((chapter, kind), out float sum) ? sum / Campaign.LevelsPerChapter : 0f;
+
         static float Least(List<float> numbers)
         {
             float least = float.MaxValue;
@@ -646,6 +649,17 @@ namespace TheVeil.Editor
                     float.TryParse(args[i + 1], System.Globalization.NumberStyles.Float,
                                    System.Globalization.CultureInfo.InvariantCulture, out trial);
 
+            // And which chapters, so one chapter can be tuned without waiting on three.
+            int first = 1, last = 3;
+            for (int i = 0; i + 2 < args.Length; i++)
+                if (args[i] == "-chapters")
+                {
+                    int.TryParse(args[i + 1], out first);
+                    int.TryParse(args[i + 2], out last);
+                }
+
+            int levels = (last - first + 1) * Campaign.LevelsPerChapter;
+
             var said = new System.Text.StringBuilder();
             said.AppendLine($"[Roads] each road at the curve's smithy, and at the top of the smithy, "
                             + $"enemies at {trial:0.00} of the chapter's strength");
@@ -653,6 +667,9 @@ namespace TheVeil.Editor
             var usual = new Dictionary<CorridorKind, int>();
             var upgraded = new Dictionary<CorridorKind, int>();
             int refused = 0;
+            var leftBy = new Dictionary<(int, CorridorKind), float>();
+            var levelLeft = new Dictionary<CorridorKind, float>();
+            var curve = new System.Text.StringBuilder();
             var lineBy = new int[ReferenceSquad.Lines(0).Length];
             var earnedBy = new Dictionary<CorridorKind, int>();
             var spentBy = new Dictionary<CorridorKind, int>();
@@ -665,7 +682,7 @@ namespace TheVeil.Editor
                 spentBy[kind] = 0;
             }
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = first; chapter <= last; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var map = LevelMaps.For(chapter, level);
@@ -706,25 +723,66 @@ namespace TheVeil.Editor
                         earnedBy[kind] += plainRun.Economy.TotalEarned;
                         spentBy[kind] += plainRun.Economy.TotalSpent;
 
+                        // How much of the escort is left at the end: a road the escort
+                        // arrives down at nine tenths is not the same road as one it
+                        // arrives down at one tenth, and arrival alone cannot tell them apart.
+                        float hp = 0f, full = 0f;
+                        foreach (var group in plainRun.Squad.Slots)
+                        {
+                            if (group == null) continue;
+                            hp += group.Alive ? group.Hp : 0f;
+                            full += group.EffectiveMaxHp;
+                        }
+                        float left = full > 0f ? hp / full : 0f;
+                        leftBy[(chapter, kind)] = (leftBy.TryGetValue((chapter, kind), out var was) ? was : 0f) + left;
+                        levelLeft[kind] = left;
+
                         line.Append($"  {kind} {(plain == RunOutcome.Arrived ? "through" : "LOST")}"
                                     + $" / {(best == RunOutcome.Arrived ? "through" : "LOST")}"
                                     + $" (earned {plainRun.Economy.TotalEarned}, spent {plainRun.Economy.TotalSpent})");
                     }
 
                     said.AppendLine(line.ToString() + (line.ToString().Contains("/ LOST") ? "  <-- NOT WINNABLE" : ""));
+
+                    // The curve, level by level: what the escort the curve assumes has left at
+                    // the end of each road, which is the one number that should fall from the
+                    // first level to the last.
+                    float measured = 1f - (levelLeft[CorridorKind.Fast] + levelLeft[CorridorKind.Safe]
+                                           + levelLeft[CorridorKind.Odd]) / 3f;
+                    float target = DifficultyCurve.Target(chapter, level);
+                    bool fastWorst = levelLeft[CorridorKind.Fast]
+                                     <= Mathf.Min(levelLeft[CorridorKind.Safe], levelLeft[CorridorKind.Odd]) + 0.001f;
+
+                    curve.AppendLine($"[Curve] {chapter}-{level,-2} difficulty {measured,4:P0} "
+                                     + $"target {target,4:P0}"
+                                     + (Mathf.Abs(measured - target) > DifficultyCurve.Tolerance ? " OFF" : "   ")
+                                     + (fastWorst ? "            " : " FAST-EASIER")
+                                     + $"  fast {levelLeft[CorridorKind.Fast],4:P0}  "
+                                     + $"safe {levelLeft[CorridorKind.Safe],4:P0}  "
+                                     + $"long {levelLeft[CorridorKind.Odd],4:P0}  "
+                                     + $"strength {recipe.EnemyStrength:0.00}  budget {recipe.EnemyBudget}  "
+                                     + $"squad {recipe.SquadBudget}/{recipe.Posts}");
                 }
 
             said.AppendLine();
             foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
             {
-                said.AppendLine($"[Roads] {kind}: {usual[kind]}/30 through as the curve plays it, "
-                                + $"{upgraded[kind]}/30 prepared");
+                said.AppendLine($"[Roads] {kind}: {usual[kind]}/{levels} through as the curve plays it, "
+                                + $"{upgraded[kind]}/{levels} prepared");
 
-                said.AppendLine($"[Roads] {kind}: {earnedBy[kind] / 30} silver earned a level, "
-                                + $"{spentBy[kind] / 30} of it spent at the forge");
+                said.AppendLine($"[Roads] {kind}: {earnedBy[kind] / levels} silver earned a level, "
+                                + $"{spentBy[kind] / levels} of it spent at the forge");
             }
 
-            said.AppendLine($"[Roads] {refused} of 30 levels shipped a compromise the generator did not accept");
+            for (int chapter = first; chapter <= last; chapter++)
+                said.AppendLine($"[Roads] chapter {chapter}: escort left at the end, curve player - "
+                                + $"fast {Left(leftBy, chapter, CorridorKind.Fast):P0}, "
+                                + $"safe {Left(leftBy, chapter, CorridorKind.Safe):P0}, "
+                                + $"long {Left(leftBy, chapter, CorridorKind.Odd):P0}");
+
+            said.AppendLine($"[Roads] {refused} of {levels} levels shipped a compromise the generator did not accept");
+            said.AppendLine();
+            said.Append(curve);
             said.AppendLine($"[Roads] prepared lines that won: curve {lineBy[0]}, wall {lineBy[1]}, "
                             + $"weight {lineBy[2]}, shot {lineBy[3]}");
             Write($"roads-{trial:0.00}.txt", said);

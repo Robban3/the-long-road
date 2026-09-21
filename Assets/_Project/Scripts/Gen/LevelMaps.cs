@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TheVeil.Sim;
 
@@ -67,8 +68,10 @@ namespace TheVeil.Gen
 
             var map = TerrainGenerator.Generate(recipe,
                                                 DeterministicRandom.SeedFor(chapter, level),
-                                                candidate => Gate(candidate, chapter, level,
-                                                                  recipe.RoutesOwed),
+                                                candidate => chapter > DifficultyCurve.BuiltChapters
+                                                    ? (RoadsThrough(candidate, chapter, level, recipe.RoutesOwed)
+                                                       >= recipe.RoutesOwed ? TerrainGenerator.Accepted : 0)
+                                                    : Gate(candidate, chapter, level, recipe.RoutesOwed),
                                                 shipped);
 
             // The ground a castle stands on, levelled — after the generator has finished
@@ -114,19 +117,156 @@ namespace TheVeil.Gen
             => RoadsThrough(map, chapter, level, 1) >= 1;
 
         /// <summary>
-        /// The whole of what a candidate has to answer: enough roads for the escort the
-        /// curve assumes, and no road that nobody could get down.
+        /// The whole of what a candidate has to answer, as a grade:
+        /// <see cref="TerrainGenerator.Accepted"/> when it answers everything, less when it
+        /// does not, and the less the worse.
         ///
-        /// Returns the road count the generator already understands, and nought for a map
-        /// with a wall on it, so nothing about how the search ranks its candidates has to
-        /// change.
+        /// Hard, and a candidate failing them grades below any that passes them:
+        /// - the escort the curve assumes gets down the roads the level owes;
+        /// - a prepared player gets down every road (<see cref="EveryRoadWinnable"/>).
+        ///
+        /// Soft, and graded by how far off they are, so the search's compromise is the
+        /// nearest miss rather than the first one:
+        /// - the fast road is the hardest road on the level for the escort the curve
+        ///   assumes - the one that looks easiest turns out worst, on every level;
+        /// - the level is as hard as its place in the campaign says, within
+        ///   <see cref="DifficultyCurve.Tolerance"/> (<see cref="DifficultyCurve"/>).
         /// </summary>
-        static int Gate(LevelMap map, int chapter, int level, int wanted)
-        {
-            int through = RoadsThrough(map, chapter, level, wanted);
-            if (through < wanted) return through;
+        public static int Gate(LevelMap map, int chapter, int level, int wanted)
+            => Gate(map, chapter, level, wanted, 0f);
 
-            return EveryRoadWinnable(map, chapter, level) ? through : 0;
+        /// <param name="floor">
+        /// A difficulty the level may not come in under - the level before it, for a
+        /// builder that walks the levels in order. Nothing passes one today: tried as a
+        /// chain it ran away (see CatalogueBuilder.Best), and it is kept for a builder
+        /// that can measure a level finely enough to hold one.
+        /// </param>
+        public static int Gate(LevelMap map, int chapter, int level, int wanted, float floor)
+        {
+            var judged = Judge(map, chapter, level, wanted);
+            if (!judged.Hard) return judged.Through < wanted ? judged.Through : wanted;
+
+            float target = DifficultyCurve.Target(chapter, level);
+
+            // How far outside the window it lies: no easier than the level before and no
+            // further from its target than the tolerance.
+            float low = Math.Max(target - DifficultyCurve.Tolerance, floor);
+            float high = target + DifficultyCurve.Tolerance;
+            float off = judged.Difficulty < low ? low - judged.Difficulty
+                      : judged.Difficulty > high ? judged.Difficulty - high
+                      : 0f;
+
+            if (judged.Treacherous && off <= 0f) return TerrainGenerator.Accepted;
+
+            int grade = TerrainGenerator.Accepted / 2 - (int)(off * 40f) - (judged.Treacherous ? 0 : 15);
+            return Math.Max(wanted + 1, grade);
+        }
+
+        /// <summary>What a candidate map is, measured: see <see cref="Judge"/>.</summary>
+        public struct Judgement
+        {
+            /// <summary>Roads the escort the curve assumes got down.</summary>
+            public int Through;
+
+            /// <summary>Enough roads for it, and every road for a prepared player.</summary>
+            public bool Hard;
+
+            /// <summary>The fast road costs it the most of the three.</summary>
+            public bool Treacherous;
+
+            /// <summary>The share of the escort lost over the roads. See DifficultyCurve.</summary>
+            public float Difficulty;
+        }
+
+        /// <summary>
+        /// Plays a candidate with the escort the curve assumes down every road, and with a
+        /// prepared player down every road that one lost, and says what it found.
+        /// </summary>
+        public static Judgement Judge(LevelMap map, int chapter, int level, int wanted)
+        {
+            var judged = new Judgement { Difficulty = 1f };
+            if (map?.Corridors == null || map.Corridors.Count == 0) return judged;
+
+            var recipe = Recipe(chapter, level);
+            int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+
+            float total = 0f;
+            float fast = -1f, others = float.MaxValue;
+            var lost = new List<Corridor>();
+
+            foreach (var corridor in map.Corridors)
+            {
+                var run = ReferenceSquad.Play(map, corridor.Tiles, recipe, cleared);
+                bool arrived = run.RunToCompletion() == RunOutcome.Arrived;
+                if (arrived) judged.Through++;
+                else lost.Add(corridor);
+
+                float left = arrived ? EscortLeft(run) : 0f;
+                total += left;
+
+                if (corridor.Kind == CorridorKind.Fast) fast = left;
+                else if (left < others) others = left;
+            }
+
+            judged.Difficulty = 1f - total / map.Corridors.Count;
+
+            // Ties allowed: a level where the fast road and another both cost everything
+            // is not one where the fast road is kinder.
+            judged.Treacherous = fast < 0f || fast <= others + 0.001f;
+
+            if (judged.Through < wanted) return judged;
+
+            // The prepared player only on the roads the ordinary one lost. A road the escort
+            // the curve assumes gets down, the prepared one gets down too: it tries that
+            // same line, shopping the same way, with at least as much bought between levels.
+            // Asking again cost up to twenty-four runs a candidate for no answer, and the
+            // search runs through dozens of candidates a level.
+            foreach (var corridor in lost)
+                if (!ReferenceSquad.Prepared(map, corridor.Tiles, recipe, cleared)) return judged;
+
+            judged.Hard = true;
+            return judged;
+        }
+
+        /// <summary>
+        /// How hard a level is, as DifficultyCurve measures it: the share of the escort the
+        /// player the curve assumes loses over the three roads, a road not got down counting
+        /// as the whole of it.
+        /// </summary>
+        public static float Difficulty(LevelMap map, int chapter, int level)
+        {
+            if (map?.Corridors == null || map.Corridors.Count == 0) return 1f;
+
+            var recipe = Recipe(chapter, level);
+            int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+            float total = 0f;
+
+            foreach (var corridor in map.Corridors)
+            {
+                var run = ReferenceSquad.Play(map, corridor.Tiles, recipe, cleared);
+                if (run.RunToCompletion() == RunOutcome.Arrived) total += EscortLeft(run);
+            }
+
+            return 1f - total / map.Corridors.Count;
+        }
+
+        /// <summary>
+        /// The share of the escort still standing when a run ends: health left against
+        /// health it could have had, the fallen counting nothing.
+        /// </summary>
+        public static float EscortLeft(LevelRun run)
+        {
+            if (run?.Squad == null) return 0f;
+
+            float hp = 0f, full = 0f;
+            foreach (var group in run.Squad.Slots)
+            {
+                if (group == null) continue;
+                if (group.Alive) hp += group.Hp;
+                full += group.EffectiveMaxHp;
+            }
+
+            return full > 0f ? hp / full : 0f;
         }
 
         /// <summary>

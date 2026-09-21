@@ -36,6 +36,13 @@ namespace TheVeil.Gen
         }
 
         const int EdgeBand = 3;
+
+        /// <summary>
+        /// What a candidate's gate returns when it answers every question. Anything less
+        /// is a grade for ranking compromises - see LevelMaps.Gate - so a map that misses
+        /// only its difficulty target is preferred to one with a wall on it.
+        /// </summary>
+        public const int Accepted = 100;
         const int PairAttempts = 48;
 
         /// <param name="roadsThrough">
@@ -194,7 +201,10 @@ namespace TheVeil.Gen
                         ? recipe.RoutesOwed
                         : roadsThrough(map);
 
-                bool passes = passable >= recipe.RoutesOwed;
+                // Without a gate, the road count is assumed; with one, the gate says
+                // Accepted or it has not passed. See LevelMaps.Gate.
+                bool passes = roadsThrough == null ? passable >= recipe.RoutesOwed
+                                                   : passable >= Accepted;
 
                 // <b>A named attempt is the answer, and it is not necessarily a good
                 // one.</b> The search that named it asked every question below and the

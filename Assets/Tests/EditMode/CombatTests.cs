@@ -339,14 +339,21 @@ namespace TheVeil.Tests
             var escort = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(1, 4),
                                             ReferenceSquad.Smithy(1));
 
-            var quiet = Run(1, 4, null);
+            //
+            // <b>Measured on the run itself, not against a caravan with nobody guarding
+            // it.</b> The comparison used to be an unescorted run down the same road, and
+            // once the fast road was made the hardest road on every level that caravan did
+            // not get to the end: it was destroyed at 96 seconds while the escorted one
+            // arrived at 93, and the test compared a loss with an arrival. The run already
+            // keeps the two clocks apart - ElapsedSeconds runs always, TravelSeconds only
+            // while the column is moving - so the claim can be asked directly: the column
+            // stood still to fight for a while that shows.
             var contested = Run(1, 4, escort);
-
-            quiet.RunToCompletion();
             contested.RunToCompletion();
 
-            Assert.Greater(contested.ElapsedSeconds, quiet.ElapsedSeconds,
-                "a level with fighting took no longer than one without");
+            Assert.Greater(contested.ElapsedSeconds, contested.TravelSeconds + 5f,
+                $"the column spent {contested.ElapsedSeconds - contested.TravelSeconds:0.0} s "
+                + "standing to fight on a road carrying half the level's threat");
         }
 
         [Test]
