@@ -360,6 +360,21 @@ namespace TheVeil.Editor
             said.AppendLine("[Spacing] every road of every level: fights, length, and the gaps between them");
 
             var blame = new Dictionary<string, int>();
+
+            // What each fight is worth, per road. The design is that the long way round
+            // meets fewer groups and each of them is worse; the spacing change spends the
+            // points that no longer fit by trading groups up, and that happens where the
+            // ground runs out first - which could as easily be the fast road. Only the
+            // number says which.
+            var worthBy = new Dictionary<CorridorKind, List<float>>();
+
+            // And who put each of those fights there, because a road meets groups it did
+            // not buy - the ford guards every road crosses, the repair loop's moves, the
+            // next road's groups watching across - and a lean on what one road buys
+            // cannot reach any of them.
+            var byOrigin = new Dictionary<string, List<float>>();
+            foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+                worthBy[kind] = new List<float>();
             var gapsBy = new Dictionary<CorridorKind, List<float>>();
             var fightsBy = new Dictionary<CorridorKind, List<int>>();
             var lengthBy = new Dictionary<CorridorKind, List<float>>();
@@ -419,6 +434,11 @@ namespace TheVeil.Editor
                         foreach (int index in met)
                         {
                             who.Add(map.Encounters.Enemies[index].Origin);
+                            worthBy[kind].Add(EnemyTable.Points(map.Encounters.Enemies[index].Kind));
+
+                            string key = $"{kind} {map.Encounters.Enemies[index].Origin}";
+                            if (!byOrigin.TryGetValue(key, out var list)) byOrigin[key] = list = new List<float>();
+                            list.Add(EnemyTable.Points(map.Encounters.Enemies[index].Kind));
                             map.Grid.ToCoords(map.Encounters.Enemies[index].Tile, out int ex, out int ey);
 
                             float best = float.MaxValue, at = 0f;
@@ -487,6 +507,28 @@ namespace TheVeil.Editor
                                 + $"{Middle(lengthBy[kind]):0} m of road (middling), gap "
                                 + $"least {Least(gaps):0} m, middling {Middle(gaps):0} m, "
                                 + $"{tight} of {gaps.Count} gaps under 40 m");
+            }
+
+            said.AppendLine();
+            foreach (var kind in new[] { CorridorKind.Fast, CorridorKind.Safe, CorridorKind.Odd })
+            {
+                var worth = worthBy[kind];
+                float total = 0f;
+                foreach (float points in worth) total += points;
+
+                said.AppendLine($"[Worth] {kind}: {worth.Count} fights, {total:0} points met, "
+                                + $"{(worth.Count == 0 ? 0f : total / worth.Count):0.0} points a fight, "
+                                + $"{total / 30f:0.0} points a level");
+            }
+
+            var keys = new List<string>(byOrigin.Keys);
+            keys.Sort();
+            foreach (string key in keys)
+            {
+                var list = byOrigin[key];
+                float total = 0f;
+                foreach (float points in list) total += points;
+                said.AppendLine($"[Worth] {key}: {list.Count} fights, {total / list.Count:0.0} points a fight");
             }
 
             said.AppendLine();

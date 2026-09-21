@@ -212,10 +212,19 @@ namespace TheVeil.App
         /// a bird. A crow is about a metre across, so six puts the flock at roughly the
         /// eagle's read.
         ///
-        /// Guessed from that arithmetic rather than measured on a render, which is what
-        /// settled the eagle's ten. It is the first number to move.
+        /// <b>Twenty, measured, after six was a guess that made them vanish.</b> A crow
+        /// here is a quarter of a metre across, not a metre, so six drew each bird a
+        /// metre and a half wide - measured on the plan, every one of fifteen flocks on
+        /// 1-10 came out at 1.5 by 1.2 metres from above, on a map two hundred and fifty-
+        /// six wide. While the black plate stood beside them nobody noticed, because the
+        /// plate was what anybody was actually reading. When it came off, the crows went
+        /// with it in all but name: they were there, circling, and could not be seen.
+        ///
+        /// At twenty a bird is five metres across, about half the eagle's read, and a
+        /// flock turning in its twenty-five metre circle is a thing on the map rather
+        /// than a speck on it.
         /// </summary>
-        public float CrowScale = 6f;
+        public float CrowScale = 20f;
 
         /// <summary>
         /// Marker sizes in metres.
@@ -752,6 +761,28 @@ namespace TheVeil.App
                 // Awake, OnEnable and Start in that order, which is the order Unity would
                 // have used. A script that keeps its circle's centre or its bird array in
                 // one of them has nothing to fly around until they have run.
+                Poke(behaviour, "Awake");
+                Poke(behaviour, "OnEnable");
+                Poke(behaviour, "Start");
+            }
+
+            // <b>And then the birds, which did not exist until the flock's Start made
+            // them.</b> Everything above ran on what the prefab held, and the prefab holds
+            // a controller and no crows: its Start instantiates ten. Those ten never had a
+            // Start of their own called outside play mode - and a bird's Start is what
+            // sets its size and sends it to a point on its circle. Left out, every crow
+            // kept its spawn scale and sat on the flock's own spot, so CrowScale reached
+            // the empty controller and not one bird: measured on the plan at six and at
+            // twenty, all fifteen flocks came out one and a half metres across, the same.
+            //
+            // Not added to the list that is ticked. The flock drives its birds itself from
+            // its own Update, which is already in that list.
+            var woken = new HashSet<MonoBehaviour>(_flapping);
+
+            foreach (var behaviour in flock.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (behaviour == null || woken.Contains(behaviour) || Driven(behaviour.GetType())) continue;
+
                 Poke(behaviour, "Awake");
                 Poke(behaviour, "OnEnable");
                 Poke(behaviour, "Start");
