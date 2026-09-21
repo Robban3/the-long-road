@@ -74,6 +74,9 @@ namespace TheVeil.Editor
             // See Best: about half of them should.
             int fastKills = 0;
 
+
+            LevelCatalogue.ClearTuning();
+
             for (int chapter = 1; chapter <= LevelCatalogue.Chapters; chapter++)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
@@ -92,8 +95,19 @@ namespace TheVeil.Editor
                         // after that it ends it about every other time.
                         bool wantKill = fastKills < level / 2;
 
-                        map = Best(chapter, level, wantKill, before, out float difficulty, out bool killed, out string how);
+                        // Aimed at what the level has to reach: its target, or the level
+                        // before it if that came out higher. Calibrated to the target alone,
+                        // the typical map sat below a floor the levels before had lifted, and
+                        // 3-9 found no map at or over it: 40 per cent after 53.
+                        float aim = Math.Max(DifficultyCurve.Target(chapter, level), before);
+
+                        float factor = Calibrate(chapter, level, aim, out float typical);
+                        LevelCatalogue.Tune(chapter, level, factor);
+
+                        map = Best(chapter, level, wantKill, before, aim, out float difficulty, out bool killed, out string how);
                         if (killed) fastKills++;
+
+                        how += $", strength x{factor:0.000} (typical map {typical:P0})";
                         sheet.AppendLine($"[Catalogue] {chapter}-{level}: difficulty {difficulty:P0}, "
                                          + $"target {DifficultyCurve.Target(chapter, level):P0} - {how}"
                                          + (difficulty < before ? "  <-- easier than the level before" : ""));
@@ -139,7 +153,12 @@ namespace TheVeil.Editor
                         stuck++;
                     }
 
-                    table.AppendLine($"{chapter} {level} {attempt}");
+                    if (chapter <= BuiltChapters)
+                        table.AppendLine($"{chapter} {level} {attempt} "
+                                         + LevelCatalogue.Factor(chapter, level)
+                                             .ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                    else
+                        table.AppendLine($"{chapter} {level} {attempt}");
                     walked++;
                     if (attempt > 0) searched++;
 
@@ -151,6 +170,7 @@ namespace TheVeil.Editor
             System.IO.File.WriteAllText(Path, table.ToString());
             AssetDatabase.ImportAsset(Path);
 
+            LevelCatalogue.ClearTuning();
             LevelCatalogue.Forget();
 
             sheet.AppendLine($"[Catalogue] {walked} levels, {searched} of them past the "
@@ -207,6 +227,93 @@ namespace TheVeil.Editor
         /// anybody. The road that looks easiest should end a run often enough to be feared
         /// and seldom enough to be tried.
         /// </summary>
+        /// <summary>How many of a level's maps the calibration measures the typical one over.</summary>
+        const int CalibrationMaps = 24;
+
+        /// <summary>
+        /// The strength factor at which a level's typical map lands on its target.
+        ///
+        /// The typical map, not the chosen one: the median over the first maps the level
+        /// generates, measured on the safe and long roads the way DifficultyCurve measures.
+        /// Where the typical map is, the search finds plenty of maps near the target and
+        /// can keep every other rule as well; where it was far from it, the target could
+        /// only be met by an outlier, and often was not.
+        ///
+        /// Strength does not change a map - the placer spends points, not strength - so
+        /// the maps are made once and only the runs are repeated, halving the range each
+        /// time. Six halvings of a range from half to twice put the factor within about a
+        /// sixtieth.
+        /// </summary>
+        static float Calibrate(int chapter, int level, float aim, out float typical)
+        {
+            var recipe = ChapterRecipe.For(chapter).ForLevel(level);
+            float baseStrength = recipe.EnemyStrength;
+            int seed = DeterministicRandom.SeedFor(chapter, level);
+            int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+
+            var maps = new System.Collections.Generic.List<LevelMap>();
+            for (int attempt = 0; attempt < 80 && maps.Count < CalibrationMaps; attempt++)
+            {
+                var map = TerrainGenerator.Generate(recipe, seed, null, attempt);
+                if (map != null && map.Accepted) maps.Add(map);
+            }
+
+            float Median(float factor)
+            {
+                var levels = new System.Collections.Generic.List<float>();
+
+                foreach (var map in maps)
+                {
+                    float left = 0f;
+                    int roads = 0;
+
+                    foreach (var corridor in map.Corridors)
+                    {
+                        if (corridor.Kind == CorridorKind.Fast) continue;
+
+                        var run = new LevelRun(map, corridor.Tiles,
+                                               ReferenceSquad.For(recipe, cleared, 0, ReferenceSquad.SpentOnTroops),
+                                               baseStrength * factor) { Shops = true };
+
+                        if (run.RunToCompletion() == RunOutcome.Arrived) left += LevelMaps.EscortLeft(run);
+                        roads++;
+                    }
+
+                    levels.Add(roads > 0 ? 1f - left / roads : 1f);
+                }
+
+                levels.Sort();
+                return levels.Count > 0 ? levels[levels.Count / 2] : 0f;
+            }
+
+            // <b>No floor under the strength.</b> The first build held each level's enemies
+            // to at least the strength of the level before, and the town undid it: 1-8's
+            // walls leave nothing to make harder but the enemies, it needed them half as
+            // strong again to reach its target, and every level after it inherited that -
+            // 1-10 and 3-10 came out with no map a prepared player could win. What has to
+            // rise level by level is how hard the level is, and that is what the curve holds.
+            // The strength is the dial that gets each level there, and a level built easy
+            // needs it turned further than its neighbours.
+            float low = 0.5f;
+            float high = 2f;
+
+            if (maps.Count == 0) { typical = 0f; return 1f; }
+
+            typical = Median(low);
+            if (typical >= aim) return low;
+
+            for (int step = 0; step < 6; step++)
+            {
+                float middle = (float)Math.Sqrt(low * high);
+                if (Median(middle) < aim) low = middle;
+                else high = middle;
+            }
+
+            float factor = (float)Math.Sqrt(low * high);
+            typical = Median(factor);
+            return factor;
+        }
+
         /// <summary>
         /// How many attempts of a built level are looked at.
         ///
@@ -220,7 +327,7 @@ namespace TheVeil.Editor
         /// </summary>
         const int BuiltAttempts = 160;
 
-        static LevelMap Best(int chapter, int level, bool wantKill, float floor, out float difficulty,
+        static LevelMap Best(int chapter, int level, bool wantKill, float floor, float aim, out float difficulty,
                              out bool killed, out string how)
         {
             var recipe = LevelMaps.Recipe(chapter, level);
@@ -241,7 +348,7 @@ namespace TheVeil.Editor
                 var judged = LevelMaps.Judge(map, chapter, level, recipe.RoutesOwed);
                 if (!judged.Hard) continue;
 
-                float score = Math.Abs(judged.Difficulty - target);
+                float score = Math.Abs(judged.Difficulty - aim);
                 if (!judged.Treacherous) score += 10f;
 
                 // No easier than the level before: the rule itself. Weighed above the fast
@@ -252,14 +359,14 @@ namespace TheVeil.Editor
                 // level that overshot would otherwise lift every level after it: the third
                 // chapter climbed from 53 per cent at 3-3 to 84 at 3-10 that way, each level
                 // held to the one before rather than to its place on the curve.
-                float held = Math.Min(floor, target + DifficultyCurve.Tolerance);
+                float held = Math.Min(floor, aim + DifficultyCurve.Tolerance);
                 if (judged.Difficulty < held) score += 0.3f + (held - judged.Difficulty);
 
                 // And no harder than the tolerance allows, on the same footing. Without it a
                 // level with no map near its target and the right fast road took one a dozen
                 // points over rather than break the fast road's quota - which is how 3-3 got
                 // to 53 against 41, and the chapter after it.
-                float over = judged.Difficulty - (target + DifficultyCurve.Tolerance);
+                float over = judged.Difficulty - (aim + DifficultyCurve.Tolerance);
                 if (over > 0f) score += 0.3f + over;
 
                 // The fast road ends the ordinary escort's run about every other level: a

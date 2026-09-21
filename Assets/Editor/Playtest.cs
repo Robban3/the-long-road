@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using TheVeil.App;
 using TheVeil.Gen;
@@ -967,6 +968,99 @@ namespace TheVeil.Editor
             }
 
             Write("follow.txt", said);
+        }
+
+        /// <summary>
+        /// Every attempt of one level, and what each is: `The Veil > Attempts Of One Level`,
+        /// with -level chapter level on the command line.
+        ///
+        /// Written for the third chapter, where the catalogue could find no map for 3-3
+        /// between 37 and 52 per cent among a hundred and sixty. That is either the maps
+        /// or the measure, and this says which: the spread of difficulties the attempts
+        /// have, and for every road the escort the curve assumes did not get down, how the
+        /// run ended - a fight lost, or a run that stood still.
+        /// </summary>
+        [MenuItem("The Veil/Attempts Of One Level")]
+        public static void AttemptsOfOneLevel()
+        {
+            int chapter = 3, level = 3, count = 160;
+            float trial = 1f;
+            var args = System.Environment.GetCommandLineArgs();
+            for (int i = 0; i + 1 < args.Length; i++)
+            {
+                if (args[i] == "-level" && i + 2 < args.Length)
+                {
+                    int.TryParse(args[i + 1], out chapter);
+                    int.TryParse(args[i + 2], out level);
+                }
+                if (args[i] == "-count") int.TryParse(args[i + 1], out count);
+                if (args[i] == "-strength")
+                    float.TryParse(args[i + 1], System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out trial);
+            }
+
+            var recipe = LevelMaps.Recipe(chapter, level);
+            int seed = DeterministicRandom.SeedFor(chapter, level);
+            int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+
+            var said = new System.Text.StringBuilder();
+            said.AppendLine($"[Attempts] {chapter}-{level}, target {DifficultyCurve.Target(chapter, level):P0}");
+
+            var buckets = new int[11];
+            int lostFight = 0, lostStall = 0, lostGate = 0, safeLongLost = 0, runs = 0;
+
+            var all = new List<float>();
+
+            for (int attempt = 0; attempt < count; attempt++)
+            {
+                var map = TerrainGenerator.Generate(recipe, seed, null, attempt);
+                if (map == null || !map.Accepted) continue;
+
+                var left = new Dictionary<CorridorKind, float>();
+                var why = new Dictionary<CorridorKind, string>();
+
+                foreach (var corridor in map.Corridors)
+                {
+                    var run = new LevelRun(map, corridor.Tiles,
+                                           ReferenceSquad.For(recipe, cleared, 0, ReferenceSquad.SpentOnTroops),
+                                           recipe.EnemyStrength * trial) { Shops = true };
+                    bool arrived = run.RunToCompletion() == RunOutcome.Arrived;
+                    left[corridor.Kind] = arrived ? LevelMaps.EscortLeft(run) : 0f;
+
+                    if (arrived || corridor.Kind == CorridorKind.Fast) continue;
+
+                    safeLongLost++;
+                    string reason = run.Caravan.Destroyed ? "fight"
+                                  : run.HeldAtTheGate ? "gate"
+                                  : run.StalledOn >= 0 ? $"stall on {map.Grid[run.StalledOn]}"
+                                  : "timeout";
+                    why[corridor.Kind] = $"{reason} at {run.Caravan.DistanceTravelled:0}/{run.Caravan.TotalDistance:0} m";
+
+                    if (reason == "fight") lostFight++;
+                    else if (reason == "gate") lostGate++;
+                    else lostStall++;
+                }
+
+                runs++;
+                float d = 1f - (left[CorridorKind.Safe] + left[CorridorKind.Odd]) / 2f;
+                all.Add(d);
+                buckets[Mathf.Clamp((int)(d * 10f), 0, 10)]++;
+
+                said.AppendLine($"[Attempts] {attempt,3}: difficulty {d,4:P0}  fast {left[CorridorKind.Fast],4:P0}  "
+                                + $"safe {left[CorridorKind.Safe],4:P0}  long {left[CorridorKind.Odd],4:P0}  "
+                                + string.Join("  ", why.Select(w => $"{w.Key} lost: {w.Value}")));
+            }
+
+            said.AppendLine();
+            said.AppendLine($"[Attempts] {runs} maps; difficulty in tenths: "
+                            + string.Join(" ", buckets.Select((n, i) => $"{i * 10}-{i * 10 + 9}%:{n}")));
+            all.Sort();
+            said.AppendLine($"[Attempts] median {(all.Count > 0 ? all[all.Count / 2] : 0f):P0} at "
+                            + $"{trial:0.00} of the level's strength");
+            said.AppendLine($"[Attempts] safe or long roads lost {safeLongLost}: {lostFight} in a fight, "
+                            + $"{lostStall} standing still, {lostGate} at the gate");
+
+            Write($"attempts-{chapter}-{level}-{trial:0.00}.txt", said);
         }
 
         [MenuItem("The Veil/Water And Bridges")]

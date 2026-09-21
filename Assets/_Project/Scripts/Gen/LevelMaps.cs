@@ -380,6 +380,13 @@ namespace TheVeil.Gen
         /// By chapter as well as level. It took the level alone once, and chapter two's
         /// first level was chapter one's first level with snow on it.
         /// </summary>
-        public static LevelRecipe Recipe(int chapter, int level) => ChapterRecipe.For(chapter).ForLevel(level);
+        public static LevelRecipe Recipe(int chapter, int level)
+        {
+            var recipe = ChapterRecipe.For(chapter).ForLevel(level);
+
+            // The strength the catalogue calibrated for this level. See LevelCatalogue.Factor.
+            recipe.EnemyStrength *= LevelCatalogue.Factor(chapter, level);
+            return recipe;
+        }
     }
 }

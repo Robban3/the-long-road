@@ -58,12 +58,54 @@ namespace TheVeil.Gen
         /// Takes a table, or refuses it. Engine-free: the text comes from whoever can read
         /// a file — see App.LevelCatalogueLoader.
         /// </summary>
+        /// <summary>
+        /// How much stronger than its recipe says each built level's enemies are, as the
+        /// catalogue builder calibrated it. See Factor.
+        /// </summary>
+        static Dictionary<(int, int), float> _factors;
+
+        /// <summary>Factors set by a build in progress, ahead of anything read from a file.</summary>
+        static readonly Dictionary<(int, int), float> _tuning = new Dictionary<(int, int), float>();
+
+        /// <summary>
+        /// The strength factor for a level: one, unless the catalogue says otherwise.
+        ///
+        /// <b>Calibrated rather than written down, because the curve and the recipe had
+        /// stopped agreeing.</b> The enemies' strength follows a formula older than most of
+        /// what the escort now owns - the field smithy it shops at, the permanent school, a
+        /// squad that no longer starts each chapter smaller - and measured on the maps
+        /// themselves, a typical third-chapter level cost the escort less than a typical
+        /// second-chapter one: 30 per cent at 3-5 against 41 at 2-5. With the typical map
+        /// in the wrong place, a level could only be put on its target by finding an
+        /// outlier, and for 3-3 there were three in ninety.
+        ///
+        /// So the catalogue builder finds, level by level, the strength at which the
+        /// typical map lands on the level's target (CatalogueBuilder.Calibrate), and writes
+        /// it beside the level's attempt. What rises level by level is the difficulty; the
+        /// strength is the dial that gets each level there, and a level built easy - the
+        /// town - needs it turned further than its neighbours.
+        /// LevelMaps.Recipe applies it; nothing else needs to know.
+        /// </summary>
+        public static float Factor(int chapter, int level)
+        {
+            if (_tuning.TryGetValue((chapter, level), out float tuned)) return tuned;
+            if (_factors != null && _factors.TryGetValue((chapter, level), out float read)) return read;
+            return 1f;
+        }
+
+        /// <summary>For the catalogue builder: a factor to use until the table is written.</summary>
+        public static void Tune(int chapter, int level, float factor) => _tuning[(chapter, level)] = factor;
+
+        /// <summary>For the catalogue builder: drops what it set, once the table is written.</summary>
+        public static void ClearTuning() => _tuning.Clear();
+
         public static void Load(string text)
         {
             Forget();
             if (string.IsNullOrEmpty(text)) return;
 
             var table = new Dictionary<(int, int), int>();
+            var factors = new Dictionary<(int, int), float>();
             string signature = null;
 
             foreach (string line in text.Split((char)10))
@@ -78,12 +120,21 @@ namespace TheVeil.Gen
                 }
 
                 var parts = row.Split(' ');
-                if (parts.Length != 3) continue;
+                if (parts.Length != 3 && parts.Length != 4) continue;
 
                 if (int.TryParse(parts[0], out int chapter)
                     && int.TryParse(parts[1], out int level)
                     && int.TryParse(parts[2], out int attempt))
+                {
                     table[(chapter, level)] = attempt;
+
+                    // A fourth number is the level's strength factor. Invariant, for the
+                    // reason Signature is: "1,250" on one machine and "1.250" on another.
+                    if (parts.Length == 4
+                        && float.TryParse(parts[3], System.Globalization.NumberStyles.Float,
+                                          System.Globalization.CultureInfo.InvariantCulture, out float factor))
+                        factors[(chapter, level)] = factor;
+                }
             }
 
             // <b>Ignored rather than trusted.</b> A table built against other rules is
@@ -97,12 +148,14 @@ namespace TheVeil.Gen
             }
 
             _shipped = table;
+            _factors = factors;
         }
 
         /// <summary>Forgets what was read, for the tool that writes a new one.</summary>
         public static void Forget()
         {
             _shipped = null;
+            _factors = null;
             Refused = null;
         }
 
