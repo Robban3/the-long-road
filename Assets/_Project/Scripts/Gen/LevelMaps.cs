@@ -176,6 +176,9 @@ namespace TheVeil.Gen
 
             /// <summary>The share of the escort lost over the roads. See DifficultyCurve.</summary>
             public float Difficulty;
+
+            /// <summary>The fast road ended the run of the escort the curve assumes.</summary>
+            public bool FastLost;
         }
 
         /// <summary>
@@ -191,6 +194,7 @@ namespace TheVeil.Gen
             int cleared = ReferenceSquad.LevelsCleared(chapter, level);
 
             float total = 0f;
+            int counted = 0;
             float fast = -1f, others = float.MaxValue;
             var lost = new List<Corridor>();
 
@@ -202,13 +206,21 @@ namespace TheVeil.Gen
                 else lost.Add(corridor);
 
                 float left = arrived ? EscortLeft(run) : 0f;
-                total += left;
 
-                if (corridor.Kind == CorridorKind.Fast) fast = left;
-                else if (left < others) others = left;
+                if (corridor.Kind == CorridorKind.Fast)
+                {
+                    fast = left;
+                    judged.FastLost = !arrived;
+                    continue;
+                }
+
+                // The difficulty is the other roads', not the fast one's. See DifficultyCurve.
+                total += left;
+                counted++;
+                if (left < others) others = left;
             }
 
-            judged.Difficulty = 1f - total / map.Corridors.Count;
+            judged.Difficulty = counted > 0 ? 1f - total / counted : 1f;
 
             // Ties allowed: a level where the fast road and another both cost everything
             // is not one where the fast road is kinder.

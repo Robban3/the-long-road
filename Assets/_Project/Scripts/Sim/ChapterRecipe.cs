@@ -143,7 +143,12 @@ namespace TheVeil.Sim
             var recipe = new LevelRecipe
             {
                 EnemyBudget = Lerp(EnemyBudgetStart, EnemyBudgetEnd, t),
-                EnemyStrength = (EnemyStrengthStart + (EnemyStrengthEnd - EnemyStrengthStart) * t)
+                // A tenth of the chapter's rise a level, the first level one step past where
+                // the last chapter ended. With (level - 1) / 9 a chapter's first level had
+                // exactly the strength of the chapter before's last, so crossing into a new
+                // chapter was a level no harder than the one before it.
+                EnemyStrength = (EnemyStrengthStart
+                                 + (EnemyStrengthEnd - EnemyStrengthStart) * (clamped / (float)LevelsPerChapter))
                                 * EnemyHardness,
                 EscortStrength = EscortStrength,
                 TrapDensity = TrapDensityStart + (TrapDensityEnd - TrapDensityStart) * t,
@@ -249,20 +254,33 @@ namespace TheVeil.Sim
             // without keeping pace.
             recipe.SilverMultiplier = (float)System.Math.Sqrt(recipe.EnemyStrengthStart);
 
-            recipe.TrapDensityStart = 1.0f;
-            recipe.TrapDensityEnd = System.Math.Min(TrapCeiling, 1.6f + 0.05f * (chapter - 2));
+            // <b>Where the chapter before left off, all of it.</b> Every level harder than
+            // the last - the first level of a chapter included - and every chapter used to
+            // start with a reset: the enemy budget back to a hundred from a hundred and
+            // forty, the traps back to 1.0 from 1.6, and the escort two points and a post
+            // poorer than it had just been. Measured, the escort the curve assumes lost 42 %
+            // of itself on 1-10 and could not be given a 2-1 that cost it less than 49 and
+            // kept every other rule; the chapter's first level had been built easy on paper
+            // and landed hard on the ground, and the level after the boss was easier than the
+            // boss. Continuing instead of restarting is the whole of the fix.
+            recipe.TrapDensityStart = TrapsAtEndOf(chapter - 1);
+            recipe.TrapDensityEnd = TrapsAtEndOf(chapter);
 
-            // Four points a chapter, six across one, up to a line of knights.
-            recipe.SquadBudgetStart = System.Math.Min(SquadCeiling - 6, 12 + 4 * (chapter - 1));
-            recipe.SquadBudgetEnd = recipe.SquadBudgetStart + 6;
+            // The map has no room for more than about a hundred and forty points - see
+            // ChapterProgressionTests - so the budget stays where chapter one left it and
+            // the strength carries the climb from here.
+            recipe.EnemyBudgetStart = new ChapterRecipe().EnemyBudgetEnd;
+            recipe.EnemyBudgetEnd = recipe.EnemyBudgetStart;
 
-            recipe.PostsStart = System.Math.Min(TroopTable.LinePosts, 3 + 2 * (chapter - 1));
+            recipe.SquadBudgetStart = SquadAtEndOf(chapter - 1);
+            recipe.SquadBudgetEnd = SquadAtEndOf(chapter);
 
-            // The wolves, the raiders and their archers from the first level: those
-            // lessons were chapter one's. The horsemen and the captain are this chapter's
-            // own, and they are paced inside it — a band on horseback halfway through,
-            // the man who leads it late, where a worn escort meets him.
-            recipe.EnemyUnlockLevel = new[] { 1, 1, 1, 4, 7 };
+            recipe.PostsStart = TroopTable.LinePosts;
+
+            // Horsemen and a captain are the second chapter's own, paced inside it. After
+            // that they are part of the country, and a chapter that held them back for four
+            // levels was a chapter that started with less than the one before had ended on.
+            recipe.EnemyUnlockLevel = chapter == 2 ? new[] { 1, 1, 1, 4, 7 } : new[] { 1, 1, 1, 1, 1 };
 
             // The country last, so it has the final word on the ground it is made of.
             // Applied after the climb because some of what it says is a change to what the
@@ -432,6 +450,45 @@ namespace TheVeil.Sim
 
             return 1f + StrengthPerChapter * 2f
                  + StrengthPerChapter * Knee * (float)System.Math.Log(1f + (chapter - 2) / Knee);
+        }
+
+        /// <summary>
+        /// How much the escort's budget grows against the strength of what it faces:
+        /// a little less than one for one.
+        ///
+        /// A chapter's squad used to be its own - twelve plus four a chapter, six more
+        /// across it - which kept the player growing more slowly than the threat inside
+        /// every chapter by starting each one lower than the last had ended. With nothing
+        /// restarting any more, the rule has to be kept by the rate itself: the escort's
+        /// budget follows the enemies' strength to the power 0.88, so every chapter it
+        /// grows by less than they do, and it still reaches a line of six knights by the
+        /// hundredth.
+        /// </summary>
+        public const float SquadGrowth = 0.88f;
+
+        /// <summary>
+        /// The escort's budget at the end of a chapter: chapter one's eighteen, then the
+        /// enemies' strength since then to the power <see cref="SquadGrowth"/>, never less
+        /// than the chapter before and never more than a line of knights.
+        /// </summary>
+        public static int SquadAtEndOf(int chapter)
+        {
+            if (chapter <= 1) return new ChapterRecipe().SquadBudgetEnd;
+
+            int grown = (int)(new ChapterRecipe().SquadBudgetEnd
+                              * System.Math.Pow(StrengthAtEndOf(chapter) / StrengthAtEndOf(1), SquadGrowth));
+
+            return System.Math.Min(SquadCeiling, System.Math.Max(SquadAtEndOf(chapter - 1), grown));
+        }
+
+        /// <summary>
+        /// The trap density at the end of a chapter: chapter one's own, then a twentieth more
+        /// each chapter from 1.6, up to <see cref="TrapCeiling"/>.
+        /// </summary>
+        public static float TrapsAtEndOf(int chapter)
+        {
+            if (chapter <= 1) return new ChapterRecipe().TrapDensityEnd;
+            return System.Math.Min(TrapCeiling, 1.6f + 0.05f * (chapter - 2));
         }
 
         /// <summary>Squad points at which the budget stops: six knights, the dearest line there is.</summary>

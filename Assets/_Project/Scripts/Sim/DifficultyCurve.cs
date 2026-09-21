@@ -4,8 +4,16 @@ namespace TheVeil.Sim
 {
     /// <summary>
     /// How hard each level of the campaign is meant to be, as one number: the share of
-    /// the escort the player the curve assumes loses across the level's three roads, with
+    /// the escort the player the curve assumes loses on the level's safe and long roads,
     /// a road they do not get down counting as the whole escort.
+    ///
+    /// <b>Not the fast road.</b> It was all three roads at first, and a fast road that ended
+    /// the run counted as a third of the level on its own - so once the fast road was made
+    /// to kill the ordinary escort about every other level, the levels zigzagged ten points
+    /// up and down with it. The fast road is a gamble with a life on it and is meant to be;
+    /// what makes one level harder than the last is felt on the roads a careful player
+    /// takes. The fast road answers to rules of its own: the hardest road on every level,
+    /// and a killer about every other time (CatalogueBuilder.Best).
     ///
     /// <b>Every level harder than the one before, from the first to the last.</b> The
     /// levels used to be a saw: the enemy budget went back to a hundred at the start of
@@ -35,20 +43,19 @@ namespace TheVeil.Sim
         /// </summary>
         public const int BuiltChapters = 3;
 
-        /// <summary>What the first level costs the escort, on average over its roads.</summary>
-        public const float First = 0.25f;
+        /// <summary>What the first level costs the escort, on its safe and long roads.</summary>
+        public const float First = 0.10f;
 
         /// <summary>What the curve approaches and never reaches.</summary>
-        public const float Ceiling = 0.80f;
+        public const float Ceiling = 0.70f;
 
         /// <summary>
         /// How many levels it takes to cover about two thirds of the rise.
         ///
-        /// Thirty. At forty-five the target for the second chapter sat at 36 to 44 per cent,
-        /// and the easiest map the generator could find for 2-1 that kept every other rule
-        /// cost 49 - the curve rose more slowly than the game does, and every level from
-        /// there was a compromise. At thirty it runs 25 to 39 through the first chapter, 40
-        /// to 51 through the second and 52 to 59 through the third.
+        /// Thirty: it rises most through the first chapters, where a player learns fastest.
+        /// On the safe and long roads that is a tenth of the escort at the first level, about
+        /// a quarter at the end of the first chapter, two fifths at the end of the second
+        /// and half at the end of the third.
         /// </summary>
         public const float Pace = 30f;
 

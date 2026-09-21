@@ -747,8 +747,7 @@ namespace TheVeil.Editor
                     // The curve, level by level: what the escort the curve assumes has left at
                     // the end of each road, which is the one number that should fall from the
                     // first level to the last.
-                    float measured = 1f - (levelLeft[CorridorKind.Fast] + levelLeft[CorridorKind.Safe]
-                                           + levelLeft[CorridorKind.Odd]) / 3f;
+                    float measured = 1f - (levelLeft[CorridorKind.Safe] + levelLeft[CorridorKind.Odd]) / 2f;
                     float target = DifficultyCurve.Target(chapter, level);
                     bool fastWorst = levelLeft[CorridorKind.Fast]
                                      <= Mathf.Min(levelLeft[CorridorKind.Safe], levelLeft[CorridorKind.Odd]) + 0.001f;

@@ -70,6 +70,10 @@ namespace TheVeil.Editor
             // one before it is named in the sheet.
             float before = 0f;
 
+            // How many of this chapter's fast roads have killed the escort the curve assumes.
+            // See Best: about half of them should.
+            int fastKills = 0;
+
             for (int chapter = 1; chapter <= LevelCatalogue.Chapters; chapter++)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
@@ -78,10 +82,18 @@ namespace TheVeil.Editor
                     // stale answer copy itself into the new one, which is the one way a
                     // table like this goes wrong and stays wrong.
                     LevelMap map;
+                    if (level == 1) fastKills = 0;
 
                     if (chapter <= BuiltChapters)
                     {
-                        map = Best(chapter, level, out float difficulty, out string how);
+                        // A kill wanted when the chapter is behind half: none on the first
+                        // level, one by the second, two by the fourth - so the first level of a
+                        // chapter has a fast road that hurts and does not end the run, and
+                        // after that it ends it about every other time.
+                        bool wantKill = fastKills < level / 2;
+
+                        map = Best(chapter, level, wantKill, before, out float difficulty, out bool killed, out string how);
+                        if (killed) fastKills++;
                         sheet.AppendLine($"[Catalogue] {chapter}-{level}: difficulty {difficulty:P0}, "
                                          + $"target {DifficultyCurve.Target(chapter, level):P0} - {how}"
                                          + (difficulty < before ? "  <-- easier than the level before" : ""));
@@ -184,9 +196,32 @@ namespace TheVeil.Editor
         /// than the one before is named in the sheet rather than forced.
         ///
         /// In order of preference: every hard rule (the roads the level owes, and a prepared
-        /// player down every road), then the fast road hardest, then nearest the target.
+        /// player down every road), then the fast road hardest, then no easier than the
+        /// level before, then the fast road ending the ordinary escort's run on the levels
+        /// it is meant to (about half of them), then nearest the target.
+        ///
+        /// <b>Why the half is chosen here and not left to fall out.</b> Left alone it fell
+        /// out one of ten in the first chapter and eight of ten in the second: nearest the
+        /// target on average, the first chapter's easy settings kept the fast road
+        /// survivable and the second's made it lethal, and neither is a road that fools
+        /// anybody. The road that looks easiest should end a run often enough to be feared
+        /// and seldom enough to be tried.
         /// </summary>
-        static LevelMap Best(int chapter, int level, out float difficulty, out string how)
+        /// <summary>
+        /// How many attempts of a built level are looked at.
+        ///
+        /// A hundred and sixty rather than the forty-eight a search at load time was allowed.
+        /// Each level is asked four things at once - every hard rule, the fast road hardest,
+        /// the fast road killing or sparing as the chapter needs, and no easier than the
+        /// level before while nearest its target - and among forty-eight maps there was
+        /// often no map that answered all of them: levels landed a fifth off their target.
+        /// The catalogue is built once; the cost is half an hour of an editor, not a
+        /// player's loading screen.
+        /// </summary>
+        const int BuiltAttempts = 160;
+
+        static LevelMap Best(int chapter, int level, bool wantKill, float floor, out float difficulty,
+                             out bool killed, out string how)
         {
             var recipe = LevelMaps.Recipe(chapter, level);
             int seed = DeterministicRandom.SeedFor(chapter, level);
@@ -195,9 +230,10 @@ namespace TheVeil.Editor
             LevelMap best = null;
             float bestScore = float.MaxValue;
             difficulty = 1f;
+            killed = false;
             how = "no candidate passed the hard rules";
 
-            for (int attempt = 0; attempt < recipe.MaxGenerationAttempts; attempt++)
+            for (int attempt = 0; attempt < BuiltAttempts; attempt++)
             {
                 var map = TerrainGenerator.Generate(recipe, seed, null, attempt);
                 if (map == null || !map.Accepted) continue;
@@ -208,12 +244,39 @@ namespace TheVeil.Editor
                 float score = Math.Abs(judged.Difficulty - target);
                 if (!judged.Treacherous) score += 10f;
 
+                // No easier than the level before: the rule itself. Weighed above the fast
+                // road's quota, which asks for about half and can give a level either way,
+                // and far below the fast road being the hardest at all.
+                //
+                // The floor never above the level's own target and tolerance, though. A
+                // level that overshot would otherwise lift every level after it: the third
+                // chapter climbed from 53 per cent at 3-3 to 84 at 3-10 that way, each level
+                // held to the one before rather than to its place on the curve.
+                float held = Math.Min(floor, target + DifficultyCurve.Tolerance);
+                if (judged.Difficulty < held) score += 0.3f + (held - judged.Difficulty);
+
+                // And no harder than the tolerance allows, on the same footing. Without it a
+                // level with no map near its target and the right fast road took one a dozen
+                // points over rather than break the fast road's quota - which is how 3-3 got
+                // to 53 against 41, and the chapter after it.
+                float over = judged.Difficulty - (target + DifficultyCurve.Tolerance);
+                if (over > 0f) score += 0.3f + over;
+
+                // The fast road ends the ordinary escort's run about every other level: a
+                // strong preference, weighed above a few points of difficulty. See the note
+                // where it is asked for.
+                if (judged.FastLost != wantKill) score += 0.2f;
+
                 if (score >= bestScore) continue;
 
                 bestScore = score;
                 best = map;
                 difficulty = judged.Difficulty;
-                how = (judged.Treacherous ? "" : "fast road NOT the hardest, ") + $"attempt {attempt}";
+                killed = judged.FastLost;
+                how = (judged.Treacherous ? "" : "fast road NOT the hardest, ")
+                      + (judged.FastLost == wantKill ? "" : (wantKill ? "fast road wanted a kill, " : "fast road wanted to spare, "))
+                      + (judged.FastLost ? "fast kills, " : "fast spares, ")
+                      + $"attempt {attempt}";
             }
 
             return best ?? Fresh(chapter, level, 0f);

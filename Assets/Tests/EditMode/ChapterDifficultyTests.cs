@@ -49,13 +49,17 @@ namespace TheVeil.Tests
             // The agreed curve, times the hardness every enemy carries on top of it. The
             // curve is the chapter's shape and stays pinned here; ChapterRecipe.EnemyHardness
             // is the one number that says how hard the whole of it is, and why.
-            Assert.AreEqual(1.35f * ChapterRecipe.EnemyHardness, first.EnemyStrength, 0.001f);
+            // Agreed again on 2026-09-21: the chapter carries on from where the first one
+            // ended instead of starting over - "every level harder than the last". So its
+            // first level is one step past 1-10 in strength, and the escort keeps the
+            // eighteen points and six posts it finished the first chapter with.
+            Assert.AreEqual((1.35f + 0.035f) * ChapterRecipe.EnemyHardness, first.EnemyStrength, 0.001f);
             Assert.AreEqual(1.70f * ChapterRecipe.EnemyHardness, last.EnemyStrength, 0.001f);
-            Assert.AreEqual(1.0f, first.TrapDensity, 0.001f);
+            Assert.AreEqual(1.4f, first.TrapDensity, 0.001f);
             Assert.AreEqual(1.6f, last.TrapDensity, 0.001f);
-            Assert.AreEqual(16, first.SquadBudget);
+            Assert.AreEqual(18, first.SquadBudget);
             Assert.AreEqual(22, last.SquadBudget);
-            Assert.AreEqual(5, first.Posts);
+            Assert.AreEqual(TroopTable.LinePosts, first.Posts);
             Assert.AreEqual(TroopTable.LinePosts, last.Posts);
 
             // Everything chapter one taught is out from the first level; what chapter two
@@ -68,13 +72,20 @@ namespace TheVeil.Tests
         [Test]
         public void EachChapterPicksUpWhereTheLastLeftOff()
         {
+            // One ordinary step past where the chapter before ended - not the same
+            // strength again. It used to be the same, which made the first level of every
+            // chapter a level no harder than the one before it; the rule now is that every
+            // level is harder than the last, the chapter line included.
             for (int chapter = 2; chapter <= Chapters; chapter++)
             {
+                var recipe = ChapterRecipe.For(chapter);
                 float ended = ChapterRecipe.For(chapter - 1).ForLevel(10).EnemyStrength;
-                float starts = ChapterRecipe.For(chapter).ForLevel(1).EnemyStrength;
+                float starts = recipe.ForLevel(1).EnemyStrength;
+                float step = recipe.ForLevel(2).EnemyStrength - starts;
 
-                Assert.AreEqual(ended, starts, 0.0001f,
-                    $"chapter {chapter} starts at {starts:F3} where chapter {chapter - 1} ended at {ended:F3}");
+                Assert.AreEqual(ended + step, starts, 0.0001f,
+                    $"chapter {chapter} starts at {starts:F3}, not one step of {step:F3} past "
+                    + $"where chapter {chapter - 1} ended at {ended:F3}");
             }
         }
 
@@ -97,13 +108,24 @@ namespace TheVeil.Tests
                 "the last chapter's enemies are out of reach of anything the shop sells");
         }
 
+        /// <summary>
+        /// Every level harder than the one before, across the chapter line as well as
+        /// inside a chapter - and the escort growing more slowly than the threat.
+        ///
+        /// The second half is asked of the chapters the game has, one by one, and of the
+        /// whole campaign at once. Past the first few chapters the threat grows by a few
+        /// per cent a chapter, and a single point more on a squad of forty is more than
+        /// that: asked chapter by chapter, it would forbid the squad from ever growing
+        /// again, which is not the rule either.
+        /// </summary>
         [Test]
         public void EveryChapterStillRampsAndThePlayerStillTrailsIt()
         {
+            float previous = 0f;
+
             for (int chapter = 1; chapter <= Chapters; chapter++)
             {
                 var recipe = ChapterRecipe.For(chapter);
-                float previous = 0f;
 
                 for (int level = 1; level <= recipe.LevelsPerChapter; level++)
                 {
@@ -116,6 +138,8 @@ namespace TheVeil.Tests
                     Assert.LessOrEqual(at.TrapDensity, ChapterRecipe.TrapCeiling + 0.0001f);
                 }
 
+                if (chapter > DifficultyCurve.BuiltChapters) continue;
+
                 var first = recipe.ForLevel(1);
                 var last = recipe.ForLevel(recipe.LevelsPerChapter);
 
@@ -124,6 +148,12 @@ namespace TheVeil.Tests
 
                 Assert.Greater(threat, player, $"chapter {chapter}: the squad grows {player:F2}x against a threat of {threat:F2}x");
             }
+
+            var start = ChapterRecipe.For(1).ForLevel(1);
+            var end = ChapterRecipe.For(Chapters).ForLevel(10);
+
+            Assert.Greater(Difficulty(end) / Difficulty(start), (float)end.SquadBudget / start.SquadBudget,
+                "over the campaign the squad outgrows the threat");
         }
 
         [Test]
