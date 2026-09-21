@@ -20,15 +20,34 @@ namespace TheVeil.Sim
     public static class TroopBoonTable
     {
         public const int Steps = 30;
-        public const float PriceGrowth = 1.06f;
+
+        /// <summary>
+        /// What each step adds to the price of the next.
+        ///
+        /// <b>So that a troop is finished across the campaign, not across a chapter.</b>
+        /// At six per cent a player who put every gold piece into one troop had it
+        /// finished in sixty levels - six chapters of a thousand-level game, and then
+        /// nothing left on it to want. The rule is that finishing a troop takes at least
+        /// nine hundred levels even for a player who buys nothing else.
+        ///
+        /// Twenty-two per cent does it, worked out with the game's own rounding rather
+        /// than guessed: a track comes to about 53 000 gold, a troop with two tracks to
+        /// 965 levels of <see cref="ReferenceSquad.GoldPerLevel"/>, and one with three -
+        /// the bow, the scout - to about 1 450. The first steps barely move: 30, 35, 45,
+        /// 55, 65 against 30, 35, 40, 45, 50. The early game is the game it was; what
+        /// changed is that the end of a track is far away, and the last step costs close
+        /// to ninety levels' gold on its own.
+        /// </summary>
+        public const float PriceGrowth = 1.22f;
         public const float Falloff = BoonTable.Falloff;
 
         /// <summary>
-        /// Cheaper a step than the general boons, because there are twenty of these
-        /// tracks and nobody is going to fill them all: a full one costs about 2 400
-        /// gold, and twenty of them cost several campaigns. What that buys is a reason to
-        /// deepen the three or four troops you actually field, which ties the shop to the
-        /// formation rather than to a shopping list.
+        /// Cheaper to start than the general boons, because there are twenty of these
+        /// tracks and nobody is going to fill them all: a full one costs about 53 000
+        /// gold (see <see cref="PriceGrowth"/>), and finishing even one troop is the work
+        /// of most of a campaign. What that buys is a reason to deepen the three or four
+        /// troops you actually field, which ties the shop to the formation rather than to
+        /// a shopping list.
         /// </summary>
         public const int BasePrice = 30;
 
@@ -96,10 +115,10 @@ namespace TheVeil.Sim
         /// the rest of the track was a long walk for very little. It should be the other
         /// way round: hard to get far, and every step worth the same as the last.
         ///
-        /// The prices are unchanged - thirty gold, six per cent more a step, about 2 400
-        /// for a finished track, which is some twenty levels' gold spent on nothing else.
-        /// So one level buys a tenth of one track, and finishing a troop is a campaign's
-        /// decision rather than a level's.
+        /// The first step costs thirty gold and each costs twenty-two per cent more than the
+        /// last (see <see cref="PriceGrowth"/>), so one level buys the first three or four
+        /// steps of a track and every step after is further away than the one before.
+        /// Finishing a troop is a campaign's work, not a level's.
         /// </summary>
         public static float Share(int level)
         {

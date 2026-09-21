@@ -347,6 +347,52 @@ namespace TheVeil.Tests
             Assert.IsTrue(campaign.TryBuy(TroopKind.Archers, UpgradeTrack.Special, out _));
         }
 
+        /// <summary>
+        /// Nobody finishes a troop in under nine hundred levels, even pouring every gold
+        /// piece into that one troop and nothing else.
+        ///
+        /// The rule the permanent tracks are priced to, and so the thing a price change
+        /// has to answer to: at the old six per cent growth a troop was finished in sixty
+        /// levels, six chapters of a thousand-level campaign. Measured in levels of the
+        /// gold the reference player earns, because that is the unit a player feels.
+        /// </summary>
+        [Test]
+        public void NoTroopIsFinishedInUnderNineHundredLevels()
+        {
+            foreach (TroopKind kind in System.Enum.GetValues(typeof(TroopKind)))
+            {
+                long gold = 0;
+
+                foreach (var track in TroopBoonTable.Tracks)
+                    for (int owned = 0; owned < TroopBoonTable.MaxLevel(kind, track); owned++)
+                        gold += TroopBoonTable.Price(kind, track, owned);
+
+                if (gold == 0) continue;
+
+                long levels = gold / ReferenceSquad.GoldPerLevel;
+                Assert.GreaterOrEqual(levels, 900,
+                    $"{kind} can be finished in {levels} levels of gold");
+            }
+        }
+
+        /// <summary>
+        /// And the start of a track stays within reach: one level's gold buys a first
+        /// step. A curve that made the end far away by making the beginning dear as well
+        /// would have made the shop pointless for the first chapter.
+        /// </summary>
+        [Test]
+        public void TheFirstStepIsWithinOneLevel()
+        {
+            foreach (TroopKind kind in System.Enum.GetValues(typeof(TroopKind)))
+                foreach (var track in TroopBoonTable.Tracks)
+                {
+                    if (!TroopBoonTable.Sells(kind, track)) continue;
+
+                    Assert.LessOrEqual(TroopBoonTable.Price(kind, track, 0), ReferenceSquad.GoldPerLevel,
+                        $"the first {track} step on {kind} costs more than a level pays");
+                }
+        }
+
         [Test]
         public void TheArchersReachGrowsWithTheSchool()
         {
