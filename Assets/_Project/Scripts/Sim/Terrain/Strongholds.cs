@@ -129,8 +129,12 @@ namespace TheVeil.Sim
 
                     int ddx = x - gx, ddy = y - gy;
                     int distance = (int)Math.Round(Math.Sqrt(ddx * ddx + ddy * ddy));
+                    // Anywhere from just clear of the goal to a castle's width past the
+                    // usual standoff, nearest the standoff first. Held to three tiles of it,
+                    // 2-10 found nothing and the castle went up over a road again.
+                    if (distance < Bailey + 2) continue;
                     int off = Math.Abs(distance - Standoff);
-                    if (off > Bailey / 2 || off >= bestOff) continue;
+                    if (off >= bestOff) continue;
 
                     int tile = grid.ToIndex(x, y);
                     if (taken != null && taken.Contains(tile)) continue;

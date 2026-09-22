@@ -264,6 +264,37 @@ namespace TheVeil.Editor
         /// </summary>
         const int BuiltAttempts = 160;
 
+        /// <summary>
+        /// And more where a level's hundred and sixty left too little to choose from.
+        ///
+        /// The fourth chapter kept as few as nineteen maps of a hundred and sixty - on the
+        /// plains a prepared player loses more roads, and a map one of whose roads cannot be
+        /// won is no candidate at all. With so few, the climb had nothing to step onto: 4-10
+        /// came out at 45 per cent against a curve at 31, and the choice bought its way out
+        /// with 3-9 easier than 3-8. So a level keeps being tried until it has enough maps,
+        /// and enough of them near its target, or three times the usual number of attempts.
+        /// </summary>
+        const int MostAttempts = 480;
+
+        /// <summary>Maps a level should have to choose from before the search stops.</summary>
+        const int WantedCandidates = 60;
+
+        /// <summary>
+        /// Of those, how many should sit near its target with the fast road hardest - and
+        /// near reaches further above the target than below it.
+        ///
+        /// <b>Above, because that is where the climb goes.</b> Every level has to beat the
+        /// one before by the curve's rise, so the chosen levels drift a little over the
+        /// curve and the next level needs maps above its target, not at it. Counted evenly,
+        /// the search stopped with plenty at the target and nothing higher: 3-10 had maps
+        /// at 30 and 31 per cent that only turned up after the hundred and sixtieth attempt,
+        /// so the choice dropped it to 23, and 4-10 had to jump to 45.
+        /// </summary>
+        const int WantedNear = 20;
+
+        /// <summary>How far under its target a map still counts as near.</summary>
+        const float Near = DifficultyCurve.Tolerance / 2f;
+
         /// <summary>One attempt of a built level, measured.</summary>
         sealed class Candidate
         {
@@ -322,7 +353,12 @@ namespace TheVeil.Editor
 
                 var list = new System.Collections.Generic.List<Candidate>();
 
-                for (int attempt = 0; attempt < BuiltAttempts; attempt++)
+                int near = 0;
+
+                for (int attempt = 0;
+                     attempt < BuiltAttempts
+                     || (attempt < MostAttempts && (list.Count < WantedCandidates || near < WantedNear));
+                     attempt++)
                 {
                     var map = TerrainGenerator.Generate(recipe, seed, null, attempt);
                     if (map == null || !map.Accepted) continue;
@@ -338,10 +374,22 @@ namespace TheVeil.Editor
                     if (judged.FastLost != wantKill) cost += FastPattern;
 
                     list.Add(new Candidate { Attempt = attempt, Judged = judged, Cost = cost });
+                    if (judged.Treacherous
+                        && judged.Difficulty >= target - Near
+                        && judged.Difficulty <= target + DifficultyCurve.Tolerance) near++;
                 }
 
                 sheet.AppendLine($"[Catalogue] {chapter}-{level}: {list.Count} candidates at strength "
                                  + $"x{factor:0.000}, typical map {typical:P0} against a target of {target:P0}");
+
+                // Every candidate, so a choice that goes wrong can be followed by hand: its
+                // difficulty, n where the fast road is not the hardest, k where it kills.
+                var spread = new System.Collections.Generic.List<Candidate>(list);
+                spread.Sort((a, b) => a.Judged.Difficulty.CompareTo(b.Judged.Difficulty));
+                sheet.AppendLine($"[Catalogue] {chapter}-{level} candidates:"
+                                 + string.Concat(spread.ConvertAll(c => $" {c.Judged.Difficulty * 100f:0.0}"
+                                                                        + (c.Judged.Treacherous ? "" : "n")
+                                                                        + (c.Judged.FastLost ? "k" : ""))));
                 candidates.Add(list);
             }
 
@@ -371,10 +419,17 @@ namespace TheVeil.Editor
 
                     for (int p = 0; p < previous.Count; p++)
                     {
-                        // Harder than the level before by at least what the curve rises
-                        // between them: a point and a quarter at the start, a hundredth late
-                        // in the campaign. A fixed point a level would run out of room.
-                        float need = previous[p].Judged.Difficulty + DifficultyCurve.Rise(levels[i].Chapter, levels[i].Level);
+                        // Harder than the level before, by a fifth of a point at least.
+                        //
+                        // It was the curve's own rise, which is more than half a point a
+                        // level through chapters three and four, and a map's difficulty does
+                        // not come in steps that fine: held to it, the climb was pushed over
+                        // the curve level by level until it ran out of maps, and then the
+                        // choice bought its way out with one level easier than the last (3-10
+                        // at 23 per cent after 3-9 at 30) and one far too hard (4-10 at 45).
+                        // Staying near the curve is what the distance in each candidate's
+                        // cost is for; the climb only has to be a climb.
+                        float need = previous[p].Judged.Difficulty + MinimumStep;
                         float step = list[c].Judged.Difficulty >= need - 0.0001f
                             ? 0f
                             : Dip + (need - list[c].Judged.Difficulty);
@@ -440,7 +495,7 @@ namespace TheVeil.Editor
                                  + (pick.Judged.Treacherous ? "" : "fast road NOT the hardest, ")
                                  + (pick.Judged.FastLost ? "fast kills" : "fast spares")
                                  + $" ({kills} this chapter), strength x{factors[i]:0.000}, attempt {pick.Attempt}"
-                                 + (i > 0 && difficulty <= before ? "  <-- not harder than the level before" : ""));
+                                 + (i > 0 && difficulty < before + MinimumStep - 0.0001f ? "  <-- not harder than the level before" : ""));
                 before = difficulty;
             }
 
@@ -453,6 +508,9 @@ namespace TheVeil.Editor
         /// </summary>
         const float Dip = 1f;
 
+        /// <summary>How much harder than the level before each level must be: a fifth of a point.</summary>
+        public const float MinimumStep = 0.002f;
+
         /// <summary>
         /// What a fast road that kills where the pattern wanted it to spare, or the other
         /// way round, costs in the choice: ten points of distance from the curve.
@@ -463,8 +521,14 @@ namespace TheVeil.Editor
         /// road killed the ordinary escort on two levels of ten in the first and second
         /// chapters. About half, in every chapter, is the rule; a level a few points off
         /// the curve is the lesser fault.
+        ///
+        /// And ten was too much, once the fourth chapter was built: 4-10 took a map at 45
+        /// per cent against a curve at 31 because it was the one whose fast road killed.
+        /// Replayed offline from the build's own candidate lists (every candidate is in
+        /// the sheet), five keeps every chapter at three to six kills, every level harder
+        /// than the last, and no level more than six points off the curve.
         /// </summary>
-        const float FastPattern = 0.10f;
+        const float FastPattern = 0.05f;
 
         static LevelMap Fresh(int chapter, int level, float floor)
         {

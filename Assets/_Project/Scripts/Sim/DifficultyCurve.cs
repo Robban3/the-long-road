@@ -41,7 +41,7 @@ namespace TheVeil.Sim
         /// against the roads the escort gets down and nothing more, until they are built -
         /// see CatalogueBuilder.
         /// </summary>
-        public const int BuiltChapters = 3;
+        public const int BuiltChapters = 4;
 
         /// <summary>How many levels the curve spans: the whole campaign.</summary>
         public const int Levels = 1000;

@@ -74,8 +74,9 @@ namespace TheVeil.Tests
                     float difficulty = judged[(chapter, level)].Difficulty;
 
                     if (before >= 0f)
+                        // A fifth of a point at least - see CatalogueBuilder.MinimumStep.
                         Assert.GreaterOrEqual(difficulty,
-                                              before + DifficultyCurve.Rise(chapter, level) - 0.001f,
+                                              before + 0.002f - 0.0005f,
                                               $"{chapter}-{level} ({difficulty:P1}) is not harder than the level before ({before:P1});"
                                               + climb);
 
