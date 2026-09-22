@@ -369,6 +369,18 @@ namespace TheVeil.Editor
                     var judged = LevelMaps.Judge(map, chapter, level, recipe.RoutesOwed);
                     if (!judged.Hard) continue;
 
+                    // Inside the tolerance, or not at all.
+                    //
+                    // <b>Because the climb only goes one way.</b> Every level has to beat
+                    // the one before, so a level that lands above its target takes every
+                    // level after it with it - and a map's difficulty scatters several
+                    // points either side of what the strength was calibrated for. Building
+                    // the fifth chapter, the chain drifted five points over by 4-10 and
+                    // twenty-two by 5-10, because nothing ever brought it back down. Held
+                    // to the window, it cannot drift: the window itself rises faster than
+                    // the step each level owes.
+                    if (Math.Abs(judged.Difficulty - target) > DifficultyCurve.Tolerance) continue;
+
                     float cost = Math.Abs(judged.Difficulty - target);
                     if (!judged.Treacherous) cost += 10f;
                     if (judged.FastLost != wantKill) cost += FastPattern;
@@ -505,8 +517,15 @@ namespace TheVeil.Editor
         /// <summary>
         /// What breaking the climb costs in the choice: more than any distance from the
         /// curve, so the choice only ever takes it when there is no other way.
+        ///
+        /// Fifty, and it was one. One is more than any single level's distance from the
+        /// curve and less than the sum of a chapter's: building the fifth chapter, the
+        /// choice let 4-4 fall from 31 per cent to 25 because holding the climb there cost
+        /// the ten levels after it a few points each. Every level harder than the last is a
+        /// rule, not a preference, and the levels it would trade it for are all well inside
+        /// the tolerance.
         /// </summary>
-        const float Dip = 1f;
+        const float Dip = 50f;
 
         /// <summary>How much harder than the level before each level must be: a fifth of a point.</summary>
         public const float MinimumStep = 0.002f;
