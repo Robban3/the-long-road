@@ -154,7 +154,7 @@ namespace TheVeil.Tests
                 foreach (var corridor in map.Corridors)
                     foreach (int tile in corridor.Tiles) travelled.Add(tile);
 
-                int site = Strongholds.Site(map.Grid, map.GoalIndex, travelled);
+                int site = Strongholds.SiteOf(map);
                 Assert.GreaterOrEqual(site, 0, $"{chapter}-10 has nowhere for its castle");
 
                 map.Grid.ToCoords(site, out int cx, out int cy);
@@ -166,6 +166,59 @@ namespace TheVeil.Tests
                                    $"{chapter}-10: a road passes under the castle at {x},{y}");
                 }
             }
+        }
+
+        [Test]
+        public void TheCastleStandsOnTheGroundThatWasLevelledForIt()
+        {
+            // The ground is levelled in Sim and the castle raised in the view, and each
+            // worked out the site for itself - once with the champion's side and once
+            // without. Asked the decorator's way, the site has to be level ground.
+            if (LevelCatalogue.Shipped(1, 1) < 0) LevelCatalogueLoader.Load();
+
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            {
+                var map = LevelMaps.For(chapter, Campaign.LevelsPerChapter);
+                var travelled = new HashSet<int>();
+                foreach (var corridor in map.Corridors)
+                    foreach (int tile in corridor.Tiles) travelled.Add(tile);
+
+                // What the decorator asks: the same roads, the champion's tile, nothing
+                // yet standing (the castle is the first thing it places).
+                int site = Strongholds.Site(map.Grid, map.GoalIndex, travelled, new HashSet<int>(),
+                                            Champions.Post(map));
+                Assert.AreEqual(Strongholds.SiteOf(map), site, $"{chapter}-10: levelled here, built there");
+
+                map.Grid.ToCoords(site, out int cx, out int cy);
+                float floor = map.Grid.Elevation(site);
+                int uneven = 0, dry = 0;
+
+                for (int dy = -Strongholds.Bailey + 2; dy <= Strongholds.Bailey - 2; dy++)
+                    for (int dx = -Strongholds.Bailey + 2; dx <= Strongholds.Bailey - 2; dx++)
+                    {
+                        int x = cx + dx, y = cy + dy;
+                        if (!map.Grid.InBounds(x, y)) continue;
+                        if (ByTheWater(map.Grid, x, y)) continue;
+                        dry++;
+                        if (System.Math.Abs(map.Grid.Elevation(map.Grid.ToIndex(x, y)) - floor) > 0.001f) uneven++;
+                    }
+
+                Assert.AreEqual(0, uneven, $"{chapter}-10: {uneven} of {dry} tiles under the castle are not level");
+            }
+        }
+
+        /// <summary>Water, or touching it: the ground Flatten leaves its fall on purpose, so rivers keep their banks.</summary>
+        static bool ByTheWater(TileGrid grid, int x, int y)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+                    var terrain = grid[x + dx, y + dy];
+                    if (terrain == TerrainType.Water || terrain == TerrainType.Ford) return true;
+                }
+
+            return false;
         }
 
         [Test]

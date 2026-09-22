@@ -169,6 +169,27 @@ namespace TheVeil.Sim
         public const int Bailey = 7;
 
         /// <summary>
+        /// The castle's tile on a finished level, asked exactly as the decorator asks it:
+        /// the roads are every corridor and the side is the champion's.
+        ///
+        /// <b>One question, asked one way.</b> Flatten asked without the champion, and the
+        /// decorator with him, so where he stood on the other side of the goal the ground
+        /// was levelled on one side and the castle built on the other - 2-10 levelled a
+        /// square of empty field and stood its castle on whatever the slope was.
+        /// </summary>
+        public static int SiteOf(LevelMap map)
+        {
+            if (map?.Grid == null) return -1;
+
+            var travelled = new HashSet<int>();
+            if (map.Corridors != null)
+                foreach (var corridor in map.Corridors)
+                    foreach (int tile in corridor.Tiles) travelled.Add(tile);
+
+            return Site(map.Grid, map.GoalIndex, travelled, null, Champions.Post(map));
+        }
+
+        /// <summary>
         /// Levels the ground a castle stands on, so its courtyard can be flat and above
         /// grade at once.
         ///
@@ -196,12 +217,7 @@ namespace TheVeil.Sim
         {
             if (map?.Grid == null || level < Campaign.LevelsPerChapter) return;
 
-            var travelled = new HashSet<int>();
-            if (map.Corridors != null)
-                foreach (var corridor in map.Corridors)
-                    foreach (int tile in corridor.Tiles) travelled.Add(tile);
-
-            int site = Site(map.Grid, map.GoalIndex, travelled);
+            int site = SiteOf(map);
             if (site < 0) return;
 
             map.Grid.ToCoords(site, out int cx, out int cy);
