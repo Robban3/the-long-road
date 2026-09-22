@@ -308,7 +308,11 @@ namespace TheVeil.Editor
                 var (chapter, level) = levels[i];
                 float target = DifficultyCurve.Target(chapter, level);
 
-                float factor = Calibrate(chapter, level, target, out float typical);
+                // Rounded to what the catalogue writes, before anything is judged with it.
+                // Judged at the exact factor and shipped at the written one, the levels came
+                // out a point off here and there - 3-7 easier than 3-6 in the game, though
+                // not in the sheet. CampaignRulesTests measures the shipped maps and caught it.
+                float factor = (float)Math.Round(Calibrate(chapter, level, target, out float typical), 3);
                 LevelCatalogue.Tune(chapter, level, factor);
                 factors[i] = factor;
 
@@ -322,6 +326,9 @@ namespace TheVeil.Editor
                 {
                     var map = TerrainGenerator.Generate(recipe, seed, null, attempt);
                     if (map == null || !map.Accepted) continue;
+
+                    // Levelled as LevelMaps.For levels it, so the map judged is the map played.
+                    Strongholds.Flatten(map, level);
 
                     var judged = LevelMaps.Judge(map, chapter, level, recipe.RoutesOwed);
                     if (!judged.Hard) continue;

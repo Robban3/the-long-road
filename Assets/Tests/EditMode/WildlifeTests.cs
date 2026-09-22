@@ -224,5 +224,39 @@ namespace TheVeil.Tests
             Assert.Less(share, 0.45f, $"{share:P0} of the wildlife is under the canopy");
             Assert.Greater(share, 0.02f, "none of them are in the woods, which is where foxes live");
         }
+    
+        [Test]
+        public void NoAnimalStandsOrWalksInsideATree()
+        {
+            // They walked straight through trunks, because nothing they asked knew where
+            // one was. A trunk on every forest tile, as the decorator plants them, and the
+            // animals chased across the level: none may ever be inside one.
+            for (int level = 1; level <= 6; level++)
+            {
+                var map = Level(1, level);
+                var trees = new ObstacleField();
+
+                for (int tile = 0; tile < map.Grid.TileCount; tile++)
+                {
+                    if (map.Grid[tile] != TerrainType.Forest) continue;
+                    var at = Vec2.FromTile(map.Grid, tile);
+                    trees.Add(at.X + 0.7f, at.Y - 0.4f, 0.8f);
+                }
+
+                var animals = Wildlife.Populate(map, trees);
+                Assert.Greater(animals.Count, 0, $"1-{level} has no animals");
+
+                for (int tick = 0; tick < 600; tick++)
+                {
+                    var chase = new Vec2(tick * 1.7f, tick * 1.3f);
+                    Wildlife.Step(map.Grid, animals, chase, null, 0.1f, trees);
+
+                    foreach (var animal in animals)
+                        Assert.IsFalse(trees.Blocked(animal.Position, Wildlife.Body * 0.9f),
+                            $"1-{level} tick {tick}: a {animal.Kind} is inside a tree at "
+                            + $"{animal.Position.X:0.0}, {animal.Position.Y:0.0}");
+                }
+            }
+        }
     }
 }

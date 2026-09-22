@@ -749,7 +749,8 @@ namespace TheVeil.View
 
 
             Courtyard(host.transform, kit, rng, halfX, halfZ, span, gateX,
-                      WallDepth(host.transform, kit, style));
+                      WallDepth(host.transform, kit, style),
+                      WallCourses * WallRise(host.transform, kit, style) - (WallCourses - 1) * Seam);
 
             return host;
         }
@@ -774,7 +775,8 @@ namespace TheVeil.View
         /// which walks the decor parent's children and would otherwise clear this too.
         /// </summary>
         static void Courtyard(Transform host, BuildingKit kit, DeterministicRandom rng,
-                              float halfX, float halfZ, float span, float gateX, float wall)
+                              float halfX, float halfZ, float span, float gateX, float wall,
+                              float walk)
         {
             if (!kit.CanBuildHouse) return;
 
@@ -870,14 +872,46 @@ namespace TheVeil.View
 
             // The stair up to the wall walk — item nine, against the inside of a side wall.
             //
-            // At the size the pack draws it, which does not reach the parapet of a wall
-            // this tall. Scaling it up until it did would make a flight eleven metres wide
-            // to get eleven metres of rise, which is the aspect-ratio trap that has turned
-            // a cobble into a boulder and a tent into a marquee in this file before. A
-            // stair that climbs part of the way still reads as a stair.
+            // <b>Up to the walk, and no wider.</b> At the size the pack draws it the flight
+            // stopped a good way under the parapet, which is a stair to nowhere. Scaled
+            // evenly until it reached, it would be a flight as wide as it is tall - the
+            // aspect-ratio trap that has turned a cobble into a boulder in this file
+            // before. So the rise and the run are stretched and the width is not: the
+            // flight stays the width it was drawn, climbs at the pitch it was drawn at,
+            // and its top lands on the walk (`walk`, measured off the curtain pieces
+            // Crenel stacks).
             if (kit.Stairs.Any)
-                Run(host, Any(kit.Stairs, rng), kit.Stairs.ZUp,
-                    new Vector3(halfX - inset - StairStand, 0f, -halfZ * 0.35f), 90f);
+            {
+                var at = new Vector3(halfX - inset - StairStand, 0f, -halfZ * 0.35f);
+                var stair = Run(host, Any(kit.Stairs, rng), kit.Stairs.ZUp, at, 90f);
+
+                if (stair != null && walk > 0f)
+                {
+                    var flight = ModelScaling.Measure(stair);
+
+                    if (flight.size.y > 0.01f)
+                    {
+                        // Its rise and its run, both, so the steps keep the pitch they were
+                        // drawn at: stretched in height alone the flight went up at seventy
+                        // degrees and was a ladder. The run lies along the wall, where there
+                        // is room for it. Which of the model's own axes are up and along
+                        // depends on how the pack drew it and how it was turned, so they are
+                        // read off its rotation rather than assumed.
+                        float stretch = walk / flight.size.y;
+                        var turned = stair.transform.localRotation;
+                        var scale = stair.transform.localScale;
+
+                        scale[Along(turned, Vector3.up)] *= stretch;
+                        scale[Along(turned, Vector3.forward)] *= stretch;
+                        stair.transform.localScale = scale;
+
+                        flight = ModelScaling.Measure(stair);
+                        stair.transform.position += new Vector3(at.x - flight.center.x,
+                                                                -flight.min.y,
+                                                                at.z - flight.center.z);
+                    }
+                }
+            }
 
             // Two striped canopies in the open ground, which is what the plan has standing
             // in the middle of the bailey and the only colour in it.
@@ -1229,6 +1263,27 @@ namespace TheVeil.View
             piece.transform.position += new Vector3(at.x - box.center.x,
                                                     at.y - box.max.y,
                                                     at.z - box.center.z);
+        }
+
+        /// <summary>Which of a turned model's own axes lies nearest a direction of its host's.</summary>
+        static int Along(Quaternion turned, Vector3 direction)
+        {
+            int best = 0;
+            float most = -1f;
+
+            for (int axis = 0; axis < 3; axis++)
+            {
+                var own = Vector3.zero;
+                own[axis] = 1f;
+
+                float lined = Mathf.Abs(Vector3.Dot(turned * own, direction));
+                if (lined <= most) continue;
+
+                most = lined;
+                best = axis;
+            }
+
+            return best;
         }
 
         /// <summary>How tall one curtain piece is, measured like its length and thickness.</summary>

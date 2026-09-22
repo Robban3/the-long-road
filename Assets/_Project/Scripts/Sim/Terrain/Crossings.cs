@@ -178,6 +178,13 @@ namespace TheVeil.Sim
             if (ey != row) return false;
 
             int dir = bx > ex ? 1 : (bx < ex ? -1 : 0);
+
+            // <b>A route that steps onto the water from straight above or below still has a
+            // bank to run up on.</b> It gave up here, and it was the commonest crooked
+            // crossing left: a road coming down the river bank and turning onto the ford at
+            // a right angle, on the bridge itself on 2-6, 2-8 and 3-2. Which side the bank is
+            // on is the way the route goes over the water, not the step it came in by.
+            if (dir == 0) dir = Across(grid, route, from, to, ex, row, back);
             if (dir == 0) return false;
 
             var run = new List<int>();
@@ -219,7 +226,10 @@ namespace TheVeil.Sim
 
             if (anchor < 0 || route[anchor] == head) return false;
 
-            var walk = Walk(grid, route[anchor], head);
+            // The straight walk first, because it is what the road would look like drawn by
+            // hand; a search around what blocks it where it cannot be had. A single rock on
+            // the diagonal used to cost the whole run-up, and the crossing stayed crooked.
+            var walk = Walk(grid, route[anchor], head) ?? Around(grid, route[anchor], head);
             if (walk == null) return false;
 
             // Laid in the order they are driven, which is opposite on the two banks — and
@@ -286,6 +296,87 @@ namespace TheVeil.Sim
                 walk.Add(tile);
             }
 
+            return walk;
+        }
+
+        /// <summary>
+        /// Which way along the row the bank lies from the edge of a crossing: the way the
+        /// route goes over the water, or where that says nothing (a ford of one tile entered
+        /// and left in the same column), the side of the row that is dry. Zero if neither
+        /// answers.
+        /// </summary>
+        static int Across(TileGrid grid, List<int> route, int from, int to, int ex, int row, bool back)
+        {
+            grid.ToCoords(route[from], out int fx, out _);
+            grid.ToCoords(route[to], out int tx, out _);
+            int travel = System.Math.Sign(tx - fx);
+
+            if (travel == 0 && from > 0 && to + 1 < route.Count)
+            {
+                grid.ToCoords(route[from - 1], out int px, out _);
+                grid.ToCoords(route[to + 1], out int nx, out _);
+                travel = System.Math.Sign(nx - px);
+            }
+
+            if (travel != 0) return back ? -travel : travel;
+
+            // Only one side dry: that is the bank.
+            bool west = Dry(grid, ex - 1, row), east = Dry(grid, ex + 1, row);
+            if (west == east) return 0;
+            return west ? -1 : 1;
+        }
+
+        static bool Dry(TileGrid grid, int x, int y)
+            => grid.InBounds(x, y) && grid.IsPassable(x, y) && grid[grid.ToIndex(x, y)] != TerrainType.Ford;
+
+        /// <summary>
+        /// The shortest drivable way between two squares that stays out of the water, found
+        /// by search inside a box a few tiles wider than the two: for when the straight walk
+        /// meets something. Null if there is none. Both ends excluded, as in Walk.
+        /// </summary>
+        static List<int> Around(TileGrid grid, int a, int b)
+        {
+            grid.ToCoords(a, out int ax, out int ay);
+            grid.ToCoords(b, out int bx, out int by);
+
+            const int Margin = 4;
+            int minX = System.Math.Min(ax, bx) - Margin, maxX = System.Math.Max(ax, bx) + Margin;
+            int minY = System.Math.Min(ay, by) - Margin, maxY = System.Math.Max(ay, by) + Margin;
+
+            var came = new Dictionary<int, int> { [a] = -1 };
+            var queue = new Queue<int>();
+            queue.Enqueue(a);
+
+            while (queue.Count > 0)
+            {
+                int tile = queue.Dequeue();
+                if (tile == b) break;
+
+                grid.ToCoords(tile, out int x, out int y);
+
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+
+                        int nx = x + dx, ny = y + dy;
+                        if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
+                        if (!grid.InBounds(nx, ny) || !grid.IsPassable(nx, ny)) continue;
+
+                        int next = grid.ToIndex(nx, ny);
+                        if (came.ContainsKey(next)) continue;
+                        if (next != b && grid[next] == TerrainType.Ford) continue;
+
+                        came[next] = tile;
+                        queue.Enqueue(next);
+                    }
+            }
+
+            if (!came.ContainsKey(b)) return null;
+
+            var walk = new List<int>();
+            for (int at = came[b]; at != a && at >= 0; at = came[at]) walk.Add(at);
+            walk.Reverse();
             return walk;
         }
 

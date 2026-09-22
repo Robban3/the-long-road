@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace TheVeil.Sim
@@ -83,6 +84,14 @@ namespace TheVeil.Sim
                 if ((bx - gx) * dx + (by - gy) * dy < 0) order = new[] { -1, 1 };
             }
 
+            // <b>Off the roads.</b> The two sides were taken as they came, and on 3-10 the
+            // side that came first had a road running through it: the castle went up across
+            // the road, a trap on that road stood inside its walls, and the decorator's
+            // sweep round the trap took the whole castle down again - the chapter ended at
+            // an empty goal. A side with a road under the castle is passed over for one
+            // without, and where neither side is clear the ring round the goal is searched.
+            int fallback = -1;
+
             foreach (int sign in order)
             {
                 int x = gx + dx * Standoff * sign;
@@ -93,10 +102,62 @@ namespace TheVeil.Sim
                 int tile = grid.ToIndex(x, y);
                 if (taken != null && taken.Contains(tile)) continue;
 
-                return tile;
+                if (OffTheRoads(grid, x, y, travelled)) return tile;
+                if (fallback < 0) fallback = tile;
             }
 
-            return -1;
+            int ring = Ring(grid, gx, gy, travelled, taken);
+            return ring >= 0 ? ring : fallback;
+        }
+
+        /// <summary>
+        /// The nearest tile to the usual standoff from the goal, in any direction, with no
+        /// road under the castle. -1 if there is none. Searched in a fixed order, so the
+        /// planning map and the run find the same one.
+        /// </summary>
+        static int Ring(TileGrid grid, int gx, int gy, IReadOnlyCollection<int> travelled, HashSet<int> taken)
+        {
+            int best = -1;
+            int bestOff = int.MaxValue;
+            int reach = Standoff + Bailey;
+
+            for (int y = gy - reach; y <= gy + reach; y++)
+            {
+                for (int x = gx - reach; x <= gx + reach; x++)
+                {
+                    if (!grid.InBounds(x, y)) continue;
+
+                    int ddx = x - gx, ddy = y - gy;
+                    int distance = (int)Math.Round(Math.Sqrt(ddx * ddx + ddy * ddy));
+                    int off = Math.Abs(distance - Standoff);
+                    if (off > Bailey / 2 || off >= bestOff) continue;
+
+                    int tile = grid.ToIndex(x, y);
+                    if (taken != null && taken.Contains(tile)) continue;
+                    if (!grid.IsPassable(x, y) || grid[tile] == TerrainType.Ford) continue;
+                    if (!OffTheRoads(grid, x, y, travelled)) continue;
+
+                    best = tile;
+                    bestOff = off;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>Whether no road passes under a castle standing on this tile.</summary>
+        static bool OffTheRoads(TileGrid grid, int cx, int cy, IReadOnlyCollection<int> travelled)
+        {
+            if (travelled == null || travelled.Count == 0) return true;
+
+            foreach (int tile in travelled)
+            {
+                grid.ToCoords(tile, out int x, out int y);
+                int ddx = x - cx, ddy = y - cy;
+                if (ddx * ddx + ddy * ddy <= Bailey * Bailey) return false;
+            }
+
+            return true;
         }
 
         /// <summary>

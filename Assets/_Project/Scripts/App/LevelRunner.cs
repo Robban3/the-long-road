@@ -435,7 +435,7 @@ namespace TheVeil.App
             _visuals.BuildCaches(map.Encounters.SilverCaches, map.Grid);
             _visuals.BuildCrowFlocks(CrowSignal.Place(map), map.Grid);
 
-            _wildlife = Wildlife.Populate(map);
+            _wildlife = Wildlife.Populate(map, _run.Obstacles);
             _visuals.BuildWildlife(_wildlife);
             _visuals.Sync(_run);
 
@@ -588,7 +588,7 @@ namespace TheVeil.App
             if (_run?.Combat != null && _run.Combat.InContact)
                 _battles.Add(_run.Caravan.LeadPosition);
 
-            Wildlife.Step(_levelGrid, _wildlife, _run.Caravan.LeadPosition, _battles, dt);
+            Wildlife.Step(_levelGrid, _wildlife, _run.Caravan.LeadPosition, _battles, dt, _run?.Obstacles);
         }
 
         void Update()

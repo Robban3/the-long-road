@@ -1429,6 +1429,12 @@ namespace TheVeil.View
                     if (thing.GetComponentInChildren<BridgeDeck>() != null) continue;
                     if (_trapWrecks.Contains(thing.gameObject)) continue;
 
+                    // Never the castle. It is forty metres of stone standing beside the
+                    // goal, and a trap near its wall once took the whole of it down on
+                    // 3-10. Its site keeps it off the roads now (Strongholds.Site), and
+                    // the traps are on the roads - this is so it can never happen again.
+                    if (thing.gameObject == _castle || thing.name == "Castle") continue;
+
                     var box = ModelScaling.Measure(thing.gameObject);
                     if (box.size.y < OverBones) continue;
 
@@ -1810,7 +1816,46 @@ namespace TheVeil.View
                 if (used.Count > 0) crossings = used;
             }
 
+            // <b>And one a road can be driven straight onto.</b> A ford at the edge of a lake,
+            // or squeezed between two rivers, has no dry ground along its row to line the
+            // column up on (Crossings.Square), so the road turns onto it at a right angle -
+            // on 3-7 the bridge stood on exactly such a ford, and the wagons swung onto the
+            // planks sideways. Narrowed, not forced, for the same reason as above.
+            var straight = new List<int>();
+            foreach (int crossing in crossings)
+                if (Banked(grid, crossing)) straight.Add(crossing);
+            if (straight.Count > 0) crossings = straight;
+
             return crossings[new DeterministicRandom(seed ^ BridgeTileSalt).Range(0, crossings.Count)];
+        }
+
+        /// <summary>
+        /// Whether a crossing has dry ground along its own row on both banks, enough for
+        /// Crossings.Square to lay a straight run-up onto it.
+        /// </summary>
+        static bool Banked(TileGrid grid, int crossing)
+        {
+            grid.ToCoords(crossing, out int x, out int y);
+
+            int west = x, east = x;
+            while (grid.InBounds(west - 1, y) && grid[grid.ToIndex(west - 1, y)] == TerrainType.Ford) west--;
+            while (grid.InBounds(east + 1, y) && grid[grid.ToIndex(east + 1, y)] == TerrainType.Ford) east++;
+
+            return DryRun(grid, west, y, -1) >= Crossings.LeastRunUp
+                && DryRun(grid, east, y, 1) >= Crossings.LeastRunUp;
+        }
+
+        static int DryRun(TileGrid grid, int x, int y, int dir)
+        {
+            int count = 0;
+            for (int step = 1; step <= Crossings.LeastRunUp; step++)
+            {
+                int at = x + dir * step;
+                if (!grid.InBounds(at, y) || !grid.IsPassable(at, y)) break;
+                if (grid[grid.ToIndex(at, y)] == TerrainType.Ford) break;
+                count++;
+            }
+            return count;
         }
 
         /// <summary>Whether a drawn road passes within a bridge's length of this tile.</summary>
@@ -3399,8 +3444,11 @@ namespace TheVeil.View
                 // seated on the same sunken plane. The masonry stays where Raise put it —
                 // its footings are meant to be in the slope — and so do the banners, which
                 // hang from the parapet and belong to the wall rather than to the ground.
+                //
+                // And the stair, which climbs to the wall walk: bedded on the yard it rose or
+                // sank against a wall that stays put, and its top missed the walk.
                 if (piece.name.Contains("Castle") || piece.name.Contains("Banner")
-                    || piece.name == "Tower") continue;
+                    || piece.name.Contains("Stairs") || piece.name == "Tower") continue;
 
                 var stood = piece.position;
                 float ground = grid.SurfaceElevation(stood.x, stood.z) * heightScale;

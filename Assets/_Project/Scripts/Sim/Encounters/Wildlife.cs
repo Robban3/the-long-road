@@ -180,7 +180,7 @@ namespace TheVeil.Sim
         /// a fox grazing inside a bandit camp is a joke, and a deer standing on the
         /// start tile is in the way of the first thing the player does.
         /// </summary>
-        public static List<WildAnimal> Populate(LevelMap map)
+        public static List<WildAnimal> Populate(LevelMap map, ObstacleField obstacles = null)
         {
             var animals = new List<WildAnimal>();
             if (map?.Grid == null) return animals;
@@ -202,7 +202,14 @@ namespace TheVeil.Sim
                 if (NearAnEnemy(map, x, y)) continue;
                 if (grid[tile] == TerrainType.Forest && !rng.Chance(ForestShare)) continue;
 
+                // Out of any trunk the tile's centre happens to be inside. See Body.
                 var found = Vec2.FromTile(grid, tile);
+                if (obstacles != null)
+                {
+                    found = obstacles.Clear(found, Body);
+                    if (!Standable(grid, found, obstacles)) continue;
+                }
+
                 var kind = Pick(grid[tile], rng);
 
                 // Deer keep company. A boar is a boar and a fox hunts alone, which is
@@ -232,7 +239,7 @@ namespace TheVeil.Sim
                         var spot = new Vec2(found.X + rng.Range(-HerdSpread, HerdSpread),
                                             found.Y + rng.Range(-HerdSpread, HerdSpread));
 
-                        if (!Standable(grid, spot)) continue;
+                        if (!Standable(grid, spot, obstacles)) continue;
 
                         // And clear of the enemy, which only the founder ever was.
                         //
@@ -273,12 +280,17 @@ namespace TheVeil.Sim
         /// Moves the animals on. `battles` is where fighting is happening this frame.
         /// </summary>
         public static void Step(TileGrid grid, IReadOnlyList<WildAnimal> animals, Vec2 caravan,
-                                IReadOnlyList<Vec2> battles, float dt)
+                                IReadOnlyList<Vec2> battles, float dt, ObstacleField obstacles = null)
         {
             if (animals == null || dt <= 0f) return;
 
             foreach (var animal in animals)
             {
+                // One that starts inside a trunk would refuse every step out of it and
+                // stand there for the level; pushed clear first, as Squad does its troops.
+                if (obstacles != null && obstacles.Blocked(animal.Position, Body))
+                    animal.Position = obstacles.Clear(animal.Position, Body);
+
                 if (animal.Fleeing <= 0f && Startled(animal, caravan, battles, out var away))
                 {
                     animal.Fleeing = FleeSeconds;
@@ -289,7 +301,7 @@ namespace TheVeil.Sim
                 {
                     animal.Fleeing -= dt;
                     animal.Speed = FleeSpeed;
-                    Walk(grid, animal, FleeSpeed, dt);
+                    Walk(grid, animal, FleeSpeed, dt, obstacles);
                     continue;
                 }
 
@@ -314,7 +326,7 @@ namespace TheVeil.Sim
                 animal.Heading = new Vec2(toHome.X / distance, toHome.Y / distance);
                 animal.Speed = GrazeSpeed;
 
-                Walk(grid, animal, GrazeSpeed, dt);
+                Walk(grid, animal, GrazeSpeed, dt, obstacles);
             }
         }
 
@@ -335,14 +347,14 @@ namespace TheVeil.Sim
         /// with ground on it — which is also what a deer does at a river. Boxed in on
         /// every side it stops, and that at least is a thing an animal does.
         /// </summary>
-        static void Walk(TileGrid grid, WildAnimal animal, float speed, float dt)
+        static void Walk(TileGrid grid, WildAnimal animal, float speed, float dt, ObstacleField obstacles)
         {
-            if (Try(grid, animal, animal.Heading, speed, dt)) return;
+            if (Try(grid, animal, animal.Heading, speed, dt, obstacles)) return;
 
             foreach (float turn in Swerves)
             {
-                if (Try(grid, animal, Turn(animal.Heading, turn), speed, dt, keep: true)) return;
-                if (Try(grid, animal, Turn(animal.Heading, -turn), speed, dt, keep: true)) return;
+                if (Try(grid, animal, Turn(animal.Heading, turn), speed, dt, obstacles, keep: true)) return;
+                if (Try(grid, animal, Turn(animal.Heading, -turn), speed, dt, obstacles, keep: true)) return;
             }
 
             animal.Speed = 0f;
@@ -350,12 +362,12 @@ namespace TheVeil.Sim
 
         /// <summary>One candidate step. Taken only if it lands on ground.</summary>
         static bool Try(TileGrid grid, WildAnimal animal, Vec2 heading, float speed, float dt,
-                        bool keep = false)
+                        ObstacleField obstacles, bool keep = false)
         {
             var step = new Vec2(animal.Position.X + heading.X * speed * dt,
                                 animal.Position.Y + heading.Y * speed * dt);
 
-            if (grid != null && !Standable(grid, step)) return false;
+            if (grid != null && !Standable(grid, step, obstacles)) return false;
 
             if (keep) animal.Heading = heading;
             animal.Position = step;
@@ -415,9 +427,22 @@ namespace TheVeil.Sim
             return dx * dx + dy * dy <= radius * radius;
         }
 
+        /// <summary>
+        /// How wide an animal is, in metres from its middle, when it comes to trees.
+        ///
+        /// <b>Animals walked straight through trees</b>, because nothing here knew where a
+        /// tree was: Standable asked the tile and the tile is "forest", which is ground. The
+        /// trunks are known - the decorator marks every solid thing it plants and the run
+        /// keeps them as an ObstacleField, which the troops have walked round for a long
+        /// time. Now the animals are handed the same one.
+        /// </summary>
+        public const float Body = 0.6f;
+
         /// <summary>Whether a world position is on ground an animal could stand on.</summary>
-        static bool Standable(TileGrid grid, Vec2 at)
+        static bool Standable(TileGrid grid, Vec2 at, ObstacleField obstacles = null)
         {
+            if (obstacles != null && obstacles.Blocked(at, Body)) return false;
+
             // Off the west or south edge entirely. Worth saying out loud because the cast
             // below truncates towards zero, so a position at minus one metre lands on tile
             // nought and is waved through — which is ground, just not the ground it is on.
