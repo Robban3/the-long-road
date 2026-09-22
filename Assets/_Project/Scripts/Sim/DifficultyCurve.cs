@@ -28,11 +28,11 @@ namespace TheVeil.Sim
     /// when its measured difficulty sits within <see cref="Tolerance"/> of the target for
     /// its place in the campaign (LevelMaps.Gate).
     ///
-    /// The shape: a quarter of the escort at the first level, rising quickly through the
-    /// first chapters and more slowly after, towards four fifths by the end of a
-    /// thousand levels. Steeper at the start because that is where a player is learning
-    /// fastest; flattening because a curve that kept its first slope would be past
-    /// anybody's reach by the tenth chapter.
+    /// The shape: a tenth of the escort at the first level and seven tenths at the
+    /// thousandth, rising every level in between - fastest at the start, where a player
+    /// is learning fastest, and more slowly after, because the campaign is a thousand
+    /// levels long and the share of an escort a level can cost stops at all of it.
+    /// See <see cref="Bend"/>.
     /// </summary>
     public static class DifficultyCurve
     {
@@ -43,21 +43,30 @@ namespace TheVeil.Sim
         /// </summary>
         public const int BuiltChapters = 3;
 
+        /// <summary>How many levels the curve spans: the whole campaign.</summary>
+        public const int Levels = 1000;
+
         /// <summary>What the first level costs the escort, on its safe and long roads.</summary>
         public const float First = 0.10f;
 
-        /// <summary>What the curve approaches and never reaches.</summary>
-        public const float Ceiling = 0.70f;
+        /// <summary>What the last level costs it: seven tenths, and a prepared player still through.</summary>
+        public const float Last = 0.70f;
 
         /// <summary>
-        /// How many levels it takes to cover about two thirds of the rise.
+        /// Where the curve bends, in levels.
         ///
-        /// Thirty: it rises most through the first chapters, where a player learns fastest.
-        /// On the safe and long roads that is a tenth of the escort at the first level, about
-        /// a quarter at the end of the first chapter, two fifths at the end of the second
-        /// and half at the end of the third.
+        /// <b>Spread over a thousand levels, because a share of an escort ends at a hundred
+        /// per cent.</b> The first version rose about a point a level - right for three
+        /// chapters, and out of room by level sixty or seventy: past that no level could be
+        /// harder than the last without being impossible, and nine hundred and thirty levels
+        /// would have had nowhere to go. A logarithm keeps rising for ever and never runs
+        /// out: ten levels in it rises a point and a quarter a level, which a player feels;
+        /// by level five hundred a fortieth of a point, which a campaign adds up.
+        ///
+        /// Ten puts it at 18 per cent at level 10, 28 at level 30, 41 at 100, 50 at 200,
+        /// 61 at 500 and 70 at the thousandth.
         /// </summary>
-        public const float Pace = 30f;
+        public const float Bend = 10f;
 
         /// <summary>
         /// How far a level may sit from its target and still be kept.
@@ -68,12 +77,30 @@ namespace TheVeil.Sim
         public const float Tolerance = 0.10f;
 
         /// <summary>The target for a level, by its place in the whole campaign.</summary>
-        public static float Target(int chapter, int level)
+        public static float Target(int chapter, int level) => At(Index(chapter, level));
+
+        /// <summary>
+        /// How much harder this level is meant to be than the one before it - always more
+        /// than nothing, from the first level to the thousandth.
+        /// </summary>
+        public static float Rise(int chapter, int level)
+        {
+            int index = Index(chapter, level);
+            return index <= 0 ? 0f : At(index) - At(index - 1);
+        }
+
+        static int Index(int chapter, int level)
         {
             int index = (chapter - 1) * Campaign.LevelsPerChapter + (level - 1);
-            if (index < 0) index = 0;
+            return index < 0 ? 0 : index;
+        }
 
-            return First + (Ceiling - First) * (1f - (float)Math.Exp(-index / Pace));
+        static float At(int index)
+        {
+            if (index > Levels - 1) index = Levels - 1;
+
+            return First + (Last - First)
+                   * (float)(Math.Log(1.0 + index / Bend) / Math.Log(1.0 + (Levels - 1) / Bend));
         }
     }
 }

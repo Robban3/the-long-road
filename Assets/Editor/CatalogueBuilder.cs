@@ -160,9 +160,6 @@ namespace TheVeil.Editor
         /// the tool would find last week's answer and copy it forward, and a catalogue that
         /// launders its own stale rows is worse than none.
         /// </summary>
-        /// <summary>How much harder each level must be than the one before: a point.</summary>
-        const float Step = 0.01f;
-
         /// <summary>How many of a level's maps the calibration measures the typical one over.</summary>
         const int CalibrationMaps = 24;
 
@@ -180,9 +177,9 @@ namespace TheVeil.Editor
         /// time. Six halvings of a range from half to twice put the factor within about a
         /// sixtieth.
         /// </summary>
-        static float Calibrate(int chapter, int level, float aim, out float typical)
+        internal static float Calibrate(int chapter, int level, float aim, out float typical)
         {
-            var recipe = ChapterRecipe.For(chapter).ForLevel(level);
+            var recipe = LevelMaps.Uncalibrated(chapter, level);
             float baseStrength = recipe.EnemyStrength;
             int seed = DeterministicRandom.SeedFor(chapter, level);
             int cleared = ReferenceSquad.LevelsCleared(chapter, level);
@@ -230,7 +227,11 @@ namespace TheVeil.Editor
             // rise level by level is how hard the level is, and that is what the curve holds.
             // The strength is the dial that gets each level there, and a level built easy
             // needs it turned further than its neighbours.
-            float low = 0.5f;
+            // A fifth to twice the formula. Half was the floor once, and from level 100 on
+            // the calibration sat on it with the level still far too hard: the strength
+            // formula is older than the escort's growth and outruns it over a thousand
+            // levels. The range has to reach what the level actually needs.
+            float low = 0.2f;
             float high = 2f;
 
             if (maps.Count == 0) { typical = 0f; return 1f; }
@@ -363,7 +364,10 @@ namespace TheVeil.Editor
 
                     for (int p = 0; p < previous.Count; p++)
                     {
-                        float need = previous[p].Judged.Difficulty + Step;
+                        // Harder than the level before by at least what the curve rises
+                        // between them: a point and a quarter at the start, a hundredth late
+                        // in the campaign. A fixed point a level would run out of room.
+                        float need = previous[p].Judged.Difficulty + DifficultyCurve.Rise(levels[i].Chapter, levels[i].Level);
                         float step = list[c].Judged.Difficulty >= need - 0.0001f
                             ? 0f
                             : Dip + (need - list[c].Judged.Difficulty);
@@ -429,7 +433,7 @@ namespace TheVeil.Editor
                                  + (pick.Judged.Treacherous ? "" : "fast road NOT the hardest, ")
                                  + (pick.Judged.FastLost ? "fast kills" : "fast spares")
                                  + $" ({kills} this chapter), strength x{factors[i]:0.000}, attempt {pick.Attempt}"
-                                 + (difficulty < before + Step - 0.0001f ? "  <-- not harder than the level before" : ""));
+                                 + (i > 0 && difficulty <= before ? "  <-- not harder than the level before" : ""));
                 before = difficulty;
             }
 
@@ -444,11 +448,16 @@ namespace TheVeil.Editor
 
         /// <summary>
         /// What a fast road that kills where the pattern wanted it to spare, or the other
-        /// way round, costs in the choice: three points of distance from the curve. Enough
-        /// that the pattern holds wherever it can; not so much that it pushes a level away
-        /// from where it should be.
+        /// way round, costs in the choice: ten points of distance from the curve.
+        ///
+        /// It was three, and once the curve was spread over a thousand levels and the
+        /// first chapters became gentler, three was too little: the choice took maps a
+        /// point or two nearer the curve over maps with the right fast road, and the fast
+        /// road killed the ordinary escort on two levels of ten in the first and second
+        /// chapters. About half, in every chapter, is the rule; a level a few points off
+        /// the curve is the lesser fault.
         /// </summary>
-        const float FastPattern = 0.03f;
+        const float FastPattern = 0.10f;
 
         static LevelMap Fresh(int chapter, int level, float floor)
         {

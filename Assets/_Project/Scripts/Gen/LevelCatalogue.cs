@@ -189,8 +189,9 @@ namespace TheVeil.Gen
                 "reduce=" + TroopBoonTable.ArmourReductionCap.ToString("0.00", culture),
                 $"smithy={RunEconomy.MaxTrackLevel}",
                 "curve=" + DifficultyCurve.First.ToString("0.00", culture)
-                         + "/" + DifficultyCurve.Ceiling.ToString("0.00", culture)
-                         + "/" + DifficultyCurve.Pace.ToString("0", culture)
+                         + "/" + DifficultyCurve.Last.ToString("0.00", culture)
+                         + "/" + DifficultyCurve.Bend.ToString("0", culture)
+                         + $"/{DifficultyCurve.Levels}"
                          + "/" + DifficultyCurve.Tolerance.ToString("0.00", culture)
                          + $"/{DifficultyCurve.BuiltChapters}",
                 "terrain=" + Landscape()

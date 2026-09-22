@@ -382,11 +382,56 @@ namespace TheVeil.Gen
         /// </summary>
         public static LevelRecipe Recipe(int chapter, int level)
         {
-            var recipe = ChapterRecipe.For(chapter).ForLevel(level);
+            var recipe = Uncalibrated(chapter, level);
 
             // The strength the catalogue calibrated for this level. See LevelCatalogue.Factor.
             recipe.EnemyStrength *= LevelCatalogue.Factor(chapter, level);
             return recipe;
+        }
+
+        /// <summary>
+        /// The recipe as the formulas give it, before the catalogue's calibration: the
+        /// chapter's own numbers, with the strength settled onto the curve over the long run.
+        /// What CatalogueBuilder.Calibrate starts from.
+        /// </summary>
+        public static LevelRecipe Uncalibrated(int chapter, int level)
+        {
+            var recipe = ChapterRecipe.For(chapter).ForLevel(level);
+            recipe.EnemyStrength *= Settle(chapter, level);
+            return recipe;
+        }
+
+        /// <summary>How much of the formula's strength the enemies keep over the long run.</summary>
+        const float SettledShare = 0.72f;
+
+        /// <summary>How many levels it takes the formula to settle most of the way there.</summary>
+        const float SettleOver = 50f;
+
+        /// <summary>
+        /// The share of ChapterRecipe's strength a level's enemies are given: all of it at
+        /// the start, settling to about seven tenths over the first hundred levels.
+        ///
+        /// <b>Measured across the whole thousand, not assumed.</b> The strength formula is
+        /// older than most of what the escort now has - the field smithy, the permanent
+        /// school, a squad that carries on from chapter to chapter - and over a thousand
+        /// levels it outruns the escort. Calibrated at the fifth level of chapters 1 to
+        /// 100, the strength at which a typical map costs the ordinary escort what
+        /// DifficultyCurve asks came to 1.07 of the formula at level 1, 0.96 at 25 and 0.92
+        /// at 45, then 0.72, 0.74, 0.69, 0.77, 0.72 and 0.69 from level 95 to level 995. At
+        /// that strength a prepared player got down 237 roads of 239 across the samples.
+        ///
+        /// Here rather than in ChapterRecipe because the chapter's shape - its climb, the
+        /// escort it assumes, the silver that follows the strength - is kept as agreed; only
+        /// the strength the enemies take into a run settles. The chapters that are built are
+        /// calibrated level by level on top of this; the ones that are not start from here,
+        /// already near their place on the curve.
+        /// </summary>
+        public static float Settle(int chapter, int level)
+        {
+            int index = (chapter - 1) * Campaign.LevelsPerChapter + (level - 1);
+            if (index < 0) index = 0;
+
+            return SettledShare + (1f - SettledShare) * (float)Math.Exp(-index / SettleOver);
         }
     }
 }

@@ -1063,6 +1063,75 @@ namespace TheVeil.Editor
             Write($"attempts-{chapter}-{level}-{trial:0.00}.txt", said);
         }
 
+        /// <summary>
+        /// Levels from the whole thousand, each set to where the curve puts it, and whether a
+        /// prepared player still gets down every road: `The Veil > Difficulty Across The
+        /// Campaign`.
+        ///
+        /// The curve is calibrated level by level only for the chapters that are built; the
+        /// question it has to answer for the rest is whether it can be met at all - whether
+        /// there is a strength at which the typical map costs the ordinary escort what the
+        /// curve asks, and a prepared player at that strength still wins. Asked of a spread of
+        /// levels to the thousandth, it says whether the campaign has room to the end.
+        /// </summary>
+        [MenuItem("The Veil/Difficulty Across The Campaign")]
+        public static void DifficultyAcrossTheCampaign()
+        {
+            var said = new System.Text.StringBuilder();
+            said.AppendLine("[Campaign] levels from the whole thousand, at the strength the curve asks for");
+
+            var samples = new (int Chapter, int Level)[]
+            {
+                // The fifth level of each chapter, not the tenth: the tenth has the champion on
+                // it and would measure him rather than the curve.
+                (1, 1), (1, 5), (3, 5), (5, 5), (10, 5), (20, 5), (30, 5), (50, 5), (70, 5), (100, 5)
+            };
+
+            foreach (var (chapter, level) in samples)
+            {
+                var recipe = LevelMaps.Uncalibrated(chapter, level);
+                float target = DifficultyCurve.Target(chapter, level);
+                int cleared = ReferenceSquad.LevelsCleared(chapter, level);
+
+                float factor = CatalogueBuilder.Calibrate(chapter, level, target, out float typical);
+
+                int roads = 0, prepared = 0, ordinary = 0, careful = 0;
+                int seed = DeterministicRandom.SeedFor(chapter, level);
+                int maps = 0;
+
+                for (int attempt = 0; attempt < 40 && maps < 8; attempt++)
+                {
+                    var map = TerrainGenerator.Generate(recipe, seed, null, attempt);
+                    if (map == null || !map.Accepted) continue;
+                    maps++;
+
+                    foreach (var corridor in map.Corridors)
+                    {
+                        roads++;
+                        if (ReferenceSquad.Prepared(map, corridor.Tiles, recipe, cleared, factor)) prepared++;
+
+                        if (corridor.Kind == CorridorKind.Fast) continue;
+                        careful++;
+
+                        var run = new LevelRun(map, corridor.Tiles,
+                                               ReferenceSquad.For(recipe, cleared, 0, ReferenceSquad.SpentOnTroops),
+                                               recipe.EnemyStrength * factor) { Shops = true };
+                        if (run.RunToCompletion() == RunOutcome.Arrived) ordinary++;
+                    }
+                }
+
+                int index = (chapter - 1) * Campaign.LevelsPerChapter + level;
+                said.AppendLine($"[Campaign] level {index,4} ({chapter}-{level}): target {target:P0}, "
+                                + $"typical map {typical:P0} at strength {recipe.EnemyStrength * factor:0.00} "
+                                + $"(formula settled {recipe.EnemyStrength:0.00}, x{factor:0.00}); prepared player "
+                                + $"through {prepared}/{roads} roads, ordinary escort through "
+                                + $"{ordinary}/{careful} safe and long roads"
+                                + (prepared < roads ? "  <-- NOT ALWAYS WINNABLE" : ""));
+            }
+
+            Write("campaign.txt", said);
+        }
+
         [MenuItem("The Veil/Water And Bridges")]
         public static void WaterAndBridges()
         {
