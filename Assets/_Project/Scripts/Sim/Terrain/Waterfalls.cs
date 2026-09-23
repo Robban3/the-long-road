@@ -42,14 +42,26 @@ namespace TheVeil.Sim
         /// <summary>
         /// Whether this level has a fall at all.
         ///
-        /// <b>Three levels in ten, not ten.</b> Cut wherever a river was long enough, every
-        /// level of every chapter came out with a six-metre step in it - measured, 49 of the
-        /// 50 built ones - and a waterfall on every level is a hill, not a waterfall. Drawn
-        /// from the level's own seed, so the same levels always have one and the plan map and
-        /// the run agree about which.
+        /// <b>Two countries, and a few levels inside them.</b> Cut wherever a river was long
+        /// enough, every level of every chapter came out with a six-metre step in it -
+        /// measured, 49 of the 50 built ones - and a waterfall in every country on every
+        /// level is a hill, not a waterfall. It belongs to the open country the meadow pack
+        /// draws it in: the plains and the farmland, and about three of their ten levels.
+        ///
+        /// The forest and the fen get none. Their rivers were given moving water and nothing
+        /// else, which is all those countries were meant to get.
+        ///
+        /// By country rather than by chapter number, so the fifteenth chapter - the plains
+        /// again, a pass later - has them too, and drawn from the level's own seed so the
+        /// plan map and the run agree about which levels they are.
         /// </summary>
         public static bool Cuts(int chapter, int level)
-            => new DeterministicRandom(DeterministicRandom.SeedFor(chapter, level) ^ Salt).Chance(Few);
+        {
+            var country = Biomes.Of(chapter);
+            if (country != Biome.Plains && country != Biome.Farmland) return false;
+
+            return new DeterministicRandom(DeterministicRandom.SeedFor(chapter, level) ^ Salt).Chance(Few);
+        }
 
         /// <summary>How many levels in ten have a fall.</summary>
         const float Few = 0.3f;
