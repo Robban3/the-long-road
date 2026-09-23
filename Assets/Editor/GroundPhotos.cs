@@ -22,6 +22,30 @@ namespace TheVeil.Editor
     /// </summary>
     public static class GroundPhotos
     {
+        /// <summary>Whether any water lies within two tiles.</summary>
+        static bool NearWater(TileGrid grid, int x, int y)
+        {
+            for (int dy = -2; dy <= 2; dy++)
+                for (int dx = -2; dx <= 2; dx++)
+                {
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                    var terrain = grid[x + dx, y + dy];
+                    if (terrain == TerrainType.Water || terrain == TerrainType.Ford) return true;
+                }
+
+            return false;
+        }
+
+        /// <summary>The first thing under here with this name, or null.</summary>
+        static Transform Find(Transform root, string name)
+        {
+            foreach (var piece in root.GetComponentsInChildren<Transform>(true))
+                if (piece.name == name) return piece;
+
+            return null;
+        }
+
         /// <summary>The name of the prop a renderer belongs to, rather than of its part.</summary>
         static string Root(Transform piece)
         {
@@ -57,8 +81,26 @@ namespace TheVeil.Editor
 
                 // A place on the fastest road, a third of the way along it, and the way it
                 // is heading: the shot a player would have from the driving seat.
+                // A dry piece of road, away from any crossing. Standing a third of the way
+                // along, the camera once stood on the bridge itself and photographed the
+                // inside of its deck - which came back as a bright yellow wall and looked
+                // like a broken material rather than a camera in the wrong place.
                 var road = map.Corridors[0].Tiles;
                 int at = road[road.Count / 3];
+
+                for (int along = 0; along < road.Count; along++)
+                {
+                    int tried = road[(road.Count / 3 + along) % road.Count];
+                    var under = grid[tried];
+
+                    if (under == TerrainType.Water || under == TerrainType.Ford) continue;
+
+                    grid.ToCoords(tried, out int tx, out int ty);
+                    if (NearWater(grid, tx, ty)) continue;
+
+                    at = tried;
+                    break;
+                }
                 int ahead = road[Mathf.Min(road.Count - 1, road.Count / 3 + 6)];
 
                 var here = Vec2.FromTile(grid, at);
@@ -150,10 +192,43 @@ namespace TheVeil.Editor
                     var brink = Vec2.FromTile(grid, step);
                     float top = grid.SurfaceElevation(brink.X, brink.Y) * runner.HeightScale;
 
+                    // <b>Downstream of the step, looking back up at it.</b> Standing off to
+                    // one side and above, the camera ended up in the pool under the shelf and
+                    // the picture was a wall of water with no fall in it. The river runs down
+                    // the grid, so downstream is the way the rows fall: back from the brink,
+                    // at the height of the water it lands in.
+                    float under = grid.SurfaceElevation(brink.X, brink.Y - TileGrid.TileSize * 3f)
+                                  * runner.HeightScale;
+
                     var close = new GameObject("Fall").AddComponent<Camera>();
-                    close.transform.position = new Vector3(brink.X + 26f, top + 9f, brink.Y - 26f);
-                    close.transform.LookAt(new Vector3(brink.X, top - 3f, brink.Y));
-                    close.fieldOfView = 50f;
+                    // <b>Aimed at the fall itself, not at where the fall should be.</b> The
+                    // camera was pointed at the step's own tile and came back with a bush,
+                    // a bridge and a wall of water in turn; the decorator names the sheet it
+                    // builds, so the picture is taken of that.
+                    var water = Find(root.transform, "Waterfall");
+                    var aim = water != null
+                        ? water.position
+                        : new Vector3(brink.X, (top + under) * 0.5f, brink.Y);
+
+                    // Above the canopy, looking down at it: a tree is fourteen metres and at
+                    // nine the camera stood in one. Twenty-six up and twenty-six back is a
+                    // line of sight that clears the wood and still reads the face of the fall.
+                    Debug.Log($"[Ground] {chapter}-{level} fall at "
+                              + (water != null ? aim.ToString("0.0") : "no sheet built"));
+
+                    // In the channel, just above the water, looking upstream at the face. Over
+                    // the canopy the fall was hidden under it; at eye level on the bank the
+                    // camera stood in a bush. The one line of sight this country always keeps
+                    // open is the water's own.
+                    // Standing on the ground it actually finds, rather than at a height
+                    // guessed from the fall: downstream the shelf tapers back up, and a camera
+                    // put two metres over the pool ended up inside a hillside.
+                    var spot = aim + new Vector3(0f, 0f, -15f);
+                    float under2 = grid.SurfaceElevation(spot.x, spot.z) * runner.HeightScale;
+
+                    close.transform.position = new Vector3(spot.x, Mathf.Max(under2, aim.y - 3f) + 3.5f, spot.z);
+                    close.transform.LookAt(aim);
+                    close.fieldOfView = 55f;
                     close.farClipPlane = 3000f;
                     close.clearFlags = camera.clearFlags;
                     close.backgroundColor = camera.backgroundColor;

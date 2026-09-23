@@ -39,17 +39,77 @@ namespace TheVeil.Sim
         /// <summary>How many tiles the shelf takes to come back down to the fields.</summary>
         public const int Taper = 5;
 
+        /// <summary>
+        /// Whether this level has a fall at all.
+        ///
+        /// <b>Three levels in ten, not ten.</b> Cut wherever a river was long enough, every
+        /// level of every chapter came out with a six-metre step in it - measured, 49 of the
+        /// 50 built ones - and a waterfall on every level is a hill, not a waterfall. Drawn
+        /// from the level's own seed, so the same levels always have one and the plan map and
+        /// the run agree about which.
+        /// </summary>
+        public static bool Cuts(int chapter, int level)
+            => new DeterministicRandom(DeterministicRandom.SeedFor(chapter, level) ^ Salt).Chance(Few);
+
+        /// <summary>How many levels in ten have a fall.</summary>
+        const float Few = 0.3f;
+
+        const int Salt = 0x3FA11;
+
         /// <summary>The tile the water comes over, or -1 where this level has no fall.</summary>
         public static int Step(LevelMap map)
         {
             var river = Course(map);
             if (river.Count < Least) return -1;
 
-            // A quarter of the way down the river from its head: far enough in that the
-            // shelf has ground under it, far enough from the mouth that the fall is not on
-            // the map's edge.
-            return river[river.Count / 4];
+            var grid = map.Grid;
+
+            // <b>Where the water is a river, not where it is a pond.</b> The step was taken a
+            // quarter of the way down every wet tile on the map, and on 4-1 that was the
+            // middle of a pool: the shelf lifted half a lake and the fall came out as a wall
+            // of water thirty metres wide. A fall is a narrow thing, so the row it is cut in
+            // has to be a row the water only crosses in a channel.
+            int wanted = river.Count / 2;
+
+            for (int step = 0; step < river.Count; step++)
+            {
+                // Outwards from the quarter mark, so the fall stays about where it was.
+                int at = step % 2 == 0 ? wanted + step / 2 : wanted - (step + 1) / 2;
+                if (at < 0 || at >= river.Count) continue;
+
+                grid.ToCoords(river[at], out _, out int row);
+
+                // Not against the map's edge. Taken a quarter down from the river's head the
+                // fall came out three tiles from the apron, where the wood is thickest and
+                // nobody can see it - and a fall nobody sees is a shelf for nothing. Halfway
+                // down the water, and no nearer the edge than this, puts it in the country
+                // the level is played in.
+                if (row < FromTheEdge || row > grid.Height - 1 - FromTheEdge) continue;
+                if (Wide(grid, row) <= Channel) return river[at];
+            }
+
+            return -1;
         }
+
+        /// <summary>How many tiles of water this row holds.</summary>
+        static int Wide(TileGrid grid, int row)
+        {
+            int wet = 0;
+
+            for (int x = 0; x < grid.Width; x++)
+            {
+                var terrain = grid[x, row];
+                if (terrain == TerrainType.Water || terrain == TerrainType.Ford) wet++;
+            }
+
+            return wet;
+        }
+
+        /// <summary>How wide the water may be, in tiles, for a fall to be cut in it.</summary>
+        const int Channel = 4;
+
+        /// <summary>How far from the map's edge a fall must stand, in tiles.</summary>
+        const int FromTheEdge = 12;
 
         /// <summary>
         /// Lifts the ground above the step. Call once, after the map is generated and before
@@ -62,7 +122,9 @@ namespace TheVeil.Sim
             var river = Course(map);
             if (river.Count < Least) return;
 
-            int step = river[river.Count / 4];
+            int step = Step(map);
+            if (step < 0) return;
+
             var grid = map.Grid;
             grid.ToCoords(step, out _, out int stepRow);
 

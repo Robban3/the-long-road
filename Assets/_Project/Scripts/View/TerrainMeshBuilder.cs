@@ -211,8 +211,19 @@ namespace TheVeil.View
                 // edge even where the ground beneath it blends — and the caller decides
                 // whether there are any, which is how the play view gets a world with
                 // no map furniture painted across it.
-                if (painted != null && painted.TryGetValue(i, out Color route))
-                    for (int k = 0; k < 4; k++) colors[v + k] = Color.Lerp(colors[v + k], route, 0.78f);
+                // <b>Corner by corner, so a road curves.</b> Painted a whole tile at a
+                // time it came out as a row of four-metre squares stepping across the
+                // meadow - the reference country has a track that bends. Each corner takes
+                // the paint in proportion to how much of the ground around it is road, so a
+                // corner inside the track is full strength, one on its edge is half, and the
+                // line between them is a slope rather than a cliff.
+                if (painted != null)
+                {
+                    PaintCorner(grid, painted, colors, v + 0, x, y);
+                    PaintCorner(grid, painted, colors, v + 1, x + 1, y);
+                    PaintCorner(grid, painted, colors, v + 2, x + 1, y + 1);
+                    PaintCorner(grid, painted, colors, v + 3, x, y + 1);
+                }
 
                 if (i == startIndex)
                     colors[v + 0] = colors[v + 1] = colors[v + 2] = colors[v + 3] = TerrainPalette.Start;
@@ -631,6 +642,54 @@ namespace TheVeil.View
                 return new Color(c.r * shade, c.g * shade, c.b * shade, c.a);
             }
         }
+
+        /// <summary>
+        /// One corner of one tile, painted by how much road meets there.
+        ///
+        /// The four tiles round a corner vote: all four road and the corner is the middle of
+        /// a track, one of four and it is the outside of a bend. <see cref="RouteEdge"/> is
+        /// what a single vote is worth, so a road of one tile still reads as a road rather
+        /// than as a stripe of grass with a shadow on it.
+        /// </summary>
+        static void PaintCorner(TileGrid grid, Dictionary<int, Color> painted, Color[] colors,
+                                int at, int cornerX, int cornerY)
+        {
+            var paint = default(Color);
+            int met = 0;
+
+            for (int dy = -1; dy <= 0; dy++)
+                for (int dx = -1; dx <= 0; dx++)
+                {
+                    int x = cornerX + dx, y = cornerY + dy;
+                    if (x < 0 || y < 0 || x >= grid.Width || y >= grid.Height) continue;
+
+                    if (!painted.TryGetValue(grid.ToIndex(x, y), out var colour)) continue;
+
+                    paint = colour;
+                    met++;
+                }
+
+            if (met == 0) return;
+
+            float strength = Mathf.Min(1f, RouteEdge + met * RoutePerTile);
+            colors[at] = Color.Lerp(colors[at], paint, strength * RouteStrength);
+        }
+
+        /// <summary>
+        /// How much paint a corner takes before any of its ground is road.
+        ///
+        /// A fifth. At a twentieth the track came out a ghost: a corner on the edge of a
+        /// road has one tile of four voting for it, and a fifth of the paint at that corner
+        /// is a line nobody can see from the air. This plus one tile's worth is a visible
+        /// edge, and two tiles - which is what a straight road gives - is the full colour.
+        /// </summary>
+        const float RouteEdge = 0.2f;
+
+        /// <summary>And how much each of the four tiles round it adds.</summary>
+        const float RoutePerTile = 0.4f;
+
+        /// <summary>How strong the paint is where the road is at its fullest.</summary>
+        const float RouteStrength = 0.78f;
 
         static Dictionary<int, Color> BuildOverlayLookup(IReadOnlyList<RouteOverlay> overlays)
         {

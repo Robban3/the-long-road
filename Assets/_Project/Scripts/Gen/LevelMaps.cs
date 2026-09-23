@@ -85,9 +85,9 @@ namespace TheVeil.Gen
             // map and the run both come through. A level flattened for one and not the
             // other would be two different countries, which is the fault this whole file
             // exists to prevent.
-            // The shelf the river comes off, first: elevation only, so nothing in a run
-            // changes. See Waterfalls.
-            Waterfalls.Carve(map);
+            // The shelf the river comes off, on the levels that have one: elevation only, so
+            // nothing in a run changes. See Waterfalls.
+            if (Waterfalls.Cuts(chapter, level)) Waterfalls.Carve(map);
 
             // And then the castle's yard, which is levelled last because it is the one
             // piece of ground that has to be flat whatever else was done to it. Cut the

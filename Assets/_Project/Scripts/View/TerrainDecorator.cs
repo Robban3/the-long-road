@@ -1316,7 +1316,7 @@ namespace TheVeil.View
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
             placed += PlaceWater(parent, grid, heightScale, waterMaterial, marshWaterMaterial);
-            placed += PlaceFalls(parent, grid, Stream(13), decor, heightScale);
+            placed += PlaceFalls(parent, grid, Stream(13), decor, heightScale, waterMaterial);
             placed += PlaceCliffs(parent, grid, Stream(7), decor, occupied, heightScale, road, town);
             placed += PlaceWillows(parent, grid, Stream(8), decor, occupied, heightScale,
                                    densityScale, road);
@@ -1743,7 +1743,7 @@ namespace TheVeil.View
         /// does not become a staircase.
         /// </summary>
         static int PlaceFalls(Transform parent, TileGrid grid, DeterministicRandom rng,
-                              BiomeDecor decor, float heightScale)
+                              BiomeDecor decor, float heightScale, Material waterMaterial)
         {
             // Either is enough: the rock alone makes the step, and the water that comes
             // over it is the river's own surface, which already falls with the ground.
@@ -1799,6 +1799,11 @@ namespace TheVeil.View
 
                 if (decor.Falls.Any)
                 {
+                // <b>Hung from the brink, not stood in the pool.</b> The pack's fall is a
+                // river plane with a sheet under its lip: seated by its foot it put the
+                // plane on the grass above and the sheet inside the rock, and the fall was
+                // invisible. Hung by its head - the plane laid on the shelf's own water
+                // surface, the sheet falling from it - it is the thing it was drawn to be.
                 var sheet = Object.Instantiate(Any(decor.Falls, rng), parent);
                 sheet.transform.position = new Vector3(x, foot, z);
                 sheet.transform.rotation = Quaternion.Euler(decor.Falls.ZUp ? -90f : 0f,
@@ -1814,9 +1819,23 @@ namespace TheVeil.View
                                                              scale.z);
 
                     box = ModelScaling.Measure(sheet);
-                    sheet.transform.position += new Vector3(x - box.center.x, foot - box.min.y, z - box.center.z);
+                    sheet.transform.position += new Vector3(x - box.center.x,
+                                                             grid.Elevation(from) * heightScale - box.max.y,
+                                                             z - box.center.z);
                 }
                 }
+
+                // <b>The falling water, built rather than fetched.</b> The pack ships a
+                // waterfall as a river plane with a lip, and every way of standing it in the
+                // step was photographed and thrown away: it lay flat on the shelf, or hung
+                // inside the rock, or came out as an orange slab in this game's light. What
+                // a fall is, is a vertical face of the river's own water - so this is one:
+                // a quad as wide as the channel and as tall as the drop, wearing the same
+                // flowing material as the river above and below it.
+                // <b>No sheet of water hung in the step.</b> Built as a quad it stood beside
+                // the fall like a pane of glass, and the river's own surface was already
+                // pouring down the rock behind it. The water falls because the ground does;
+                // what it wanted was the white at the bottom, which is the spray below.
 
                 if (decor.Whitewater.Any)
                 {
@@ -1892,6 +1911,104 @@ namespace TheVeil.View
             }
 
             return placed;
+        }
+
+        /// <summary>
+        /// One face of falling water, standing in the step between two wet tiles.
+        ///
+        /// Two quads back to back, because a quad is one-sided and a waterfall is seen from
+        /// both banks. Slightly proud of the step on each side, so the river's surface above
+        /// and the pool below meet it rather than clip through it.
+        /// </summary>
+        static void Falling(Transform parent, TileGrid grid, int from, int to, float drop,
+                            float heightScale, Material waterMaterial)
+        {
+            if (waterMaterial == null) return;
+
+            grid.ToCoords(from, out int fx, out int fy);
+            grid.ToCoords(to, out int tx, out int ty);
+
+            var above = Vec2.FromTile(grid, from);
+            var below = Vec2.FromTile(grid, to);
+
+            float x = (above.X + below.X) * 0.5f;
+            float z = (above.Y + below.Y) * 0.5f;
+            float head = grid.Elevation(from) * heightScale;
+
+            // How wide the water is here, so the sheet spans the channel and no more.
+            float wide = TileGrid.TileSize * Channel(grid, from, tx - fx, ty - fy);
+
+            for (int side = 0; side < 2; side++)
+            {
+                var face = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                face.name = "Waterfall";
+                Object.DestroyImmediate(face.GetComponent<Collider>());
+
+                face.transform.SetParent(parent, false);
+                face.transform.position = new Vector3(x, head - drop * 0.5f + FallRaise, z);
+
+                float turn = Mathf.Atan2(tx - fx, ty - fy) * Mathf.Rad2Deg + side * 180f;
+                face.transform.rotation = Quaternion.Euler(0f, turn, 0f);
+                face.transform.localScale = new Vector3(wide, drop + FallRaise * 2f, 1f);
+
+                var renderer = face.GetComponent<MeshRenderer>();
+                // <b>White water, not river water.</b> The river's material is a caustic
+                // pattern sized for a broad surface seen from above; on a six-metre vertical
+                // face it came out as a lattice of green stones. What falls over a lip is
+                // white and half transparent, and that is what this is.
+                renderer.sharedMaterial = FallingWater();
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+        }
+
+        /// <summary>How many tiles of water lie across the step, measured from one of them.</summary>
+        static int Channel(TileGrid grid, int tile, int alongX, int alongY)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            // Across the flow: if the water runs down the rows, the channel runs along them.
+            int stepX = alongY != 0 ? 1 : 0;
+            int stepY = alongX != 0 ? 1 : 0;
+
+            int wide = 1;
+
+            for (int way = -1; way <= 1; way += 2)
+                for (int step = 1; step <= 6; step++)
+                {
+                    int nx = x + stepX * step * way, ny = y + stepY * step * way;
+                    if (!grid.InBounds(nx, ny) || !IsWet(grid[nx, ny])) break;
+
+                    wide++;
+                }
+
+            return wide;
+        }
+
+        /// <summary>How far the sheet stands proud of the water above and below it, in metres.</summary>
+        const float FallRaise = 0.5f;
+
+        static Material _fallingWater;
+
+        /// <summary>The white, part-transparent water of a fall. Built once and shared.</summary>
+        static Material FallingWater()
+        {
+            if (_fallingWater != null) return _fallingWater;
+
+            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) return null;
+
+            _fallingWater = new Material(shader) { name = "Falling water" };
+            _fallingWater.SetFloat("_Surface", 1f);
+            _fallingWater.SetFloat("_Blend", 0f);
+            _fallingWater.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            _fallingWater.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            _fallingWater.SetFloat("_ZWrite", 0f);
+            _fallingWater.SetFloat("_Smoothness", 0.7f);
+            _fallingWater.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            _fallingWater.SetColor("_BaseColor", new Color(0.92f, 0.96f, 0.98f, 0.82f));
+            _fallingWater.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+
+            return _fallingWater;
         }
 
         static bool IsWet(TerrainType terrain)
@@ -2435,6 +2552,12 @@ namespace TheVeil.View
 
             // Measured rather than described. Nothing here knows where the roadway is
             // inside a bridge model, so the bridge is asked at runtime — see BridgeDeck.
+            // <b>Bedded a hand's width into the banks.</b> Fitted to the crossing it sat with
+            // its lowest plank exactly on the height of the middle of the ford - and the
+            // banks either side stand a little above that, so both ends hung clear of the
+            // ground with daylight under them. A bridge rests on its banks.
+            instance.transform.position += new Vector3(0f, -BridgeBed, 0f);
+
             var deck = instance.AddComponent<BridgeDeck>();
             deck.Measure();
 
@@ -4462,6 +4585,9 @@ namespace TheVeil.View
         /// inside the ribcage - which is what the first photograph showed it doing. A
         /// stray bone under a wheel is right; a wagon inside a ribcage is not.
         /// </summary>
+        /// <summary>How far a bridge is bedded into its banks, in metres.</summary>
+        public const float BridgeBed = 0.35f;
+
         public const float WreckStandoff = 3.2f;
 
         /// <summary>The quarter turn that puts a broken wagon on its side rather than its face.</summary>

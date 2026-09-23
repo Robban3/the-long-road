@@ -1379,6 +1379,12 @@ namespace TheVeil.Editor
                 // river plane with a lip, and stood in the step it lay flat on the shelf
                 // above it - while the water mesh, which follows the ground, was already
                 // pouring down the face. What the step needed was the rock, not more water.
+                // <b>No sheet of falling water.</b> Tried four ways - stood in the step, hung
+                // from the brink, scaled to the drop - and photographed each time: the pack's
+                // fall is a river plane with a lip, and in this game's light it renders as an
+                // orange slab hanging in the air. What reads as a fall here is the ground:
+                // Waterfalls.Carve cuts a six-metre step, the decorator walls it with rock,
+                // and the river's own surface pours down the gorge between them.
                 Falls = new PropSet(),
                 Whitewater = new PropSet(false, Load($"{SyntyNatureDir}/FX", new[]
                 {
@@ -1974,6 +1980,32 @@ namespace TheVeil.Editor
         static PropSet MeadowProps(params string[] names)
             => new PropSet(false, Load($"{MeadowDir}/Props", names));
 
+        const string MeadowPlants = "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Materials/Plants";
+
+        /// <summary>
+        /// A meadow tree in one of the pack's other leaf colours.
+        ///
+        /// <b>The pack's own, not the old pack's repainted.</b> The autumn was made by
+        /// painting the nature pack's round trees into its second and third colourways, and
+        /// standing beside the meadow pack's trees they read as orange boulders: different
+        /// artist, different silhouette, different green. This pack ships four leaf materials
+        /// of its own - the meadow tree wears the third, the fruit tree the first - so a
+        /// turned tree here is one of its own trees wearing another of its own leaves.
+        /// </summary>
+        static GameObject[] MeadowLeaf(PropSet set, int leaf, string suffix)
+        {
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+            var to = AssetDatabase.LoadAssetAtPath<Material>($"{MeadowPlants}/Tree_Mat_{leaf:00}.mat");
+
+            foreach (var from in new[] { "Tree_Mat_01", "Tree_Mat_03" })
+            {
+                var a = AssetDatabase.LoadAssetAtPath<Material>($"{MeadowPlants}/{from}.mat");
+                if (a != null && to != null && a != to) swaps[a] = to;
+            }
+
+            return Painted(set, swaps, suffix);
+        }
+
         /// <summary>
         /// The plains: a meadow, in the pack bought for it.
         ///
@@ -2002,29 +2034,36 @@ namespace TheVeil.Editor
                 Load($"{SyntyNatureDir}/Trees", new[]
                 {
                     "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02", "SM_Tree_PolyPine_Sparse_01"
-                }));
+                }),
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                    "SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_03"
+                }),
+                MeadowLeaf(Meadow("SM_Env_Tree_Meadow_01"), 2, "Turned"));
 
+            // Five green to one turned. At three to one the wood came out half orange, and
+            // what the reference has is a green country with a turned tree here and there.
             decor.Trees = Mixed(
                 Load(MeadowDir, new[]
                 {
                     "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
                     "SM_Env_Tree_Fruit_01", "SM_Env_Tree_Fruit_02", "SM_Env_Tree_Fruit_03",
-                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02"
+                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                    "SM_Env_Tree_Fruit_01", "SM_Env_Tree_Fruit_03",
+                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                    "SM_Env_Tree_Fruit_02", "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                    "SM_Env_Tree_Fruit_01", "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                    "SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_02", "SM_Env_Tree_Birch_03"
                 }),
-                // One turned tree in a handful, from the old pack: the gold and the blossom
-                // the reference has standing in the green.
-                Autumn(Synty("Trees", "SM_Tree_02", "SM_Tree_04"), 3, "Yellow", "Gold"),
-                Autumn(Synty("Trees", "SM_Tree_01"), 3, "Pink", "Blossom"));
+                MeadowLeaf(Meadow("SM_Env_Tree_Meadow_01"), 2, "Turned"),
+                MeadowLeaf(Meadow("SM_Env_Tree_Fruit_01"), 4, "Late"));
 
             decor.Birch = Meadow("SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_02",
                                  "SM_Env_Tree_Birch_03");
 
-            decor.Willows = Mixed(
-                Load($"{SyntyNatureDir}/Trees", new[]
-                {
-                    "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01", "SM_Tree_Willow_Large_01"
-                }),
-                Autumn(Synty("Trees", "SM_Tree_Willow_Medium_01"), 3, "Pink", "Blossom"));
+            decor.Willows = Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
+                                  "SM_Tree_Willow_Large_01");
 
             // The floor: wildflowers in patches and grass in every height the pack draws.
             decor.GroundCover = Meadow(
@@ -2039,6 +2078,16 @@ namespace TheVeil.Editor
                 "SM_Env_Grass_Tall_Clump_01", "SM_Env_Grass_Tall_Clump_02",
                 "SM_Env_Grass_Tall_Clump_03", "SM_Env_Grass_Tall_Clump_04",
                 "SM_Env_Grass_Tall_Clump_05",
+
+                // The tall grass twice over, and its plane with it. This is a meadow: what
+                // the country is named for is grass to the knee, and at one clump in five it
+                // was a lawn with flowers on it.
+                "SM_Env_Grass_Tall_Clump_01", "SM_Env_Grass_Tall_Clump_02",
+                "SM_Env_Grass_Tall_Clump_03", "SM_Env_Grass_Tall_Clump_04",
+                "SM_Env_Grass_Tall_Clump_05", "SM_Env_Grass_Tall_Plane_01",
+                "SM_Env_Grass_Large_01", "SM_Env_Grass_Large_02",
+                "SM_Env_Grass_Large_03", "SM_Env_Grass_Large_04",
+
                 "SM_Env_Grass_Short_Clump_01", "SM_Env_Grass_Med_Clump_02",
                 "SM_Env_Grass_Tall_Clump_03", "SM_Env_Wildflowers_01", "SM_Env_Wildflowers_03",
                 "SM_Env_Sunflower_01");
@@ -2113,12 +2162,17 @@ namespace TheVeil.Editor
             decor.GroundCover = Mixed(
                 Load(MeadowDir, new[]
                 {
+                    // Half the ground sown. It was a sixth, and a sixth of a field in crop
+                    // is a meadow somebody once ploughed.
+                    "SM_Env_CropField_Clump_01", "SM_Env_CropField_Clump_02",
+                    "SM_Env_CropField_Clump_01", "SM_Env_CropField_Clump_02",
                     "SM_Env_CropField_Clump_01", "SM_Env_CropField_Clump_02",
                     "SM_Env_CropField_Clump_01", "SM_Env_CropField_Clump_02",
                     "SM_Env_Grass_Short_Clump_01", "SM_Env_Grass_Short_Clump_02",
                     "SM_Env_Grass_Med_Clump_01", "SM_Env_Grass_Med_Clump_03",
                     "SM_Env_Wildflowers_01", "SM_Env_Wildflowers_Patch_02",
-                    "SM_Env_Flowers_Flat_01", "SM_Env_Sunflower_01"
+                    "SM_Env_Flowers_Flat_01", "SM_Env_Sunflower_01",
+                    "SM_Env_Sunflower_01", "SM_Env_Wildflowers_Patch_01"
                 }));
 
             // Hedgerow trees, and the orchard: fruit trees are what stands in a farmyard.
@@ -2144,16 +2198,22 @@ namespace TheVeil.Editor
                     "SM_Prop_Stonewall_Pillar_01"
                 }));
 
-            // The windmill on the skyline, and the cabin at the end of the lane.
-            decor.Mills = MeadowProps("SM_Bld_Windmill_01", "SM_Bld_Windmill_02");
-            decor.MillSupports = new PropSet();
+            // <b>The windmill stands in a field, not in the river.</b> Mills is the wheel on
+            // the bank and its frame goes in the water with it; a windmill put there would
+            // have its sails in the stream. Farms is the set the decorator stands on open
+            // ground near a road, which is where a mill and a farmhouse belong.
+            decor.Farms = MeadowProps("SM_Bld_Windmill_01", "SM_Bld_Windmill_02",
+                                      "SM_Bld_Windmill_01", "SM_Bld_Stone_Cabin_01");
             decor.Sheds = MeadowProps("SM_Bld_Stone_Cabin_01");
 
+            // A yard somebody works in: the cart, the hitch, the buckets - and the scarecrow,
+            // which is the one prop in any of these packs that says "this ground is sown".
             decor.Yard = Mixed(
                 Load($"{MeadowDir}/Props", new[]
                 {
-                    "SM_Prop_HandCart_01", "SM_Prop_HorseHitch_01", "SM_Prop_Camp_Crate_01",
-                    "SM_Prop_Camp_Bucket_01", "SM_Prop_Camp_Bucket_02"
+                    "SM_Prop_ScareCrow_01", "SM_Prop_HandCart_01", "SM_Prop_HorseHitch_01",
+                    "SM_Prop_Camp_Crate_01", "SM_Prop_Camp_Bucket_01", "SM_Prop_Camp_Bucket_02",
+                    "SM_Prop_Well_01", "SM_Prop_Birdhouse_01"
                 }),
                 Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_CartHay_01", "SM_Prop_Cart_01" }));
 
