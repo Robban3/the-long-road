@@ -116,12 +116,19 @@ namespace TheVeil.UI
 
             // One tab per chapter the player has reached, plus the next one — so the gate
             // that opens it is visible, rather than a chapter that simply is not there.
-            int tabs = Mathf.Clamp(campaign.HighestChapter + 1, 2, 4);
+            //
+            // <b>And every built chapter when the game is being shown.</b> With the demo
+            // switch on, everything is unlocked (Campaign.OpenAll) - but the row still
+            // stopped at four tabs, so the fifth and sixth chapters could not be reached
+            // from the menu at all. Somebody showing the game is showing the countries.
+            int tabs = campaign.OpenAll
+                ? Mathf.Max(2, DifficultyCurve.BuiltChapters)
+                : Mathf.Clamp(campaign.HighestChapter + 1, 2, 4);
 
             var row = Widgets.Node("Chapters", root);
             row.Place(new Vector2(0.5f, 1f), new Vector2(0f, -310f), new Vector2(Widgets.SafeWidth, 96f));
 
-            // Narrower as they multiply, so four tabs still fit the width they have.
+            // Narrower as they multiply, so six tabs still fit the width they have.
             float width = Mathf.Min(360f, (Widgets.SafeWidth - (tabs - 1) * 16f) / tabs);
             float start = -(tabs - 1) * (width + 16f) * 0.5f;
 
