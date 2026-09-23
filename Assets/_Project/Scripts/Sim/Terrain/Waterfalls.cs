@@ -33,6 +33,19 @@ namespace TheVeil.Sim
         /// </remarks>
         public const float Rise = 0.45f;
 
+        /// <summary>
+        /// And in the mountains, twice that: thirteen metres.
+        ///
+        /// The reference picture of this country is a fall coming out of the middle of a
+        /// rock mass twenty-five metres high. Six metres of drop under that is a trickle off
+        /// a kerb; thirteen is a fall you hear from the road.
+        /// </summary>
+        public const float MountainRise = 0.9f;
+
+        /// <summary>How far the shelf stands above the water, in this country.</summary>
+        public static float RiseFor(int chapter)
+            => Biomes.Of(chapter) == Biome.Mountain ? MountainRise : Rise;
+
         /// <summary>How far the shelf reaches either side of the river, in tiles.</summary>
         public const int Reach = 6;
 
@@ -58,12 +71,21 @@ namespace TheVeil.Sim
         public static bool Cuts(int chapter, int level)
         {
             var country = Biomes.Of(chapter);
-            if (country != Biome.Plains && country != Biome.Farmland) return false;
+            if (country != Biome.Plains && country != Biome.Farmland && country != Biome.Mountain)
+                return false;
 
-            return new DeterministicRandom(DeterministicRandom.SeedFor(chapter, level) ^ Salt).Chance(Few);
+            return new DeterministicRandom(DeterministicRandom.SeedFor(chapter, level) ^ Salt)
+                .Chance(Share(country));
         }
 
-        /// <summary>How many levels in ten have a fall.</summary>
+        /// <summary>
+        /// How many levels in ten have a fall.
+        ///
+        /// Three in the open countries. Half the mountains, because a fall down a rock face
+        /// is what that country is for.
+        /// </summary>
+        static float Share(Biome country) => country == Biome.Mountain ? 0.5f : Few;
+
         const float Few = 0.3f;
 
         const int Salt = 0x3FA11;
@@ -127,9 +149,11 @@ namespace TheVeil.Sim
         /// Lifts the ground above the step. Call once, after the map is generated and before
         /// anything reads its elevation.
         /// </summary>
-        public static void Carve(LevelMap map)
+        public static void Carve(LevelMap map, int chapter = 0)
         {
             if (map?.Grid == null) return;
+
+            float rise = chapter > 0 ? RiseFor(chapter) : Rise;
 
             var river = Course(map);
             if (river.Count < Least) return;
@@ -152,7 +176,7 @@ namespace TheVeil.Sim
                 {
                     int tile = grid.ToIndex(x, y);
 
-                    float lift = Rise * Share(grid, x, y, river, stepRow);
+                    float lift = rise * Share(grid, x, y, river, stepRow);
                     if (lift <= 0f) continue;
 
                     grid.SetElevation(tile, grid.Elevation(tile) + lift);

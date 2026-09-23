@@ -383,8 +383,15 @@ namespace TheVeil.Editor
             //
             // A tint rather than a repainted texture, because the shading in the map is
             // the only thing giving a four-thousand-triangle model its planks back.
-            material.SetColor("_BaseColor", new Color(1.45f, 1.42f, 1.38f));
-            material.SetColor("_Color", new Color(1.45f, 1.42f, 1.38f));
+            //
+            // <b>And no brighter than white.</b> It was 1.45, which is half again past what
+            // a lit surface can be: photographed at eye level in the mountains, every wreck
+            // on the level was a saturated yellow blob with a white core, and it took three
+            // guesses - the bridge, the bones, the render target - before the material log
+            // said which thing was actually over bright. A tenth over is as far as a tint
+            // can go and still be a colour.
+            material.SetColor("_BaseColor", new Color(1.10f, 1.08f, 1.05f));
+            material.SetColor("_Color", new Color(1.10f, 1.08f, 1.05f));
 
             material.SetFloat("_Smoothness", 0.15f);
             EditorUtility.SetDirty(material);

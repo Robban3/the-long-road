@@ -259,6 +259,26 @@ namespace TheVeil.View
         public PropSet Boats = new PropSet();
 
         /// <summary>
+        /// Whether the passes of this country are walled with rock.
+        ///
+        /// <b>Cliff tiles only ever happen in a town.</b> The generator draws a town's
+        /// blocks as cliff and nothing else in the game does, so the Cliffs set was dressed
+        /// and almost never used - and the mountains, which are a third bare pass, came out
+        /// as open ground with a grey tint. In a country that says yes to this, every pass
+        /// tile is a candidate for a rock face, and the roads thread between them.
+        /// </summary>
+        public bool RockPasses;
+
+        /// <summary>
+        /// How tall this country's rock faces stand, against TerrainDecorator.CliffHeight.
+        ///
+        /// One everywhere but the mountains, where a face is a wall of a ravine and five
+        /// metres is a step. At two and a bit it is eleven metres - three draught horses
+        /// stacked up - which is what the road threads between.
+        /// </summary>
+        public float CliffRise = 1f;
+
+        /// <summary>
         /// The sheet of falling water, stood in the step where a river drops. See PlaceFalls.
         /// </summary>
         public PropSet Falls = new PropSet();
@@ -1318,6 +1338,7 @@ namespace TheVeil.View
             placed += PlaceWater(parent, grid, heightScale, waterMaterial, marshWaterMaterial);
             placed += PlaceFalls(parent, grid, Stream(13), decor, heightScale, waterMaterial);
             placed += PlaceCliffs(parent, grid, Stream(7), decor, occupied, heightScale, road, town);
+            placed += PlaceTors(parent, grid, Stream(14), decor, occupied, heightScale, road);
             placed += PlaceWillows(parent, grid, Stream(8), decor, occupied, heightScale,
                                    densityScale, road);
             placed += PlaceCamps(parent, grid, Stream(9), decor, occupied, heightScale, campSites, road,
@@ -1797,46 +1818,13 @@ namespace TheVeil.View
                 x += System.Math.Sign(tx - fx) * outward;
                 z += System.Math.Sign(ty - fy) * outward;
 
-                if (decor.Falls.Any)
-                {
-                // <b>Hung from the brink, not stood in the pool.</b> The pack's fall is a
-                // river plane with a sheet under its lip: seated by its foot it put the
-                // plane on the grass above and the sheet inside the rock, and the fall was
-                // invisible. Hung by its head - the plane laid on the shelf's own water
-                // surface, the sheet falling from it - it is the thing it was drawn to be.
-                var sheet = Object.Instantiate(Any(decor.Falls, rng), parent);
-                sheet.transform.position = new Vector3(x, foot, z);
-                sheet.transform.rotation = Quaternion.Euler(decor.Falls.ZUp ? -90f : 0f,
-                                                            Mathf.Atan2(tx - fx, ty - fy) * Mathf.Rad2Deg,
-                                                            0f);
-
-                var box = ModelScaling.Measure(sheet);
-                if (box.size.y > 0.01f && box.size.x > 0.01f)
-                {
-                    var scale = sheet.transform.localScale;
-                    sheet.transform.localScale = new Vector3(scale.x * (TileGrid.TileSize * 0.9f / box.size.x),
-                                                             scale.y * ((drop + FallSpare) / box.size.y),
-                                                             scale.z);
-
-                    box = ModelScaling.Measure(sheet);
-                    sheet.transform.position += new Vector3(x - box.center.x,
-                                                             grid.Elevation(from) * heightScale - box.max.y,
-                                                             z - box.center.z);
-                }
-                }
-
-                // <b>The falling water, built rather than fetched.</b> The pack ships a
-                // waterfall as a river plane with a lip, and every way of standing it in the
-                // step was photographed and thrown away: it lay flat on the shelf, or hung
-                // inside the rock, or came out as an orange slab in this game's light. What
-                // a fall is, is a vertical face of the river's own water - so this is one:
-                // a quad as wide as the channel and as tall as the drop, wearing the same
-                // flowing material as the river above and below it.
-                // <b>No sheet of water hung in the step.</b> Built as a quad it stood beside
-                // the fall like a pane of glass, and the river's own surface was already
-                // pouring down the rock behind it. The water falls because the ground does;
-                // what it wanted was the white at the bottom, which is the spray below.
-
+                // <b>Hung by its own origin, which is the one thing it was never given.</b>
+                // Measured at last: the model runs from y 0 down to y -10, so its pivot is
+                // the brink itself and the water hangs below it; and it lies to one side of
+                // that pivot, from x -3.75 to 0, so centring it on the channel means moving
+                // it half its width back. Placed by its foot, or by its middle, or scaled to
+                // the drop and seated on the pool, it ended up flat on the shelf or inside
+                // the rock - four attempts, all of them guessing at where its nought was.
                 if (decor.Whitewater.Any)
                 {
                     var spray = Object.Instantiate(Any(decor.Whitewater, rng), parent);
@@ -1905,6 +1893,63 @@ namespace TheVeil.View
                             else if (face.min.y > ground)
                                 rock.transform.position += new Vector3(0f, ground - face.min.y - CliffShows, 0f);
                         }
+
+                // <b>And the mountain the water comes out of.</b> A lip of rock either side
+                // is a step in a field; what the reference country has is a mass of stone
+                // with the fall coming down the middle of it. So in a country built of rock,
+                // a tor is raised on each bank, two tiles clear of the channel.
+                float crowns = 0f;
+                int crowned = 0;
+
+                if (decor.RockPasses)
+                    foreach (int side in new[] { -1, 1 })
+                    {
+                        int mx = fx + (fy == ty ? 0 : side * TorFromFall);
+                        int my = fy + (fy == ty ? side * TorFromFall : 0);
+
+                        if (!grid.InBounds(mx, my)) continue;
+
+                        int at = grid.ToIndex(mx, my);
+                        if (IsWet(grid[at])) continue;
+
+                        placed += Tor(parent, grid, rng, decor, at, heightScale, new HashSet<int>(),
+                                      out float crown);
+
+                        crowns += crown;
+                        crowned++;
+                    }
+
+                // <b>The water comes over the top of the rock, not out from under it.</b>
+                // Hung at the brink - the height of the shelf's own water - the fall stood at
+                // the foot of a twenty-five metre mass of stone and could not be seen at all.
+                // What the reference country has is water coming off the crown of the rock
+                // and down its face into the pool, so the sheet hangs from the rock's own top
+                // and is cut long enough to reach the water below it.
+                if (decor.Falls.Any)
+                {
+                    var sheet = Object.Instantiate(Any(decor.Falls, rng), parent);
+
+                    float brink = grid.Elevation(from) * heightScale;
+                    float head = crowned > 0 ? crowns / crowned - FallBelowCrown : brink;
+                    float span = TileGrid.TileSize * Channel(grid, from, tx - fx, ty - fy);
+
+                    sheet.transform.rotation =
+                        Quaternion.Euler(0f, Mathf.Atan2(tx - fx, ty - fy) * Mathf.Rad2Deg, 0f);
+
+                    // Its pivot is its own head and it hangs ten metres below that (measured,
+                    // FallModelTall), and it lies to one side of that pivot - so it is moved
+                    // half its width to bring the water down the middle of the channel.
+                    sheet.transform.localScale = new Vector3(span / FallModelWide,
+                                                             (head - foot + FallRaise) / FallModelTall,
+                                                             1f);
+
+                    sheet.transform.position = new Vector3(x, head, z)
+                                               + sheet.transform.right * (span * 0.5f);
+
+                    var falling = sheet.GetComponentInChildren<MeshRenderer>();
+                    if (falling != null)
+                        falling.sharedMaterial = WaterMeshBuilder.Material(waterMaterial);
+                }
 
                 taken.Add(from);
                 placed++;
@@ -1987,6 +2032,15 @@ namespace TheVeil.View
         /// <summary>How far the sheet stands proud of the water above and below it, in metres.</summary>
         const float FallRaise = 0.5f;
 
+        /// <summary>How wide the pack's fall is drawn, in metres. Measured, not guessed.</summary>
+        const float FallModelWide = 3.75f;
+
+        /// <summary>And how far it hangs below its own pivot.</summary>
+        const float FallModelTall = 10f;
+
+        /// <summary>How far under the rock's crown the water comes over it, in metres.</summary>
+        const float FallBelowCrown = 3f;
+
         static Material _fallingWater;
 
         /// <summary>The white, part-transparent water of a fall. Built once and shared.</summary>
@@ -2054,6 +2108,9 @@ namespace TheVeil.View
 
         /// <summary>How far a cliff piece is bedded into the ground, as a share of its height.</summary>
         const float CliffBed = 0.12f;
+
+        /// <summary>How much of a walled country's passes carries a rock face.</summary>
+        const float PassRock = 0.6f;
 
         /// <summary>Whether a tile is clear of everything already taken, by this many tiles.</summary>
         static bool Apart(TileGrid grid, int tile, HashSet<int> taken, int tiles)
@@ -2294,6 +2351,157 @@ namespace TheVeil.View
         /// cannot cross for no visible reason. A cliff should look like the reason it is
         /// one.
         /// </summary>
+        /// <summary>
+        /// The mountains themselves: masses of rock built up out of the pack's pieces,
+        /// standing in the country rather than on its skyline.
+        ///
+        /// <b>Because no pack has a mountain that a caravan can drive past.</b> The skyline
+        /// peaks are three hundred metres out and scaled to be looked at, not walked under;
+        /// inside the map the tallest stone was a five-metre face. A mountain level made of
+        /// those reads as a stony field. So a tor is assembled: a ring of the biggest rock
+        /// the packs have, each piece scaled between two and five times, stacked in two or
+        /// three courses with the upper ones narrower, and a cap on top. Twenty to thirty
+        /// metres of it, which from the road is a thing you go round.
+        ///
+        /// On the high ground, away from the roads, and only in a country that asks for it
+        /// (BiomeDecor.RockPasses) - everywhere else the country is not made of this.
+        /// </summary>
+        static int PlaceTors(Transform parent, TileGrid grid, DeterministicRandom rng,
+                             BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                             HashSet<int> road)
+        {
+            if (!decor.RockPasses || !decor.Cliffs.Any) return 0;
+
+            var stood = new List<int>();
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && stood.Count < MostTors; i++)
+            {
+                if (grid[i] != TerrainType.MountainPass) continue;
+                if (road != null && road.Contains(i)) continue;
+                if (occupied.Contains(i)) continue;
+                if (!rng.Chance(TorChance)) continue;
+                if (!Apart(grid, i, stood, TorsApart)) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+                if (NearWater(grid, x, y, 3)) continue;
+
+                stood.Add(i);
+                placed += Tor(parent, grid, rng, decor, i, heightScale, occupied);
+            }
+
+            return placed;
+        }
+
+        /// <summary>One mass of rock, built up in courses.</summary>
+        static int Tor(Transform parent, TileGrid grid, DeterministicRandom rng, BiomeDecor decor,
+                       int tile, float heightScale, HashSet<int> occupied)
+            => Tor(parent, grid, rng, decor, tile, heightScale, occupied, out _);
+
+        static int Tor(Transform parent, TileGrid grid, DeterministicRandom rng, BiomeDecor decor,
+                       int tile, float heightScale, HashSet<int> occupied, out float crown)
+        {
+            var middle = Vec2.FromTile(grid, tile);
+            float foot = grid.SurfaceElevation(middle.X, middle.Y) * heightScale;
+
+            int pieces = 0;
+            int courses = rng.Range(2, 4);
+            float standing = 0f;
+
+            for (int course = 0; course < courses; course++)
+            {
+                // Narrower and shorter as it goes up, so the mass has a shoulder and a cap
+                // rather than being a column.
+                float spread = TorSpread * (1f - course * 0.3f);
+                int round = Mathf.Max(3, 7 - course * 2);
+                float tall = TorPiece * (1f - course * 0.22f);
+
+                for (int step = 0; step < round; step++)
+                {
+                    float turn = step / (float)round * Mathf.PI * 2f + rng.Range(-0.3f, 0.3f);
+                    float out_ = spread * rng.Range(0.55f, 1f);
+
+                    var rock = Object.Instantiate(Any(decor.Cliffs, rng), parent);
+                    rock.transform.rotation = Quaternion.Euler(decor.Cliffs.ZUp ? -90f : 0f,
+                                                               rng.Range(0f, 360f), 0f);
+
+                    // Named, because a tor is built in courses and every course above the
+                    // first stands on the one below rather than on the ground - which is
+                    // what the smoke test's floating check is written to catch. It skips
+                    // these by name, as it already skips the building kit's own parts.
+                    rock.name = TorPieceName + rock.name;
+
+                    ModelScaling.Fit(rock, tall * rng.Range(0.8f, 1.25f), 0f);
+
+                    var box = ModelScaling.Measure(rock);
+                    float x = middle.X + Mathf.Cos(turn) * out_;
+                    float z = middle.Y + Mathf.Sin(turn) * out_;
+
+                    // Each course set into the one below it, so the mass reads as one rock
+                    // rather than as a pile of separate ones.
+                    float sits = foot + standing - (course == 0 ? 0f : box.size.y * TorSink);
+
+                    rock.transform.position += new Vector3(x - box.center.x,
+                                                            sits - box.min.y,
+                                                            z - box.center.z);
+                    Block(rock, canopy: false);
+                    pieces++;
+                }
+
+                standing += tall * (1f - TorSink);
+            }
+
+            Claim(grid, new Bounds(new Vector3(middle.X, foot, middle.Y),
+                                   new Vector3(TorSpread * 2f, standing, TorSpread * 2f)), occupied);
+
+            crown = foot + standing;
+            return pieces;
+        }
+
+        /// <summary>Whether water lies within so many tiles.</summary>
+        static bool NearWater(TileGrid grid, int x, int y, int tiles)
+        {
+            for (int dy = -tiles; dy <= tiles; dy++)
+                for (int dx = -tiles; dx <= tiles; dx++)
+                {
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                    var terrain = grid[x + dx, y + dy];
+                    if (terrain == TerrainType.Water || terrain == TerrainType.Ford) return true;
+                }
+
+            return false;
+        }
+
+        /// <summary>What a piece of a rock mass is called. See SmokeTest.</summary>
+        public const string TorPieceName = "Tor_";
+
+        /// <summary>How many tors a level may carry.</summary>
+        const int MostTors = 7;
+
+        /// <summary>How likely a free pass tile is to carry one.</summary>
+        const float TorChance = 0.04f;
+
+        /// <summary>How far apart two tors stand, in tiles.</summary>
+        const float TorsApart = 9f;
+
+        /// <summary>How wide a tor's lowest course is, in metres from its middle.</summary>
+        const float TorSpread = 9f;
+
+        /// <summary>How tall one piece of its lowest course stands, in metres.</summary>
+        const float TorPiece = 13f;
+
+        /// <summary>How far each course sinks into the one below it, as a share of its height.</summary>
+        const float TorSink = 0.35f;
+
+        /// <summary>
+        /// How far from the falling water the rock masses beside it stand, in tiles.
+        ///
+        /// Five. At three their shoulders met over the channel and the fall was walled in:
+        /// photographed from downstream, the picture was two rocks and a sliver of water.
+        /// </summary>
+        const int TorFromFall = 5;
+
         static int PlaceCliffs(Transform parent, TileGrid grid, DeterministicRandom rng,
                                BiomeDecor decor, HashSet<int> occupied, float heightScale,
                                HashSet<int> road = null, Towns.Plan town = default)
@@ -2305,7 +2513,13 @@ namespace TheVeil.View
 
             for (int i = 0; i < grid.TileCount && placed < MaxLandmarks * 3; i++)
             {
-                if (grid[i] != TerrainType.Cliff) continue;
+                bool walled = decor.RockPasses && grid[i] == TerrainType.MountainPass;
+                if (grid[i] != TerrainType.Cliff && !walled) continue;
+
+                // Not every pass tile, or the road is a corridor of stone with no way to see
+                // out of it: two in five, which leaves gaps to look through and shoulders to
+                // walk round.
+                if (walled && !rng.Chance(PassRock)) continue;
 
                 // The town is built of impassable ground too — its walls and the block
                 // in its middle — and what stands on those is masonry, not rock. Cliff
@@ -2326,7 +2540,8 @@ namespace TheVeil.View
                 // several tiles across and the ground under it falls away, so seated on the
                 // height of its middle it hangs by the difference - measured, up to a metre
                 // clear on 2-5, 3-9 and 4-2. A tenth of its own height buries that.
-                var choice = new Choice(decor.Cliffs, Any(decor.Cliffs, rng), CliffHeight,
+                var choice = new Choice(decor.Cliffs, Any(decor.Cliffs, rng),
+                                        CliffHeight * decor.CliffRise * rng.Range(0.8f, 1.3f),
                                         byWidth: false, sink: CliffBed);
 
                 if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.2f, occupied))

@@ -127,6 +127,26 @@ namespace TheVeil.View
         /// </summary>
         public static readonly Color Track = new Color(0.66f, 0.57f, 0.40f);
 
+        /// <summary>
+        /// The mountains: stone, scree and the little grass that holds on between them.
+        ///
+        /// Everything here is a shade of the rock it stands on. The passes are bare, the
+        /// open ground is thin turf over gravel, and what trees there are stand in pockets
+        /// of darker soil - so the country reads as height and stone from the air, which is
+        /// what it is.
+        /// </summary>
+        static readonly Color[] MountainGroundColors =
+        {
+            new Color(0.52f, 0.48f, 0.42f), // Road          — gravel
+            new Color(0.48f, 0.50f, 0.38f), // Plains        — thin turf
+            new Color(0.38f, 0.42f, 0.32f), // Forest        — pine shade
+            new Color(0.40f, 0.44f, 0.38f), // Marsh         — a wet hollow
+            new Color(0.46f, 0.50f, 0.48f), // Ford          — wet stone
+            new Color(0.56f, 0.54f, 0.50f), // MountainPass  — bare rock
+            new Color(0.18f, 0.34f, 0.46f), // Water
+            new Color(0.50f, 0.47f, 0.44f)  // Cliff
+        };
+
         public static readonly Color Start = new Color(0.35f, 0.95f, 0.45f);
         public static readonly Color Goal = new Color(0.98f, 0.82f, 0.25f);
 
@@ -208,6 +228,7 @@ namespace TheVeil.View
                 case Biome.Winter: return WinterGroundColors[(int)t];
                 case Biome.Marsh: return MarshGroundColors[(int)t];
                 case Biome.Plains: return PlainsGroundColors[(int)t];
+                case Biome.Mountain: return MountainGroundColors[(int)t];
                 case Biome.Farmland: return FarmlandGroundColors[(int)t];
                 default: return GroundColors[(int)t];
             }

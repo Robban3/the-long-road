@@ -246,6 +246,11 @@ namespace TheVeil.Editor
                 // kit's own assembly rather than about the ground.
                 if (name.StartsWith("SM_Bld_")) continue;
 
+                // And the pieces of a rock mass, for the same reason: a tor is built in
+                // courses, and asking whether its second course rests on the ground is the
+                // wrong question - it rests on its first. See TerrainDecorator.Tor.
+                if (name.StartsWith(TerrainDecorator.TorPieceName)) continue;
+
                 var at = renderer.transform.position;
                 if (at.x < 0f || at.z < 0f || at.x > edgeX || at.z > edgeZ) continue;
 

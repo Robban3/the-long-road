@@ -87,7 +87,7 @@ namespace TheVeil.Gen
             // exists to prevent.
             // The shelf the river comes off, on the levels that have one: elevation only, so
             // nothing in a run changes. See Waterfalls.
-            if (Waterfalls.Cuts(chapter, level)) Waterfalls.Carve(map);
+            if (Waterfalls.Cuts(chapter, level)) Waterfalls.Carve(map, chapter);
 
             // And then the castle's yard, which is levelled last because it is the one
             // piece of ground that has to be flat whatever else was done to it. Cut the

@@ -1385,7 +1385,8 @@ namespace TheVeil.Editor
                 // orange slab hanging in the air. What reads as a fall here is the ground:
                 // Waterfalls.Carve cuts a six-metre step, the decorator walls it with rock,
                 // and the river's own surface pours down the gorge between them.
-                Falls = new PropSet(),
+                // The pack's fall, hung by its pivot at the brink. See TerrainDecorator.PlaceFalls.
+                Falls = Synty("Terrain", "SM_River_Plane_WaterFall_01"),
                 Whitewater = new PropSet(false, Load($"{SyntyNatureDir}/FX", new[]
                 {
                     "FX_Waterfall_Foam_01"
@@ -1551,7 +1552,17 @@ namespace TheVeil.Editor
                 // generated model and went through WagonImporter to get here: two and a
                 // third million triangles down to four thousand, and its two thousand
                 // pixel maps down to a thousand.
-                Wrecks = Mixed(Load(WreckDir, new[] { "BrokenWagon" })),
+                // <b>The pack's broken wagon, not the imported one.</b> The wagon that was
+                // brought in for this is a photographed model decimated to four thousand
+                // triangles: at the size a wreck has to be to read beside a man - 5.7 m of
+                // it - the surface has no planks left in it, and with the tint that was put
+                // on to lift its dark texture it came out as a smooth yellow mound. The
+                // meadow pack draws a broken wagon with its wheel off, in the same hand as
+                // everything else on the ground. The imported one is still in the project.
+                Wrecks = new PropSet(false, Load($"{MeadowDir}/Props", new[]
+                {
+                    "SM_Prop_Wagon_Broken_01"
+                })),
 
                 // **The skull is no longer debris.** Wreckage is fitted to DebrisWidth,
                 // 1.3 m across, which is about what a wheel, a crate and a barrel are and
@@ -2221,6 +2232,132 @@ namespace TheVeil.Editor
             return decor;
         }
 
+        /// <summary>
+        /// The mountains: rock, scree and the trees that hold on between them.
+        ///
+        /// <b>A ravine, not a wood on a hill.</b> Half the ground is bare pass, and the
+        /// decorator stands rock faces on it (BiomeDecor.RockPasses), so the three roads
+        /// thread between walls of stone rather than crossing an open field with a grey
+        /// tint. The wood is conifers in pockets, the floor is moss and thin grass over
+        /// gravel, and the stone comes from both packs - the nature pack's clusters and
+        /// walls for the faces, the meadow pack's outcrops and piles for what has fallen
+        /// off them.
+        /// </summary>
+        static BiomeDecor LoadMountainDecor()
+        {
+            var decor = LoadForestDecor();
+
+            decor.RockPasses = true;
+            decor.CliffRise = 2.8f;
+
+            // Conifers, and not many: what grows at height is pine, and it grows in pockets.
+            decor.Pines = Synty("Trees", "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02",
+                                "SM_Tree_PolyPine_03", "SM_Tree_PolyPine_Sparse_01",
+                                "SM_Tree_PolyPine_Sparse_02", "SM_Tree_PolyPine_Sparse_03",
+                                "SM_Tree_Pine_01", "SM_Tree_Pine_02");
+
+            decor.Trees = Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_Sparse_02",
+                    "SM_Tree_Birch_02", "SM_Tree_Birch_04"
+                }),
+                Load(MeadowDir, new[] { "SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_03" }));
+
+            decor.Birch = Synty("Trees", "SM_Tree_Birch_01", "SM_Tree_Birch_03",
+                                "SM_Tree_Birch_Small_01");
+
+            decor.Willows = Synty("Trees", "SM_Tree_Willow_Small_01");
+
+            // The faces themselves: the nature pack's walls and clusters, which are the
+            // tallest stone in the project, with the meadow pack's cliffs among them.
+            decor.Cliffs = Mixed(
+                Load($"{SyntyNatureDir}/Rocks", new[]
+                {
+                    "SM_Rock_Wall_01", "SM_Rock_Wall_02",
+                    "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_02",
+                    "SM_Rock_Cluster_Large_03", "SM_Rock_Cluster_Large_04",
+                    "SM_Rock_Cluster_Large_05", "SM_Rock_Cluster_Large_06"
+                }),
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Rock_Cliff_01", "SM_Env_Rock_Cliff_02", "SM_Env_Rock_Cliff_03"
+                }));
+
+            decor.Boulders = Mixed(
+                Load($"{SyntyNatureDir}/Rocks", new[]
+                {
+                    "SM_Rock_Boulder_01", "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_03",
+                    "SM_Rock_Cluster_Large_05"
+                }),
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Rock_Pile_04", "SM_Env_Rock_Pile_06", "SM_Env_Rock_Round_01",
+                    "SM_Env_Ground_Mound_Large_01"
+                }));
+
+            // Scree: what a mountain leaves lying about.
+            decor.Rocks = Mixed(
+                Load($"{SyntyNatureDir}/Rocks", new[]
+                {
+                    "SM_Rock_01", "SM_Rock_02", "SM_Rock_03", "SM_Rock_04",
+                    "SM_Rock_Small_01", "SM_Rock_Small_02",
+                    "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03",
+                    "SM_Rock_Pile_04", "SM_Rock_Pile_05",
+                    "SM_Rock_Tile_01", "SM_Rock_Tile_02", "SM_Rock_Tile_03"
+                }),
+                Load($"{SyntyNatureDir}/Terrain", new[]
+                {
+                    "SM_Terrain_Rubble_Pebbles_01", "SM_Terrain_Rubble_Pebbles_02",
+                    "SM_Terrain_Rubble_Pebbles_03"
+                }));
+
+            decor.Shore = Mixed(
+                Load($"{SyntyNatureDir}/Rocks", new[]
+                {
+                    "SM_Rock_Pile_01", "SM_Rock_Pile_03", "SM_Rock_Pile_Curved_01",
+                    "SM_Rock_Pile_Curved_02"
+                }),
+                Load(MeadowDir, new[] { "SM_Env_Rock_Small_Pile_01", "SM_Env_Rock_Small_Pile_02" }));
+
+            // Thin ground: moss, tufts and fern in the shelter of the stone. No flowers -
+            // nothing up here has the season for them.
+            decor.GroundCover = Mixed(
+                Load($"{SyntyNatureDir}/Plants", new[]
+                {
+                    "SM_Plant_Grass_01", "SM_Plant_Grass_03", "SM_Plant_Grass_05",
+                    "SM_Plant_Fern_01", "SM_Plant_Fern_03", "SM_Plant_Undergrowth_01"
+                }),
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Grass_Short_Clump_01", "SM_Env_Grass_Short_Clump_02",
+                    "SM_Env_Grass_Med_Clump_02", "SM_Env_Ground_Cover_01",
+                    "SM_Env_Ground_Cover_02"
+                }));
+
+            decor.Bushes = Synty("Plants", "SM_Plant_Bush_01", "SM_Plant_Bush_03",
+                                 "SM_Plant_Undergrowth_01");
+
+            decor.Deadfall = Synty("Trees", "SM_Tree_Branch_01", "SM_Tree_Log_01");
+            decor.DeadTrees = Synty("Trees", "SM_Tree_Pine_Dead_01", "SM_Tree_Dead_01",
+                                    "SM_Tree_Stump_01", "SM_Tree_Stump_03");
+
+            // Worn ground, and no dust piles: the pack's are smooth sand-coloured mounds a
+            // couple of metres across, and scattered over a mountainside they read as heaps
+            // of yellow tarpaulin. Photographed at eye level on 6-1 they were the first
+            // thing anybody would see.
+            decor.GroundPatches = new PropSet(false, Load(MeadowDir, new[]
+            {
+                "SM_Env_Ground_Cover_01", "SM_Env_Ground_Cover_03"
+            }));
+
+            decor.Horizon = Synty("Terrain", "SM_Terrain_Mountain_01",
+                                  "SM_Terrain_Mountain_02", "SM_Terrain_Mountain_03");
+
+            AssetDatabase.SaveAssets();
+            return decor;
+        }
+
         static BiomeDecor LoadMarshDecor()
         {
             var decor = LoadForestDecor();
@@ -2642,6 +2779,19 @@ namespace TheVeil.Editor
                 // The farmland: worked ground, and the clearest air in the game. Nothing
                 // stands here that somebody has not left standing, so the scatter is thinner
                 // again than the plains'.
+                // The mountains: clear cold air, a pale sky, and the country thinned because
+                // half of it is standing rock.
+                new BiomeLook
+                {
+                    Biome = Biome.Mountain,
+                    Decor = LoadMountainDecor(),
+                    Density = 0.8f,
+                    Fog = true,
+                    FogColor = new Color(0.78f, 0.82f, 0.86f),
+                    FogDensity = 0.0025f,
+                    SkyColor = new Color(0.72f, 0.82f, 0.88f)
+                },
+
                 new BiomeLook
                 {
                     Biome = Biome.Farmland,
@@ -2683,6 +2833,12 @@ namespace TheVeil.Editor
                     Biome = Biome.Plains,
                     Decor = WithoutSkyline(LoadPlainsDecor()),
                     Density = 1f
+                },
+                new BiomeLook
+                {
+                    Biome = Biome.Mountain,
+                    Decor = WithoutSkyline(LoadMountainDecor()),
+                    Density = 0.8f
                 },
                 new BiomeLook
                 {

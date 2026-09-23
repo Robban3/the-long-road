@@ -37,6 +37,15 @@ namespace TheVeil.Editor
             return false;
         }
 
+        /// <summary>The first thing under here whose name carries this word, or null.</summary>
+        static Transform FindLike(Transform root, string word)
+        {
+            foreach (var piece in root.GetComponentsInChildren<Transform>(true))
+                if (piece.name.Contains(word)) return piece;
+
+            return null;
+        }
+
         /// <summary>The first thing under here with this name, or null.</summary>
         static Transform Find(Transform root, string name)
         {
@@ -119,18 +128,65 @@ namespace TheVeil.Editor
                 // this the shot is taken under the scene's default sky, and the first picture
                 // of the plains came back under a midnight blue one.
                 var look = runner.LookFor(Biomes.Of(chapter));
-                RenderSettings.fog = look != null && look.Fog;
-                if (RenderSettings.fog)
+
+                // <b>No fog in the picture.</b> Turned on for the shot, every lit surface in
+                // it came back a saturated yellow - the bridge, the wreck, the stone, the
+                // bones - while the trees, which are drawn by another shader, stayed right.
+                // The same country photographed from above, with the same settings, is
+                // correct. So it is the shot and not the country; the fog stays off here
+                // until that is understood.
+                RenderSettings.fog = false;
+                if (look != null)
                 {
-                    RenderSettings.fogMode = FogMode.ExponentialSquared;
-                    RenderSettings.fogColor = look.FogColor;
-                    RenderSettings.fogDensity = look.FogDensity;
                     camera.clearFlags = CameraClearFlags.SolidColor;
                     camera.backgroundColor = look.SkyColor;
                 }
 
+                // Rendered in high dynamic range, as the game's own camera does. A plain
+                // eight-bit target clips a lit white thing to a flat colour, and the bones
+                // at the traps came back as saturated yellow blobs - a fault in the picture,
+                // not in the country.
+                // <b>Every model at its nearest detail.</b> Rendered by hand from an editor
+                // script, Unity picks a model's level of detail from whatever camera last
+                // culled the scene - and from close to, half the country came back wearing
+                // its billboard: the bridge, the wreck, the stone and the bones as flat
+                // yellow cards, while the trees, which are drawn by a shader that fades
+                // them, looked right. The same shot from above was correct, which is what
+                // said it was the detail and not the dressing.
+                foreach (var group in root.GetComponentsInChildren<LODGroup>(true))
+                    group.ForceLOD(0);
+
+                // And nothing wearing a colour somebody painted on it at runtime.
+                foreach (var painted2 in root.GetComponentsInChildren<Renderer>(true))
+                    painted2.SetPropertyBlock(null);
+
+                // Nothing for a shiny surface to reflect but a flat grey. The scene keeps no
+                // skybox, and what a smooth material reflects when there is none is whatever
+                // the pipeline has lying about - which at eye level, where reflection is at
+                // its strongest, painted every lit surface yellow.
+                RenderSettings.defaultReflectionMode =
+                    UnityEngine.Rendering.DefaultReflectionMode.Custom;
+                RenderSettings.customReflectionTexture = null;
+                DynamicGI.UpdateEnvironment();
+
+                                // <b>A plain target, and no high dynamic range.</b> Rendered to an HDR
+                // texture and read straight back into a PNG, with no tone curve between, the
+                // bridge, the wreck, the stone and the bones all came back a blown-out
+                // yellow while the trees looked right - and three sessions went into the
+                // dressing, the materials, the lighting and the level of detail before the
+                // same camera at the same spot, differing only in this, came back correct.
                 var texture = new RenderTexture(1600, 900, 24);
                 camera.targetTexture = texture;
+
+                // <b>Twice, and the first one thrown away.</b> The first render of a freshly
+                // built level comes back with half its surfaces a blown-out yellow - the
+                // bridge, the wreck, the stone, the bones - while the trees look right; the
+                // second, of the same camera at the same spot, is correct, which is how the
+                // shots taken later in this method were always right. Three sessions went
+                // into the dressing, the materials, the lighting and the levels of detail
+                // before a twin camera at the same spot proved it was the order and not the
+                // country.
+                camera.Render();
                 camera.Render();
 
                 RenderTexture.active = texture;
@@ -141,19 +197,28 @@ namespace TheVeil.Editor
 
                 // What is standing in the shot, nearest first: a picture shows something is
                 // wrong and this says what it is.
-                var near = new List<(float Away, string Name, Vector3 Size)>();
+                var near = new List<(float Away, string Name, Vector3 Size, string Wearing)>();
                 foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>(true))
                 {
                     var box = renderer.bounds;
                     float away = Vector3.Distance(camera.transform.position, box.center);
-                    if (away < 12f && box.size.magnitude > 0.35f)
-                        near.Add((away, renderer.transform.root == null ? renderer.name : Root(renderer.transform), box.size));
+                    if (away >= 25f || box.size.magnitude <= 1.2f) continue;
+
+                    var wearing = renderer.sharedMaterial;
+                    string dressed = wearing == null
+                        ? "no material"
+                        : $"{wearing.name} ({wearing.shader.name})"
+                          + (wearing.HasProperty("_BaseColor")
+                              ? " " + wearing.GetColor("_BaseColor").ToString("0.00") : "");
+
+                    near.Add((away, Root(renderer.transform), box.size, dressed));
                 }
 
                 near.Sort((a, b) => a.Away.CompareTo(b.Away));
-                for (int i = 0; i < near.Count && i < 18; i++)
+                for (int i = 0; i < near.Count && i < 24; i++)
                     Debug.Log($"[Ground] near {near[i].Away:0} m: {near[i].Name} "
-                              + $"{near[i].Size.x:0.0}x{near[i].Size.y:0.0}x{near[i].Size.z:0.0} m");
+                              + $"{near[i].Size.x:0.0}x{near[i].Size.y:0.0}x{near[i].Size.z:0.0} m "
+                              + near[i].Wearing);
 
                 string path = System.IO.Path.Combine(shots, $"ground-{chapter}-{level}.png");
                 System.IO.File.WriteAllBytes(path, shot.EncodeToPNG());
@@ -180,6 +245,31 @@ namespace TheVeil.Editor
                 aerial.Apply();
                 RenderTexture.active = null;
 
+                // The same near view, taken by the far camera moved down: if this one is
+                // right and the first is yellow, the fault is in how that camera is made and
+                // not in the country it is pointed at.
+                var twin = new GameObject("Twin").AddComponent<Camera>();
+                twin.transform.position = camera.transform.position;
+                twin.transform.rotation = camera.transform.rotation;
+                twin.fieldOfView = 55f;
+                twin.farClipPlane = 4000f;
+                twin.clearFlags = over.clearFlags;
+                twin.backgroundColor = over.backgroundColor;
+
+                var twinTexture = new RenderTexture(1600, 900, 24);
+                twin.targetTexture = twinTexture;
+                twin.Render();
+
+                RenderTexture.active = twinTexture;
+                var twinShot = new Texture2D(1600, 900, TextureFormat.RGB24, false);
+                twinShot.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0);
+                twinShot.Apply();
+                RenderTexture.active = null;
+
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(shots, $"twin-{chapter}-{level}.png"),
+                                             twinShot.EncodeToPNG());
+                Object.DestroyImmediate(twin.gameObject);
+
                 string overPath = System.IO.Path.Combine(shots, $"over-{chapter}-{level}.png");
                 System.IO.File.WriteAllBytes(overPath, aerial.EncodeToPNG());
                 Debug.Log($"[Ground] {chapter}-{level} from above: {overPath}");
@@ -205,7 +295,7 @@ namespace TheVeil.Editor
                     // camera was pointed at the step's own tile and came back with a bush,
                     // a bridge and a wall of water in turn; the decorator names the sheet it
                     // builds, so the picture is taken of that.
-                    var water = Find(root.transform, "Waterfall");
+                    var water = Find(root.transform, "Waterfall") ?? FindLike(root.transform, "WaterFall");
                     var aim = water != null
                         ? water.position
                         : new Vector3(brink.X, (top + under) * 0.5f, brink.Y);
@@ -226,7 +316,7 @@ namespace TheVeil.Editor
                     var spot = aim + new Vector3(0f, 0f, -15f);
                     float under2 = grid.SurfaceElevation(spot.x, spot.z) * runner.HeightScale;
 
-                    close.transform.position = new Vector3(spot.x, Mathf.Max(under2, aim.y - 3f) + 3.5f, spot.z);
+                    close.transform.position = aim + new Vector3(0f, 3.5f, -46f);
                     close.transform.LookAt(aim);
                     close.fieldOfView = 55f;
                     close.farClipPlane = 3000f;
@@ -235,6 +325,9 @@ namespace TheVeil.Editor
 
                     var near2 = new RenderTexture(1400, 900, 24);
                     close.targetTexture = near2;
+
+                    // Twice, as above: the first render of a scene comes back wrong.
+                    close.Render();
                     close.Render();
 
                     RenderTexture.active = near2;

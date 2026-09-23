@@ -355,11 +355,16 @@ namespace TheVeil.Sim
                     break;
 
                 case Biome.Mountain:
-                    // Passes and tight land forms, and a road that has to go the long way
-                    // round rather than over.
-                    recipe.TerrainMix = Mix(0.26f, 0.26f, 0.05f, 0.34f, 0.09f);
+                    // <b>A country of passes, walked as if through a ravine.</b> Half of it is
+                    // bare rock - the roads thread between the faces the decorator stands on
+                    // it (BiomeDecor.RockPasses) - with the wood in pockets and one river
+                    // across the whole of it, crossed twice.
+                    recipe.TerrainMix = Mix(0.16f, 0.22f, 0.04f, 0.50f, 0.08f);
                     recipe.FordsPerRiver = 2;
-                    recipe.NoiseScale = 13f;
+
+                    // Tighter than any other country: the land turns over in half the
+                    // distance, so a road that is level for a hundred metres is rare.
+                    recipe.NoiseScale = 10f;
                     recipe.RouteTilesStart += 8;
                     recipe.RouteTilesEnd += 8;
                     break;

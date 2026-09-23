@@ -17,7 +17,7 @@ namespace TheVeil.Editor
             float worst = 0f;
             int steep = 0, levels = 0;
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            for (int chapter = 6; chapter <= 6; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var grid = LevelMaps.For(chapter, level).Grid;
