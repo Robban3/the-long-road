@@ -349,7 +349,6 @@ namespace TheVeil.Editor
 
                 var recipe = LevelMaps.Recipe(chapter, level);
                 int seed = DeterministicRandom.SeedFor(chapter, level);
-                bool wantKill = level % 2 == 0;
 
                 var list = new System.Collections.Generic.List<Candidate>();
 
@@ -383,7 +382,6 @@ namespace TheVeil.Editor
 
                     float cost = Math.Abs(judged.Difficulty - target);
                     if (!judged.Treacherous) cost += 10f;
-                    if (judged.FastLost != wantKill) cost += FastPattern;
 
                     list.Add(new Candidate { Attempt = attempt, Judged = judged, Cost = cost });
                     if (judged.Treacherous
@@ -405,56 +403,85 @@ namespace TheVeil.Editor
                 candidates.Add(list);
             }
 
-            // The pass over the campaign: best[i][c] is the least total cost of any choice of
-            // levels up to i that ends with candidate c.
-            var best = new System.Collections.Generic.List<float[]>();
-            var from = new System.Collections.Generic.List<int[]>();
+            // The pass over the campaign: best[i][c, k] is the least total cost of any choice
+            // of levels up to i that ends with candidate c of level i, having had k fast
+            // roads kill the ordinary escort so far in this chapter.
+            //
+            // <b>The kills are a rule, not a preference.</b> They were a cost - a level whose
+            // fast road killed where the pattern wanted it to spare paid a few points of
+            // distance from the curve - and the choice simply bought its way out: rebuilt
+            // with the fifth chapter, the third chapter came out with no killing fast road
+            // at all and the fourth with eight. About half of them, in every chapter, is
+            // what the player is promised, so it is carried in the state of the search and a
+            // chapter that ends outside FewestKills..MostKills is not a chapter the choice
+            // may make.
+            int states = Campaign.LevelsPerChapter + 1;
+
+            var best = new System.Collections.Generic.List<float[,]>();
+            var from = new System.Collections.Generic.List<int[,]>();
 
             for (int i = 0; i < levels.Count; i++)
             {
                 var list = candidates[i];
-                var cost = new float[list.Count];
-                var back = new int[list.Count];
+                var cost = new float[list.Count, states];
+                var back = new int[list.Count, states];
+
+                bool first = levels[i].Level == 1;
+                bool last = levels[i].Level == Campaign.LevelsPerChapter;
 
                 for (int c = 0; c < list.Count; c++)
                 {
-                    if (i == 0 || candidates[i - 1].Count == 0)
+                    int killed = list[c].Judged.FastLost ? 1 : 0;
+
+                    for (int k = 0; k < states; k++)
                     {
-                        cost[c] = list[c].Cost;
-                        back[c] = -1;
-                        continue;
+                        cost[c, k] = float.MaxValue;
+                        back[c, k] = -1;
+
+                        // The count this candidate leaves behind it: reset at a chapter's
+                        // first level, carried on otherwise.
+                        if (first && k != killed) continue;
+                        if (last && (k < FewestKills || k > MostKills)) continue;
+
+                        if (i == 0 || candidates[i - 1].Count == 0)
+                        {
+                            if (!first) continue;
+                            cost[c, k] = list[c].Cost;
+                            continue;
+                        }
+
+                        float least = float.MaxValue;
+                        int leastFrom = -1;
+                        var previous = candidates[i - 1];
+
+                        for (int p = 0; p < previous.Count; p++)
+                        {
+                            int had = first ? 0 : k - killed;
+                            if (!first && (had < 0 || had >= states)) continue;
+
+                            float carried = first
+                                ? Cheapest(best[i - 1], p, states)
+                                : best[i - 1][p, had];
+
+                            if (carried >= float.MaxValue) continue;
+
+                            float need = previous[p].Judged.Difficulty + MinimumStep;
+                            float step = list[c].Judged.Difficulty >= need - 0.0001f
+                                ? 0f
+                                : Dip + (need - list[c].Judged.Difficulty);
+
+                            float total = carried + step;
+                            if (total >= least) continue;
+
+                            least = total;
+                            leastFrom = p;
+                        }
+
+                        if (leastFrom < 0) continue;
+
+                        cost[c, k] = least + list[c].Cost;
+                        back[c, k] = leastFrom;
                     }
-
-                    float least = float.MaxValue;
-                    int leastFrom = -1;
-                    var previous = candidates[i - 1];
-
-                    for (int p = 0; p < previous.Count; p++)
-                    {
-                        // Harder than the level before, by a fifth of a point at least.
-                        //
-                        // It was the curve's own rise, which is more than half a point a
-                        // level through chapters three and four, and a map's difficulty does
-                        // not come in steps that fine: held to it, the climb was pushed over
-                        // the curve level by level until it ran out of maps, and then the
-                        // choice bought its way out with one level easier than the last (3-10
-                        // at 23 per cent after 3-9 at 30) and one far too hard (4-10 at 45).
-                        // Staying near the curve is what the distance in each candidate's
-                        // cost is for; the climb only has to be a climb.
-                        float need = previous[p].Judged.Difficulty + MinimumStep;
-                        float step = list[c].Judged.Difficulty >= need - 0.0001f
-                            ? 0f
-                            : Dip + (need - list[c].Judged.Difficulty);
-
-                        float total = best[i - 1][p] + step;
-                        if (total >= least) continue;
-
-                        least = total;
-                        leastFrom = p;
-                    }
-
-                    cost[c] = least + list[c].Cost;
-                    back[c] = leastFrom;
                 }
 
                 best.Add(cost);
@@ -465,17 +492,41 @@ namespace TheVeil.Editor
             var picks = new int[levels.Count];
             for (int i = 0; i < picks.Length; i++) picks[i] = -1;
 
-            int last = levels.Count - 1;
-            if (candidates[last].Count > 0)
+            int end = levels.Count - 1;
+            if (candidates[end].Count > 0)
             {
-                int at = 0;
-                for (int c = 1; c < best[last].Length; c++)
-                    if (best[last][c] < best[last][at]) at = c;
+                int at = -1, state = -1;
+                float cheapest = float.MaxValue;
 
-                for (int i = last; i >= 0 && at >= 0; i--)
+                for (int c = 0; c < candidates[end].Count; c++)
+                    for (int k = 0; k < states; k++)
+                        if (best[end][c, k] < cheapest) { cheapest = best[end][c, k]; at = c; state = k; }
+
+                // <b>Said out loud rather than left as an empty chapter.</b> The kills are a
+                // hard rule and a hard rule can be impossible: a chapter whose maps never let
+                // the fast road kill four times cannot be chosen at all, and the search would
+                // otherwise come back with nothing and no reason.
+                if (at < 0)
+                    sheet.AppendLine($"[Catalogue] no chain keeps {FewestKills} to {MostKills} "
+                                     + "killing fast roads in every chapter - nothing was written");
+
+                for (int i = end; i >= 0 && at >= 0; i--)
                 {
                     picks[i] = at;
-                    at = from[i][at];
+
+                    int previous = from[i][at, state];
+                    if (levels[i].Level == 1)
+                    {
+                        // A chapter's first level carries no count into the one before it:
+                        // whichever state that level ended in is the one that was cheapest.
+                        state = i > 0 ? Ended(best[i - 1], previous, states) : -1;
+                    }
+                    else
+                    {
+                        state -= candidates[i][at].Judged.FastLost ? 1 : 0;
+                    }
+
+                    at = previous;
                 }
             }
 
@@ -530,7 +581,39 @@ namespace TheVeil.Editor
         /// <summary>How much harder than the level before each level must be: a fifth of a point.</summary>
         public const float MinimumStep = 0.002f;
 
+        /// <summary>The fewest fast roads that may kill in a chapter.</summary>
+        const int FewestKills = 4;
+
+        /// <summary>And the most.</summary>
+        const int MostKills = 6;
+
+        /// <summary>The cheapest way any choice of the level before ended, over every count.</summary>
+        static float Cheapest(float[,] best, int candidate, int states)
+        {
+            float cheapest = float.MaxValue;
+            for (int k = 0; k < states; k++)
+                if (best[candidate, k] < cheapest) cheapest = best[candidate, k];
+
+            return cheapest;
+        }
+
+        /// <summary>Which count that cheapest way ended in.</summary>
+        static int Ended(float[,] best, int candidate, int states)
+        {
+            int ended = -1;
+            float cheapest = float.MaxValue;
+
+            if (candidate < 0) return -1;
+
+            for (int k = 0; k < states; k++)
+                if (best[candidate, k] < cheapest) { cheapest = best[candidate, k]; ended = k; }
+
+            return ended;
+        }
+
         /// <summary>
+        /// Unused now the kills are a rule: kept for the note it carries.
+        ///
         /// What a fast road that kills where the pattern wanted it to spare, or the other
         /// way round, costs in the choice: ten points of distance from the curve.
         ///

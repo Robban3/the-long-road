@@ -125,7 +125,16 @@ namespace TheVeil.Editor
             // The ground, exactly as the run builds it.
             var ground = new GameObject("Ground");
             ground.transform.SetParent(root.transform, false);
-            var mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize, null, -1, -1,
+            // The three roads painted into the ground, as LevelRunner paints them. Passed
+            // null here, the pictures showed a country with no roads in it while the game
+            // had them - an instrument that does not show what ships is worse than none.
+            var tracks = new System.Collections.Generic.List<TerrainMeshBuilder.RouteOverlay>();
+            if (map.Corridors != null)
+                foreach (var road in map.Corridors)
+                    if (road?.Tiles != null)
+                        tracks.Add(new TerrainMeshBuilder.RouteOverlay(road.Tiles, TerrainPalette.Track));
+
+            var mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize, tracks, -1, -1,
                                                 runner.HeightScale, TerrainMeshBuilder.SkirtWidth, biome,
                                                 LevelMaps.Recipe(chapter, level).Town
                                                     ? Towns.Layout(map.Grid.Width, map.Grid.Height,
@@ -221,6 +230,13 @@ namespace TheVeil.Editor
                 // things that are right is a check nobody reads — which is the whole
                 // reason the bridge exemption above exists.
                 bool hangs = name.Contains("Banner");
+
+                // A tree's branches, which are their own meshes in the meadow pack and hang
+                // above the ground by construction - that is what a branch does. The trunk
+                // they belong to is measured like anything else, and it is the trunk that
+                // says whether the tree is standing on the ground. Reported as a fault, 104
+                // of them on 5-10 alone, and not one was wrong.
+                if (name.Contains("_Branches_") || name.Contains("_Leaves_LOD")) continue;
 
                 // The building kit is assembled part on part, so a chimney is eight metres
                 // clear of the ground and right to be: it is standing on a roof. Measuring

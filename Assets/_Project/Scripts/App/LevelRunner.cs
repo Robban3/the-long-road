@@ -317,8 +317,17 @@ namespace TheVeil.App
             // Biomes rather than decided here, so the planning map shows the same one.
             var biome = Biomes.Of(Chapter);
 
+            // The three roads, worn into the ground. Not the player's drawn line - that
+            // is theirs and is drawn on the plan; these are the roads the country has, and
+            // they are there before anybody chooses one. See TerrainPalette.Track.
+            var tracks = new List<TerrainMeshBuilder.RouteOverlay>();
+            if (map.Corridors != null)
+                foreach (var road in map.Corridors)
+                    if (road?.Tiles != null)
+                        tracks.Add(new TerrainMeshBuilder.RouteOverlay(road.Tiles, TerrainPalette.Track));
+
             _mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize,
-                null, -1, -1, HeightScale, TerrainMeshBuilder.SkirtWidth, biome,
+                tracks, -1, -1, HeightScale, TerrainMeshBuilder.SkirtWidth, biome,
 
                 // And the town, whose ground is laid rather than grown: the blocks the
                 // buildings stand on are cliff underneath, and bare rock brown is not

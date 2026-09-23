@@ -336,7 +336,12 @@ namespace TheVeil.Sim
                     // Open ground: the horse's country, and nowhere to hide from a bow.
                     // Broader land forms too, so the openness reads as country rather than
                     // as a missing forest.
-                    recipe.TerrainMix = Mix(0.22f, 0.58f, 0.07f, 0.06f, 0.07f);
+                    // <b>A river, not lakes.</b> At seven per cent water - the forest's own
+                    // share - the plains came out with ponds standing in the open grass,
+                    // and what a plain has is one thread of water across it. Three per
+                    // cent leaves the river its bed and little else, and the marsh share
+                    // goes with it: a damp hollow, not a bog.
+                    recipe.TerrainMix = Mix(0.22f, 0.66f, 0.04f, 0.05f, 0.03f);
                     recipe.FordsPerRiver = 4;
                     recipe.NoiseScale = 24f;
                     break;
@@ -344,7 +349,9 @@ namespace TheVeil.Sim
                 case Biome.Farmland:
                     // Country somebody lives in: fields between woodlots, and water people
                     // settled beside.
-                    recipe.TerrainMix = Mix(0.28f, 0.50f, 0.07f, 0.05f, 0.10f);
+                    // Water enough for a river and a pond at the farm, and no more: at a
+                    // tenth the fields were lakeshore. The plains' own cut is sharper still.
+                    recipe.TerrainMix = Mix(0.26f, 0.58f, 0.05f, 0.06f, 0.05f);
                     break;
 
                 case Biome.Mountain:

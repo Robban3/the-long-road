@@ -259,6 +259,14 @@ namespace TheVeil.View
         public PropSet Boats = new PropSet();
 
         /// <summary>
+        /// The sheet of falling water, stood in the step where a river drops. See PlaceFalls.
+        /// </summary>
+        public PropSet Falls = new PropSet();
+
+        /// <summary>The spray at the foot of one.</summary>
+        public PropSet Whitewater = new PropSet();
+
+        /// <summary>
         /// Laid ground: cobble, flag and dressed stone for a town's streets.
         ///
         /// Every other surface in this game is vertex colour on the terrain mesh, which
@@ -1297,6 +1305,8 @@ namespace TheVeil.View
             placed += PlaceFords(parent, grid, seed, Stream(4), decor, occupied, heightScale,
                                  found, travelled);
 
+            placed += PlacePatches(parent, grid, Stream(12), decor, heightScale,
+                                   densityScale, travelled);
             placed += PlaceGroundCover(parent, grid, Stream(5), decor, clear, occupied,
                                        heightScale, densityScale);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
@@ -1306,6 +1316,7 @@ namespace TheVeil.View
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
             placed += PlaceWater(parent, grid, heightScale, waterMaterial, marshWaterMaterial);
+            placed += PlaceFalls(parent, grid, Stream(13), decor, heightScale);
             placed += PlaceCliffs(parent, grid, Stream(7), decor, occupied, heightScale, road, town);
             placed += PlaceWillows(parent, grid, Stream(8), decor, occupied, heightScale,
                                    densityScale, road);
@@ -1719,6 +1730,228 @@ namespace TheVeil.View
         /// has never had anything on it. What the player sees is water that is somehow
         /// passable, with nothing to say why. A plank bridge says it.
         /// </summary>
+        /// <summary>
+        /// Falling water where the river drops from one tile to the next.
+        ///
+        /// <b>Measured before it was built.</b> The rivers of the fifty built levels fall at
+        /// most 2.6 m between neighbouring tiles, and only twelve levels have a step of two
+        /// metres at all - so there is no cliff in this country for a river to come over,
+        /// and a waterfall like the pack's own picture cannot be found by looking. What
+        /// there is, is the step: water dropping a man's height over a few metres, which is
+        /// a fall you hear before you see. The sheet is stood in the step and scaled to it,
+        /// the spray at its foot, and the biggest few on a level are taken so that a river
+        /// does not become a staircase.
+        /// </summary>
+        static int PlaceFalls(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, float heightScale)
+        {
+            // Either is enough: the rock alone makes the step, and the water that comes
+            // over it is the river's own surface, which already falls with the ground.
+            if (!decor.Falls.Any && !decor.Cliffs.Any) return 0;
+
+            var steps = new List<(float Drop, int From, int To)>();
+
+            for (int y = 0; y < grid.Height; y++)
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    int tile = grid.ToIndex(x, y);
+                    if (!IsWet(grid[tile])) continue;
+
+                    foreach (var (dx, dy) in Steps)
+                    {
+                        if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                        int next = grid.ToIndex(x + dx, y + dy);
+                        if (!IsWet(grid[next])) continue;
+
+                        float drop = (grid.Elevation(tile) - grid.Elevation(next)) * heightScale;
+                        if (drop >= FallLeast) steps.Add((drop, tile, next));
+                    }
+                }
+
+            steps.Sort((a, b) => b.Drop.CompareTo(a.Drop));
+
+            int placed = 0;
+            var taken = new HashSet<int>();
+
+            foreach (var (drop, from, to) in steps)
+            {
+                if (placed >= MostFalls) break;
+                if (!Apart(grid, from, taken, FallsApart)) continue;
+
+                grid.ToCoords(from, out int fx, out int fy);
+                grid.ToCoords(to, out int tx, out int ty);
+
+                // In the step itself: halfway between the two tiles, standing on the lower
+                // one's water and reaching up to the higher one's.
+                var above = Vec2.FromTile(grid, from);
+                var below = Vec2.FromTile(grid, to);
+
+                float x = (above.X + below.X) * 0.5f;
+                float z = (above.Y + below.Y) * 0.5f;
+                float foot = grid.Elevation(to) * heightScale;
+
+                // Out over the brink rather than on it: the sheet hangs off the lip, so the
+                // shelf's own water runs up to its head and the pool takes its foot.
+                float outward = TileGrid.TileSize * 0.5f;
+                x += System.Math.Sign(tx - fx) * outward;
+                z += System.Math.Sign(ty - fy) * outward;
+
+                if (decor.Falls.Any)
+                {
+                var sheet = Object.Instantiate(Any(decor.Falls, rng), parent);
+                sheet.transform.position = new Vector3(x, foot, z);
+                sheet.transform.rotation = Quaternion.Euler(decor.Falls.ZUp ? -90f : 0f,
+                                                            Mathf.Atan2(tx - fx, ty - fy) * Mathf.Rad2Deg,
+                                                            0f);
+
+                var box = ModelScaling.Measure(sheet);
+                if (box.size.y > 0.01f && box.size.x > 0.01f)
+                {
+                    var scale = sheet.transform.localScale;
+                    sheet.transform.localScale = new Vector3(scale.x * (TileGrid.TileSize * 0.9f / box.size.x),
+                                                             scale.y * ((drop + FallSpare) / box.size.y),
+                                                             scale.z);
+
+                    box = ModelScaling.Measure(sheet);
+                    sheet.transform.position += new Vector3(x - box.center.x, foot - box.min.y, z - box.center.z);
+                }
+                }
+
+                if (decor.Whitewater.Any)
+                {
+                    var spray = Object.Instantiate(Any(decor.Whitewater, rng), parent);
+                    spray.transform.position = new Vector3(x, foot, z);
+                }
+
+                // <b>The rock the fall is cut through.</b> A row of stones along the brink
+                // was a lip and nothing more; what the reference country has is a mass of
+                // rock with the river sawing through the middle of it - walls either side of
+                // the water, standing above the shelf and going down to the pool below.
+                //
+                // So the rock is laid as a block round the step rather than as a line along
+                // it: a few tiles either way, denser and taller against the channel, and the
+                // wet tiles left open for the water to come through.
+                if (decor.Cliffs.Any)
+                    for (int ahead = -MassifAlong; ahead <= 0; ahead++)
+                        for (int side = -MassifAcross; side <= MassifAcross; side++)
+                        {
+                            if (side > -CliffGap && side < CliffGap) continue;
+
+                            bool downstream = fy == ty;
+
+                            int cx = fx + (downstream ? ahead : side);
+                            int cy = fy + (downstream ? side : ahead);
+
+                            if (!grid.InBounds(cx, cy)) continue;
+
+                            int beside = grid.ToIndex(cx, cy);
+                            if (IsWet(grid[beside])) continue;
+
+                            // Thinning outwards, so the mass has a shape rather than an edge.
+                            int away = (side < 0 ? -side : side) + (ahead < 0 ? -ahead : ahead);
+                            if (away > CliffGap && !rng.Chance(1f - (away - CliffGap) * MassifThins)) continue;
+
+                            var stood = Vec2.FromTile(grid, beside);
+
+                            var rock = Object.Instantiate(Any(decor.Cliffs, rng), parent);
+                            rock.transform.rotation = Quaternion.Euler(decor.Cliffs.ZUp ? -90f : 0f,
+                                                                       rng.Range(0f, 360f), 0f);
+
+                            // Standing in the step, not buried in the bank: foot in the water
+                            // below, head above the brink. Set the other way round - the top
+                            // at the height of the ground it stands on - every piece of it was
+                            // underground and the water came over a grass edge.
+                            float rise = drop + CliffLip + rng.Range(0f, MassifCrown);
+
+                            var face = ModelScaling.Measure(rock);
+                            if (face.size.y > 0.01f) rock.transform.localScale *= rise / face.size.y;
+
+                            face = ModelScaling.Measure(rock);
+                            rock.transform.position += new Vector3(stood.X - face.center.x,
+                                                                    foot - face.min.y,
+                                                                    stood.Y - face.center.z);
+
+                            // And taken down again where the ground it stands on is higher
+                            // than the rock is tall: the shelf tapers, so a piece on its
+                            // shoulder can be buried whole. The smoke test counts those, and
+                            // counted three.
+                            float ground = grid.SurfaceElevation(stood.X, stood.Y) * heightScale;
+                            face = ModelScaling.Measure(rock);
+
+                            if (face.max.y < ground + CliffShows) Unbuild(rock);
+
+                            // And bedded where the ground under it is higher than the pool it
+                            // was stood in, so no piece of the fall's rock hangs off a slope.
+                            else if (face.min.y > ground)
+                                rock.transform.position += new Vector3(0f, ground - face.min.y - CliffShows, 0f);
+                        }
+
+                taken.Add(from);
+                placed++;
+            }
+
+            return placed;
+        }
+
+        static bool IsWet(TerrainType terrain)
+            => terrain == TerrainType.Water || terrain == TerrainType.Ford;
+
+        static readonly (int X, int Y)[] Steps = { (1, 0), (-1, 0), (0, 1), (0, -1) };
+
+        /// <summary>How far a river must drop between two tiles to be worth a sheet of water, in metres.</summary>
+        public const float FallLeast = 1.2f;
+
+        /// <summary>How much longer than the drop the sheet is cut, so it sinks into both waters.</summary>
+        const float FallSpare = 0.8f;
+
+        /// <summary>How many falls a level may have, largest first.</summary>
+        const int MostFalls = 3;
+
+        /// <summary>How far apart two falls must stand, in tiles.</summary>
+        const int FallsApart = 6;
+
+        /// <summary>How much of a road tile's length carries a patch of bare ground.</summary>
+        const float TrackPatch = 0.4f;
+
+        /// <summary>How far the rock mass reaches across the river, in tiles either side.</summary>
+        const int MassifAcross = 5;
+
+        /// <summary>How far it reaches up and down the river, in tiles.</summary>
+        const int MassifAlong = 2;
+
+        /// <summary>How fast it thins out from the channel: a fifth of the pieces per tile.</summary>
+        const float MassifThins = 0.22f;
+
+        /// <summary>How much a piece may stand above the brink, in metres.</summary>
+        const float MassifCrown = 3.5f;
+
+        /// <summary>How wide the gap in the rock is, in tiles either side of the water.</summary>
+        const int CliffGap = 2;
+
+        /// <summary>How far the lip stands above the water it drops from, in metres.</summary>
+        const float CliffLip = 0.8f;
+
+        /// <summary>How far a piece of the rock must show above its ground to be worth keeping.</summary>
+        const float CliffShows = 0.4f;
+
+        /// <summary>How far a cliff piece is bedded into the ground, as a share of its height.</summary>
+        const float CliffBed = 0.12f;
+
+        /// <summary>Whether a tile is clear of everything already taken, by this many tiles.</summary>
+        static bool Apart(TileGrid grid, int tile, HashSet<int> taken, int tiles)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            foreach (int other in taken)
+            {
+                grid.ToCoords(other, out int ox, out int oy);
+                if (Mathf.Abs(ox - x) <= tiles && Mathf.Abs(oy - y) <= tiles) return false;
+            }
+
+            return true;
+        }
+
         static int PlaceFords(Transform parent, TileGrid grid, int seed, DeterministicRandom rng,
                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
                               List<Landmark> found, IReadOnlyCollection<int> travelled)
@@ -1972,8 +2205,12 @@ namespace TheVeil.View
                 if (!Apart(grid, i, stood, 2f)) continue;
                 stood.Add(i);
 
+                // Bedded into the slope rather than set on the surface. A cliff piece is
+                // several tiles across and the ground under it falls away, so seated on the
+                // height of its middle it hangs by the difference - measured, up to a metre
+                // clear on 2-5, 3-9 and 4-2. A tenth of its own height buries that.
                 var choice = new Choice(decor.Cliffs, Any(decor.Cliffs, rng), CliffHeight,
-                                        byWidth: false);
+                                        byWidth: false, sink: CliffBed);
 
                 if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.2f, occupied))
                     placed++;
@@ -2748,6 +2985,12 @@ namespace TheVeil.View
         /// </summary>
         public const int ApronTrees = 1400;
 
+        /// <summary>How much of the apron is stone rather than wood.</summary>
+        public const float ApronStone = 0.2f;
+
+        /// <summary>How far an apron boulder is set into the ground, in metres.</summary>
+        const float ApronStoneSink = 0.6f;
+
         /// <summary>
         /// Half the width of the road left through the apron at the start and the goal.
         ///
@@ -2872,15 +3115,36 @@ namespace TheVeil.View
                 // at the edge's own height, so the two agree out here by construction.
                 float groundY = grid.SurfaceElevation(x, z) * heightScale;
 
-                var instance = Object.Instantiate(Any(wood, rng), parent);
+                // <b>Stone among the trees, which is what the edge of this country is.</b>
+                // The apron was a hedge of conifers all the way round, and every reference
+                // picture of it is a broken rim: pines standing between grey outcrops. One
+                // piece in five is stone.
+                bool stone = decor.Boulders.Any && rng.Chance(ApronStone);
+                var set = stone ? decor.Boulders : wood;
 
-                instance.transform.rotation = wood.ZUp
+                var instance = Object.Instantiate(Any(set, rng), parent);
+
+                instance.transform.rotation = set.ZUp
                     ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
                     : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
 
                 instance.transform.position = new Vector3(x, groundY, z);
-                ModelScaling.Fit(instance, PineHeight * rng.Range(TreeJitterLow, TreeJitterHigh),
-                                 groundY);
+
+                if (stone)
+                {
+                    var box = ModelScaling.Measure(instance);
+                    float wide = Mathf.Max(box.size.x, box.size.z);
+                    if (wide > 0.01f)
+                        instance.transform.localScale *= BoulderWidth * rng.Range(0.9f, 2.2f) / wide;
+
+                    box = ModelScaling.Measure(instance);
+                    instance.transform.position += new Vector3(0f, groundY - box.min.y - ApronStoneSink, 0f);
+                }
+                else
+                {
+                    ModelScaling.Fit(instance, PineHeight * rng.Range(TreeJitterLow, TreeJitterHigh),
+                                     groundY);
+                }
 
                 placed++;
             }
@@ -3006,6 +3270,90 @@ namespace TheVeil.View
         /// It also ignores the cleared corridors. Grass does not hide a route the way a
         /// nine-metre pine does, and a route swept bare of even grass looks like a road.
         /// </summary>
+        /// <summary>
+        /// Worn ground: a track down every road, and bare earth in patches off them.
+        ///
+        /// <b>This was written and never called.</b> The set, the density table, the width,
+        /// the lift off the ground and the cap on the count have all been in this file for
+        /// a long time, with a comment saying the road "in this game has so far been a
+        /// stripe of a slightly different green" - and it still was, because nothing ever
+        /// placed one. Photographed at eye level on 4-3 there was no path anywhere in the
+        /// country, which is what a player is looking at while they drive down it.
+        ///
+        /// The roads first and by name, not by the density table: the three roads are what
+        /// the level is about, and a track laid along each of them is the one thing on the
+        /// ground that says where they go. Then bare patches off them, by the table.
+        ///
+        /// Flat pieces, so a tile with any real fall in it is left alone (PatchMaxFall) and
+        /// every piece is lifted a finger's width off the ground it lies on (PatchLift).
+        /// </summary>
+        static int PlacePatches(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                BiomeDecor decor, float heightScale, float densityScale,
+                                IReadOnlyCollection<int> travelled)
+        {
+            if (!decor.GroundPatches.Any) return 0;
+
+            int placed = 0;
+            var roads = travelled == null ? new HashSet<int>() : new HashSet<int>(travelled);
+
+            foreach (int tile in roads)
+            {
+                if (placed >= MaxGroundPatches) break;
+                if (!Patchable(grid, tile, heightScale)) continue;
+
+                // A piece here and there, not a paving. The road is painted into the ground
+                // (TerrainPalette.Track); these are the gravel and the bare earth on it.
+                if (!rng.Chance(TrackPatch)) continue;
+
+                var worn = new Choice(decor.GroundPatches, Any(decor.GroundPatches, rng),
+                                      PatchWidth, byWidth: true, canopy: true);
+
+                Scatter(parent, grid, rng, worn, tile, heightScale, spread: 0.35f,
+                        lift: PatchLift, yaw: Along(grid, tile, roads, rng));
+                placed++;
+            }
+
+            // And nothing off them. Scattered by the density table it came out as brown
+            // discs all over a green meadow - worn ground is worn by something, and what
+            // wears it here is the road. The table is kept for a country that wants it.
+            return placed;
+        }
+
+        /// <summary>Whether a flat piece can be laid on this tile without cutting into it.</summary>
+        static bool Patchable(TileGrid grid, int tile, float heightScale)
+        {
+            if (tile < 0 || tile >= grid.TileCount) return false;
+
+            var terrain = grid[tile];
+            if (terrain == TerrainType.Water || terrain == TerrainType.Ford) return false;
+
+            grid.ToCoords(tile, out int x, out int y);
+            if (!grid.IsPassable(x, y)) return false;
+
+            return Fall(grid, tile, heightScale) <= PatchMaxFall;
+        }
+
+        /// <summary>
+        /// The way the road runs through a tile, as a yaw - so a track lies along it rather
+        /// than across it. Where the road turns or the tile stands alone, any way will do.
+        /// </summary>
+        static float Along(TileGrid grid, int tile, HashSet<int> roads, DeterministicRandom rng)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+                    if (!roads.Contains(grid.ToIndex(x + dx, y + dy))) continue;
+
+                    return Mathf.Atan2(dx, dy) * Mathf.Rad2Deg;
+                }
+
+            return rng.Range(0f, 360f);
+        }
+
         static int PlaceGroundCover(Transform parent, TileGrid grid, DeterministicRandom rng,
                                     BiomeDecor decor, HashSet<int> clear, HashSet<int> occupied,
                                     float heightScale, float densityScale)
@@ -4019,11 +4367,15 @@ namespace TheVeil.View
 
             var wagon = Object.Instantiate(wreck, parent);
             wagon.transform.position = new Vector3(wx, wy, wz);
-            wagon.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
 
-            // At the size it was drawn. It is a wagon and the game is full of wagons the
-            // player's own caravan is made of; one sized to a footprint instead would be
-            // a toy or a barn depending on which way round it was facing.
+            // <b>Tipped onto its side, and at a wagon's size.</b> It went down at the size
+            // it was drawn and the way it was drawn, and measured against a man that was
+            // 1.90 x 1.57 x 0.85 m standing on its face - a cart for a child, with the loose
+            // wheel lying in the air. Photographed in three turns beside a man's height, a
+            // quarter turn about its axle is the one that reads as a wagon gone over.
+            wagon.transform.rotation = Quaternion.Euler(WreckTip, rng.Range(0f, 360f), 0f);
+            ModelScaling.Fit(wagon, WreckHeight, wy);
+
             Ground(wagon, wy);
             Mark(wagon);
             _trapWrecks.Add(wagon);
@@ -4111,6 +4463,19 @@ namespace TheVeil.View
         /// stray bone under a wheel is right; a wagon inside a ribcage is not.
         /// </summary>
         public const float WreckStandoff = 3.2f;
+
+        /// <summary>The quarter turn that puts a broken wagon on its side rather than its face.</summary>
+        const float WreckTip = 90f;
+
+        /// <summary>
+        /// How high a wreck lies, in metres.
+        ///
+        /// Two and a fifth: a wagon of the caravan stands 3.2 m (VisualLibrary.WagonHeight),
+        /// and one on its side with a wheel off is about two thirds of that. Beside a man of
+        /// 1.8 m it reads as something a man could shelter behind, which is what a wreck at
+        /// the roadside is.
+        /// </summary>
+        const float WreckHeight = 2.2f;
 
         public const float DebrisWidth = 1.3f;
         public const float DebrisSpread = 2.6f;

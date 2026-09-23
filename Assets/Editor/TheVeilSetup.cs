@@ -855,7 +855,21 @@ namespace TheVeil.Editor
         }
 
         /// <summary>The nature pack's water, which the project has owned all along.</summary>
-        const string RiverMaterialPath = SyntyNaturePack + "/Materials/Water/Water_01.mat";
+        /// <summary>
+        /// The river, in the meadow pack's flowing water.
+        ///
+        /// <b>Water that moves.</b> The old pack's river is a flat tinted plane and reads as
+        /// a painted strip from the camera height this game is played at; the meadow pack
+        /// ships a stream material whose surface runs. It is the river everywhere, in every
+        /// country - a stream is a stream in the snow as much as in the grass.
+        /// </summary>
+        const string RiverMaterialPath =
+            "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Materials/Water_Stream.mat";
+
+        const string StillWaterPath = SyntyNaturePack + "/Materials/Water/Water_01.mat";
+
+        /// <summary>The fen's river: the meadow pack's stream, which the decorator tints bog-brown.</summary>
+        const string MarshRiverPath = RiverMaterialPath;
 
         /// <summary>And its swamp variant, for the standing water in a marsh.</summary>
         const string MarshMaterialPath = SyntyNaturePack + "/Materials/Water/Water_Swamp_01.mat";
@@ -1354,6 +1368,23 @@ namespace TheVeil.Editor
                 // is driving straight at it.
                 Fords = Synty("Props", "SM_Prop_Bridge_Curved_01"),
 
+                // <b>No falling water yet, and the reason is measured.</b> The rivers of the
+                // fifty built levels drop at most 2.6 m between one tile and the next, and
+                // the pack's fall is a river plane with a lip on it: stood in a step that
+                // small it lies down flat, and 4-1 came back with white plates all over the
+                // grass. TerrainDecorator.PlaceFalls is written and waiting; what it needs
+                // is a cliff for the water to come over, and that is the generator's job,
+                // not the dresser's.
+                // <b>No sheet of water: the river is its own fall.</b> The pack's fall is a
+                // river plane with a lip, and stood in the step it lay flat on the shelf
+                // above it - while the water mesh, which follows the ground, was already
+                // pouring down the face. What the step needed was the rock, not more water.
+                Falls = new PropSet(),
+                Whitewater = new PropSet(false, Load($"{SyntyNatureDir}/FX", new[]
+                {
+                    "FX_Waterfall_Foam_01"
+                })),
+
                 // Rock for the tiles the map calls cliff, which have been impassable and
                 // featureless since the generator was written.
                 //
@@ -1760,6 +1791,15 @@ namespace TheVeil.Editor
                     // only ever used the first, under which the banners come out blue and
                     // purple. The third is red and gold — settled by rendering the same
                     // prefab under all four, see CastleMockup.Swatches.
+                    // The four paints the pack ships its buildings in. See BuildingKit.Colourways.
+                    Colourways = new[]
+                    {
+                        AssetDatabase.LoadAssetAtPath<Material>($"{SyntyKnightsPack}/Materials/PolyKnights_01.mat"),
+                        AssetDatabase.LoadAssetAtPath<Material>($"{SyntyKnightsPack}/Materials/PolyKnights_02.mat"),
+                        AssetDatabase.LoadAssetAtPath<Material>($"{SyntyKnightsPack}/Materials/PolyKnights_03.mat"),
+                        AssetDatabase.LoadAssetAtPath<Material>($"{SyntyKnightsPack}/Materials/PolyKnights_04.mat")
+                    },
+
                     Livery = AssetDatabase.LoadAssetAtPath<Material>(
                         "Assets/Synty/PolygonKnights/Materials/PolyKnights_03.mat"),
 
@@ -1926,228 +1966,196 @@ namespace TheVeil.Editor
         static PropSet PaleStone(PropSet set)
             => new PropSet(false, Painted(set, StoneColour(4), "Pale"));
 
+        /// <summary>The meadow pack: the country this chapter is actually set in.</summary>
+        const string MeadowDir = "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs";
+
+        static PropSet Meadow(params string[] names) => new PropSet(false, Load(MeadowDir, names));
+
+        static PropSet MeadowProps(params string[] names)
+            => new PropSet(false, Load($"{MeadowDir}/Props", names));
+
         /// <summary>
-        /// The plains: open grass, pale stone standing out in it, and a wood in autumn.
+        /// The plains: a meadow, in the pack bought for it.
         ///
-        /// <b>What makes it not the forest.</b> The forest is conifers at the density of a
-        /// wood. Here the broadleaf trees carry the country and they stand in four colours -
-        /// green, amber, gold and blossom - with the birch among them and a pink willow by
-        /// the water, which is the pack's own picture of this country. The floor is grass
-        /// and flowers, tall tufts of it, rather than fern and mushroom; nothing here grows
-        /// in shade, because there is none. The stone is out in the open: boulder clusters
-        /// and rock walls, where the forest keeps them under its canopy.
+        /// <b>Dressed out of the meadow pack rather than out of the forest's.</b> The first
+        /// version made the plains from the forest's own models repainted into the nature
+        /// pack's autumn colourway, and from above it read as a wood that had turned - no
+        /// flowers to speak of, grass in dark tufts, and stone that belonged under a canopy.
+        /// The meadow pack has what the country is made of: wildflowers in patches, grass in
+        /// three heights, meadow and fruit trees, and pale field stone. The old pack still
+        /// carries the conifers at the treeline and the willows at the water, which it draws
+        /// better.
         /// </summary>
         static BiomeDecor LoadPlainsDecor()
         {
             var decor = LoadForestDecor();
 
-            // A handful of conifers, not a wood of them: the dark verticals a stand of
-            // gold is read against.
+            // The wood in the middle of a meadow: broad meadow trees and fruit trees, with a
+            // few of the old pack's conifers for the dark verticals at the edge of it.
             decor.Pines = Mixed(
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                    "SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_02", "SM_Env_Tree_Birch_03"
+                }),
                 Load($"{SyntyNatureDir}/Trees", new[]
                 {
-                    "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
-                    "SM_Tree_Round_04", "SM_Tree_Round_05", "SM_Tree_TallRound_01",
-                    "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_Sparse_01"
-                }),
-                Autumn(Synty("Trees", "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
-                             "SM_Tree_Round_04", "SM_Tree_Round_05", "SM_Tree_TallRound_01"),
-                       2, "Brown", "Amber"),
-                Autumn(Synty("Trees", "SM_Tree_Round_01", "SM_Tree_Round_03", "SM_Tree_Round_05",
-                             "SM_Tree_01", "SM_Tree_03"),
-                       3, "Yellow", "Gold"));
-
-            // The broadleaf share, in four colours, the blossom among them.
-            decor.Trees = Mixed(
-                Load($"{SyntyNatureDir}/Trees", new[]
-                {
-                    "SM_Tree_01", "SM_Tree_02", "SM_Tree_03", "SM_Tree_04",
-                    "SM_Tree_Large_01", "SM_Tree_Generic_01"
-                }),
-                Autumn(Synty("Trees", "SM_Tree_01", "SM_Tree_02", "SM_Tree_03", "SM_Tree_04",
-                             "SM_Tree_Large_01"), 2, "Brown", "Amber"),
-                Autumn(Synty("Trees", "SM_Tree_02", "SM_Tree_04", "SM_Tree_Generic_01"),
-                       3, "Yellow", "Gold"),
-                Autumn(Synty("Trees", "SM_Tree_01", "SM_Tree_03"), 3, "Pink", "Blossom"));
-
-            decor.Birch = Mixed(
-                Load($"{SyntyNatureDir}/Trees", new[]
-                {
-                    "SM_Tree_Birch_01", "SM_Tree_Birch_02", "SM_Tree_Birch_03",
-                    "SM_Tree_Birch_04", "SM_Tree_Birch_Small_01"
-                }),
-                Autumn(Synty("Trees", "SM_Tree_Birch_01", "SM_Tree_Birch_03", "SM_Tree_Birch_04"),
-                       3, "Yellow", "Gold"));
-
-            // The pink willow by the water, which the pack draws this country with.
-            decor.Willows = Mixed(
-                Load($"{SyntyNatureDir}/Trees", new[] { "SM_Tree_Willow_Medium_01" }),
-                Autumn(Synty("Trees", "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01",
-                             "SM_Tree_Willow_Large_01"), 3, "Pink", "Blossom"),
-                Autumn(Synty("Trees", "SM_Tree_Willow_Medium_01"), 3, "Yellow", "Gold"));
-
-            // Stone in the open, and a lot of it: the clusters and walls the pack builds its
-            // own bluffs from, at the size they were drawn.
-            decor.Boulders = PaleStone(Synty("Rocks", "SM_Rock_Boulder_01",
-                                             "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_02",
-                                             "SM_Rock_Cluster_Large_03", "SM_Rock_Cluster_Large_04",
-                                             "SM_Rock_Cluster_Large_05", "SM_Rock_Cluster_Large_06",
-                                             "SM_Rock_Wall_01", "SM_Rock_Wall_02"));
-
-            decor.Rocks = PaleStone(Synty("Rocks", "SM_Rock_01", "SM_Rock_02", "SM_Rock_03",
-                                          "SM_Rock_04", "SM_Rock_Rounded_01",
-                                          "SM_Rock_Small_01", "SM_Rock_Small_02",
-                                          "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03",
-                                          "SM_Rock_Pile_04", "SM_Rock_Pile_05"));
-
-            // The bluffs and the skyline in the same stone, so the far mountains belong to
-            // the near ones: the pack's picture is one country from the grass to the horizon.
-            decor.Cliffs = PaleStone(Synty("Rocks", "SM_Rock_Wall_01", "SM_Rock_Wall_02",
-                                           "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_03",
-                                           "SM_Rock_Cluster_Large_05"));
-            decor.Horizon = PaleStone(Synty("Terrain", "SM_Terrain_Mountain_01",
-                                            "SM_Terrain_Mountain_02", "SM_Terrain_Mountain_03"));
-            decor.Shore = PaleStone(Synty("Rocks", "SM_Rock_Pile_01", "SM_Rock_Pile_02",
-                                          "SM_Rock_Pile_03", "SM_Rock_Pile_04",
-                                          "SM_Rock_Pile_Curved_01", "SM_Rock_Pile_Curved_02"));
-
-            // Grass in tufts and flowers through it, and no mushrooms.
-            decor.GroundCover = Mixed(
-                Load($"{SyntyNatureDir}/Plants", new[]
-                {
-                    "SM_Plant_Grass_01", "SM_Plant_Grass_02", "SM_Plant_Grass_03",
-                    "SM_Plant_Grass_04", "SM_Plant_Grass_05",
-                    "SM_Plant_Grass_01", "SM_Plant_Grass_02", "SM_Plant_Grass_03",
-                    "SM_Plant_Grass_04", "SM_Plant_Grass_05",
-                    "SM_Plant_Flowers_01", "SM_Plant_FlowerPatch_01",
-                    "SM_Plant_PurpleFlower_01", "SM_Plant_01", "SM_Plant_02", "SM_Plant_03"
-                }),
-                Load($"{SyntyGenericDir}/Environment", new[]
-                {
-                    "SM_Gen_Env_Grass_Tall_01", "SM_Gen_Env_Grass_Tall_02",
-                    "SM_Gen_Env_Grass_Tall_03", "SM_Gen_Env_Grass_Tall_04",
-                    "SM_Gen_Env_Grass_Tall_01", "SM_Gen_Env_Grass_Tall_02",
-                    "SM_Gen_Env_Flowers_01", "SM_Gen_Env_Flowers_03",
-                    "SM_Gen_Env_Flowers_05", "SM_Gen_Env_Flowers_07"
+                    "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02", "SM_Tree_PolyPine_Sparse_01"
                 }));
 
-            decor.Bushes = Synty("Plants", "SM_Plant_Bush_01", "SM_Plant_Bush_02",
-                                 "SM_Plant_Bush_03", "SM_Plant_Hedge_Bush_01",
-                                 "SM_Plant_Hedge_Bush_02", "SM_Plant_Undergrowth_01");
+            decor.Trees = Mixed(
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                    "SM_Env_Tree_Fruit_01", "SM_Env_Tree_Fruit_02", "SM_Env_Tree_Fruit_03",
+                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02"
+                }),
+                // One turned tree in a handful, from the old pack: the gold and the blossom
+                // the reference has standing in the green.
+                Autumn(Synty("Trees", "SM_Tree_02", "SM_Tree_04"), 3, "Yellow", "Gold"),
+                Autumn(Synty("Trees", "SM_Tree_01"), 3, "Pink", "Blossom"));
 
-            // Little deadwood: what falls on a plain is carried off for firewood.
-            decor.Deadfall = Synty("Trees", "SM_Tree_Branch_01");
-            decor.DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Generic_Dead_01",
-                                    "SM_Tree_Stump_01", "SM_Tree_Stump_03");
+            decor.Birch = Meadow("SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_02",
+                                 "SM_Env_Tree_Birch_03");
+
+            decor.Willows = Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_Willow_Small_01", "SM_Tree_Willow_Medium_01", "SM_Tree_Willow_Large_01"
+                }),
+                Autumn(Synty("Trees", "SM_Tree_Willow_Medium_01"), 3, "Pink", "Blossom"));
+
+            // The floor: wildflowers in patches and grass in every height the pack draws.
+            decor.GroundCover = Meadow(
+                "SM_Env_Wildflowers_01", "SM_Env_Wildflowers_02", "SM_Env_Wildflowers_03",
+                "SM_Env_Wildflowers_Patch_01", "SM_Env_Wildflowers_Patch_02",
+                "SM_Env_Wildflowers_Patch_03",
+                "SM_Env_Flowers_Flat_01", "SM_Env_Flowers_Flat_02", "SM_Env_Flowers_Flat_03",
+                "SM_Env_Grass_Short_Clump_01", "SM_Env_Grass_Short_Clump_02",
+                "SM_Env_Grass_Short_Clump_03",
+                "SM_Env_Grass_Med_Clump_01", "SM_Env_Grass_Med_Clump_02",
+                "SM_Env_Grass_Med_Clump_03",
+                "SM_Env_Grass_Tall_Clump_01", "SM_Env_Grass_Tall_Clump_02",
+                "SM_Env_Grass_Tall_Clump_03", "SM_Env_Grass_Tall_Clump_04",
+                "SM_Env_Grass_Tall_Clump_05",
+                "SM_Env_Grass_Short_Clump_01", "SM_Env_Grass_Med_Clump_02",
+                "SM_Env_Grass_Tall_Clump_03", "SM_Env_Wildflowers_01", "SM_Env_Wildflowers_03",
+                "SM_Env_Sunflower_01");
+
+            decor.Bushes = Meadow("SM_Env_Bush_01", "SM_Env_Bush_02", "SM_Env_Bush_03",
+                                  "SM_Env_Grass_Bush_01");
+
+            // Field stone: loose in the grass, piled where it was cleared, and standing in
+            // outcrops.
+            decor.Rocks = Meadow("SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03",
+                                 "SM_Env_Rock_04", "SM_Env_Rock_05", "SM_Env_Rock_06",
+                                 "SM_Env_Rock_Small_01", "SM_Env_Rock_Small_Pile_01",
+                                 "SM_Env_Rock_Small_Pile_02", "SM_Env_Rock_Ground_01",
+                                 "SM_Env_Rock_Ground_02");
+
+            // <b>Outcrops, not just piles.</b> The reference country has rock standing out
+            // of the grass all over it - a five-metre face with grass growing over its
+            // shoulder - and the pile models are ankle-high rubble by comparison. The
+            // pack's own cliff pieces are what that is, so they stand in the field beside
+            // the piles rather than only at the water's edge.
+            decor.Boulders = Meadow("SM_Env_Rock_Cliff_01", "SM_Env_Rock_Cliff_02",
+                                    "SM_Env_Rock_Cliff_03",
+                                    "SM_Env_Rock_Cliff_01", "SM_Env_Rock_Cliff_02",
+                                    "SM_Env_Rock_Cliff_03",
+                                    "SM_Env_Rock_Pile_01", "SM_Env_Rock_Pile_02",
+                                    "SM_Env_Rock_Pile_03", "SM_Env_Rock_Pile_04",
+                                    "SM_Env_Rock_Pile_05", "SM_Env_Rock_Pile_06",
+                                    "SM_Env_Rock_Pile_07", "SM_Env_Rock_Round_01",
+                                    "SM_Env_Ground_Mound_Large_01", "SM_Env_Ground_Mound_Large_02");
+
+            // The faces themselves: the cliff pieces, and the pack's own great slabs for
+            // the ground that is already rock. See TerrainDecorator.PlaceFalls for the other
+            // thing this set is used for - the lip a river comes over.
+            decor.Cliffs = Meadow("SM_Env_Rock_Cliff_01", "SM_Env_Rock_Cliff_02",
+                                  "SM_Env_Rock_Cliff_03", "SM_Env_Ground_Cliff_Large_01",
+                                  "SM_Env_Ground_Cliff_Large_02");
+
+            decor.Shore = Meadow("SM_Env_Rock_Pile_01", "SM_Env_Rock_Pile_03",
+                                 "SM_Env_Rock_Small_Pile_01", "SM_Env_Rock_Small_Pile_02");
+
+            decor.Horizon = PaleStone(Synty("Terrain", "SM_Terrain_Mountain_01",
+                                            "SM_Terrain_Mountain_02", "SM_Terrain_Mountain_03"));
+
+            // The track down the road, in the pack's own worn ground.
+            decor.GroundPatches = Meadow("SM_Env_Ground_Cover_01", "SM_Env_Ground_Cover_02",
+                                         "SM_Env_Ground_Cover_03");
+
+            decor.Deadfall = Meadow("SM_Prop_Leaves_Branch_01", "SM_Prop_Leaves_Pile_01",
+                                    "SM_Prop_Leaves_Pile_02");
+            decor.DeadTrees = Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Stump_01",
+                                    "SM_Tree_Stump_03");
+
+            // A fence and a gate where the road passes somebody's ground.
+            decor.Fences = MeadowProps("SM_Prop_Meadow_Fence_01", "SM_Prop_Meadow_Fence_02",
+                                       "SM_Prop_Meadow_Fence_03", "SM_Prop_Meadow_Fence_04",
+                                       "SM_Prop_Meadow_Fence_05", "SM_Prop_Meadow_Fence_Gate_01",
+                                       "SM_Prop_Meadow_Fence_Post_01");
 
             AssetDatabase.SaveAssets();
             return decor;
         }
 
         /// <summary>
-        /// The farmland: fields, fences and the yards of the people who work them.
-        ///
-        /// <b>Made of what the packs have, and they have no farm.</b> There is no barn, no
-        /// windmill, no haystack, no plough and no standing crop anywhere in them - so a
-        /// field is worn ground with a fence round it and a hedge along it, and a farm is a
-        /// hay cart, sacks and barrels at the end of one. The trees stand in ones and twos
-        /// as they do in hedgerows rather than in stands, and the stone is off the ground
-        /// and stacked into walls, which is what happens to stone in country that is ploughed.
+        /// The farmland: the meadow pack's worked country - crops, stone walls, fences,
+        /// gates and a windmill, which no pack in this project had before.
         /// </summary>
         static BiomeDecor LoadFarmlandDecor()
         {
-            var decor = LoadForestDecor();
+            var decor = LoadPlainsDecor();
 
-            decor.Pines = Synty("Trees", "SM_Tree_Round_01", "SM_Tree_Round_02",
-                                "SM_Tree_Round_03", "SM_Tree_Round_04",
-                                "SM_Tree_PolyPine_Sparse_01");
-
-            decor.Trees = Mixed(
-                Load($"{SyntyNatureDir}/Trees", new[]
-                {
-                    "SM_Tree_01", "SM_Tree_02", "SM_Tree_03", "SM_Tree_04",
-                    "SM_Tree_Round_01", "SM_Tree_Round_05", "SM_Tree_Large_01"
-                }),
-                Autumn(Synty("Trees", "SM_Tree_02", "SM_Tree_04"), 3, "Yellow", "Gold"));
-
-            // The hedges, which are what divides one man's ground from another's.
-            decor.Bushes = Mixed(
-                Load($"{SyntyNatureDir}/Plants", new[]
-                {
-                    "SM_Plant_Hedge_Bush_01", "SM_Plant_Hedge_Bush_02",
-                    "SM_Plant_Hedge_Bush_01", "SM_Plant_Hedge_Bush_02",
-                    "SM_Plant_Bush_01", "SM_Plant_Bush_03"
-                }),
-                Load($"{SyntyGenericDir}/Environment", new[]
-                {
-                    "SM_Gen_Env_Bush_01", "SM_Gen_Env_Bush_02", "SM_Gen_Env_Bush_Large_01"
-                }));
-
-            // Worn ground laid in patches: the nearest thing the packs have to a field.
-            decor.GroundPatches = Mixed(
-                Load($"{SyntyGenericDir}/Environment", new[]
-                {
-                    "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
-                    "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04",
-                    "SM_Gen_Env_Ground_Dirt_Large_01", "SM_Gen_Env_Ground_Dirt_Large_02",
-                    "SM_Gen_Env_Ground_Dirt_Large_03"
-                }),
-                Load($"{SyntyKnightsDir}/Environments", new[]
-                {
-                    "SM_Env_Tile_Dirt_01", "SM_Env_Path_Dirt_01", "SM_Env_Path_Dirt_03"
-                }));
-
-            // Grass, flowers, and the tall stuff at the edges, which is as near a standing
-            // crop as this country gets.
+            // Standing crop, which is the whole difference between a meadow and a field.
             decor.GroundCover = Mixed(
-                Load($"{SyntyNatureDir}/Plants", new[]
+                Load(MeadowDir, new[]
                 {
-                    "SM_Plant_Grass_01", "SM_Plant_Grass_02", "SM_Plant_Grass_03",
-                    "SM_Plant_Grass_04", "SM_Plant_Grass_05",
-                    "SM_Plant_Flowers_01", "SM_Plant_FlowerPatch_01", "SM_Plant_01"
-                }),
-                Load($"{SyntyGenericDir}/Environment", new[]
-                {
-                    "SM_Gen_Env_Grass_Tall_01", "SM_Gen_Env_Grass_Tall_02",
-                    "SM_Gen_Env_Grass_Tall_03", "SM_Gen_Env_Grass_Tall_04",
-                    "SM_Gen_Env_Grass_Tall_01", "SM_Gen_Env_Grass_Tall_02",
-                    "SM_Gen_Env_Flowers_02", "SM_Gen_Env_Flowers_06"
+                    "SM_Env_CropField_Clump_01", "SM_Env_CropField_Clump_02",
+                    "SM_Env_CropField_Clump_01", "SM_Env_CropField_Clump_02",
+                    "SM_Env_Grass_Short_Clump_01", "SM_Env_Grass_Short_Clump_02",
+                    "SM_Env_Grass_Med_Clump_01", "SM_Env_Grass_Med_Clump_03",
+                    "SM_Env_Wildflowers_01", "SM_Env_Wildflowers_Patch_02",
+                    "SM_Env_Flowers_Flat_01", "SM_Env_Sunflower_01"
                 }));
 
-            // Fence and wall, twice over: a fence is what this country is made of, and the
-            // decorator draws from this set every time it divides a plot.
+            // Hedgerow trees, and the orchard: fruit trees are what stands in a farmyard.
+            decor.Trees = Meadow("SM_Env_Tree_Fruit_01", "SM_Env_Tree_Fruit_02",
+                                 "SM_Env_Tree_Fruit_03", "SM_Env_Tree_Meadow_01",
+                                 "SM_Env_Tree_Meadow_02");
+            decor.Pines = Meadow("SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02",
+                                 "SM_Env_Tree_Fruit_01", "SM_Env_Tree_Birch_02");
+
+            // Walls and fences, twice over: it is what this country is divided by.
             decor.Fences = Mixed(
-                Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_Fence_01", "SM_Prop_Fence_02" }),
-                Load($"{SyntyNatureDir}/Props", new[]
+                Load($"{MeadowDir}/Props", new[]
                 {
-                    "SM_Prop_Fence_01", "SM_Prop_Fence_02",
-                    "SM_Prop_StoneWall_01", "SM_Prop_StoneWall_02", "SM_Prop_StoneWall_03"
-                }));
-
-            // A yard in use: the carts, and the sacks, barrels and crates a harvest is
-            // carried in.
-            decor.Yard = Mixed(
-                Load($"{SyntyKnightsDir}/Props", new[]
-                {
-                    "SM_Prop_Cart_01", "SM_Prop_CartHay_01", "SM_Prop_CartWheel_01",
-                    "SM_Prop_Crate_01"
+                    "SM_Prop_Meadow_Fence_01", "SM_Prop_Meadow_Fence_02", "SM_Prop_Meadow_Fence_03",
+                    "SM_Prop_Meadow_Fence_04", "SM_Prop_Meadow_Fence_05", "SM_Prop_Meadow_Fence_06",
+                    "SM_Prop_Meadow_Fence_07", "SM_Prop_Meadow_Fence_Gate_01",
+                    "SM_Prop_Meadow_Fence_Gate_02", "SM_Prop_Meadow_Fence_Railing_01"
                 }),
-                Load($"{SyntyGenericDir}/Props", new[]
+                Load(MeadowDir, new[]
                 {
-                    "SM_Gen_Prop_Sack_01", "SM_Gen_Prop_Sack_Stack_01", "SM_Gen_Prop_Sack_Stack_02",
-                    "SM_Gen_Prop_Barrel_Wood_01", "SM_Gen_Prop_Barrel_Wood_02",
-                    "SM_Gen_Prop_Crate_01", "SM_Gen_Prop_Pot_01", "SM_Gen_Prop_Pot_03"
+                    "SM_Prop_Stonewall_Long_01", "SM_Prop_Stonewall_Small_01",
+                    "SM_Prop_Stonewall_Small_02", "SM_Prop_Stonewall_End_01",
+                    "SM_Prop_Stonewall_Pillar_01"
                 }));
 
-            // Stone off the fields rather than lying in them.
-            decor.Rocks = Synty("Rocks", "SM_Rock_Small_01", "SM_Rock_Small_02",
-                                "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Tile_01");
-            decor.Boulders = Synty("Rocks", "SM_Rock_Boulder_01", "SM_Rock_Wall_01",
-                                   "SM_Rock_Wall_02", "SM_Rock_Cluster_Large_01");
+            // The windmill on the skyline, and the cabin at the end of the lane.
+            decor.Mills = MeadowProps("SM_Bld_Windmill_01", "SM_Bld_Windmill_02");
+            decor.MillSupports = new PropSet();
+            decor.Sheds = MeadowProps("SM_Bld_Stone_Cabin_01");
 
-            decor.Deadfall = Synty("Trees", "SM_Tree_Branch_01", "SM_Tree_Log_01");
-            decor.DeadTrees = Synty("Trees", "SM_Tree_Stump_01", "SM_Tree_Stump_02",
-                                    "SM_Tree_Stump_03", "SM_Tree_Stump_04");
+            decor.Yard = Mixed(
+                Load($"{MeadowDir}/Props", new[]
+                {
+                    "SM_Prop_HandCart_01", "SM_Prop_HorseHitch_01", "SM_Prop_Camp_Crate_01",
+                    "SM_Prop_Camp_Bucket_01", "SM_Prop_Camp_Bucket_02"
+                }),
+                Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_CartHay_01", "SM_Prop_Cart_01" }));
 
             AssetDatabase.SaveAssets();
             return decor;
@@ -2515,9 +2523,13 @@ namespace TheVeil.Editor
                     Biome = Biome.Marsh,
                     Decor = LoadMarshDecor(),
 
-                    // The fen's own water in its rivers as well as its pools. A brown bog
-                    // with a clear blue river running through it is two countries.
-                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath),
+                    // <b>The fen's river runs; the fen's pools stand.</b> Both were the same
+                    // brown sheet, on the reasoning that a bog with a clear blue river
+                    // through it is two countries - which is right about the colour and
+                    // wrong about the movement. A river moves wherever it is, and the pools
+                    // keep their own still water either way: the decorator takes them from
+                    // the marsh material and the river from this one.
+                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshRiverPath),
 
                     // Half again as thick as the forest, and standing in its own air.
                     //
@@ -2553,11 +2565,17 @@ namespace TheVeil.Editor
                 {
                     Biome = Biome.Plains,
                     Decor = LoadPlainsDecor(),
-                    Density = 0.75f,
+
+                    // Full thickness, not the three quarters it was. The thinning was aimed
+                    // at the treeline and it took the grass with it, and the grass is what a
+                    // player stands in. The trees are thinned where they are chosen instead.
+                    Density = 1f,
                     Weather = One($"{SyntyNatureDir}/FX/FX_Leaves_Orange_01.prefab"),
+                    // The lightest haze in the game. At 0.0035 the far half of a level came
+                    // back washed out from above, which is a country nobody can see.
                     Fog = true,
-                    FogColor = new Color(0.82f, 0.85f, 0.80f),
-                    FogDensity = 0.0035f,
+                    FogColor = new Color(0.86f, 0.89f, 0.84f),
+                    FogDensity = 0.0012f,
                     SkyColor = new Color(0.66f, 0.80f, 0.80f)
                 },
 
@@ -2604,7 +2622,7 @@ namespace TheVeil.Editor
                 {
                     Biome = Biome.Plains,
                     Decor = WithoutSkyline(LoadPlainsDecor()),
-                    Density = 0.75f
+                    Density = 1f
                 },
                 new BiomeLook
                 {
@@ -2633,7 +2651,9 @@ namespace TheVeil.Editor
             => new PropSet(false, Load($"{SyntyNatureDir}/{group}", names));
 
         /// <summary>POLYGON Knights, the medieval pack. Y-up like the rest of Synty.</summary>
-        const string SyntyKnightsDir = "Assets/Synty/PolygonKnights/Prefabs";
+        const string SyntyKnightsPack = "Assets/Synty/PolygonKnights";
+
+        const string SyntyKnightsDir = SyntyKnightsPack + "/Prefabs";
 
         /// <summary>
         /// The arid biome pack's models, which this project has for its bones.

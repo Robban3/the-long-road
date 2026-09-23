@@ -83,6 +83,50 @@ namespace TheVeil.View
             new Color(0.40f, 0.40f, 0.43f)  // Cliff         — stone the snow will not hold
         };
 
+        /// <summary>
+        /// The plains, which are greener than the forest and yellower.
+        ///
+        /// <b>A meadow is not a clearing.</b> The forest's floor is the shaded earth a
+        /// canopy stands on, and the plains were drawn on it - so an open country came out
+        /// the colour of woodland with the trees taken away. This is grass in the light:
+        /// brighter, and with the yellow in it that summer grass has.
+        /// </summary>
+        static readonly Color[] PlainsGroundColors =
+        {
+            new Color(0.56f, 0.47f, 0.33f), // Road          — packed earth, drier
+            new Color(0.52f, 0.63f, 0.30f), // Plains        — meadow in the light
+            new Color(0.44f, 0.55f, 0.29f), // Forest        — a stand of trees in it
+            new Color(0.40f, 0.48f, 0.30f), // Marsh         — a damp hollow
+            new Color(0.46f, 0.52f, 0.45f), // Ford          — wet gravel
+            new Color(0.56f, 0.53f, 0.46f), // MountainPass  — pale stone
+            new Color(0.20f, 0.36f, 0.48f), // Water
+            new Color(0.52f, 0.49f, 0.43f)  // Cliff         — the pale bluffs
+        };
+
+        /// <summary>The farmland: grass grazed and cropped, and more bare earth in it.</summary>
+        static readonly Color[] FarmlandGroundColors =
+        {
+            new Color(0.54f, 0.45f, 0.32f), // Road
+            new Color(0.50f, 0.58f, 0.29f), // Plains        — pasture
+            new Color(0.41f, 0.50f, 0.28f), // Forest        — the woodlot
+            new Color(0.38f, 0.45f, 0.29f), // Marsh
+            new Color(0.44f, 0.50f, 0.43f), // Ford
+            new Color(0.50f, 0.48f, 0.43f), // MountainPass
+            new Color(0.20f, 0.36f, 0.48f), // Water
+            new Color(0.46f, 0.44f, 0.40f)  // Cliff
+        };
+
+        /// <summary>
+        /// The three roads, painted into the ground the caravan drives over.
+        ///
+        /// <b>A road is a line, not a scatter.</b> It was laid as separate worn patches and
+        /// from above it read as a dotted line of brown blots; every reference picture of
+        /// this country has one continuous sandy track winding through the grass. Painted
+        /// into the ground mesh it is continuous by construction, and the patches on top of
+        /// it are gravel rather than the road itself.
+        /// </summary>
+        public static readonly Color Track = new Color(0.66f, 0.57f, 0.40f);
+
         public static readonly Color Start = new Color(0.35f, 0.95f, 0.45f);
         public static readonly Color Goal = new Color(0.98f, 0.82f, 0.25f);
 
@@ -163,6 +207,8 @@ namespace TheVeil.View
             {
                 case Biome.Winter: return WinterGroundColors[(int)t];
                 case Biome.Marsh: return MarshGroundColors[(int)t];
+                case Biome.Plains: return PlainsGroundColors[(int)t];
+                case Biome.Farmland: return FarmlandGroundColors[(int)t];
                 default: return GroundColors[(int)t];
             }
         }

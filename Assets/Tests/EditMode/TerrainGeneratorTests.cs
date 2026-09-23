@@ -90,6 +90,16 @@ namespace TheVeil.Tests
         /// happens to run downhill would pass an average-based check while still lying on
         /// its own banks.
         /// </summary>
+        /// <summary>The row the river falls over, or -1 where this level has no fall.</summary>
+        static int Brink(LevelMap map)
+        {
+            int step = Waterfalls.Step(map);
+            if (step < 0) return -1;
+
+            map.Grid.ToCoords(step, out _, out int row);
+            return row;
+        }
+
         [Test]
         public void EveryRiverLiesBelowTheBanksBesideIt()
         {
@@ -104,6 +114,13 @@ namespace TheVeil.Tests
                 var map = LevelMaps.For(1, level);
                 var grid = map.Grid;
 
+                // Everywhere but the waterfall's own lip. A river lies below its banks all
+                // the way down a valley, and at the step it comes over it does not: that is
+                // what a waterfall is, and Waterfalls.Carve cuts one into every level that
+                // has a river long enough. The rule is about a channel that was dug too
+                // shallow, and it still is - one row of tiles is exempt, not the river.
+                int brink = Brink(map);
+
                 int wet = 0, sunk = 0;
 
                 for (int i = 0; i < grid.TileCount; i++)
@@ -111,6 +128,7 @@ namespace TheVeil.Tests
                     if (grid[i] != TerrainType.Water) continue;
 
                     grid.ToCoords(i, out int x, out int y);
+                    if (brink >= 0 && y >= brink - 1 && y <= brink + 1) continue;
 
                     float banks = 0f;
                     int dry = 0;
@@ -152,13 +170,20 @@ namespace TheVeil.Tests
         {
             for (int level = 1; level <= 10; level++)
             {
-                var grid = LevelMaps.For(1, level).Grid;
+                var map = LevelMaps.For(1, level);
+                var grid = map.Grid;
+
+                // Not the ford at the waterfall's lip, if one falls there: a crossing on the
+                // brink stands above the ground below it, which is the fall and not a fault.
+                // See Waterfalls and EveryRiverLiesBelowTheBanksBesideIt.
+                int brink = Brink(map);
 
                 for (int i = 0; i < grid.TileCount; i++)
                 {
                     if (grid[i] != TerrainType.Ford) continue;
 
                     grid.ToCoords(i, out int x, out int y);
+                    if (brink >= 0 && y >= brink - 2 && y <= brink + 2) continue;
 
                     float banks = 0f;
                     int dry = 0;

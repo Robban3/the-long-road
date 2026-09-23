@@ -85,6 +85,14 @@ namespace TheVeil.Gen
             // map and the run both come through. A level flattened for one and not the
             // other would be two different countries, which is the fault this whole file
             // exists to prevent.
+            // The shelf the river comes off, first: elevation only, so nothing in a run
+            // changes. See Waterfalls.
+            Waterfalls.Carve(map);
+
+            // And then the castle's yard, which is levelled last because it is the one
+            // piece of ground that has to be flat whatever else was done to it. Cut the
+            // other way round, the shelf lifted a corner of 5-10's bailey out of its own
+            // floor and CampaignRulesTests said so.
             Strongholds.Flatten(map, level);
 
             _built[(chapter, level)] = map;

@@ -161,6 +161,20 @@ namespace TheVeil.View
         /// </summary>
         public Material Livery;
 
+        /// <summary>
+        /// The colours a house may be built in: the pack's own atlas and its alternates.
+        ///
+        /// <b>Because a village of one colour is a village of one house.</b> Every building
+        /// in the game came out of the same atlas, so the town, the villages and the farms
+        /// were the same brown timber and red tile over and over. The pack ships four
+        /// colourways of that atlas - the same walls and roofs in other paints - and a
+        /// house picks one of them for itself.
+        ///
+        /// The first entry is the colour the models ship with, and it is the one that is
+        /// swapped out; leave the array empty and every house keeps it.
+        /// </summary>
+        public Material[] Colourways;
+
         public bool CanBuildHouse => Foundations.Any && Rooms.Any && Roofs.Any;
         public bool CanBuildTower => TowerShafts.Any && TowerTops.Any;
         public bool CanBuildRuin => Rooms.Any || Walls.Any;
@@ -276,7 +290,38 @@ namespace TheVeil.View
             if (crown != null && kit.Chimneys.Any && rng.Chance(HasChimney))
                 Chimney(host.transform, kit, rng, crown);
 
+            Paint(host, kit, rng);
             return host;
+        }
+
+        /// <summary>
+        /// One building, in one of the kit's colourways - chosen once for the whole house,
+        /// so its walls and its roof belong to each other.
+        ///
+        /// Swapped on the instance rather than in a prefab: a house is assembled from
+        /// several pieces that are index-matched into a style (foundation, room, roof,
+        /// chimney), and painting the pieces separately would have to keep four sets in
+        /// step for every colour. Here the house is built as it always was and then
+        /// repainted, and nothing upstream needs to know.
+        /// </summary>
+        static void Paint(GameObject host, BuildingKit kit, DeterministicRandom rng)
+        {
+            if (host == null || kit?.Colourways == null || kit.Colourways.Length < 2) return;
+
+            var plain = kit.Colourways[0];
+            var paint = kit.Colourways[rng.Range(0, kit.Colourways.Length)];
+            if (plain == null || paint == null || paint == plain) return;
+
+            foreach (var renderer in host.GetComponentsInChildren<Renderer>(true))
+            {
+                var materials = renderer.sharedMaterials;
+                bool touched = false;
+
+                for (int i = 0; i < materials.Length; i++)
+                    if (materials[i] == plain) { materials[i] = paint; touched = true; }
+
+                if (touched) renderer.sharedMaterials = materials;
+            }
         }
 
         /// <summary>Share of houses that are a single finished cottage.</summary>
