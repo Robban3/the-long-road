@@ -31,8 +31,14 @@ namespace TheVeil.Editor
     /// </summary>
     public static class SmokeTest
     {
-        /// <summary>Chapters with content. The rest are the same forest until they are built.</summary>
-        const int Chapters = 3;
+        /// <summary>
+        /// Chapters with content: the ones the catalogue has built. The rest are generated
+        /// against nothing but the roads until they are built, and look it.
+        ///
+        /// It was pinned at three, and stayed three while the fourth and fifth were built,
+        /// so nothing looked at the plains or the farmland at all.
+        /// </summary>
+        const int Chapters = TheVeil.Sim.DifficultyCurve.BuiltChapters;
 
         /// <summary>
         /// How far a prop's lowest point may sit above the ground before it is floating.
