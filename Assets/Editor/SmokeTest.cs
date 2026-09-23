@@ -317,6 +317,81 @@ namespace TheVeil.Editor
         /// tree from overhead, and only a camera down where the player's eye is shows the
         /// gap under it.
         /// </summary>
+        /// <summary>
+        /// The nearest spot on the camera's own line of sight with nothing standing in it.
+        ///
+        /// Backed off away from what it is looking at, and lifted as it goes, so the shot
+        /// keeps its angle: what it is trying to show is the country round the middle of the
+        /// level, and a metre or two further out changes nothing about that. Gives up after
+        /// a few steps and returns where it started, which is no worse than before.
+        /// </summary>
+        static Vector3 Clear(Vector3 eye, Vector3 at)
+        {
+            var back = (eye - at).normalized;
+
+            for (int step = 0; step <= ClearSteps; step++)
+            {
+                var tried = eye + back * (step * ClearStep) + Vector3.up * (step * ClearLift);
+                if (Sees(tried, at)) return tried;
+            }
+
+            return eye;
+        }
+
+        /// <summary>
+        /// Whether the camera can see what it is pointed at from here.
+        ///
+        /// <b>Standing clear is not the same as seeing.</b> Moved only until nothing had the
+        /// camera inside it, three levels of ten still came back as one rock filling the
+        /// frame: the mass was a stride in front of it. So the line itself is walked, a few
+        /// metres at a time, and a spot only counts when the whole of it is open.
+        /// </summary>
+        static bool Sees(Vector3 eye, Vector3 at)
+        {
+            float away = Vector3.Distance(eye, at);
+            var along = (at - eye).normalized;
+
+            for (float step = 0f; step < away * SeeShare; step += SeeStep)
+                if (Inside(eye + along * step)) return false;
+
+            return true;
+        }
+
+        /// <summary>How far along the line of sight is checked: the near two thirds of it.</summary>
+        const float SeeShare = 0.66f;
+
+        /// <summary>How finely it is walked, in metres.</summary>
+        const float SeeStep = 3f;
+
+        /// <summary>Whether anything standing in the scene has this point inside it.</summary>
+        static bool Inside(Vector3 point)
+        {
+            foreach (var renderer in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                var box = renderer.bounds;
+
+                // Ground and water are meant to be under the camera, not round it.
+                if (renderer.name == "Ground" || renderer.name.StartsWith("Water")) continue;
+
+                box.Expand(ClearRoom);
+                if (box.Contains(point)) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>How far back the camera steps at a time, in metres.</summary>
+        const float ClearStep = 12f;
+
+        /// <summary>And how much higher, so the shot keeps looking down on the country.</summary>
+        const float ClearLift = 6f;
+
+        /// <summary>How many steps it may take before it gives up.</summary>
+        const int ClearSteps = 6;
+
+        /// <summary>How much room the camera wants round it, in metres.</summary>
+        const float ClearRoom = 2f;
+
         static Texture2D Shoot(LevelMap map, LevelRunner runner, BiomeLook look, int village,
                                int chapter, int level)
         {
@@ -358,7 +433,12 @@ namespace TheVeil.Editor
             var eye = at + (walls.Any ? new Vector3(-135f, 100f, -135f)
                          : village >= 0 ? new Vector3(-38f, 28f, -38f)
                          : new Vector3(-26f, 17f, -26f));
-            camera.transform.position = eye;
+            // <b>And out of whatever is standing there.</b> The camera is put at a fixed
+            // offset from the level's middle, and once the mountains grew rock masses
+            // twenty-five metres high it stood inside one on three levels of ten: the
+            // chapter sheet came back with two cells of dark stone and one of a tree. It
+            // backs off along its own line of sight until nothing is in the way of it.
+            camera.transform.position = Clear(eye, at + Vector3.up * 3f);
             camera.transform.LookAt(at + Vector3.up * 3f);
             camera.fieldOfView = 50f;
             camera.farClipPlane = 900f;
@@ -376,6 +456,10 @@ namespace TheVeil.Editor
 
             var rt = new RenderTexture(ShotWidth, ShotHeight, 24);
             camera.targetTexture = rt;
+
+            // Twice, and the first thrown away: the first render of a freshly built level
+            // comes back with half its surfaces blown out. See GroundPhotos.
+            camera.Render();
             camera.Render();
 
             RenderTexture.active = rt;
