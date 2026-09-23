@@ -359,7 +359,12 @@ namespace TheVeil.Sim
                     // bare rock - the roads thread between the faces the decorator stands on
                     // it (BiomeDecor.RockPasses) - with the wood in pockets and one river
                     // across the whole of it, crossed twice.
-                    recipe.TerrainMix = Mix(0.16f, 0.22f, 0.04f, 0.50f, 0.08f);
+                    // Two thirds bare rock. At half, the chapter came out uneven: 6-2 and
+                    // 6-9 were ravines and 6-1 and 6-6 were stony meadow with pines on it,
+                    // because the rock faces and the tors are laid on pass tiles and those
+                    // levels had few. What decides how mountainous a level is, is the map
+                    // and not the dressing.
+                    recipe.TerrainMix = Mix(0.12f, 0.12f, 0.03f, 0.66f, 0.07f);
                     recipe.FordsPerRiver = 2;
 
                     // Tighter than any other country: the land turns over in half the

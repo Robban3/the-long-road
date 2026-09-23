@@ -2110,7 +2110,10 @@ namespace TheVeil.View
         const float CliffBed = 0.12f;
 
         /// <summary>How much of a walled country's passes carries a rock face.</summary>
-        const float PassRock = 0.6f;
+        // Three pass tiles in four. Photographed over the whole chapter, two in five left
+        // half the levels reading as stony meadow with pines on it - the roads have to
+        // thread between rock for the country to be what it is called.
+        const float PassRock = 0.75f;
 
         /// <summary>Whether a tile is clear of everything already taken, by this many tiles.</summary>
         static bool Apart(TileGrid grid, int tile, HashSet<int> taken, int tiles)
@@ -2477,19 +2480,22 @@ namespace TheVeil.View
         public const string TorPieceName = "Tor_";
 
         /// <summary>How many tors a level may carry.</summary>
-        const int MostTors = 7;
+        // Ten. At fourteen, with two thirds of the country bare rock under them, the
+        // chapter sheet came back with the camera inside a tor on three levels of ten -
+        // a country you cannot see across is not a country you can drive through either.
+        const int MostTors = 10;
 
         /// <summary>How likely a free pass tile is to carry one.</summary>
-        const float TorChance = 0.04f;
+        const float TorChance = 0.1f;
 
         /// <summary>How far apart two tors stand, in tiles.</summary>
-        const float TorsApart = 9f;
+        const float TorsApart = 7f;
 
         /// <summary>How wide a tor's lowest course is, in metres from its middle.</summary>
-        const float TorSpread = 9f;
+        const float TorSpread = 8f;
 
         /// <summary>How tall one piece of its lowest course stands, in metres.</summary>
-        const float TorPiece = 13f;
+        const float TorPiece = 10f;
 
         /// <summary>How far each course sinks into the one below it, as a share of its height.</summary>
         const float TorSink = 0.35f;

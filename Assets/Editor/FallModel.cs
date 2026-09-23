@@ -16,15 +16,37 @@ namespace TheVeil.Editor
     {
         public static void Run()
         {
-            const string path =
-                "Assets/Synty/PolygonNature/Prefabs/Terrain/SM_River_Plane_WaterFall_01.prefab";
+            string[] rocks =
+            {
+                "Assets/Synty/PolygonNature/Prefabs/Rocks/SM_Rock_Wall_01.prefab",
+                "Assets/Synty/PolygonNature/Prefabs/Rocks/SM_Rock_Cluster_Large_01.prefab",
+                "Assets/Synty/PolygonNature/Prefabs/Rocks/SM_Rock_Cluster_Large_04.prefab",
+                "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Rock_Cliff_01.prefab",
+                "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Rock_Cliff_02.prefab",
+                "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Rock_Cliff_03.prefab"
+            };
 
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (prefab == null) { Debug.Log("[FallModel] missing " + path); return; }
+            var piece = new GameObject("Row");
+            float along = 0f;
 
-            var piece = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            piece.transform.position = Vector3.zero;
-            piece.transform.rotation = Quaternion.identity;
+            foreach (var one in rocks)
+            {
+                var model = AssetDatabase.LoadAssetAtPath<GameObject>(one);
+                if (model == null) { Debug.Log("[FallModel] missing " + one); continue; }
+
+                var stood = (GameObject)PrefabUtility.InstantiatePrefab(model, piece.transform);
+                ModelScaling.Fit(stood, 10f, 0f);
+
+                var box = ModelScaling.Measure(stood);
+                stood.transform.position += new Vector3(along - box.center.x, -box.min.y, -box.center.z);
+                along += Mathf.Max(box.size.x, 6f) + 4f;
+
+                var wears = stood.GetComponentInChildren<MeshRenderer>();
+                Debug.Log($"[FallModel] {model.name}: "
+                          + (wears == null || wears.sharedMaterial == null
+                                 ? "no material"
+                                 : wears.sharedMaterial.name + " " + wears.sharedMaterial.shader.name));
+            }
 
             var whole = ModelScaling.Measure(piece);
             Debug.Log($"[FallModel] whole: size {whole.size.x:0.00} x {whole.size.y:0.00} x {whole.size.z:0.00} m, "

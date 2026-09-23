@@ -2243,6 +2243,27 @@ namespace TheVeil.Editor
         /// walls for the faces, the meadow pack's outcrops and piles for what has fallen
         /// off them.
         /// </summary>
+        /// <summary>
+        /// The pack's snowed rock, in plain stone.
+        ///
+        /// <b>Two of its rock clusters ship wearing snow.</b> SM_Rock_Cluster_Large_03 and
+        /// _06 carry PolygonNature_Snow_01 rather than the pack's own atlas, and built into
+        /// a tor twenty-five metres high they came out as slabs of white among the brown -
+        /// the thing that looked like broken material in every photograph of the mountains
+        /// and took a count of what the masses were made of to find.
+        /// </summary>
+        static PropSet DryStone(PropSet set)
+        {
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+
+            var snow = AssetDatabase.LoadAssetAtPath<Material>($"{NatureMaterials}/Alts/PolygonNature_Snow_01.mat");
+            var stone = AssetDatabase.LoadAssetAtPath<Material>($"{NatureMaterials}/Alts/PolygonNature_01.mat");
+
+            if (snow != null && stone != null) swaps[snow] = stone;
+
+            return new PropSet(false, Painted(set, swaps, "Dry"));
+        }
+
         static BiomeDecor LoadMountainDecor()
         {
             var decor = LoadForestDecor();
@@ -2271,30 +2292,21 @@ namespace TheVeil.Editor
 
             // The faces themselves: the nature pack's walls and clusters, which are the
             // tallest stone in the project, with the meadow pack's cliffs among them.
-            decor.Cliffs = Mixed(
-                Load($"{SyntyNatureDir}/Rocks", new[]
-                {
-                    "SM_Rock_Wall_01", "SM_Rock_Wall_02",
-                    "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_02",
-                    "SM_Rock_Cluster_Large_03", "SM_Rock_Cluster_Large_04",
-                    "SM_Rock_Cluster_Large_05", "SM_Rock_Cluster_Large_06"
-                }),
-                Load(MeadowDir, new[]
-                {
-                    "SM_Env_Rock_Cliff_01", "SM_Env_Rock_Cliff_02", "SM_Env_Rock_Cliff_03"
-                }));
+            // <b>The old pack's stone only, because this one is scaled.</b> The meadow
+            // pack's cliffs wear a triplanar material - it maps its texture by where a
+            // surface is in the world, not by the model's own skin - and a tor blows each
+            // piece up three to five times: photographed from above, 6-1's masses came back
+            // as slabs of white plastic. The nature pack's rocks carry a plain atlas and
+            // scale without complaint.
+            decor.Cliffs = DryStone(Synty("Rocks", "SM_Rock_Wall_01", "SM_Rock_Wall_02",
+                                 "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_02",
+                                 "SM_Rock_Cluster_Large_03", "SM_Rock_Cluster_Large_04",
+                                 "SM_Rock_Cluster_Large_05", "SM_Rock_Cluster_Large_06"));
 
-            decor.Boulders = Mixed(
-                Load($"{SyntyNatureDir}/Rocks", new[]
-                {
-                    "SM_Rock_Boulder_01", "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_03",
-                    "SM_Rock_Cluster_Large_05"
-                }),
-                Load(MeadowDir, new[]
-                {
-                    "SM_Env_Rock_Pile_04", "SM_Env_Rock_Pile_06", "SM_Env_Rock_Round_01",
-                    "SM_Env_Ground_Mound_Large_01"
-                }));
+            decor.Boulders = DryStone(Synty("Rocks", "SM_Rock_Boulder_01",
+                                            "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_02",
+                                            "SM_Rock_Cluster_Large_03", "SM_Rock_Cluster_Large_05",
+                                            "SM_Rock_Wall_01", "SM_Rock_Wall_02"));
 
             // Scree: what a mountain leaves lying about.
             decor.Rocks = Mixed(

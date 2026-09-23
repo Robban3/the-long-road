@@ -214,6 +214,37 @@ namespace TheVeil.Editor
                     near.Add((away, Root(renderer.transform), box.size, dressed));
                 }
 
+                // The biggest things standing in the level, whatever they are and wherever
+                // they stand: a picture shows a white slab, this says its name.
+                var largest = new List<(float Size, string Name, string Wearing)>();
+                foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    var wearing = renderer.sharedMaterial;
+                    largest.Add((renderer.bounds.size.magnitude, Root(renderer.transform),
+                                 wearing == null ? "none" : wearing.name + " / " + wearing.shader.name));
+                }
+
+                // What a rock mass is actually built of, counted by model.
+                var masses = new Dictionary<string, int>();
+                foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    string owner = Root(renderer.transform);
+                    if (!owner.StartsWith("Tor_")) continue;
+
+                    string wears = renderer.sharedMaterial == null ? "none" : renderer.sharedMaterial.name;
+                    string key = owner + " / " + wears;
+
+                    masses.TryGetValue(key, out int seen);
+                    masses[key] = seen + 1;
+                }
+
+                foreach (var pair in masses)
+                    Debug.Log($"[Ground] mass {pair.Key} x{pair.Value}");
+
+                largest.Sort((a, b) => b.Size.CompareTo(a.Size));
+                for (int i = 0; i < largest.Count && i < 10; i++)
+                    Debug.Log($"[Ground] biggest {largest[i].Size:0} m: {largest[i].Name} {largest[i].Wearing}");
+
                 near.Sort((a, b) => a.Away.CompareTo(b.Away));
                 for (int i = 0; i < near.Count && i < 24; i++)
                     Debug.Log($"[Ground] near {near[i].Away:0} m: {near[i].Name} "
