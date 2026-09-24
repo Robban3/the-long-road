@@ -1160,6 +1160,18 @@ namespace TheVeil.View
         /// </summary>
         static float _landmarkScale = 1f;
 
+        /// <summary>
+        /// The tiles the wagons drive over, while a level is being dressed.
+        ///
+        /// Held here rather than passed because the passes that need it are the deepest
+        /// ones - a single rock in one course of one tor - and threading a parameter down
+        /// to them means touching every scatter in the file. The same reasoning as
+        /// <see cref="_landmarkScale"/>, which is also a fact about the level rather than
+        /// about the prop being placed. Null while the planning map is drawn: it has no
+        /// caravan in it.
+        /// </summary>
+        static HashSet<int> _road;
+
         public static int Decorate(Transform parent, TileGrid grid, int seed, BiomeDecor decor,
                                    IReadOnlyCollection<int> keepClear = null,
                                    float heightScale = 0f, int maxProps = 600,
@@ -1215,6 +1227,7 @@ namespace TheVeil.View
             // A set, not the list it arrives as. IReadOnlyCollection has no Contains
             // worth the name, and this is asked once per prop on every tile of the map.
             var road = Lane(grid, driveLine, driveMargin);
+            _road = road;
             int placed = 0;
 
             // Landmarks first, and the tiles they take are then off limits to the
@@ -1351,6 +1364,7 @@ namespace TheVeil.View
             Census(parent);
             Tallest(parent);
 
+            _road = null;
             return placed;
         }
 
@@ -1892,6 +1906,18 @@ namespace TheVeil.View
                             // was stood in, so no piece of the fall's rock hangs off a slope.
                             else if (face.min.y > ground)
                                 rock.transform.position += new Vector3(0f, ground - face.min.y - CliffShows, 0f);
+
+                            // <b>And solid, which it never was.</b> Every other mass of rock
+                            // on the map is marked - the scatter's boulders, the cliffs, the
+                            // tors - and this one was instantiated by hand and the marking
+                            // forgotten, so the walls of the gorge were rock the escort walked
+                            // straight through. Measured across twelve levels: three hundred
+                            // and twenty-one props standing with nothing solid about them, and
+                            // the largest of them were these, twenty metres across and
+                            // thirteen tall. It is the rock lying past the bridge that a
+                            // playtest reported the column marching through.
+                            Block(rock, canopy: false);
+                            if (Barring(grid, _road, rock)) Unbuild(rock);
                         }
 
                 // <b>And the mountain the water comes out of.</b> A lip of rock either side
@@ -2448,6 +2474,14 @@ namespace TheVeil.View
                                                             sits - box.min.y,
                                                             z - box.center.z);
                     Block(rock, canopy: false);
+
+                    // And the road goes through the mass rather than into it. A tor is
+                    // raised on a tile clear of the lane, but it spreads eight metres from
+                    // that tile - two tiles - so its own outer course came down in the
+                    // road. Dropping the piece rather than moving the tor is what a pass
+                    // through rock looks like: the mass opens where the road crosses it.
+                    if (Barring(grid, _road, rock)) { Unbuild(rock); continue; }
+
                     pieces++;
                 }
 
@@ -3845,6 +3879,15 @@ namespace TheVeil.View
 
             Block(instance, choice.Canopy);
 
+            // And not standing in the caravan's lane, now that it is known how much of
+            // this one is solid and where. The cheap test before the scatter asks about
+            // the tile and the table's size; this asks the thing itself. See Barring.
+            if (Barring(grid, _road, instance))
+            {
+                Unbuild(instance);
+                return false;
+            }
+
             // Canopy neither claims ground nor checks for it. Keeping it out of the
             // reserved set has a second effect worth having: grass and ferns may now
             // grow under a tree, where the tree's own footprint used to keep the floor
@@ -3914,6 +3957,39 @@ namespace TheVeil.View
             ForEachTileUnder(grid, x, z, FootprintRadius(instance),
                              tile => { if (road.Contains(tile)) hit = true; });
             return hit;
+        }
+
+        /// <summary>
+        /// Whether anything solid about this prop reaches into the caravan's lane.
+        ///
+        /// <b>Asked of the disc and not of the footprint, and that is the whole
+        /// distinction.</b> The lane was guarded by one test - the tile a prop was placed
+        /// on - and a cliff piece six metres across placed on the first tile outside the
+        /// lane has two metres of itself inside it. So the column drove through rock that
+        /// was, on paper, standing beside the road. Measured off the body instead
+        /// (<see cref="InTheRoad"/>) it goes too far the other way: a spruce is ten metres
+        /// of crown over half a metre of trunk, and refusing every tree whose branches
+        /// reach the road would strip the verges of exactly the wood that makes a forest
+        /// road look like one.
+        ///
+        /// What a wheel hits is what the escort walks round, which is already written down
+        /// as the prop's <see cref="Solid"/> discs. So the crowns stay over the road and
+        /// the trunks, boulders, walls and carts come out of it.
+        /// </summary>
+        static bool Barring(TileGrid grid, HashSet<int> road, GameObject instance)
+        {
+            if (road == null || instance == null) return false;
+
+            foreach (var solid in instance.GetComponentsInChildren<Solid>(true))
+            {
+                bool hit = false;
+                ForEachTileUnder(grid, solid.Centre.x, solid.Centre.y, solid.Radius,
+                                 tile => { if (road.Contains(tile)) hit = true; });
+
+                if (hit) return true;
+            }
+
+            return false;
         }
 
         /// <summary>Takes a building down again, at edit time or in play.</summary>
@@ -4193,11 +4269,71 @@ namespace TheVeil.View
                 var bounds = ModelScaling.Measure(piece.gameObject);
                 if (bounds.size.y < SolidHeight) continue;
 
-                var solid = piece.gameObject.AddComponent<Solid>();
-                solid.Radius = Mathf.Min(bounds.extents.x, bounds.extents.z);
-                solid.Centre = new Vector2(bounds.center.x, bounds.center.z);
+                Stand(piece.gameObject, bounds);
             }
         }
+
+        /// <summary>
+        /// Marks a prop as ground nobody walks through - as a row of discs where it is long.
+        ///
+        /// <b>One disc is a post, and a curtain wall is not a post.</b> Everything solid in
+        /// this game claims a circle about its middle, with the radius taken from its
+        /// shorter side so it does not swallow the ground beside it - which is right for a
+        /// tree and wrong for anything built in a line. A five-metre wall a metre thick
+        /// claimed a metre-wide circle in the middle of itself, so the escort walked in one
+        /// end of it and out of the other: reported from a playtest as men cutting through
+        /// the castle. A wall, a fence, a stone dyke and a bridge's parapet are laid as a
+        /// chain of touching discs down their own length instead.
+        /// </summary>
+        static void Stand(GameObject piece, Bounds bounds)
+        {
+            // <b>Except the gateway, which is the one piece that is meant to be walked
+            // through.</b> The pack's gate is a wall with an arch in it, and a wall is
+            // what a chain of discs down its length makes of it - so the escort would be
+            // shut out of the yard it is walking into. It carried a disc before this, in
+            // the middle of the opening, which was its own smaller version of the same
+            // mistake. The way in is left open.
+            if (piece.name.Contains("Gate")) return;
+
+            float wide = Mathf.Max(bounds.size.x, bounds.size.z);
+            float thick = Mathf.Min(bounds.size.x, bounds.size.z);
+            float radius = Mathf.Max(thick * 0.5f, LeastSolid);
+
+            if (wide <= thick * Stretched)
+            {
+                var one = piece.GetComponent<Solid>() ?? piece.AddComponent<Solid>();
+                one.Radius = radius;
+                one.Centre = new Vector2(bounds.center.x, bounds.center.z);
+                return;
+            }
+
+            // Along its own length, a disc every radius, so the chain has no gap in it.
+            bool alongX = bounds.size.x >= bounds.size.z;
+            int discs = Mathf.Clamp(Mathf.CeilToInt(wide / radius), 2, MostSolids);
+
+            for (int i = 0; i < discs; i++)
+            {
+                float along = discs == 1 ? 0.5f : i / (float)(discs - 1);
+                float x = alongX ? Mathf.Lerp(bounds.min.x, bounds.max.x, along) : bounds.center.x;
+                float z = alongX ? bounds.center.z : Mathf.Lerp(bounds.min.z, bounds.max.z, along);
+
+                var link = new GameObject("Solid").transform;
+                link.SetParent(piece.transform, false);
+
+                var solid = link.gameObject.AddComponent<Solid>();
+                solid.Radius = radius;
+                solid.Centre = new Vector2(x, z);
+            }
+        }
+
+        /// <summary>How many times its own thickness a prop must be before it counts as long.</summary>
+        const float Stretched = 2f;
+
+        /// <summary>The smallest circle a solid prop claims, in metres.</summary>
+        const float LeastSolid = 0.45f;
+
+        /// <summary>How many discs one prop may be laid out as.</summary>
+        const int MostSolids = 24;
 
         /// <summary>
         /// Tiles from the goal to the middle of the castle.
@@ -4712,6 +4848,22 @@ namespace TheVeil.View
             var wagon = Object.Instantiate(wreck, parent);
             wagon.transform.position = new Vector3(wx, wy, wz);
 
+            // The bones lie on the road - that is what the sign is for - and the wagon
+            // lies beside them at whichever angle the dice gave, which is as often as not
+            // across the lane. Tried round the heap instead until one side of it is out of
+            // the way, because the wagon is about to be made solid and the one rule the
+            // lane has is that nothing solid stands in it.
+            for (int turn = 1; turn <= WreckTries; turn++)
+            {
+                if (!InTheRoad(grid, _road, wagon, wx, wz)) break;
+
+                angle += Mathf.PI * 2f / WreckTries;
+                wx = where.X + Mathf.Cos(angle) * WreckStandoff;
+                wz = where.Y + Mathf.Sin(angle) * WreckStandoff;
+                wy = grid.SurfaceElevation(wx, wz) * heightScale;
+                wagon.transform.position = new Vector3(wx, wy, wz);
+            }
+
             // <b>Tipped onto its side, and at a wagon's size.</b> It went down at the size
             // it was drawn and the way it was drawn, and measured against a man that was
             // 1.90 x 1.57 x 0.85 m standing on its face - a cart for a child, with the loose
@@ -4722,10 +4874,24 @@ namespace TheVeil.View
 
             Ground(wagon, wy);
             Mark(wagon);
+
+            // <b>Something to walk round, at last.</b> Fifty-nine of these on twelve
+            // levels and not one of them solid: a wagon on its side, two and a bit metres
+            // of it, and the escort walked through the wreck as if it were grass. Not made
+            // solid where every side of the heap is in the lane, which does happen on a
+            // road that runs straight past the bones: a wreck the caravan drives through
+            // is worse than one the escort does.
+            if (!InTheRoad(grid, _road, wagon, wx, wz)) Block(wagon, canopy: false);
+
             _trapWrecks.Add(wagon);
 
             return placed + 1;
         }
+
+        /// <summary>How many places round the bones a wreck is tried before it gives up.</summary>
+        // Six, which is a turn every sixty degrees. More than that and two of them are the
+        // same tile at this standoff.
+        const int WreckTries = 6;
 
         /// <summary>
         /// How far the pieces of a bone pile lie from its middle, in metres.
@@ -6057,6 +6223,20 @@ namespace TheVeil.View
             }
 
             Block(building, canopy: false);
+
+            // <b>And asked again of the wall it just claimed.</b> The test above measures
+            // from the middle of the tile, which is where a building stands unless it was
+            // nudged off it, and against the footprint, which is the model's own bounds.
+            // What stops a wagon is neither: it is the disc Block has this moment put on
+            // the building, drawn about the bounds' centre - and for a house built of
+            // several pieces that centre is not the tile's. Two houses in the lane on 1-8,
+            // both of them legal by the tile and standing in the road on the ground.
+            if (Barring(grid, road, building))
+            {
+                Unbuild(building);
+                return false;
+            }
+
             Reserve(grid, occupied, building, at.X, at.Y);
 
             return true;

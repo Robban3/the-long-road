@@ -224,7 +224,13 @@ namespace TheVeil.App
         /// flock turning in its twenty-five metre circle is a thing on the map rather
         /// than a speck on it.
         /// </summary>
-        public float CrowScale = 20f;
+        /// <b>Ten, because twenty read as birds the size of carts.</b> Twenty was set to
+        /// make a flock findable once its symbol came off, and it overshot: a crow five
+        /// metres across is wider than a wagon, and on a map with a caravan drawn on it that
+        /// is the first thing the eye lands on. Ten draws the bird at two and a half - still
+        /// twice the eagle's read for its size, still a mark on the map, and no longer a
+        /// crow bigger than the thing it is warning about.
+        public float CrowScale = 10f;
 
         /// <summary>
         /// Marker sizes in metres.
@@ -312,16 +318,14 @@ namespace TheVeil.App
         Mesh _overlay;
 
         /// <summary>
-        /// Every prop's renderers, filed under the tile the prop stands on.
+        /// Every prop, filed under the tile it stands on.
         ///
-        /// Renderers rather than transforms, and gathered once while the fog goes on.
-        /// A reveal repaints a tile's neighbourhood, a neighbourhood is twenty-five
-        /// tiles, and dozens of tiles come due in a frame — walking each prop's
-        /// hierarchy again for every one of those is a few thousand searches and a few
-        /// thousand allocations per frame, on the editor thread, in the scene that was
-        /// already the slow one.
+        /// Filed once while the fog goes on, because a reveal has to find the props on
+        /// one tile out of four thousand: a neighbourhood is twenty-five tiles, dozens
+        /// come due in a frame, and searching six thousand props for each of them is a
+        /// few thousand walks a frame in the scene that was already the slow one.
         /// </summary>
-        Dictionary<int, List<Renderer>> _propsByTile;
+        Dictionary<int, List<Transform>> _propsByTile;
 
         /// <summary>
         /// Metres flown, per tile, at the moment the bird is nearest to it — or -1 for
@@ -961,15 +965,18 @@ namespace TheVeil.App
         }
 
         /// <summary>
-        /// Mutes the ground and the scenery over every tile the bird did not reach.
+        /// Hides the country over every tile the bird did not reach.
         ///
-        /// Two different mechanisms for the same effect, because the two things are made
-        /// differently. The ground is a mesh this project builds — four vertices per
-        /// tile, in tile order — so its colours can be pushed all the way to luminance.
-        /// A tree is somebody else's prefab with somebody else's material, and the only
-        /// handle available without writing a shader is a property block that multiplies
-        /// the atlas, which darkens and cannot desaturate. See
-        /// <see cref="PlanningOverlay.PropLight"/>.
+        /// Two different mechanisms, because the two things are made differently. The
+        /// ground is a mesh this project builds — four vertices per tile, in tile order —
+        /// so its colours can be pushed all the way to luminance and graded back a corner
+        /// at a time. A tree is somebody else's prefab with somebody else's material, and
+        /// darkening it means finding the one property that pack's shader treats as a
+        /// tint: `_BaseColor` in the first pack, `_Color_Tint` in its trees, neither in
+        /// the nature-biomes pack, and nothing at all in the rock — which has a
+        /// `_BaseColor`, took the value, and drew at full daylight colour anyway. So the
+        /// scenery is not drawn at all until the ground under it is clear, which needs no
+        /// pack to cooperate and is what a map with unscouted country on it should show.
         /// </summary>
         void ApplyOverlay(Mesh mesh, LevelMap map)
         {
@@ -1005,10 +1012,7 @@ namespace TheVeil.App
 
             // Filed by tile on the way past, because a reveal has to find the props on
             // one tile out of four thousand and cannot walk six thousand props to do it.
-            _propsByTile = new Dictionary<int, List<Renderer>>();
-
-            var shade = new Color(PlanningOverlay.PropLight, PlanningOverlay.PropLight,
-                                  PlanningOverlay.PropLight, 1f);
+            _propsByTile = new Dictionary<int, List<Transform>>();
 
             foreach (Transform prop in _props)
             {
@@ -1027,24 +1031,32 @@ namespace TheVeil.App
                 int x = Mathf.FloorToInt(at.x / TileGrid.TileSize);
                 int y = Mathf.FloorToInt(at.z / TileGrid.TileSize);
 
-                List<Renderer> standing = null;
-
                 if (map.Grid.InBounds(x, y))
                 {
                     int tile = map.Grid.ToIndex(x, y);
 
-                    if (!_propsByTile.TryGetValue(tile, out standing))
-                        _propsByTile[tile] = standing = new List<Renderer>();
+                    if (!_propsByTile.TryGetValue(tile, out var standing))
+                        _propsByTile[tile] = standing = new List<Transform>();
+
+                    standing.Add(prop);
                 }
 
-                foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
-                {
-                    standing?.Add(renderer);
-
-                    renderer.GetPropertyBlock(Block);
-                    Block.SetColor(BaseColor, shade);
-                    renderer.SetPropertyBlock(Block);
-                }
+                // <b>Taken off the map rather than darkened on it, and it took a
+                // measurement to see why.</b> A prop went under the fog by multiplying its
+                // colour through a property block, which only reaches a property the
+                // shader has: the trees answer to `_Color_Tint` and went nearly black, the
+                // rock answers to `_BaseColor` — it has one, the block was set on it — and
+                // did not change by a shade, because that pack's graph never reads it. So
+                // a mountain level drew four hundred metres of unscouted stone in full
+                // daylight over ground the map had greyed out, and the player read the
+                // bright half as the half the bird had found. Chasing the right property
+                // name per pack is a bug per pack; a prop that is not drawn is not drawn
+                // in any shader.
+                //
+                // What is left under the fog is the ground's own muted colour, which is
+                // the country as the GDD describes it before the scout goes up
+                // (docs/GDD.md §3.4), and the signals, which are exempt above.
+                prop.gameObject.SetActive(false);
             }
         }
 
@@ -1207,36 +1219,27 @@ namespace TheVeil.App
                 Shade(v + 3, c01);
             }
 
-            // One tile's worth for the scenery standing on it. A tree has one colour
-            // however finely the ground under it is graded, so it takes the average of
-            // the four corners rather than picking one of them.
+            // One tile's worth for the scenery standing on it. A tree is there or it is
+            // not, however finely the ground under it is graded, so it takes the average
+            // of the four corners rather than picking one of them.
             float clarity = (c00 + c10 + c11 + c01) * 0.25f;
 
             if (_propsByTile == null) return;
             if (!_propsByTile.TryGetValue(tile, out var standing)) return;
 
-            // Cleared rather than set at full clarity, so a prop ends up with the colour
-            // its own material gives it instead of one multiplied by very nearly white.
-            bool clear = clarity >= 0.999f;
+            // Half seen is seen. The ground itself is graded smoothly across the corners,
+            // so the edge of the flight still feathers; the scenery on it cannot be half
+            // drawn, and a wood that appears where the bird was closest is the honest
+            // place to put the line.
+            bool shown = clarity >= Showing;
 
-            float light = Mathf.Lerp(PlanningOverlay.PropLight, 1f, clarity);
-            var shade = new Color(light, light, light, 1f);
-
-            foreach (var renderer in standing)
-            {
-                if (renderer == null) continue;
-
-                if (clear)
-                {
-                    renderer.SetPropertyBlock(null);
-                    continue;
-                }
-
-                renderer.GetPropertyBlock(Block);
-                Block.SetColor(BaseColor, shade);
-                renderer.SetPropertyBlock(Block);
-            }
+            foreach (var prop in standing)
+                if (prop != null && prop.gameObject.activeSelf != shown)
+                    prop.gameObject.SetActive(shown);
         }
+
+        /// <summary>How clear the ground has to be before what stands on it is drawn.</summary>
+        const float Showing = 0.5f;
 
         /// <summary>One ground corner's clarity, or nought where there is no such corner.</summary>
         float Clarity(int cornerX, int cornerY)
@@ -1253,7 +1256,6 @@ namespace TheVeil.App
         void Shade(int vertex, float clarity)
             => _shown[vertex] = Color.Lerp(PlanningOverlay.Mute(_lit[vertex]), _lit[vertex], clarity);
 
-        static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
         /// <summary>Ground height under a world position, in the plan's own relief scale.</summary>
         float GroundAt(float x, float z)

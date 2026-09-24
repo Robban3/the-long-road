@@ -274,6 +274,8 @@ namespace TheVeil.Editor
                 }
             }
 
+            Solidity(map, props, chapter, level, faults);
+
             foreach (var pair in floating.OrderByDescending(p => p.Value.Worst).Take(4))
                 faults.Add($"{chapter}-{level}: {pair.Key} hangs in the air, "
                            + $"{pair.Value.Count} of them, worst {pair.Value.Worst:0.0} m clear of the ground");
@@ -317,6 +319,87 @@ namespace TheVeil.Editor
         /// tree from overhead, and only a camera down where the player's eye is shows the
         /// gap under it.
         /// </summary>
+        /// <summary>
+        /// Two things about the country that the pictures cannot show.
+        ///
+        /// <b>Whether what stands on the ground stops anybody, and whether it stands in the
+        /// road.</b> Both were reported from play rather than seen here - the escort walking
+        /// through the rock past a bridge, the column driving through a boulder - because a
+        /// prop that is not solid looks exactly like one that is. Measured instead: every
+        /// prop tall enough to be worth walking round is asked whether anything about it is
+        /// solid, and every solid disc is asked whether it is standing on the route.
+        ///
+        /// The bridge and the water are the exceptions and they are named: a bridge is
+        /// meant to be driven over and a river is not walked round.
+        /// </summary>
+        static void Solidity(LevelMap map, Transform props, int chapter, int level,
+                             List<string> faults)
+        {
+            if (props == null) return;
+
+            var lane = new HashSet<int>(LevelPreview.Travelled(map));
+            float span = map.Grid.Width * TileGrid.TileSize;
+            float deep = map.Grid.Height * TileGrid.TileSize;
+
+            var open = new List<string>();
+            var barring = new List<string>();
+
+            foreach (Transform prop in props)
+            {
+                if (prop.GetComponentInChildren<MeshRenderer>() == null) continue;
+                if (Driven(prop.name)) continue;
+
+                var bounds = ModelScaling.Measure(prop.gameObject);
+                if (bounds.size.y < TerrainDecorator.SolidHeight) continue;
+
+                // The apron and the skyline stand outside the playing field, and nobody
+                // walks out there to bump into them.
+                if (bounds.center.x < 0f || bounds.center.x > span) continue;
+                if (bounds.center.z < 0f || bounds.center.z > deep) continue;
+
+                var discs = prop.GetComponentsInChildren<Solid>(true);
+                if (discs.Length == 0) { open.Add(prop.name); continue; }
+
+                // The castle stands on the goal and the road runs in at its gate, which is
+                // the level: the caravan is driving to the keep, so the keep is in its
+                // lane by construction. Everything else in this list is a fault.
+                if (prop.name == "Castle") continue;
+
+                foreach (var disc in discs)
+                {
+                    bool hit = false;
+
+                    foreach (int tile in lane)
+                    {
+                        var middle = Vec2.FromTile(map.Grid, tile);
+                        if (Vector2.Distance(new Vector2(middle.X, middle.Y), disc.Centre) <= disc.Radius)
+                        { hit = true; break; }
+                    }
+
+                    if (hit) { barring.Add(prop.name); break; }
+                }
+            }
+
+            if (open.Count > 0)
+                faults.Add($"{chapter}-{level}: {open.Count} prop(s) tall enough to walk round "
+                           + $"with nothing solid about them, {Named(open)}");
+
+            if (barring.Count > 0)
+                faults.Add($"{chapter}-{level}: {barring.Count} solid prop(s) standing in the "
+                           + $"caravan's lane, {Named(barring)}");
+        }
+
+        /// <summary>The first few names in a list, because a count is not a lead.</summary>
+        static string Named(List<string> found)
+            => string.Join(", ", found.Distinct().Take(3));
+
+        /// <summary>What is driven over or waded through rather than walked round.</summary>
+        // Water by any of the names the decorator gives it - "Water", "Marsh water",
+        // "Pool" - which is why this asks for the word rather than the prefix.
+        static bool Driven(string name) =>
+            name.IndexOf("water", System.StringComparison.OrdinalIgnoreCase) >= 0
+            || name.StartsWith("Pool") || name.StartsWith("Fall") || name.Contains("Bridge");
+
         /// <summary>
         /// The nearest spot on the camera's own line of sight with nothing standing in it.
         ///
