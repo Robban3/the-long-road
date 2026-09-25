@@ -186,6 +186,54 @@ namespace TheVeil.View
         public PropSet GroundPatches = new PropSet();
 
         /// <summary>
+        /// Flowers, for the beds they grow in rather than for the scatter.
+        ///
+        /// <b>A flower in the ground cover is one tuft in forty.</b> The cover is sown a
+        /// tuft or two to the tile out of a set of grasses, so wildflowers come out as the
+        /// odd speck of colour in a green field - which is what a lawn with weeds in it
+        /// looks like, and not what a meadow looks like. A meadow has *drifts*: twenty
+        /// square metres of one colour, then grass, then another drift. Those are laid as
+        /// beds (PlaceFlowerBeds) out of this set.
+        /// </summary>
+        public PropSet Flowers = new PropSet();
+
+        /// <summary>
+        /// Grass by the square metre rather than by the tuft.
+        ///
+        /// <b>What a meadow is made of, and the pack draws it as mats.</b> The ground
+        /// cover is clumps: half-metre tufts sown a couple to the tile, which read from
+        /// two metres away and disappear from the height the game is played at - the open
+        /// country came out as a flat green sheet with specks on it however many tufts
+        /// were thrown at it, because a speck is a speck. The pack also ships grass as
+        /// planes, several metres across, and they had never been used at their own size:
+        /// one is in the cover list, fitted by height to seven-tenths of a metre, which
+        /// shrinks a four-metre mat to a pin.
+        ///
+        /// Laid by width, about a tile across, one to a tile. It costs one object where
+        /// the same coverage in tufts costs thirty.
+        /// </summary>
+        public PropSet Mats = new PropSet();
+
+        /// <summary>
+        /// Swells in the open ground: a hummock with grass over it.
+        ///
+        /// The map's own relief is the country's shape, and it is smooth at this scale -
+        /// a meadow seen from above with nothing standing on it is a flat green sheet
+        /// however well it is coloured. These are the pack's ground mounds, which is a
+        /// piece of ground rather than a thing standing on it.
+        /// </summary>
+        public PropSet Mounds = new PropSet();
+
+        /// <summary>
+        /// What flies over a meadow on a summer day.
+        ///
+        /// Butterflies, blown petals, drifting seed. They are particle effects rather than
+        /// models: nothing about them is solid, nothing claims ground, and they are the
+        /// only thing in the dressing that moves on its own while the plan is being read.
+        /// </summary>
+        public PropSet Fauna = new PropSet();
+
+        /// <summary>
         /// Landmarks. Unlike the scatter above, these are placed where they make sense
         /// rather than where the dice fall: people build beside roads, watchtowers go
         /// where there is something to watch, timber is cut where the trees are.
@@ -1342,6 +1390,17 @@ namespace TheVeil.View
                                    densityScale, travelled);
             placed += PlaceGroundCover(parent, grid, Stream(5), decor, clear, occupied,
                                        heightScale, densityScale);
+
+            // The grass itself, under everything the cover sows: see BiomeDecor.Mats.
+            placed += PlaceMats(parent, grid, Stream(18), decor, occupied, heightScale,
+                                densityScale, clear);
+
+            // The meadow's own three, after the floor is sown and before the water goes
+            // on: drifts of flowers, hummocks in the open, and something flying over it.
+            placed += PlaceFlowerBeds(parent, grid, Stream(15), decor, occupied, heightScale,
+                                      densityScale, road);
+            placed += PlaceMounds(parent, grid, Stream(16), decor, occupied, heightScale, road);
+            placed += PlaceFauna(parent, grid, Stream(17), decor, heightScale, road);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
                                      densityScale, road);
 
@@ -3757,12 +3816,29 @@ namespace TheVeil.View
         {
             if (!decor.GroundCover.Any) return 0;
 
+            // <b>Thinned to fit, rather than sown until the budget is spent.</b> The cap
+            // is counted while walking the tiles in order, so a map that wants more cover
+            // than the cap allows got every tuft it asked for at one end and nothing at
+            // all at the other: on the plains, where the table asks 1.7 a tile over four
+            // thousand tiles, the far third of the country came out as bare sheet. The
+            // demand is measured first and the whole map is sown at whatever share of it
+            // fits, so a thin meadow is thin everywhere.
+            float wanted = 0f;
+
+            for (int i = 0; i < grid.TileCount; i++)
+                if (CoverDensity.TryGetValue(grid[i], out float asked) && !occupied.Contains(i))
+                    wanted += asked * densityScale;
+
+            float fits = wanted > MaxGroundCover ? MaxGroundCover / wanted : 1f;
+
             int placed = 0;
 
             for (int i = 0; i < grid.TileCount && placed < MaxGroundCover; i++)
             {
                 if (!CoverDensity.TryGetValue(grid[i], out float density)) continue;
                 if (occupied.Contains(i)) continue;
+
+                density *= fits;
 
                 // Thinned rather than cleared on a corridor: enough to keep the drawn
                 // line legible from above without the line looking swept.
@@ -3811,6 +3887,242 @@ namespace TheVeil.View
         }
 
         /// <summary>Drops one model somewhere inside a tile, turned at random.</summary>
+        /// <summary>
+        /// Lays grass over the open ground, a mat to the tile.
+        ///
+        /// Canopy, so it claims no ground and nothing is kept off it: this is the floor,
+        /// and the flowers, the stones and the trees all stand in it. Off the road, where
+        /// the ground is meant to be worn.
+        /// </summary>
+        static int PlaceMats(Transform parent, TileGrid grid, DeterministicRandom rng,
+                             BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                             float densityScale, HashSet<int> clear)
+        {
+            if (!decor.Mats.Any) return 0;
+
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && placed < MostMats; i++)
+            {
+                if (!MatDensity.TryGetValue(grid[i], out float chance)) continue;
+                if (occupied.Contains(i)) continue;
+
+                // Thinned on the drawn line rather than cleared, as the cover is: a
+                // swept lane through a meadow reads as a road that is not there.
+                if (clear != null && clear.Contains(i)) chance *= 0.3f;
+
+                if (!rng.Chance(chance * densityScale)) continue;
+
+                var choice = new Choice(decor.Mats, Any(decor.Mats, rng),
+                                        MatWidth * rng.Range(0.85f, 1.25f),
+                                        byWidth: true, canopy: true);
+
+                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1.2f,
+                            lift: -MatSink))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>How likely a tile of each country carries a mat of grass.</summary>
+        // The meadow is nearly solid; a wood has a floor of litter and shade with grass in
+        // the gaps; a fen has its own plants and wants none of this. The mountain pass is
+        // bare rock and is not in the table at all.
+        static readonly Dictionary<TerrainType, float> MatDensity = new Dictionary<TerrainType, float>
+        {
+            { TerrainType.Plains, 0.85f },
+            { TerrainType.Forest, 0.35f }
+        };
+
+        /// <summary>How many mats a level may carry.</summary>
+        // Two thousand, which is half the tiles on a map. They are one object each and
+        // cheaper than the tufts they replace.
+        const int MostMats = 2000;
+
+        /// <summary>How broad one is, in metres - about a tile.</summary>
+        const float MatWidth = 4.5f;
+
+        /// <summary>And how far its base is set into the ground, so its edge does not show.</summary>
+        const float MatSink = 0.1f;
+
+        /// <summary>
+        /// Drifts of flowers in the open, which is what makes a meadow a meadow.
+        ///
+        /// Laid as beds rather than sown: a bed is one species over a few tiles, thick
+        /// enough that its colour is the ground rather than a speck on it. Off the road,
+        /// off ground anything is standing on, and spread out from each other, because
+        /// what the reference country shows is three or four drifts in a field and not a
+        /// carpet of them.
+        /// </summary>
+        static int PlaceFlowerBeds(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                   BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                                   float densityScale, HashSet<int> road)
+        {
+            if (!decor.Flowers.Any) return 0;
+
+            var beds = new List<int>();
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && beds.Count < MostBeds; i++)
+            {
+                if (grid[i] != TerrainType.Plains) continue;
+                if (occupied.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
+                if (!rng.Chance(BedChance)) continue;
+                if (!Apart(grid, i, beds, BedsApart)) continue;
+
+                beds.Add(i);
+
+                // One species to a bed. Flowers grow from seed that fell in one place;
+                // a drift of mixed colours reads as a flowerbed somebody planted.
+                var flower = Any(decor.Flowers, rng);
+                int thick = Mathf.RoundToInt(PerBed * densityScale * rng.Range(0.7f, 1.3f));
+
+                for (int f = 0; f < thick; f++)
+                {
+                    // Measured across, not up. A flower fitted to its height comes out
+                    // half a metre wide and reads as a speck from the camera; the pack's
+                    // wildflowers are drawn as patches, and a patch wants to be laid at
+                    // the size it was drawn.
+                    var choice = new Choice(decor.Flowers, flower,
+                                            FlowerWidth * rng.Range(0.8f, 1.3f),
+                                            byWidth: true, canopy: true);
+
+                    if (Scatter(parent, grid, rng, choice, i, heightScale, spread: BedSpread))
+                        placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>How many drifts of flowers a level may carry.</summary>
+        // Eighteen on a map of four thousand tiles, which at four metres to the tile is
+        // about one in every forty metres of open country.
+        const int MostBeds = 30;
+
+        /// <summary>The chance an open tile is where one starts.</summary>
+        const float BedChance = 0.09f;
+
+        /// <summary>How far apart they stand, in tiles.</summary>
+        const int BedsApart = 6;
+
+        /// <summary>How many clumps of flowers one bed carries.</summary>
+        // Twenty-four. A drift has to be the ground rather than a sprinkle on it: at
+        // fourteen the bed read as a few flowers standing in grass, which is what the open
+        // field already had.
+        const float PerBed = 24f;
+
+        /// <summary>How far they scatter from its middle, in metres.</summary>
+        // Three and a half tiles across, which is a drift rather than a bouquet.
+        const float BedSpread = 7f;
+
+        /// <summary>How broad one patch of flowers is laid, in metres.</summary>
+        const float FlowerWidth = 2.6f;
+
+        /// <summary>
+        /// Hummocks in the open ground.
+        ///
+        /// The country's own relief is smooth at this scale and a meadow with nothing on
+        /// it reads as a sheet. These are ground rather than scenery - the pack draws them
+        /// as a piece of grassed earth - so they are sunk to their own edge and nothing
+        /// walks round them.
+        /// </summary>
+        static int PlaceMounds(Transform parent, TileGrid grid, DeterministicRandom rng,
+                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                               HashSet<int> road)
+        {
+            if (!decor.Mounds.Any) return 0;
+
+            var stood = new List<int>();
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && stood.Count < MostMounds; i++)
+            {
+                if (grid[i] != TerrainType.Plains) continue;
+                if (occupied.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
+                if (!rng.Chance(MoundChance)) continue;
+                if (!Apart(grid, i, stood, MoundsApart)) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+                if (NearWater(grid, x, y, 2)) continue;
+
+                stood.Add(i);
+
+                var choice = new Choice(decor.Mounds, Any(decor.Mounds, rng),
+                                        MoundWidth * rng.Range(0.7f, 1.4f),
+                                        byWidth: true, sink: MoundSink);
+
+                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 1f, occupied))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>How many hummocks a level may carry, and how far apart, in tiles.</summary>
+        const int MostMounds = 12;
+
+        const int MoundsApart = 7;
+
+        /// <summary>The chance an open tile carries one.</summary>
+        const float MoundChance = 0.06f;
+
+        /// <summary>How broad one is, in metres, and how far it is set into the ground.</summary>
+        const float MoundWidth = 9f;
+
+        const float MoundSink = 0.25f;
+
+        /// <summary>
+        /// Butterflies over the open ground, and whatever else the country has flying.
+        ///
+        /// Instantiated rather than scattered: these are particle effects, so they want
+        /// no fitting, no width cap, no solid disc and no claim on the ground under them.
+        /// Lifted to about chest height, which is where a butterfly is.
+        /// </summary>
+        static int PlaceFauna(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, float heightScale, HashSet<int> road)
+        {
+            if (!decor.Fauna.Any) return 0;
+
+            var flying = new List<int>();
+
+            for (int i = 0; i < grid.TileCount && flying.Count < MostFlights; i++)
+            {
+                if (grid[i] != TerrainType.Plains && grid[i] != TerrainType.Forest) continue;
+                if (road != null && road.Contains(i)) continue;
+                if (!rng.Chance(FlightChance)) continue;
+                if (!Apart(grid, i, flying, FlightsApart)) continue;
+
+                flying.Add(i);
+
+                var at = Vec2.FromTile(grid, i);
+                float ground = grid.SurfaceElevation(at.X, at.Y) * heightScale;
+
+                var flight = Object.Instantiate(Any(decor.Fauna, rng), parent);
+                flight.transform.position = new Vector3(at.X + rng.Range(-1.5f, 1.5f),
+                                                        ground + FlightLift,
+                                                        at.Y + rng.Range(-1.5f, 1.5f));
+                flight.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+            }
+
+            return flying.Count;
+        }
+
+        /// <summary>How many flights a level carries, how far apart, and how likely.</summary>
+        // Ten. They are the only thing in the country that moves while nothing is
+        // happening, and a meadow with a butterfly every twenty metres is an aviary.
+        const int MostFlights = 10;
+
+        const int FlightsApart = 8;
+
+        const float FlightChance = 0.05f;
+
+        /// <summary>How high above the grass they fly, in metres.</summary>
+        const float FlightLift = 1.1f;
+
         static bool Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
                             Choice choice, int tile, float heightScale, float spread,
                             HashSet<int> occupied = null, float lift = 0f, float? yaw = null,

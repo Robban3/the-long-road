@@ -856,12 +856,20 @@ namespace TheVeil.Editor
 
         /// <summary>The nature pack's water, which the project has owned all along.</summary>
         /// <summary>
-        /// The river, in the meadow pack's flowing water.
+        /// The meadow pack's stream, which this project cannot use.
         ///
-        /// <b>Water that moves.</b> The old pack's river is a flat tinted plane and reads as
-        /// a painted strip from the camera height this game is played at; the meadow pack
-        /// ships a stream material whose surface runs. It is the river everywhere, in every
-        /// country - a stream is a stream in the snow as much as in the grass.
+        /// <b>Kept as a path rather than as an assignment, because it was tried.</b> The
+        /// reasoning was sound - a bought stream material runs, and the river should - and
+        /// it was assigned to every country's water slot. What it could not survive is the
+        /// mesh: this project lays its water as one sheet over every wet tile and carries
+        /// the depth on the vertex, so the shader that draws it has to read that depth to
+        /// go clear at the banks. The pack's material is authored for the pack's own river
+        /// models and ignores all of it, and what came out was a flat slab of pale green
+        /// lying over the lake.
+        ///
+        /// Nobody saw that for a long time, because the sheet was being destroyed before
+        /// it was ever drawn (see WaterSheet) and what showed through was the blue the
+        /// ground is painted.
         /// </summary>
         const string RiverMaterialPath =
             "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Materials/Water_Stream.mat";
@@ -892,15 +900,19 @@ namespace TheVeil.Editor
         /// </summary>
         static void FitWater(out Material river, out Material marsh)
         {
-            river = AssetDatabase.LoadAssetAtPath<Material>(RiverMaterialPath);
-            marsh = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath);
-
-            if (river == null)
-                Debug.LogWarning("[The Veil] Water material not found, so the river keeps "
-                                 + $"the project's own shader: {RiverMaterialPath}");
-            if (marsh == null)
-                Debug.LogWarning("[The Veil] Swamp water not found, so the marsh pools keep "
-                                 + $"the project's own shader: {MarshMaterialPath}");
+            // <b>Empty, and that is the setting.</b> Both slots were filled with the packs'
+            // own water and both came out as flat slabs over the lake: a bought material is
+            // authored for the mesh it shipped with, and ours carries the depth of the
+            // channel on its vertices for a shader written to read it. An empty slot means
+            // "the project's own water", which goes clear at the banks, deep in the middle,
+            // and moves - see WaterMeshBuilder.Material, which also keeps the marsh's own
+            // two colours and takes the movement out of a pool.
+            //
+            // The slots and the paths above stay: the point of them is that a water package
+            // can be tried without a code change, and the next one may be drawn for an
+            // arbitrary mesh. This one is not.
+            river = null;
+            marsh = null;
         }
 
         static GameObject One(string path)
@@ -1991,6 +2003,11 @@ namespace TheVeil.Editor
         static PropSet MeadowProps(params string[] names)
             => new PropSet(false, Load($"{MeadowDir}/Props", names));
 
+        /// <summary>The pack's effects, which are prefabs like any other but kept apart.</summary>
+        static PropSet MeadowFX(params string[] names)
+            => new PropSet(false, Load("Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/FX/FX_Prefabs",
+                                       names));
+
         const string MeadowPlants = "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Materials/Plants";
 
         /// <summary>
@@ -2157,6 +2174,44 @@ namespace TheVeil.Editor
                                        "SM_Prop_Meadow_Fence_05", "SM_Prop_Meadow_Fence_Gate_01",
                                        "SM_Prop_Meadow_Fence_Post_01");
 
+            // <b>The grass itself.</b> The pack's three grass planes, which are mats a
+            // few metres across and had never been used at their own size - one of them
+            // sat in the ground-cover list being shrunk to a tuft. See BiomeDecor.Mats.
+            decor.Mats = Meadow("SM_Env_Grass_Short_Plane_01", "SM_Env_Grass_Med_Plane_01",
+                                "SM_Env_Grass_Med_Plane_01", "SM_Env_Grass_Tall_Plane_01");
+
+            // <b>The drifts.</b> The same flowers the ground cover carries, but named
+            // separately because what they are for is different: in the cover they are one
+            // tuft in forty and read as specks, and here they are laid thick over a few
+            // tiles at a time. See BiomeDecor.Flowers and PlaceFlowerBeds.
+            //
+            // <b>The blooms, and not the mats - which is the opposite of what the names
+            // suggest.</b> Laid side by side at the size a bed lays them (Meadow Models),
+            // SM_Env_Flowers_Flat is a thin sprinkle of pale specks and
+            // SM_Env_Wildflowers_Patch is much the same; what carries colour at any
+            // distance is the plain SM_Env_Wildflowers, which is a clump of white, blue or
+            // red blooms. Three rounds of raising the density of the wrong models were
+            // spent before anybody laid them out and looked.
+            decor.Flowers = Meadow("SM_Env_Wildflowers_01", "SM_Env_Wildflowers_02",
+                                   "SM_Env_Wildflowers_03",
+                                   "SM_Env_Wildflowers_01", "SM_Env_Wildflowers_02",
+                                   "SM_Env_Wildflowers_03",
+                                   "SM_Env_Wildflowers_01", "SM_Env_Wildflowers_02",
+                                   "SM_Env_Wildflowers_03",
+                                   "SM_Env_Sunflower_01", "SM_Env_Wildflowers_Patch_02",
+                                   "SM_Env_Flowers_Flat_02");
+
+            // The hummocks, which are ground rather than things standing on it. All four
+            // the pack draws; two of them had never been used at all.
+            decor.Mounds = Meadow("SM_Env_Ground_Mound_Large_01", "SM_Env_Ground_Mound_Large_02",
+                                  "SM_Env_Ground_Mound_Large_03", "SM_Env_Ground_Mound_Large_04");
+
+            // And what flies over it. The pack draws four butterflies and two falls of
+            // petals; they are the only part of the country that moves by itself.
+            decor.Fauna = MeadowFX("FX_Butterflies_Blue_01", "FX_Butterflies_Cabbage_01",
+                                   "FX_Butterflies_Lunar_01", "FX_Butterflies_Monarch_01",
+                                   "FX_Butterflies_Monarch_01", "FX_Petals_Yellow_01");
+
             AssetDatabase.SaveAssets();
             return decor;
         }
@@ -2185,6 +2240,13 @@ namespace TheVeil.Editor
                     "SM_Env_Flowers_Flat_01", "SM_Env_Sunflower_01",
                     "SM_Env_Sunflower_01", "SM_Env_Wildflowers_Patch_01"
                 }));
+
+            // The field's own drifts: what grows on the headland and along the walls,
+            // which is where a farm's flowers are. Fewer species than the meadow's, and
+            // the sunflower among them because a field is a thing somebody sowed.
+            decor.Flowers = Meadow("SM_Env_Wildflowers_01", "SM_Env_Wildflowers_Patch_01",
+                                   "SM_Env_Wildflowers_Patch_02", "SM_Env_Flowers_Flat_01",
+                                   "SM_Env_Sunflower_01", "SM_Env_Sunflower_01");
 
             // Hedgerow trees, and the orchard: fruit trees are what stands in a farmyard.
             decor.Trees = Meadow("SM_Env_Tree_Fruit_01", "SM_Env_Tree_Fruit_02",
@@ -2724,7 +2786,12 @@ namespace TheVeil.Editor
                 {
                     Biome = Biome.Winter,
                     Decor = LoadWinterDecor(),
+
+                    // Ice on the river and ice on the pools. A frozen fen is not a bog
+                    // with a lid on it; both of them are the same white sheet, which is
+                    // why winter is the one country that names its standing water.
                     Water = EnsureIceMaterial(),
+                    PoolWater = EnsureIceMaterial(),
                     Weather = EnsureSnowfall()
                 },
                 new BiomeLook
@@ -2738,7 +2805,10 @@ namespace TheVeil.Editor
                     // wrong about the movement. A river moves wherever it is, and the pools
                     // keep their own still water either way: the decorator takes them from
                     // the marsh material and the river from this one.
-                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshRiverPath),
+                    // Empty: the project's own water. See FitWater - the pack's stream
+                    // draws as a green slab on this mesh. The pools keep their own still
+                    // brown either way, which is PoolWater's whole reason for existing.
+                    Water = null,
 
                     // Half again as thick as the forest, and standing in its own air.
                     //
@@ -2828,13 +2898,18 @@ namespace TheVeil.Editor
                 {
                     Biome = Biome.Winter,
                     Decor = LoadPlanWinterDecor(),
-                    Water = EnsureIceMaterial()
+                    Water = EnsureIceMaterial(),
+                    PoolWater = EnsureIceMaterial()
                 },
                 new BiomeLook
                 {
                     Biome = Biome.Marsh,
                     Decor = WithoutSkyline(LoadMarshDecor()),
-                    Water = AssetDatabase.LoadAssetAtPath<Material>(MarshMaterialPath),
+
+                    // The same water the run gives it, which is the project's own: a plan
+                    // that draws the fen a different colour than the level does is a plan
+                    // of somewhere else. See FitWater.
+                    Water = null,
 
                     // The same thickening as the run, so the map is the country. No fog on
                     // a map read from straight above: it would be a grey sheet over the plan.
