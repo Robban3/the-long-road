@@ -2011,6 +2011,30 @@ namespace TheVeil.Editor
         const string MeadowPlants = "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Materials/Plants";
 
         /// <summary>
+        /// The alpine pack: rock, pine, moss and ice, drawn for a mountain.
+        ///
+        /// <b>Measured before it was used.</b> Its grey rock - Rock_01 to _010, the rough
+        /// pair, the river stones - wears a plain atlas on Generic_Basic and scales without
+        /// complaint, which is what the mountains are built of here; its cliffs and its
+        /// mountain ranges wear triplanar materials, which map their texture by where a
+        /// surface is in the world rather than by the model's own skin. That is the
+        /// material that turned 6-1's masses into slabs of white plastic when the meadow
+        /// pack's cliffs were blown up three to five times for a tor, so the triplanar
+        /// pieces are used at their own size or far away and never scaled into a mass.
+        /// See The Veil > Pack Report (Alpine) for the sheets this was read off.
+        /// </summary>
+        const string AlpineDir = "Assets/Synty/PolygonNatureBiomes/PNB_Alpine_Mountain/Prefabs";
+
+        static PropSet Alpine(params string[] names) => new PropSet(false, Load(AlpineDir, names));
+
+        static PropSet AlpineProps(params string[] names)
+            => new PropSet(false, Load($"{AlpineDir}/Props", names));
+
+        static PropSet AlpineFX(params string[] names)
+            => new PropSet(false, Load("Assets/Synty/PolygonNatureBiomes/PNB_Alpine_Mountain/FX/FX_Prefabs",
+                                       names));
+
+        /// <summary>
         /// A meadow tree in one of the pack's other leaf colours.
         ///
         /// <b>The pack's own, not the old pack's repainted.</b> The autumn was made by
@@ -2333,100 +2357,177 @@ namespace TheVeil.Editor
             decor.RockPasses = true;
             decor.CliffRise = 2.8f;
 
-            // Conifers, and not many: what grows at height is pine, and it grows in pockets.
-            decor.Pines = Synty("Trees", "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02",
-                                "SM_Tree_PolyPine_03", "SM_Tree_PolyPine_Sparse_01",
-                                "SM_Tree_PolyPine_Sparse_02", "SM_Tree_PolyPine_Sparse_03",
-                                "SM_Tree_Pine_01", "SM_Tree_Pine_02");
-
-            decor.Trees = Mixed(
+            // <b>The alpine pack's own pines.</b> Five of them, from a seventeen-metre
+            // spire down to a six-metre scrub, which is what a treeline looks like: the
+            // wood thins and shortens as the ground rises rather than stopping at a line.
+            // The old pack's conifers are kept among them so a slope is not one tree
+            // repeated.
+            decor.Pines = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Pine_01", "SM_Env_Pine_02", "SM_Env_Pine_03",
+                    "SM_Env_Pine_04", "SM_Env_Pine_05",
+                    "SM_Env_Pine_02", "SM_Env_Pine_03", "SM_Env_Pine_05"
+                }),
                 Load($"{SyntyNatureDir}/Trees", new[]
                 {
-                    "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_Sparse_02",
-                    "SM_Tree_Birch_02", "SM_Tree_Birch_04"
+                    "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_Sparse_01"
+                }));
+
+            decor.Trees = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Pine_02", "SM_Env_Pine_03", "SM_Env_Pine_04", "SM_Env_Pine_05"
                 }),
-                Load(MeadowDir, new[] { "SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_03" }));
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_PolyPine_Sparse_02", "SM_Tree_Birch_02", "SM_Tree_Birch_04"
+                }));
 
             decor.Birch = Synty("Trees", "SM_Tree_Birch_01", "SM_Tree_Birch_03",
                                 "SM_Tree_Birch_Small_01");
 
             decor.Willows = Synty("Trees", "SM_Tree_Willow_Small_01");
 
-            // The faces themselves: the nature pack's walls and clusters, which are the
-            // tallest stone in the project, with the meadow pack's cliffs among them.
-            // <b>The old pack's stone only, because this one is scaled.</b> The meadow
-            // pack's cliffs wear a triplanar material - it maps its texture by where a
-            // surface is in the world, not by the model's own skin - and a tor blows each
-            // piece up three to five times: photographed from above, 6-1's masses came back
-            // as slabs of white plastic. The nature pack's rocks carry a plain atlas and
-            // scale without complaint.
-            decor.Cliffs = DryStone(Synty("Rocks", "SM_Rock_Wall_01", "SM_Rock_Wall_02",
-                                 "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_02",
-                                 "SM_Rock_Cluster_Large_03", "SM_Rock_Cluster_Large_04",
-                                 "SM_Rock_Cluster_Large_05", "SM_Rock_Cluster_Large_06"));
+            // <b>The faces, out of the alpine pack's own stone.</b> Rock_010 is sixteen
+            // metres across and fifteen tall on its own; _08 and _09 are ten; the rough
+            // pair are the broken, angular ones. These are what the walls of the pass and
+            // the tors are built from, and they carry a plain atlas
+            // (PolygonNatureBiomes_Alpine_Mat_01 on Generic_Basic) so the decorator may
+            // scale them two to five times without the texture sliding off - which the
+            // pack's own Rock_Cliff pieces cannot survive, being triplanar glacier ice.
+            //
+            // The old pack's clusters stay in the set as well. A ravine built from six
+            // shapes repeats visibly; built from thirteen it does not.
+            decor.Cliffs = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Rock_010", "SM_Env_Rock_08", "SM_Env_Rock_09",
+                    "SM_Env_Rock_07", "SM_Env_Rock_Rough_01", "SM_Env_Rock_Rough_02",
+                    "SM_Env_Rock_010", "SM_Env_Rock_08", "SM_Env_Rock_09"
+                }),
+                DryStone(Synty("Rocks", "SM_Rock_Wall_01", "SM_Rock_Wall_02",
+                               "SM_Rock_Cluster_Large_02", "SM_Rock_Cluster_Large_05")).Models);
 
-            decor.Boulders = DryStone(Synty("Rocks", "SM_Rock_Boulder_01",
-                                            "SM_Rock_Cluster_Large_01", "SM_Rock_Cluster_Large_02",
-                                            "SM_Rock_Cluster_Large_03", "SM_Rock_Cluster_Large_05",
-                                            "SM_Rock_Wall_01", "SM_Rock_Wall_02"));
+            decor.Boulders = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Rock_03", "SM_Env_Rock_04", "SM_Env_Rock_05", "SM_Env_Rock_06",
+                    "SM_Env_Rock_07", "SM_Env_Rock_08", "SM_Env_Rock_Rough_01"
+                }),
+                DryStone(Synty("Rocks", "SM_Rock_Boulder_01",
+                               "SM_Rock_Cluster_Large_03")).Models);
 
-            // Scree: what a mountain leaves lying about.
+            // Scree: what a mountain leaves lying about. The alpine pack draws it as
+            // scatters of loose stone rather than as tidy piles, which is what has fallen
+            // off a face rather than what somebody stacked.
             decor.Rocks = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03", "SM_Env_Rock_04",
+                    "SM_Env_Rock_05", "SM_Env_Rock_Small_01", "SM_Env_Rock_Small_02",
+                    "SM_Env_Rock_Small_03", "SM_Env_Rock_Pebbles_01", "SM_Env_Rock_Pebbles_02",
+                    "SM_Env_Rock_Pebbles_03", "SM_Env_Rock_Pebbles_04", "SM_Env_Rock_Pebbles_05"
+                }),
                 Load($"{SyntyNatureDir}/Rocks", new[]
                 {
-                    "SM_Rock_01", "SM_Rock_02", "SM_Rock_03", "SM_Rock_04",
-                    "SM_Rock_Small_01", "SM_Rock_Small_02",
-                    "SM_Rock_Pile_01", "SM_Rock_Pile_02", "SM_Rock_Pile_03",
-                    "SM_Rock_Pile_04", "SM_Rock_Pile_05",
-                    "SM_Rock_Tile_01", "SM_Rock_Tile_02", "SM_Rock_Tile_03"
-                }),
-                Load($"{SyntyNatureDir}/Terrain", new[]
-                {
-                    "SM_Terrain_Rubble_Pebbles_01", "SM_Terrain_Rubble_Pebbles_02",
-                    "SM_Terrain_Rubble_Pebbles_03"
+                    "SM_Rock_Tile_01", "SM_Rock_Tile_02", "SM_Rock_Pile_02"
                 }));
 
+            // The water's edge, in the pack's own river stone - rounded, wet-looking, and
+            // drawn for exactly this.
             decor.Shore = Mixed(
-                Load($"{SyntyNatureDir}/Rocks", new[]
+                Load(AlpineDir, new[]
                 {
-                    "SM_Rock_Pile_01", "SM_Rock_Pile_03", "SM_Rock_Pile_Curved_01",
-                    "SM_Rock_Pile_Curved_02"
+                    "SM_Env_Rock_River_01", "SM_Env_Rock_River_02", "SM_Env_Rock_River_03",
+                    "SM_Env_Rock_River_04", "SM_Env_Rock_Pebbles_02", "SM_Env_Rock_Pebbles_05"
                 }),
-                Load(MeadowDir, new[] { "SM_Env_Rock_Small_Pile_01", "SM_Env_Rock_Small_Pile_02" }));
+                Load($"{SyntyNatureDir}/Rocks", new[] { "SM_Rock_Pile_Curved_01" }));
 
-            // Thin ground: moss, tufts and fern in the shelter of the stone. No flowers -
-            // nothing up here has the season for them.
+            // Thin ground: moss on the stone, coarse tufts between it, and the pack's
+            // own turned ground cover, which is the brown and rust of a mountainside after
+            // the first frosts rather than the green of a field.
             decor.GroundCover = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Moss_Lumps_01", "SM_Env_Moss_Lumps_02", "SM_Env_Moss_Lumps_03",
+                    "SM_Env_Grass_01", "SM_Env_Grass_01",
+                    "SM_Env_GroundCover_01", "SM_Env_GroundCover_02", "SM_Env_GroundCover_03"
+                }),
                 Load($"{SyntyNatureDir}/Plants", new[]
                 {
-                    "SM_Plant_Grass_01", "SM_Plant_Grass_03", "SM_Plant_Grass_05",
-                    "SM_Plant_Fern_01", "SM_Plant_Fern_03", "SM_Plant_Undergrowth_01"
-                }),
-                Load(MeadowDir, new[]
-                {
-                    "SM_Env_Grass_Short_Clump_01", "SM_Env_Grass_Short_Clump_02",
-                    "SM_Env_Grass_Med_Clump_02", "SM_Env_Ground_Cover_01",
-                    "SM_Env_Ground_Cover_02"
+                    "SM_Plant_Grass_01", "SM_Plant_Grass_05", "SM_Plant_Fern_03"
                 }));
 
-            decor.Bushes = Synty("Plants", "SM_Plant_Bush_01", "SM_Plant_Bush_03",
-                                 "SM_Plant_Undergrowth_01");
+            decor.Bushes = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Bush_01", "SM_Env_Bush_01_Alt", "SM_Env_Bush_02",
+                    "SM_Env_Bush_02_Alt", "SM_Env_Bush_Flower_01"
+                }),
+                Load($"{SyntyNatureDir}/Plants", new[] { "SM_Plant_Bush_03" }));
 
-            decor.Deadfall = Synty("Trees", "SM_Tree_Branch_01", "SM_Tree_Log_01");
-            decor.DeadTrees = Synty("Trees", "SM_Tree_Pine_Dead_01", "SM_Tree_Dead_01",
-                                    "SM_Tree_Stump_01", "SM_Tree_Stump_03");
+            // <b>Flowers at height, which the mountains were written off as having none
+            // of.</b> The note that stood here said nothing up here has the season for
+            // them; the pack that draws this country says otherwise, and draws two -
+            // lupines and snowdrops. A drift of them under a rock face is what a high
+            // pasture in summer actually looks like, and it is the one colour in a chapter
+            // made of grey.
+            decor.Flowers = Alpine("SM_Env_Flowers_01", "SM_Env_Flowers_01_Alt",
+                                   "SM_Env_Bush_Flower_01", "SM_Env_Bush_Flower_01_Alt",
+                                   "SM_Env_Flowers_01", "SM_Env_Bush_Flower_01");
+
+            // Snow lying in the hollows and on the shoulders, as hummocks in the ground.
+            // These wear a triplanar material, so they are laid at their own size and
+            // never built into a mass.
+            decor.Mounds = Alpine("SM_Env_Snow_Mound_01", "SM_Env_Snow_Mound_02",
+                                  "SM_Env_Snow_Mound_03", "SM_Env_Snow_Mound_04",
+                                  "SM_Env_Ground_Mound_Large_01");
+
+            // A hawk over the pass. The meadow has butterflies; what circles up here is
+            // one bird, high, and it is the only thing moving in the whole chapter.
+            decor.Fauna = AlpineFX("FX_Hawk_01", "FX_Hawk_Reverse_01");
+
+            decor.Deadfall = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    // Branches only. A stump belongs with the dead trees, which the
+                    // decorator buries to the root; deadfall is laid on the surface, and a
+                    // stump laid on the surface stands on its own roots. PropSeatingTests
+                    // says so by name.
+                    "SM_Env_Branch_01", "SM_Env_Branch_02", "SM_Env_Branch_03",
+                    "SM_Env_Branch_04"
+                }),
+                Load($"{SyntyNatureDir}/Trees", new[] { "SM_Tree_Log_01" }));
+
+            decor.DeadTrees = Mixed(
+                Load(AlpineDir, new[] { "SM_Env_Pine_NoLeaves_01", "SM_Env_Pine_Stump_01" }),
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_Pine_Dead_01", "SM_Tree_Stump_03"
+                }));
+
+            // What stands on a mountain road: a lookout on the high ground, a hut where
+            // somebody winters, a woodpile beside it. The pack draws all three.
+            decor.Watchtowers = AlpineProps("SM_Prop_Lookout_01");
+            decor.Houses = AlpineProps("SM_Prop_Cabin_01");
+            decor.Camps = AlpineProps("SM_Prop_Tent_01", "SM_Prop_Campfire_01",
+                                      "SM_Prop_Wood_Pile_01", "SM_Prop_Wood_Pile_02");
 
             // Worn ground, and no dust piles: the pack's are smooth sand-coloured mounds a
             // couple of metres across, and scattered over a mountainside they read as heaps
             // of yellow tarpaulin. Photographed at eye level on 6-1 they were the first
             // thing anybody would see.
-            decor.GroundPatches = new PropSet(false, Load(MeadowDir, new[]
-            {
-                "SM_Env_Ground_Cover_01", "SM_Env_Ground_Cover_03"
-            }));
+            decor.GroundPatches = Alpine("SM_Env_GroundCover_01", "SM_Env_GroundCover_03");
 
-            decor.Horizon = Synty("Terrain", "SM_Terrain_Mountain_01",
-                                  "SM_Terrain_Mountain_02", "SM_Terrain_Mountain_03");
+            // <b>The skyline, at last drawn as mountains.</b> The old pack's terrain pieces
+            // are hills with a white cap; the alpine pack ships four ranges, one of them a
+            // horn. They are small as they stand - twenty-four metres across, five and a
+            // half tall - because they are meant to be blown up and set at the back, which
+            // is exactly where the decorator puts them. Triplanar, so they are scaled
+            // uniformly and left alone: nothing is built out of them.
+            decor.Horizon = Alpine("SM_Env_MountainRange_01", "SM_Env_MountainRange_02",
+                                   "SM_Env_MountainRange_03", "SM_Env_MountainRange_04");
 
             AssetDatabase.SaveAssets();
             return decor;

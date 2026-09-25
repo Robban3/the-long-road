@@ -38,6 +38,24 @@ namespace TheVeil.Editor
         [MenuItem("The Veil/Pack Report (Nature)")]
         public static void Nature() => Sheets("Assets/Synty/PolygonNature/Prefabs", "nature");
 
+        /// <summary>
+        /// The alpine pack, in three passes.
+        ///
+        /// Sheets walks a folder's subfolders, and this pack keeps its pieces one level
+        /// higher than the others: the models sit straight in Prefabs, the furniture in
+        /// Prefabs/Props and the effects in FX/FX_Prefabs. Pointing the same walk at three
+        /// roots covers all of it rather than teaching the walk about this one pack.
+        /// </summary>
+        [MenuItem("The Veil/Pack Report (Alpine)")]
+        public static void Alpine()
+        {
+            const string pack = "Assets/Synty/PolygonNatureBiomes/PNB_Alpine_Mountain";
+
+            Sheets(pack, "alpine");
+            Sheets($"{pack}/Prefabs", "alpine-props");
+            Sheets($"{pack}/FX", "alpine-fx");
+        }
+
         static void Sheets(string root, string label)
         {
             string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilPack");

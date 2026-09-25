@@ -250,6 +250,12 @@ namespace TheVeil.Editor
                 // kit's own assembly rather than about the ground.
                 if (name.StartsWith("SM_Bld_")) continue;
 
+                // A window, which is a separate mesh in the alpine pack's cabin and is
+                // nine-tenths of a metre off the ground because that is where a window is.
+                // Reported on 6-3 the day the mountains were dressed from that pack, twice,
+                // and both were right where they belong.
+                if (name.Contains("Glass")) continue;
+
                 // And the pieces of a rock mass, for the same reason: a tor is built in
                 // courses, and asking whether its second course rests on the ground is the
                 // wrong question - it rests on its first. See TerrainDecorator.Tor.
