@@ -25,12 +25,26 @@ namespace TheVeil.View
         public BiomeDecor Decor = new BiomeDecor();
 
         /// <summary>
-        /// What the rivers and the pools are made of. Used for both, since a bog freezes
-        /// the same way a river does and a fen is the same brown as its own puddles. Null
-        /// keeps the summer water, which is the safe way to be wrong: a river that should
-        /// be frozen still reads as a river.
+        /// What the rivers are made of. Null keeps the summer water, which is the safe way
+        /// to be wrong: a river that should be frozen still reads as a river.
         /// </summary>
         public Material Water;
+
+        /// <summary>
+        /// What the standing water in the hollows is made of, where that is not what runs
+        /// in the channel.
+        ///
+        /// <b>A fen is not a river running slowly.</b> This was one field for both, on the
+        /// reasoning that a bog freezes the way a river does - true, and it is why this one
+        /// exists rather than the rule simply being "pools are always still". What it
+        /// missed is the other half: once the fen was given the meadow pack's stream so its
+        /// river would run, every puddle in the marsh started running too, and standing
+        /// water with a current in it reads as a flood rather than as a bog.
+        ///
+        /// Null takes the run's own marsh water, which is the pack's standing water and is
+        /// what a pool should be in every country that has not frozen.
+        /// </summary>
+        public Material PoolWater;
 
         /// <summary>
         /// What falls out of the sky, hung on the camera. Snow in the winter; null leaves

@@ -154,7 +154,11 @@ namespace TheVeil.Editor
             TerrainDecorator.Decorate(props.transform, map.Grid, map.Seed, decor,
                 keepClear: null, heightScale: runner.HeightScale, maxProps: runner.MaxProps,
                 waterMaterial: look != null && look.Water != null ? look.Water : runner.WaterMaterial,
-                marshWaterMaterial: look != null && look.Water != null ? look.Water : runner.MarshWaterMaterial,
+                // The pools take the country's standing water and not its river, as the
+                // run does. See BiomeLook.PoolWater: this said look.Water, so the fen's
+                // puddles ran like a stream here after the run had stopped doing it.
+                marshWaterMaterial: look != null && look.PoolWater != null ? look.PoolWater
+                                                                          : runner.MarshWaterMaterial,
                 apronOpenings: new[] { map.StartIndex, map.GoalIndex },
                 ruinSites: TrapSigns.Sites(map),
                 driveLine: LevelPreview.Travelled(map),

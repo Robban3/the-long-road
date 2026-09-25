@@ -669,7 +669,30 @@ namespace TheVeil.View
         /// like it. Same construction as the river's — only the two colours differ.
         /// </summary>
         public static Material PoolMaterial(Material chosen = null)
-            => Material(chosen, MarshSurface, MarshShallows);
+        {
+            var pool = Material(chosen, MarshSurface, MarshShallows);
+
+            // <b>And standing, which is the whole difference between a fen and a river.</b>
+            // A pool is the same shader as the channel with the same two colours graded by
+            // depth - that is right, and it is why they are built by the same call - but a
+            // bog with a current running through it reads as a flood. The waves and the
+            // flow are turned off rather than the ripple: a still pool with no ripple at
+            // all is a sheet of green glass, and what is wanted is water that sits.
+            //
+            // Only where it is ours to set. A material dropped in the inspector is used as
+            // it was authored, because overriding a bought material by property name is
+            // how a scene ends up disagreeing with itself.
+            if (chosen == null && pool != null)
+            {
+                if (pool.HasProperty(WaveSpeedId)) pool.SetFloat(WaveSpeedId, 0f);
+                if (pool.HasProperty(FlowSpeedId)) pool.SetFloat(FlowSpeedId, 0f);
+            }
+
+            return pool;
+        }
+
+        static readonly int WaveSpeedId = Shader.PropertyToID("_WaveSpeed");
+        static readonly int FlowSpeedId = Shader.PropertyToID("_FlowSpeed");
 
         static Material Material(Material chosen, Color deep, Color shallow)
         {

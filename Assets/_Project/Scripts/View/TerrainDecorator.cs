@@ -1475,6 +1475,13 @@ namespace TheVeil.View
                     if (thing.GetComponentInChildren<BridgeDeck>() != null) continue;
                     if (_trapWrecks.Contains(thing.gameObject)) continue;
 
+                    // And never the water, for the reason the bridge sweep may not have
+                    // it either: it is one mesh over every wet tile, so its box is the
+                    // map, it is taller than the heap by the whole relief of the country,
+                    // and it lies within reach of every trap there is. Both sweeps took
+                    // it, on every level. See WaterSheet.
+                    if (thing.GetComponent<WaterSheet>() != null) continue;
+
                     // Never the castle. It is forty metres of stone standing beside the
                     // goal, and a trap near its wall once took the whole of it down on
                     // 3-10. Its site keeps it off the roads now (Strongholds.Site), and
@@ -1561,6 +1568,12 @@ namespace TheVeil.View
                     // throat, so a heap can fall on the planking; a skeleton on a bridge
                     // is a warning about the bridge, which is what it is there to be.
                     if (IsBones(thing.gameObject)) continue;
+
+                    // And except the water, which is what the bridge is crossing. The
+                    // sheet covers every wet tile on the map, so it overlaps every deck
+                    // by construction and was swept off every level in the game. See
+                    // WaterSheet.
+                    if (thing.GetComponent<WaterSheet>() != null) continue;
 
                     var box = ModelScaling.Measure(thing.gameObject);
 
@@ -1702,6 +1715,11 @@ namespace TheVeil.View
             var surface = new GameObject("Water");
             surface.transform.SetParent(parent, false);
 
+            // Water, and not something standing in the road. See WaterSheet: without this
+            // the bridge sweep took the river off every level that had a bridge, which is
+            // every level, and what was left was the blue the ground is painted.
+            surface.AddComponent<WaterSheet>();
+
             // Terrain, not scenery. The planning fog paints every prop flat grey and
             // files it under the tile its transform sits on — which for one mesh covering
             // the whole map is tile zero, so every river on the plan would go grey
@@ -1748,6 +1766,7 @@ namespace TheVeil.View
             // Terrain rather than scenery, for the reason the river is — one mesh over the
             // whole map would otherwise be filed under tile zero and fog as a single prop.
             pools.AddComponent<Signal>();
+            pools.AddComponent<WaterSheet>();
             pools.AddComponent<MeshFilter>().sharedMesh = mesh;
 
             var renderer = pools.AddComponent<MeshRenderer>();

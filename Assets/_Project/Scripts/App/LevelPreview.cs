@@ -1522,7 +1522,9 @@ namespace TheVeil.App
             var look = LookFor(Biomes.Of(Chapter));
             var decor = look != null && look.Dressed ? look.Decor : Decor;
             var water = look != null && look.Water != null ? look.Water : WaterMaterial;
-            var marshWater = look != null && look.Water != null ? look.Water : MarshWaterMaterial;
+            // Standing water, which is not the river. See BiomeLook.PoolWater.
+            var marshWater = look != null && look.PoolWater != null ? look.PoolWater
+                                                                    : MarshWaterMaterial;
 
             if (decor == null || decor.IsEmpty) return;
 

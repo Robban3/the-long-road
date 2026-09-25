@@ -357,7 +357,11 @@ namespace TheVeil.App
             var look = LookFor(biome);
             var decor = look != null && look.Dressed ? look.Decor : Decor;
             var water = look != null && look.Water != null ? look.Water : WaterMaterial;
-            var marshWater = look != null && look.Water != null ? look.Water : MarshWaterMaterial;
+            // The pools, which are not the river. See BiomeLook.PoolWater: this read
+            // look.Water, so giving the fen a running stream set every puddle in the
+            // marsh running with it.
+            var marshWater = look != null && look.PoolWater != null ? look.PoolWater
+                                                                   : MarshWaterMaterial;
 
             TerrainDecorator.Decorate(_markerRoot, map.Grid, map.Seed, decor,
                 keepClear: null, heightScale: HeightScale, maxProps: MaxProps,
