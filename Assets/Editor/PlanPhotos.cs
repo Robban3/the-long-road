@@ -1,5 +1,7 @@
 using TheVeil.App;
+using TheVeil.Gen;
 using TheVeil.Sim;
+using TheVeil.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -75,6 +77,187 @@ namespace TheVeil.Editor
 
                     Shoot(preview, shots, $"plan-{chapter}-{level}");
                 }
+            }
+
+            Debug.Log("[Plan] done");
+        }
+
+        /// <summary>
+        /// The plan with a route drawn on it: `The Veil > Plan Photos (Drawn)`.
+        ///
+        /// <b>Because the map the player looks at has a line on it, and none of the
+        /// pictures did.</b> Everything photographed so far is the map before anybody has
+        /// touched it. What was reported is what happens when a waypoint goes down - and
+        /// the ribbon is built from the route the planner returns, over ground that is
+        /// half revealed, so it is the one part of the plan that cannot be judged from a
+        /// picture of the map standing still.
+        ///
+        /// Drawn here exactly as RouteDrawing draws it: the same planner, the same
+        /// builder, the same material off the scene's own component.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.PlanPhotos.Drawn
+        /// </summary>
+        [MenuItem("The Veil/Plan Photos (Drawn)")]
+        public static void Drawn()
+        {
+            string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilPlan");
+            System.IO.Directory.CreateDirectory(shots);
+
+            EditorSceneManager.OpenScene("Assets/_Project/Scenes/LevelPreview.unity",
+                                         OpenSceneMode.Single);
+
+            var preview = Object.FindAnyObjectByType<LevelPreview>();
+            var drawing = Object.FindAnyObjectByType<RouteDrawing>();
+            if (preview == null || drawing == null)
+            {
+                Debug.LogError("[Plan] the scene has no LevelPreview or no RouteDrawing.");
+                return;
+            }
+
+            var fly = typeof(LevelPreview).GetMethod("FlyEagle",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+            foreach (var (chapter, level) in new[] { (1, 1), (4, 1), (6, 1) })
+            {
+                preview.Chapter = chapter;
+                preview.Level = level;
+                preview.Rebuild();
+
+                for (int i = 0; i < Aloft && fly != null; i++)
+                    fly.Invoke(preview, new object[] { 0.1f });
+
+                var map = LevelMaps.For(chapter, level);
+                var planner = new RoutePlanner(map.Grid);
+
+                // Two waypoints, off the straight line either side, which is what a player
+                // does first: one leg out and one back.
+                map.Grid.ToCoords(map.StartIndex, out int sx, out int sy);
+                map.Grid.ToCoords(map.GoalIndex, out int gx, out int gy);
+
+                int midY = (sy + gy) / 2;
+                planner.TryAddWaypoint(Mathf.Clamp(sx + 12, 1, map.Grid.Width - 2),
+                                       Mathf.Clamp(midY - 8, 1, map.Grid.Height - 2),
+                                       map.StartIndex, map.GoalIndex);
+                planner.TryAddWaypoint(Mathf.Clamp(gx - 12, 1, map.Grid.Width - 2),
+                                       Mathf.Clamp(midY + 8, 1, map.Grid.Height - 2),
+                                       map.StartIndex, map.GoalIndex);
+
+                var route = planner.Solve(map.StartX, map.StartY, map.GoalX, map.GoalY);
+
+                Debug.Log($"[Plan] {chapter}-{level} drawn: {planner.WaypointCount} waypoint(s), "
+                          + $"{route.Tiles.Count} tiles, valid {route.IsValid}");
+
+                var mesh = RouteRibbonBuilder.Build(map.Grid, route.Tiles, drawing.DrawnColour,
+                                                    preview.HeightScale, drawing.DrawnWidth);
+
+                var ribbon = new GameObject("DrawnRoute");
+                ribbon.transform.SetParent(preview.transform, false);
+                ribbon.AddComponent<MeshFilter>().sharedMesh = mesh;
+
+                var renderer = ribbon.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = drawing.RouteMaterial;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+
+                Shoot(preview, shots, $"drawn-{chapter}-{level}");
+
+                Object.DestroyImmediate(ribbon);
+            }
+
+            Debug.Log("[Plan] done");
+        }
+
+        /// <summary>
+        /// The plan photographed after each click, as a player builds a route up.
+        ///
+        /// <b>A still of a finished route cannot show what a click does to it.</b> What
+        /// was reported is the map going strange when a waypoint goes down, and the two
+        /// candidates look identical once the line is drawn: a path that takes a silly
+        /// shape between the points, and a point that is inserted into the wrong leg so
+        /// the road doubles back on itself. Photographed one click at a time, they do not
+        /// look alike at all.
+        ///
+        /// The clicks are laid along the straight line from the start to the goal and
+        /// then off it, which is how a route is actually drawn: out towards the cover,
+        /// back towards the road.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.PlanPhotos.Clicks
+        /// </summary>
+        [MenuItem("The Veil/Plan Photos (Clicks)")]
+        public static void Clicks()
+        {
+            string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilPlan");
+            System.IO.Directory.CreateDirectory(shots);
+
+            EditorSceneManager.OpenScene("Assets/_Project/Scenes/LevelPreview.unity",
+                                         OpenSceneMode.Single);
+
+            var preview = Object.FindAnyObjectByType<LevelPreview>();
+            var drawing = Object.FindAnyObjectByType<RouteDrawing>();
+            if (preview == null || drawing == null)
+            {
+                Debug.LogError("[Plan] the scene has no LevelPreview or no RouteDrawing.");
+                return;
+            }
+
+            var fly = typeof(LevelPreview).GetMethod("FlyEagle",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+            const int chapter = 1;
+            const int level = 1;
+
+            preview.Chapter = chapter;
+            preview.Level = level;
+            preview.Rebuild();
+
+            for (int i = 0; i < Aloft && fly != null; i++) fly.Invoke(preview, new object[] { 0.1f });
+
+            var map = LevelMaps.For(chapter, level);
+            var planner = new RoutePlanner(map.Grid);
+
+            map.Grid.ToCoords(map.StartIndex, out int sx, out int sy);
+            map.Grid.ToCoords(map.GoalIndex, out int gx, out int gy);
+
+            // Four taps: a quarter of the way along and pulled aside, then half, then
+            // three quarters, then one back on the line between the first two - which is
+            // the tap that tests which leg a point lands in.
+            var taps = new[]
+            {
+                (0.25f, -6), (0.50f, 6), (0.75f, -4), (0.375f, 0)
+            };
+
+            int shot = 0;
+
+            foreach (var (along, aside) in taps)
+            {
+                int x = Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(sx, gx, along)) + aside,
+                                    1, map.Grid.Width - 2);
+                int y = Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(sy, gy, along)),
+                                    1, map.Grid.Height - 2);
+
+                bool took = planner.TryAddWaypoint(x, y, map.StartIndex, map.GoalIndex);
+                var route = planner.Solve(map.StartX, map.StartY, map.GoalX, map.GoalY);
+
+                Debug.Log($"[Plan] click {++shot} at {x},{y}: {(took ? "taken" : "refused")}, "
+                          + $"{planner.WaypointCount} waypoint(s), {route.Tiles.Count} tiles, "
+                          + $"valid {route.IsValid}, order "
+                          + string.Join(" ", System.Linq.Enumerable.Select(planner.Waypoints,
+                                w => { map.Grid.ToCoords(w, out int wx, out int wy); return $"{wx},{wy}"; })));
+
+                var ribbon = new GameObject("DrawnRoute");
+                ribbon.transform.SetParent(preview.transform, false);
+                ribbon.AddComponent<MeshFilter>().sharedMesh =
+                    RouteRibbonBuilder.Build(map.Grid, route.Tiles, drawing.DrawnColour,
+                                             preview.HeightScale, drawing.DrawnWidth);
+
+                var renderer = ribbon.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = drawing.RouteMaterial;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+
+                Shoot(preview, shots, $"click-{shot}");
+
+                Object.DestroyImmediate(ribbon);
             }
 
             Debug.Log("[Plan] done");
