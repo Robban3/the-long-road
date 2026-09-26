@@ -425,13 +425,21 @@ namespace TheVeil.Editor
         /// level, and a metre or two further out changes nothing about that. Gives up after
         /// a few steps and returns where it started, which is no worse than before.
         /// </summary>
-        static Vector3 Clear(Vector3 eye, Vector3 at)
+        internal static Vector3 Clear(Vector3 eye, Vector3 at,
+                                      float step = ClearStep, float lift = ClearLift,
+                                      int steps = ClearSteps)
         {
+            // <b>The stride is the caller's, because the two cameras frame different
+            // things.</b> A chapter sheet has two hundred and fifty metres of country in
+            // it, so twelve metres back and six up costs it nothing. A trap sign is four
+            // metres of bones seen from nine: the same stride put the camera seventy
+            // metres out, and a screenful of leaves became a screenful of country with a
+            // speck of bone in the middle of it.
             var back = (eye - at).normalized;
 
-            for (int step = 0; step <= ClearSteps; step++)
+            for (int i = 0; i <= steps; i++)
             {
-                var tried = eye + back * (step * ClearStep) + Vector3.up * (step * ClearLift);
+                var tried = eye + back * (i * step) + Vector3.up * (i * lift);
                 if (Sees(tried, at)) return tried;
             }
 
@@ -446,7 +454,7 @@ namespace TheVeil.Editor
         /// frame: the mass was a stride in front of it. So the line itself is walked, a few
         /// metres at a time, and a spot only counts when the whole of it is open.
         /// </summary>
-        static bool Sees(Vector3 eye, Vector3 at)
+        internal static bool Sees(Vector3 eye, Vector3 at)
         {
             float away = Vector3.Distance(eye, at);
             var along = (at - eye).normalized;

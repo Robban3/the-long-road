@@ -122,8 +122,15 @@ namespace TheVeil.Editor
                     // And one picture per chapter, taken from a man's height beside the
                     // first trap on its first level. A count says a fossil went down; only
                     // a photograph says whether it reads as a warning.
-                    if (level == 1 && map.Encounters.Traps.Count > 0)
-                        Beside(map, map.Encounters.Traps[0].Tile, runner, chapter);
+                    // The first trap on the chapter's first level that can actually be
+                    // seen. Taking the first one full stop gave chapter four a screenful
+                    // of leaves: its opening trap sits in a thicket, and no bearing round
+                    // it has a line of sight. A chapter has three or four traps and the
+                    // picture is of the sign rather than of that particular trap.
+                    if (level == 1)
+                        foreach (var trap in map.Encounters.Traps)
+                            if (Marked(root, map, trap.Tile)
+                                && Beside(map, trap.Tile, runner, chapter)) break;
 
                     foreach (var trap in map.Encounters.Traps)
                     {
@@ -153,15 +160,94 @@ namespace TheVeil.Editor
             Write("attraps.txt", said);
         }
 
-        /// <summary>One picture of a trap site, from a man's height a few paces off.</summary>
-        static void Beside(LevelMap map, int tile, LevelRunner runner, int chapter)
+        /// <summary>
+        /// Whether a sign is actually standing at this trap.
+        ///
+        /// <b>Not every trap has one.</b> A site beside a bridge loses its wreck to the
+        /// sweep that keeps the roadway clear, and a site in a town loses it to the
+        /// streets - which is right, and means the first trap on a level is not always the
+        /// one to photograph. Chapter five's was: the picture came back as a bridge and
+        /// forty square metres of dirt.
+        /// </summary>
+        static bool Marked(GameObject root, LevelMap map, int tile)
+        {
+            var at = Vec2.FromTile(map.Grid, tile);
+
+            foreach (var thing in root.GetComponentsInChildren<Transform>(true))
+            {
+                float dx = thing.position.x - at.X, dz = thing.position.z - at.Y;
+                if (dx * dx + dz * dz > SignReach * SignReach) continue;
+
+                string name = thing.name;
+                if (name.Contains("Skull") || name.Contains("Skeleton") || name.Contains("Bone")
+                    || name.Contains("Ribcage") || name.Contains("Fossil")
+                    || name.Contains("Wagon") || name.Contains("Cart"))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>How near the sign has to be to count as this trap's, in metres.</summary>
+        const float SignReach = 6f;
+
+        /// <summary>How many directions round a trap are tried before backing off.</summary>
+        const int Bearings = 12;
+
+        /// <summary>How far out the camera stands, and how high, in metres.</summary>
+        const float TrapStandoff = 9f;
+
+        const float TrapEye = 4.5f;
+
+        /// <summary>
+        /// One picture of a trap site, from a man's height a few paces off.
+        ///
+        /// False when no direction round it has a clear line, which is the caller's cue to
+        /// try the next trap rather than to photograph a hedge.
+        /// </summary>
+        static bool Beside(LevelMap map, int tile, LevelRunner runner, int chapter)
         {
             var at = Vec2.FromTile(map.Grid, tile);
             float ground = map.Grid.SurfaceElevation(at.X, at.Y) * runner.HeightScale;
 
+            var look = new Vector3(at.X, ground + 0.6f, at.Y);
+
+            // Backed out of whatever is standing in the way, which on the plains was a
+            // meadow tree: chapter four's first picture was a screenful of dark leaves
+            // with a trap somewhere behind them. The smoke test solved this for its own
+            // camera and the answer is the same one - step back along the line of sight
+            // until nothing is inside the lens.
+            // <b>Walked round the site rather than backed away from it.</b> The first
+            // picture of chapter four was a screenful of dark leaves: the camera stands
+            // nine metres out and a meadow tree's crown is ten across, so it was inside
+            // one. Backing off along the line of sight is what the chapter sheets do, and
+            // it is wrong here - in a wood it either finds nothing in twenty-four metres
+            // or it finds daylight seventy metres out, by which point the bones are four
+            // pixels. A trap is nearly always clear from *some* direction, so the camera
+            // tries twelve of them at the same distance and takes the first that can see
+            // the site. Backing off is the last resort, not the first.
+            var eye = new Vector3(at.X - 9f, ground + 4.5f, at.Y - 9f);
+            bool seen = false;
+
+            for (int bearing = 0; bearing < Bearings; bearing++)
+            {
+                float turn = bearing / (float)Bearings * Mathf.PI * 2f;
+                var tried = new Vector3(at.X + Mathf.Cos(turn) * TrapStandoff,
+                                        ground + TrapEye,
+                                        at.Y + Mathf.Sin(turn) * TrapStandoff);
+
+                if (!SmokeTest.Sees(tried, look)) continue;
+
+                eye = tried;
+                seen = true;
+                break;
+            }
+
+            if (!seen) return false;
+
             var camera = new GameObject("Trap shot").AddComponent<Camera>();
-            camera.transform.position = new Vector3(at.X - 9f, ground + 4.5f, at.Y - 9f);
-            camera.transform.LookAt(new Vector3(at.X, ground + 0.6f, at.Y));
+            camera.transform.position = eye;
+            camera.transform.LookAt(look);
             camera.fieldOfView = 45f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.66f, 0.80f, 0.85f);
@@ -186,6 +272,7 @@ namespace TheVeil.Editor
             Debug.Log($"[AtTraps] chapter {chapter}: {path}");
 
             Object.DestroyImmediate(camera.gameObject);
+            return true;
         }
 
         /// <summary>What the arid pack's bones import as: size, materials, and a picture.</summary>
