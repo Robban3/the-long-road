@@ -2507,12 +2507,40 @@ namespace TheVeil.Editor
                     "SM_Tree_Pine_Dead_01", "SM_Tree_Stump_03"
                 }));
 
-            // What stands on a mountain road: a lookout on the high ground, a hut where
-            // somebody winters, a woodpile beside it. The pack draws all three.
+            // <b>What lies at a trap up here is a fossil.</b> Every other country marks
+            // its trap fields with bones - a skeleton, a skull, a heap from the arid pack -
+            // and the mountains are the one place where what the ground gives up is older
+            // than the road: the alpine pack draws a spine and ribcage curled in the stone,
+            // two and a half metres of it. It is the same sign doing the same work, and a
+            // chapter whose ground is rock should say so in its own language. IsBones knows
+            // the word.
+            //
+            // The cart stays in the set, as it does everywhere: a wreck says something
+            // happened here, and a fossil says this ground has been killing for longer than
+            // anybody has been driving over it.
+            decor.Ruins = Mixed(
+                Load($"{AlpineDir}/Props", new[]
+                {
+                    "SM_Prop_Fossil_01", "SM_Prop_Fossil_01", "SM_Prop_Fossil_01"
+                }),
+
+                // A skull among them, so the heap strewn round the fossil has something
+                // to be made of - the fossil is refused there by size - and so that not
+                // every trap in the chapter is a dead animal the size of a cart.
+                Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Skull_01" }),
+                Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_Cart_01" }));
+
+            // A lookout on the high ground: a timber platform on poles with a railing,
+            // which is a watchpost in any century.
+            //
+            // <b>And nothing else out of that drawer, because this pack is camping
+            // equipment.</b> Its cabin is a red A-frame with glazed windows and its tent is
+            // a blue nylon dome; both went in on the strength of their names - a hut and a
+            // tent are things a mountain road has - and neither belongs in a game about a
+            // caravan on a medieval road. The same drawer holds a thermos, a folding stool
+            // and a petrol ice auger. The camps keep the army pack's tent and the nature
+            // pack's fire, as every other country's do.
             decor.Watchtowers = AlpineProps("SM_Prop_Lookout_01");
-            decor.Houses = AlpineProps("SM_Prop_Cabin_01");
-            decor.Camps = AlpineProps("SM_Prop_Tent_01", "SM_Prop_Campfire_01",
-                                      "SM_Prop_Wood_Pile_01", "SM_Prop_Wood_Pile_02");
 
             // Worn ground, and no dust piles: the pack's are smooth sand-coloured mounds a
             // couple of metres across, and scattered over a mountainside they read as heaps

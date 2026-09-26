@@ -111,10 +111,19 @@ namespace TheVeil.Editor
 
             var tally = new Dictionary<string, int>();
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            // Every built chapter, not the first three. The countries dress their traps
+            // differently now - the fen's bones are not the mountains' fossil - so a tally
+            // that stops at chapter three is a tally of one third of the game.
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var root = SmokeTest.Build(runner, chapter, level, out var map);
+
+                    // And one picture per chapter, taken from a man's height beside the
+                    // first trap on its first level. A count says a fossil went down; only
+                    // a photograph says whether it reads as a warning.
+                    if (level == 1 && map.Encounters.Traps.Count > 0)
+                        Beside(map, map.Encounters.Traps[0].Tile, runner, chapter);
 
                     foreach (var trap in map.Encounters.Traps)
                     {
@@ -142,6 +151,41 @@ namespace TheVeil.Editor
             foreach (string name in names) said.AppendLine($"[AtTraps] {tally[name],4}  {name}");
 
             Write("attraps.txt", said);
+        }
+
+        /// <summary>One picture of a trap site, from a man's height a few paces off.</summary>
+        static void Beside(LevelMap map, int tile, LevelRunner runner, int chapter)
+        {
+            var at = Vec2.FromTile(map.Grid, tile);
+            float ground = map.Grid.SurfaceElevation(at.X, at.Y) * runner.HeightScale;
+
+            var camera = new GameObject("Trap shot").AddComponent<Camera>();
+            camera.transform.position = new Vector3(at.X - 9f, ground + 4.5f, at.Y - 9f);
+            camera.transform.LookAt(new Vector3(at.X, ground + 0.6f, at.Y));
+            camera.fieldOfView = 45f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.66f, 0.80f, 0.85f);
+            camera.farClipPlane = 3000f;
+
+            var texture = new RenderTexture(1200, 800, 24);
+            camera.targetTexture = texture;
+
+            // Twice, the first thrown away: the first render of a freshly built level
+            // comes back blown out. See GroundPhotos.
+            camera.Render();
+            camera.Render();
+
+            RenderTexture.active = texture;
+            var shot = new Texture2D(1200, 800, TextureFormat.RGB24, false);
+            shot.ReadPixels(new Rect(0, 0, 1200, 800), 0, 0);
+            shot.Apply();
+            RenderTexture.active = null;
+
+            string path = System.IO.Path.Combine(Shots, $"trap-{chapter}.png");
+            System.IO.File.WriteAllBytes(path, shot.EncodeToPNG());
+            Debug.Log($"[AtTraps] chapter {chapter}: {path}");
+
+            Object.DestroyImmediate(camera.gameObject);
         }
 
         /// <summary>What the arid pack's bones import as: size, materials, and a picture.</summary>

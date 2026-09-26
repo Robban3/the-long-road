@@ -1534,6 +1534,16 @@ namespace TheVeil.View
                     if (thing.GetComponentInChildren<BridgeDeck>() != null) continue;
                     if (_trapWrecks.Contains(thing.gameObject)) continue;
 
+                    // <b>And never the remains themselves.</b> This sweep clears what
+                    // stands over a trap's bones so they can be seen, and it judges by
+                    // height - which was safe while the bones were a skeleton lying at
+                    // 0.41 m. The mountains mark their traps with the alpine pack's
+                    // fossil, two and a half metres of spine curled in the stone, and the
+                    // sweep took every one of them the moment they went down: the sign
+                    // was tall enough to be something hiding itself. Bones do not hide
+                    // bones.
+                    if (IsBones(thing.gameObject)) continue;
+
                     // And never the water, for the reason the bridge sweep may not have
                     // it either: it is one mesh over every wet tile, so its box is the
                     // map, it is taller than the heap by the whole relief of the country,
@@ -4323,6 +4333,18 @@ namespace TheVeil.View
             return false;
         }
 
+        /// <summary>Takes the ground-claim off a prop, leaving it standing.</summary>
+        static void Unsolid(GameObject instance)
+        {
+            if (instance == null) return;
+
+            foreach (var solid in instance.GetComponentsInChildren<Solid>(true))
+            {
+                if (Application.isPlaying) Object.Destroy(solid);
+                else Object.DestroyImmediate(solid);
+            }
+        }
+
         /// <summary>Takes a building down again, at edit time or in play.</summary>
         static void Unbuild(GameObject instance)
         {
@@ -5112,6 +5134,15 @@ namespace TheVeil.View
                                   heightScale, occupied, sink: 0f));
             if (main == null) return 0;
 
+            // <b>And nothing solid where the warning stands on the road.</b> A trap sign
+            // is put beside its trap and traps are laid on the roads, so the sign lands in
+            // the caravan's lane by design - that is the whole point of it. It was safe
+            // while the sign was a skeleton lying at knee height, which Block leaves alone;
+            // the arid pack's standing skeletons and the mountains' fossil are tall enough
+            // to be marked solid, and a solid thing in the lane is something the wagons
+            // drive through. Off the road it keeps its disc and the escort walks round it.
+            if (Barring(grid, _road, main)) Unsolid(main);
+
             Landmark.Note(found, IsBones(chosen) ? LandmarkKind.Bones : LandmarkKind.Wreck, tile);
 
             int placed = 1;
@@ -5146,6 +5177,19 @@ namespace TheVeil.View
                     bone.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
 
                     Ground(bone, by);
+
+                    // <b>A heap is made of pieces a man could pick up.</b> The draw takes
+                    // whatever in the set is bones, and the mountains mark their traps
+                    // with a fossil - two and a half metres of spine, eight long. A dozen
+                    // of those strewn over two metres of ground is not a heap of bones
+                    // beside a wreck; it is a herd of dead animals standing in each other,
+                    // which is what the first photograph of 6-1 showed. The sign itself
+                    // may be as big as the country wants; what lies around it may not.
+                    if (ModelScaling.Measure(bone).size.y > BonePiece)
+                    {
+                        Unbuild(bone);
+                        continue;
+                    }
                     Mark(bone);
                     placed++;
                 }
@@ -5289,9 +5333,16 @@ namespace TheVeil.View
             // Ribcage and carcass as well as the obvious four: the arid pack names its
             // heaps AD2_Ribcage_01 and AD2_BonePile_01, and a sign this did not recognise
             // as bones was noted on the planning map as a wreck and never got its heap.
+            //
+            // And a fossil, which is the mountains' own dead: the alpine pack draws a
+            // spine and ribcage curled in the stone. Everything this test governs applies
+            // to it - the map marks it as the trap tell, the sweeps leave it alone, the
+            // wreck is laid beside it - and none of it would have, because the pack calls
+            // bones in rock a fossil.
             return name.Contains("Skull") || name.Contains("Skeleton")
                 || name.Contains("Bone") || name.Contains("Grave")
-                || name.Contains("Ribcage") || name.Contains("Carcass");
+                || name.Contains("Ribcage") || name.Contains("Carcass")
+                || name.Contains("Fossil");
         }
 
         /// <summary>How wide a loose piece of wreckage is, and how far it lies from the cart.</summary>
@@ -5307,6 +5358,15 @@ namespace TheVeil.View
         public const float BridgeBed = 0.35f;
 
         public const float WreckStandoff = 3.2f;
+
+        /// <summary>
+        /// How tall a loose piece of a bone heap may be, in metres.
+        ///
+        /// Waist height, which is the line everything else in this file uses for what is
+        /// walked over rather than round: a skull, a ribcage and a thighbone are all well
+        /// under it, and anything over it is a body rather than a piece of one.
+        /// </summary>
+        const float BonePiece = 1.2f;
 
         /// <summary>The quarter turn that puts a broken wagon on its side rather than its face.</summary>
         const float WreckTip = 90f;

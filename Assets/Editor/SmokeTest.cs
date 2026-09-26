@@ -367,6 +367,13 @@ namespace TheVeil.Editor
                 if (bounds.center.x < 0f || bounds.center.x > span) continue;
                 if (bounds.center.z < 0f || bounds.center.z > deep) continue;
 
+                // A sign may be nothing at all to walk round, and the trap's remains
+                // have to be: they are laid beside their trap, traps are laid on the
+                // roads, and anything solid standing in the lane is something the wagons
+                // drive through. See TerrainDecorator.Wreck, which takes the disc off a
+                // sign that lands in the road and leaves it on one that does not.
+                if (prop.GetComponent<Signal>() != null) continue;
+
                 var discs = prop.GetComponentsInChildren<Solid>(true);
                 if (discs.Length == 0) { open.Add(prop.name); continue; }
 
