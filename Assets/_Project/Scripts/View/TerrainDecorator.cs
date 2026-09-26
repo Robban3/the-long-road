@@ -1644,6 +1644,15 @@ namespace TheVeil.View
                     // WaterSheet.
                     if (thing.GetComponent<WaterSheet>() != null) continue;
 
+                    // And except a trap's wagon, for the reason its bones are spared two
+                    // lines up: the two together are the warning. A trap beside a crossing
+                    // is the one whose warning matters most - a ford is a throat and that
+                    // is where traps go - and the sweep was taking the wagon and leaving a
+                    // skull, so chapter five's opening trap was marked by one skull half
+                    // on the bridge ramp and nothing else. Photographed, and it read as
+                    // nothing at all.
+                    if (_trapWrecks.Contains(thing.gameObject)) continue;
+
                     var box = ModelScaling.Measure(thing.gameObject);
 
                     // Flattened, because the question is what stands over the roadway and
@@ -5368,8 +5377,22 @@ namespace TheVeil.View
         /// </summary>
         const float BonePiece = 1.2f;
 
-        /// <summary>The quarter turn that puts a broken wagon on its side rather than its face.</summary>
-        const float WreckTip = 90f;
+        /// <summary>
+        /// How far a broken wagon is tipped over, in degrees about its axle.
+        ///
+        /// <b>Nought, and this is the third answer.</b> It went down as drawn and read as
+        /// a cart for a child; it was scaled to a wagon's size and turned a quarter about
+        /// its axle, on the reasoning that a wreck lies on its side; and what a quarter
+        /// turn actually does to this model is stand it on its end with its wheels in the
+        /// air, which is what a playtest reported.
+        ///
+        /// Measured at last, every quarter turn fitted to the height the decorator asks
+        /// for (The Veil > Wreck Model): as drawn it covers 3.1 by 4.9 m of ground, and
+        /// turned a quarter about x it covers 1.4 by 1.0 - a column rather than a wreck.
+        /// The model is authored lying down with its top up and its loose wheel off, which
+        /// is the thing itself. The yaw still turns: a wreck may lie any way round.
+        /// </summary>
+        const float WreckTip = 0f;
 
         /// <summary>
         /// How high a wreck lies, in metres.
@@ -5379,7 +5402,7 @@ namespace TheVeil.View
         /// 1.8 m it reads as something a man could shelter behind, which is what a wreck at
         /// the roadside is.
         /// </summary>
-        const float WreckHeight = 2.2f;
+        public const float WreckHeight = 2.2f;
 
         public const float DebrisWidth = 1.3f;
         public const float DebrisSpread = 2.6f;
