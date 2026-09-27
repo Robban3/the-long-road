@@ -22,9 +22,52 @@ namespace TheVeil.View
             var renderers = instance.GetComponentsInChildren<Renderer>();
             if (renderers.Length == 0) return new Bounds(instance.transform.position, Vector3.zero);
 
+            // <b>The model the player sees, not every model in the file.</b> A prop with
+            // levels of detail carries two or three meshes of the same thing, and they do
+            // not have to agree about where the bottom of it is: the arid pack's second
+            // cactus has a nearest mesh whose lowest point is three centimetres under the
+            // pivot and a farthest one at twelve. Measuring all of them together seats the
+            // prop by the deepest, so the mesh that is actually drawn ends up hanging
+            // above the ground - by the difference times whatever the prop was scaled to,
+            // which on a five-metre cactus is most of a metre. Reported by the smoke test
+            // on every level of chapter seven.
+            //
+            // So a prop with an LODGroup is measured by its nearest level. That is the one
+            // standing in front of the camera when anybody is close enough to see whether
+            // it touches the ground, and it is what the smoke test measures.
+            var near = Nearest(instance);
+            if (near != null) renderers = near;
+
             var bounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
             return bounds;
+        }
+
+        /// <summary>The renderers of a prop's nearest level of detail, or null for a prop without.</summary>
+        static Renderer[] Nearest(GameObject instance)
+        {
+            var group = instance.GetComponentInChildren<LODGroup>();
+            if (group == null) return null;
+
+            var levels = group.GetLODs();
+            if (levels.Length == 0) return null;
+
+            var first = levels[0].renderers;
+            if (first == null || first.Length == 0) return null;
+
+            // A level may list a renderer that has since been destroyed - the courtyard
+            // sweep and the bridge sweep both take pieces out of assembled props - so the
+            // nulls are dropped rather than measured.
+            int kept = 0;
+            foreach (var renderer in first) if (renderer != null) kept++;
+
+            if (kept == 0) return null;
+
+            var standing = new Renderer[kept];
+            int at = 0;
+            foreach (var renderer in first) if (renderer != null) standing[at++] = renderer;
+
+            return standing;
         }
 
         /// <summary>
