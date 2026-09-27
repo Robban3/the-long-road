@@ -43,7 +43,7 @@ namespace TheVeil.Editor
             var sheet = new StringBuilder();
             sheet.AppendLine("[Castle] the castle on the goal, per chapter");
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
             {
                 int level = Campaign.LevelsPerChapter;
                 var root = SmokeTest.Build(runner, chapter, level, out var map);

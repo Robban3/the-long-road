@@ -44,6 +44,7 @@ namespace TheVeil.Editor
             var open = new Dictionary<string, Tally>();
             var leaky = new Dictionary<string, Tally>();
             var inTheRoad = new Dictionary<string, Tally>();
+            var capped = new Dictionary<string, Tally>();
 
             for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
             {
@@ -52,7 +53,7 @@ namespace TheVeil.Editor
                 foreach (int level in new[] { 1, Campaign.LevelsPerChapter })
                 {
                     var root = SmokeTest.Build(runner, chapter, level, out var map);
-                    Measure(map, $"{chapter}-{level}", root, open, leaky, inTheRoad);
+                    Measure(map, $"{chapter}-{level}", root, open, leaky, inTheRoad, capped);
                     Object.DestroyImmediate(root);
                 }
             }
@@ -60,6 +61,8 @@ namespace TheVeil.Editor
             Report("nothing solid about them", open);
             Report("solid in the middle only", leaky);
             Report("standing in the caravan's lane", inTheRoad);
+            Report($"claiming more ground than the run will give them "
+                   + $"(over {ObstacleField.MaxRadius} m)", capped);
 
             Debug.Log("[Solid] done");
         }
@@ -77,7 +80,8 @@ namespace TheVeil.Editor
         static void Measure(LevelMap map, string where, GameObject root,
                             Dictionary<string, Tally> open,
                             Dictionary<string, Tally> leaky,
-                            Dictionary<string, Tally> inTheRoad)
+                            Dictionary<string, Tally> inTheRoad,
+                            Dictionary<string, Tally> capped)
         {
             var props = root.transform.Find("Props");
             if (props == null) return;
@@ -108,6 +112,15 @@ namespace TheVeil.Editor
                 float reach = discs.Length == 0
                     ? 0f
                     : discs.Max(d => Vector2.Distance(d.Centre, centre) + d.Radius);
+
+                // <b>And what the simulation will not take.</b> ObstacleField caps every
+                // disc it is given, so a prop marked solid out to twelve metres is solid
+                // out to six in the run and the escort walks through the rest of it. The
+                // decorator has no idea: it writes a radius on a component and the cap is
+                // applied four files away, silently.
+                foreach (var disc in discs)
+                    if (disc.Radius > ObstacleField.MaxRadius)
+                        Note(capped, prop.name, wide, bounds.size.y, disc.Radius, where);
 
                 if (discs.Length == 0) Note(open, prop.name, wide, bounds.size.y, reach, where);
                 else if (reach < wide * Covered) Note(leaky, prop.name, wide, bounds.size.y, reach, where);

@@ -32,7 +32,7 @@ namespace TheVeil.Editor
             string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilSmoke");
             System.IO.Directory.CreateDirectory(dir);
 
-            for (int chapter = 1; chapter <= 2; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {

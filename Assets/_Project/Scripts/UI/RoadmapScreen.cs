@@ -121,9 +121,16 @@ namespace TheVeil.UI
             // switch on, everything is unlocked (Campaign.OpenAll) - but the row still
             // stopped at four tabs, so the fifth and sixth chapters could not be reached
             // from the menu at all. Somebody showing the game is showing the countries.
+            // <b>And the ceiling is what exists, not four.</b> The clamp was written when
+            // four chapters were the whole game and it stayed: a player who cleared the
+            // farmland unlocked the mountains and then could not reach them from this
+            // screen, because the row stopped at the fourth tab. Two chapters of the game
+            // were shut behind a number nobody had revisited. The demo switch was given
+            // its own answer for exactly this reason - it was the half of the fault
+            // somebody happened to look at.
             int tabs = campaign.OpenAll
                 ? Mathf.Max(2, DifficultyCurve.BuiltChapters)
-                : Mathf.Clamp(campaign.HighestChapter + 1, 2, 4);
+                : Mathf.Clamp(campaign.HighestChapter + 1, 2, DifficultyCurve.BuiltChapters);
 
             var row = Widgets.Node("Chapters", root);
             row.Place(new Vector2(0.5f, 1f), new Vector2(0f, -310f), new Vector2(Widgets.SafeWidth, 96f));

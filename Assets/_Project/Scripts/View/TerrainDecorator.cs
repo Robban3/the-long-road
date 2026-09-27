@@ -3009,10 +3009,86 @@ namespace TheVeil.View
                 ? Mathf.Clamp(across * 2f * TrunkShare, MinTrunk, MaxTrunk)
                 : across * 0.85f;
 
+            // <b>A mountain does not fit in one disc, and the run would not have taken
+            // it.</b> ObstacleField caps every disc at six metres - deliberately, so that
+            // one badly measured prop cannot put a fifty-metre hole in the map - and the
+            // decorator had no idea: it wrote a radius on a component and the cap was
+            // applied four files away in silence. Measured over twelve levels, a hundred
+            // and eighty-four props were claiming more ground than the run would give
+            // them, up to eleven metres against the cap's six, and every one of them was
+            // rock in the mountains. The escort walked through the outer third of every
+            // mass in the chapter that is made of them.
+            //
+            // So a mass is covered with several discs rather than described by one, which
+            // is what the curtain wall already does (see Stand). The cap stays exactly as
+            // it is: nothing here asks the field to take a disc it distrusts.
+            if (!canopy && radius > ObstacleField.MaxRadius)
+            {
+                Cover(instance, bounds, radius);
+                return;
+            }
+
             var solid = instance.AddComponent<Solid>();
             solid.Radius = radius;
             solid.Centre = new Vector2(bounds.center.x, bounds.center.z);
         }
+
+        /// <summary>
+        /// Fills a prop's footprint with discs the simulation will accept whole.
+        ///
+        /// Laid on a grid across the bounds and kept where the grid point is inside the
+        /// prop's own ellipse, so a rock comes out round rather than square. The discs
+        /// overlap by a quarter, because a row of circles touching at their edges leaves
+        /// gaps between them that a man is narrow enough to walk through.
+        ///
+        /// Each on its own child, because <see cref="Solid"/> allows one to an object.
+        /// </summary>
+        static void Cover(GameObject instance, Bounds bounds, float radius)
+        {
+            float disc = ObstacleField.MaxRadius;
+            float step = disc * CoverOverlap;
+
+            int across = Mathf.Clamp(Mathf.CeilToInt(bounds.size.x / step), 1, MostSolids);
+            int along = Mathf.Clamp(Mathf.CeilToInt(bounds.size.z / step), 1, MostSolids);
+
+            for (int i = 0; i < across; i++)
+            {
+                for (int j = 0; j < along; j++)
+                {
+                    // The middle of each cell, not its corner. Taken at the corners, a
+                    // two-by-two grid is four points on the ellipse's own boundary and
+                    // every one of them is rejected: eleven models came back with nothing
+                    // solid about them at all, which is worse than the fault being fixed.
+                    float u = (i + 0.5f) / across;
+                    float v = (j + 0.5f) / along;
+
+                    float x = Mathf.Lerp(bounds.min.x, bounds.max.x, u);
+                    float z = Mathf.Lerp(bounds.min.z, bounds.max.z, v);
+
+                    // Inside the footprint's ellipse, measured in halves of the box: the
+                    // corners of a bounding box are air on anything that is not a crate.
+                    float dx = bounds.extents.x < 0.01f ? 0f
+                             : (x - bounds.center.x) / bounds.extents.x;
+                    float dz = bounds.extents.z < 0.01f ? 0f
+                             : (z - bounds.center.z) / bounds.extents.z;
+
+                    if (dx * dx + dz * dz > 1f) continue;
+
+                    var link = new GameObject("Solid").transform;
+                    link.SetParent(instance.transform, false);
+
+                    var solid = link.gameObject.AddComponent<Solid>();
+                    solid.Radius = disc;
+                    solid.Centre = new Vector2(x, z);
+                }
+            }
+        }
+
+        /// <summary>How far apart the discs of a covered mass stand, as a share of one.</summary>
+        // Three quarters of a disc, so each overlaps its neighbour by a quarter. At a full
+        // disc apart they touch at a point and the gaps between them are wide enough to
+        // walk through, which is the fault this was written to close rather than move.
+        const float CoverOverlap = 0.75f;
 
         /// <summary>Says that a prop is telling the player something. See Signal.</summary>
         static GameObject Mark(GameObject instance)

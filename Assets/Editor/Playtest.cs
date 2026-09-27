@@ -376,7 +376,7 @@ namespace TheVeil.Editor
 
             int levels = 0, crowsRight = 0, bonesRight = 0, bothRight = 0;
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
@@ -518,7 +518,7 @@ namespace TheVeil.Editor
                 lengthBy[kind] = new List<float>();
             }
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var map = LevelMaps.For(chapter, level);
@@ -937,7 +937,7 @@ namespace TheVeil.Editor
 
             // Every road of every level, and only the ones that die early are written up,
             // so the list is found rather than remembered.
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var map = LevelMaps.For(chapter, level);
@@ -1276,7 +1276,7 @@ namespace TheVeil.Editor
             var said = new System.Text.StringBuilder();
             said.AppendLine("[Water] what each level has to cross, and what stands over it");
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var map = LevelMaps.For(chapter, level);
@@ -1317,7 +1317,7 @@ namespace TheVeil.Editor
             int traps = 0, bare = 0, unmarked = 0;
             float near = TileGrid.TileSize * 1.5f;
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
@@ -1685,7 +1685,7 @@ namespace TheVeil.Editor
 
             int apart = 0, missing = 0;
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
@@ -1841,7 +1841,7 @@ namespace TheVeil.Editor
             var said = new System.Text.StringBuilder();
             said.AppendLine("[Playtest] every level of the chapters that exist, all three roads");
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                     Play(runner, chapter, level, said);
 
@@ -2375,7 +2375,7 @@ namespace TheVeil.Editor
 
             int dry = 0;
 
-            for (int chapter = 1; chapter <= 3; chapter++)
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
