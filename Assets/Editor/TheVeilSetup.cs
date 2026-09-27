@@ -2693,12 +2693,27 @@ namespace TheVeil.Editor
 
             decor.GroundPatches = Meadow("SM_Env_Ground_Cover_01", "SM_Env_Ground_Cover_03");
 
+            // <b>Nothing floating.</b> Lilypads are laid on open water, and on this country
+            // the open water is the sea: the forest's set, inherited, put pads out on the
+            // ocean. Photographed from the water on 100-10, drifting past the surf.
+            decor.Lilypads = new PropSet();
+
             // <b>The boats, which are the point of the chapter.</b> The knights' rowboat
             // is the one a caravan could leave in; the alpine canoe is what is drawn up on
             // a beach beside it.
             decor.Boats = Mixed(
                 Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_Rowboat_01" }),
                 Load($"{AlpineDir}/Props", new[] { "SM_Prop_Canoe_01" }));
+
+            // The landing stage at the end of the road, and what is tied to it.
+            decor.Jetty = AlpineProps("SM_Prop_Jetty_01");
+
+            // <b>The line to change when there is a ship.</b> A caravan of three wagons
+            // does not leave on a rowing boat, and a rowing boat is the largest thing
+            // afloat in any pack here. It is in its own slot so that the day a ship is
+            // bought this is all that moves: the jetty is laid to its own length and the
+            // mooring is measured off whatever is in here.
+            decor.Ship = Knights("Props", "SM_Prop_Rowboat_01");
 
             // Nothing on the skyline but weather. A coast's horizon is the sea, and a
             // range of hills standing in it is the one thing that would say otherwise.
@@ -3167,6 +3182,10 @@ namespace TheVeil.Editor
                     Biome = Biome.Coast,
                     Decor = LoadCoastDecor(),
 
+                    // The sea's own water: a river's colours come out as a black slab over
+                    // open water. See EnsureSeaMaterial.
+                    Water = EnsureSeaMaterial(),
+
                     // Thinner than anywhere: a coast is read along its edge, and a country
                     // dressed as thickly as a forest hides its own shore.
                     Density = 0.45f,
@@ -3228,6 +3247,7 @@ namespace TheVeil.Editor
                 {
                     Biome = Biome.Coast,
                     Decor = WithoutSkyline(LoadCoastDecor()),
+                    Water = EnsureSeaMaterial(),
                     Density = 0.45f
                 }
             };
@@ -3651,6 +3671,62 @@ namespace TheVeil.Editor
         /// Values set every time rather than on creation, for the reason the ground
         /// material gives: an asset keeps what it was born with.
         /// </summary>
+        /// <summary>Where the sea's own water is kept.</summary>
+        const string SeaMaterialPath = "Assets/_Project/Materials/SeaWater.mat";
+
+        /// <summary>
+        /// The sea: the project's own water, in the colours of shallow water over sand.
+        ///
+        /// <b>A river's colours are wrong for a sea and it showed at once.</b> The river
+        /// is drawn to be read as a thing in the way - dark, so the eye catches it against
+        /// grass - and over the open water of a coast that comes out as a slab of near
+        /// black with straight edges where the depth caps out. What the reference picture
+        /// has is the opposite: the deep water is a strong blue you can see into and the
+        /// shallows go almost to white over the sand.
+        ///
+        /// The shader is the project's own (Shaders/Water.shader), which carries the
+        /// depth on the vertex, so the two colours here are all it takes - the mesh has
+        /// already worked out which parts are deep.
+        /// </summary>
+        static Material EnsureSeaMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(SeaMaterialPath);
+
+            if (material == null)
+            {
+                var shader = Shader.Find("TheVeil/Water");
+                if (shader == null)
+                {
+                    Debug.LogWarning("[The Veil] The project's water shader is missing, so the "
+                                     + "sea keeps the river's colours.");
+                    return null;
+                }
+
+                material = new Material(shader) { name = "SeaWater" };
+                AssetDatabase.CreateAsset(material, SeaMaterialPath);
+            }
+
+            // Deep enough to read as ocean, clear enough to see the sand through the
+            // shallows. The alpha is what makes the second one work: the bottom is painted
+            // pale by the ground (TerrainPalette.Shallows) and the sheet only tints it.
+            if (material.HasProperty("_BaseColor"))
+                material.SetColor("_BaseColor", new Color(0.06f, 0.30f, 0.52f, 0.82f));
+
+            if (material.HasProperty("_ShallowColor"))
+                material.SetColor("_ShallowColor", new Color(0.36f, 0.78f, 0.76f, 0.28f));
+
+            // A long, low swell rather than a river's chop: the same water, a hundred
+            // times as much of it.
+            if (material.HasProperty("_WaveHeight")) material.SetFloat("_WaveHeight", 0.20f);
+            if (material.HasProperty("_WaveScale")) material.SetFloat("_WaveScale", 26f);
+            if (material.HasProperty("_WaveSpeed")) material.SetFloat("_WaveSpeed", 0.55f);
+            if (material.HasProperty("_RippleScale")) material.SetFloat("_RippleScale", 34f);
+            if (material.HasProperty("_FlowSpeed")) material.SetFloat("_FlowSpeed", 0.5f);
+
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         static Material EnsureIceMaterial()
         {
             var material = AssetDatabase.LoadAssetAtPath<Material>(IceMaterialPath);

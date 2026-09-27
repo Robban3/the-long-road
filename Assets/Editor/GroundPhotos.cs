@@ -86,6 +86,7 @@ namespace TheVeil.Editor
             foreach (var (chapter, level) in levels)
             {
                 var root = SmokeTest.Build(runner, chapter, level, out var map);
+
                 var grid = map.Grid;
 
                 // A place on the fastest road, a third of the way along it, and the way it

@@ -303,6 +303,27 @@ namespace TheVeil.View
         public PropSet Mills = new PropSet();
         public PropSet MillSupports = new PropSet();
 
+        /// <summary>
+        /// The landing stage at the end of the road.
+        ///
+        /// Only the coast has one, and having one is what makes a goal a harbour instead
+        /// of a castle: where a chapter inland ends at somebody's keep, the last chapter
+        /// ends at a jetty with something moored to it. See PlaceHarbour.
+        /// </summary>
+        public PropSet Jetty = new PropSet();
+
+        /// <summary>
+        /// What the caravan leaves on.
+        ///
+        /// <b>Its own slot, and one entry, because it is going to be replaced.</b> What is
+        /// in it today is the knights' rowboat, which is the largest thing afloat in any
+        /// pack here and is still a rowing boat: a caravan of three wagons does not leave
+        /// on one. When a ship is bought or built this is the line that changes, and
+        /// nothing else has to - the jetty is laid to the vessel's own length and the
+        /// mooring is taken from its own measured size.
+        /// </summary>
+        public PropSet Ship = new PropSet();
+
         /// <summary>Tied up where the water is deep enough to tie one up.</summary>
         public PropSet Boats = new PropSet();
 
@@ -1290,8 +1311,16 @@ namespace TheVeil.View
             // the scatter — otherwise a pine grows through the farmhouse roof and the
             // building, the thing the eye was meant to find, is the one that loses. A
             // castle is the largest of them by a long way, so it claims first.
-            placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
-                                  goalTile, travelled, found, guard);
+            // <b>A harbour instead of a keep, where the country has one.</b> The goal of
+            // a chapter is what it climbs towards, and inland that is somebody's castle;
+            // the last chapter climbs towards a way out, so the coast puts a jetty and a
+            // ship at the end of its road instead. See PlaceHarbour.
+            placed += PlaceHarbour(parent, grid, Stream(19), decor, occupied, heightScale,
+                                   goalTile);
+
+            if (!decor.Jetty.Any)
+                placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
+                                      goalTile, travelled, found, guard);
 
             // The town before any of it, because its walls are the largest built thing
             // on any map and they are not negotiable: the ground they stand on was made
@@ -1401,6 +1430,7 @@ namespace TheVeil.View
                                       densityScale, road);
             placed += PlaceMounds(parent, grid, Stream(16), decor, occupied, heightScale, road);
             placed += PlaceFauna(parent, grid, Stream(17), decor, heightScale, road);
+            placed += PlaceBoats(parent, grid, Stream(20), decor, occupied, heightScale, road);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
                                      densityScale, road);
 
@@ -1911,6 +1941,18 @@ namespace TheVeil.View
                 if (placed >= MostFalls) break;
                 if (!Apart(grid, from, taken, FallsApart)) continue;
 
+                // <b>A fall belongs in a river, not on a sea.</b> The sheet is stretched to
+                // the width of the water it comes over, and on open water that width is
+                // the water: measured on 100-10, a waterfall fifty-two metres across lying
+                // flat on the ocean, which from above is a dark slab with straight edges in
+                // the middle of the bay. The same fault put falls on lakes and fen pools
+                // and was never seen, because those are small enough that a stretched sheet
+                // reads as a ledge.
+                grid.ToCoords(from, out int cfx, out int cfy);
+                grid.ToCoords(to, out int ctx, out int cty);
+
+                if (Channel(grid, from, ctx - cfx, cty - cfy) > FallChannel) continue;
+
                 grid.ToCoords(from, out int fx, out int fy);
                 grid.ToCoords(to, out int tx, out int ty);
 
@@ -2130,6 +2172,15 @@ namespace TheVeil.View
         }
 
         /// <summary>How many tiles of water lie across the step, measured from one of them.</summary>
+        /// <summary>
+        /// How wide the water may be where a fall comes over it, in tiles.
+        ///
+        /// Four - sixteen metres, which is a river. Wider than that and what is being
+        /// described is a lake shore or a coast, where a waterfall is a sheet lying flat on
+        /// open water.
+        /// </summary>
+        const int FallChannel = 4;
+
         static int Channel(TileGrid grid, int tile, int alongX, int alongY)
         {
             grid.ToCoords(tile, out int x, out int y);
@@ -3670,7 +3721,18 @@ namespace TheVeil.View
                 // The apron was a hedge of conifers all the way round, and every reference
                 // picture of it is a broken rim: pines standing between grey outcrops. One
                 // piece in five is stone.
-                bool stone = decor.Boulders.Any && rng.Chance(ApronStone);
+                // <b>Nothing grows in the sea.</b> The apron is the wood outside the
+                // boundary, and on a coast the boundary is water: pines stood in the
+                // ocean along the whole southern edge of every level of the last chapter.
+                // Where the ground it would stand on is wet, the piece is stone and it is
+                // a skerry - which is what the reference picture has out there anyway -
+                // and where there is no stone to use, nothing is placed at all.
+                bool sea = Wet(grid, x, z);
+
+                bool stone = decor.Boulders.Any && (sea || rng.Chance(ApronStone));
+                if (sea && !stone) continue;
+                if (sea && !rng.Chance(ApronSkerry)) continue;
+
                 var set = stone ? decor.Boulders : wood;
 
                 var instance = Object.Instantiate(Any(set, rng), parent);
@@ -3701,6 +3763,21 @@ namespace TheVeil.View
             }
 
             return placed;
+        }
+
+        /// <summary>How many of the apron's places out in the water carry a skerry. A third.</summary>
+        const float ApronSkerry = 0.33f;
+
+        /// <summary>Whether the nearest ground to a world point is water.</summary>
+        // The apron stands outside the map, where there are no tiles at all, so the
+        // question is asked of the nearest tile there is - which on a coast is the sea
+        // itself.
+        static bool Wet(TileGrid grid, float x, float z)
+        {
+            int tx = Mathf.Clamp(Mathf.FloorToInt(x / TileGrid.TileSize), 0, grid.Width - 1);
+            int ty = Mathf.Clamp(Mathf.FloorToInt(z / TileGrid.TileSize), 0, grid.Height - 1);
+
+            return IsWet(grid[grid.ToIndex(tx, ty)]);
         }
 
         static int PlaceHorizon(Transform parent, TileGrid grid, DeterministicRandom rng,
@@ -4040,6 +4117,182 @@ namespace TheVeil.View
 
         /// <summary>And how far its base is set into the ground, so its edge does not show.</summary>
         const float MatSink = 0.1f;
+
+        /// <summary>
+        /// Boats drawn up on the beach.
+        ///
+        /// On the sand rather than in the water: a boat afloat needs a mooring and a boat
+        /// on a beach needs somebody to have pulled it there, which is the whole of what
+        /// this country is about. Laid across the waterline - the bow towards the sea, the
+        /// way one is left when the tide goes out - and only where the sand is, so no
+        /// boat ends up in a meadow half a mile inland.
+        /// </summary>
+        static int PlaceBoats(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                              HashSet<int> road)
+        {
+            if (!decor.Boats.Any) return 0;
+
+            var drawn = new List<int>();
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && drawn.Count < MostBoats; i++)
+            {
+                if (grid[i] == TerrainType.Water || grid[i] == TerrainType.Ford) continue;
+                if (occupied.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+                if (!NextToWater(grid, x, y)) continue;
+                if (!rng.Chance(BoatChance)) continue;
+                if (!Apart(grid, i, drawn, BoatsApart)) continue;
+
+                drawn.Add(i);
+
+                var choice = new Choice(decor.Boats, Any(decor.Boats, rng), BoatLength,
+                                        byWidth: true, low: 1f, high: 1f);
+
+                if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 0.8f,
+                            occupied: occupied, yaw: Seaward(grid, x, y)))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>How many boats lie on one level's beach, and how far apart, in tiles.</summary>
+        // Five. A beach with a dozen boats on it is a harbour, and the harbour is at the
+        // end of the road rather than all along it.
+        const int MostBoats = 5;
+
+        const int BoatsApart = 8;
+
+        /// <summary>The chance a tile of beach has one on it.</summary>
+        const float BoatChance = 0.35f;
+
+        /// <summary>Which way the water lies from here, in degrees.</summary>
+        static float Seaward(TileGrid grid, int x, int y)
+        {
+            float dx = 0f, dy = 0f;
+
+            for (int ox = -2; ox <= 2; ox++)
+                for (int oy = -2; oy <= 2; oy++)
+                {
+                    if (!grid.InBounds(x + ox, y + oy)) continue;
+                    if (grid[x + ox, y + oy] != TerrainType.Water) continue;
+
+                    dx += ox;
+                    dy += oy;
+                }
+
+            if (dx * dx + dy * dy < 0.01f) return 0f;
+
+            return Mathf.Atan2(dx, dy) * Mathf.Rad2Deg;
+        }
+
+        /// <summary>
+        /// The harbour at the end of the road: a jetty out into the water with the ship at
+        /// the end of it.
+        ///
+        /// <b>Where a chapter inland ends at a castle, the last one ends here.</b> The
+        /// castle is built on the goal because the goal is what the chapter climbs
+        /// towards; the coast's goal is a place to leave from, and a keep standing on a
+        /// beach would say the opposite of what the level is for.
+        ///
+        /// The goal itself is on the map's own edge and the sea is along a long side, so
+        /// the jetty is not built on the goal but on the water nearest to it - walk the
+        /// shore for the wet tile closest to where the road ends, lay the planking across
+        /// the waterline, and moor the ship off the end of it.
+        /// </summary>
+        static int PlaceHarbour(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                                int goalTile)
+        {
+            if (!decor.Jetty.Any || goalTile < 0 || goalTile >= grid.TileCount) return 0;
+
+            grid.ToCoords(goalTile, out int gx, out int gy);
+
+            int best = -1;
+            float nearest = float.MaxValue;
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] != TerrainType.Water) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+
+                // On the shore of it, not out in the middle: the tile has to have land
+                // beside it or the jetty starts nowhere.
+                if (!NextToLand(grid, x, y)) continue;
+
+                float away = (x - gx) * (x - gx) + (y - gy) * (y - gy);
+                if (away >= nearest) continue;
+
+                nearest = away;
+                best = i;
+            }
+
+            if (best < 0) return 0;
+
+            grid.ToCoords(best, out int hx, out int hy);
+            float yaw = Seaward(grid, hx, hy);
+
+            int placed = 0;
+
+            var jetty = new Choice(decor.Jetty, Any(decor.Jetty, rng), JettyLength,
+                                   byWidth: true, low: 1f, high: 1f);
+
+            if (Scatter(parent, grid, rng, jetty, best, heightScale, spread: 0f,
+                        occupied: null, yaw: yaw))
+                placed++;
+
+            if (!decor.Ship.Any) return placed;
+
+            // Off the end of the planking, in the water, pointing out to sea.
+            var at = Vec2.FromTile(grid, best);
+            float out_ = JettyLength * 0.5f + ShipStandoff;
+
+            float sx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * out_;
+            float sz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * out_;
+
+            int moored = Tile(grid, sx, sz);
+            if (moored < 0) moored = best;
+
+            var ship = new Choice(decor.Ship, Any(decor.Ship, rng), ShipLength,
+                                  byWidth: true, low: 1f, high: 1f);
+
+            if (Scatter(parent, grid, rng, ship, moored, heightScale, spread: 0f,
+                        occupied: null, yaw: yaw + 90f))
+                placed++;
+
+            return placed;
+        }
+
+        /// <summary>How long the landing stage is, in metres.</summary>
+        const float JettyLength = 9f;
+
+        /// <summary>How long what is moored to it is, and how far off the end it lies.</summary>
+        // The rowboat in the slot today is five metres; a ship will be more, and the
+        // standoff is measured from the jetty's end rather than from the vessel, so the
+        // only thing that changes when the slot does is this number.
+        const float ShipLength = 5f;
+
+        const float ShipStandoff = 3f;
+
+        /// <summary>Whether any tile beside this one is dry.</summary>
+        static bool NextToLand(TileGrid grid, int x, int y)
+        {
+            for (int ox = -1; ox <= 1; ox++)
+                for (int oy = -1; oy <= 1; oy++)
+                {
+                    if (!grid.InBounds(x + ox, y + oy)) continue;
+
+                    var at = grid[x + ox, y + oy];
+                    if (at != TerrainType.Water && at != TerrainType.Ford) return true;
+                }
+
+            return false;
+        }
 
         /// <summary>
         /// Drifts of flowers in the open, which is what makes a meadow a meadow.
