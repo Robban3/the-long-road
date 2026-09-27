@@ -1951,11 +1951,16 @@ namespace TheVeil.Editor
                 var corridor = map.CorridorOf(road);
                 if (corridor == null) continue;
 
+                // <b>As the game is played, which this was not.</b> It handed the squad
+                // ReferenceSquad.Smithy - up to five free weapon and armour levels at the
+                // start of the level - and then ran without Shops, so the escort was at
+                // once better equipped than any real one and unable to buy anything with
+                // what it earned. On that squad the playtest reported no losses at all
+                // after chapter one, which is what sent a day into rebalancing a curve
+                // that was never wrong. ReferenceSquad.Play is the player.
                 var recipe = LevelMaps.Recipe(chapter, level);
-                var squad = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(chapter, level),
-                                               ReferenceSquad.Smithy(chapter));
-
-                var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
+                var run = ReferenceSquad.Play(map, corridor.Tiles, recipe,
+                                              ReferenceSquad.LevelsCleared(chapter, level));
 
                 var markers = new GameObject($"Column {road}");
                 markers.transform.SetParent(root.transform, false);
@@ -2165,11 +2170,10 @@ namespace TheVeil.Editor
             var corridor = map.CorridorOf(road);
             if (corridor == null) { Debug.LogError($"[Playtest] {chapter}-{level} has no {road} road."); return; }
 
+            // The player, not an escort nobody can field. See ReferenceSquad.Smithy.
             var recipe = LevelMaps.Recipe(chapter, level);
-            var squad = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(chapter, level),
-                                           ReferenceSquad.Smithy(chapter));
-
-            var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
+            var run = ReferenceSquad.Play(map, corridor.Tiles, recipe,
+                                          ReferenceSquad.LevelsCleared(chapter, level));
 
             // The same visuals the run builds, on the world SmokeTest just stood up. A
             // second set of arguments here would be a second world - see SmokeTest.Build.
@@ -2261,9 +2265,9 @@ namespace TheVeil.Editor
             var corridor = map.CorridorOf(road);
             if (corridor == null) { Object.DestroyImmediate(root); return; }
 
+            // The player, not an escort nobody can field. See ReferenceSquad.Smithy.
             var recipe = LevelMaps.Recipe(chapter, level);
-            var squad = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(chapter, level),
-                                           ReferenceSquad.Smithy(chapter));
+            var squad = ReferenceSquad.For(recipe, ReferenceSquad.LevelsCleared(chapter, level), 0);
 
             // The route the run drives, which is the corridor squared at its crossings -
             // see Crossings.Square. Reading the corridor's own tiles would put the water

@@ -37,11 +37,21 @@ namespace TheVeil.Sim
         /// <summary>
         /// How far the smithy has been taken, in weapon and armour levels.
         ///
-        /// <b>Behind the enemy's climb on purpose.</b> A chapter per level, capped — so a
-        /// player in chapter three is two levels into a track that goes to five. The
-        /// enemies are at double strength by then, and the escort is not: that gap is the
-        /// difficulty, and closing it here would make every gate below pass by describing
-        /// a player who had bought everything.
+        /// <b>Not how a run works, and nothing that judges the game may use this.</b> The
+        /// smithy is bought with a run's own silver while the run is going on and it is
+        /// gone at the end of it (<see cref="FieldSmith"/>, whose own note records that
+        /// handing these levels out at the start was "an escort nobody can field"). This
+        /// hands them out at the start. <see cref="Play"/> is the model of a player: no
+        /// smithy, and Shops on so the run buys what it can afford as it earns it.
+        ///
+        /// What it is still for is gearing somebody up outside a run - the demo menu skips
+        /// the grind with it - and for asking what a ceiling would look like.
+        ///
+        /// It was left reachable, and three instruments picked it up: the playtest, the
+        /// margin report and the champion report all drove the game with up to five free
+        /// smithy levels. They reported that nothing is ever lost after chapter one, which
+        /// is true of that player and of nobody else, and a day went into balancing a
+        /// difficulty curve that turned out to be sound.
         /// </summary>
         public static int Smithy(int chapter)
         {

@@ -21,20 +21,15 @@ namespace TheVeil.Editor
     /// the escort in each chapter than in the one before - 2.4 of the line in chapter one
     /// and the whole of it in chapter six.
     ///
-    /// One player cannot answer whether that is the curve or the model, so three are run.
-    /// They differ only in what they bought, which is the only thing a player controls:
+    /// Three players are run, differing in the one thing a player chooses between levels:
+    /// how much of the gold goes on permanent troop levels rather than on boons. Half is
+    /// what the curve assumes, a quarter is a player who bought boons instead, and all of
+    /// it is the ceiling. Every one of them starts each level with no smithy and buys at
+    /// the field forge as the silver comes in, because that is how a run works.
     ///
-    /// - <b>Prepared</b> is ReferenceSquad as it stands, and is what the catalogue is
-    ///   calibrated against: every level cleared once, average gold, half of it on troops,
-    ///   the smithy a level per chapter.
-    /// - <b>Sparing</b> spent a quarter on troops and let the smithy fall two levels
-    ///   behind - a player who bought boons instead, which the shop sells and the model
-    ///   assumes away.
-    /// - <b>Thorough</b> spent three quarters and keeps the smithy at its cap: the ceiling
-    ///   of what buying can do, short of replaying levels for gold.
-    ///
-    /// If the margin grows for all three, the shape of the threat is what is wrong rather
-    /// than the numbers in it - and no amount of moving the multiplier will fix it.
+    /// The judged column is the curve's own measure - the share of the escort lost on the
+    /// roads that are not the fast one, a road not got down counting as the whole of it -
+    /// so it can be read straight against the target beside it.
     ///
     /// Headless: unity run . -- -executeMethod TheVeil.Editor.MarginReport.Run
     /// </summary>
@@ -43,48 +38,44 @@ namespace TheVeil.Editor
         /// <summary>How long a run may take before it is called a failure to end.</summary>
         const float Longest = 400f;
 
-        /// <summary>One kind of player, by what they have bought.</summary>
+        /// <summary>
+        /// One kind of player, by the only thing a player chooses between levels: how much
+        /// of the gold went on permanent troop levels rather than on boons.
+        ///
+        /// <b>And nothing else, because nothing else is real.</b> This file used to sort
+        /// its players by how far their smithy had been taken, out of
+        /// ReferenceSquad.Smithy - and a smithy is bought with a run's own silver during
+        /// the run and is gone at the end of it. Those players walked the game from
+        /// chapter two with five free upgrade levels nobody can have, and this report said
+        /// so in a table: no losses after chapter one, the escort arriving whole. The
+        /// curve was never wrong; the instrument was.
+        /// </summary>
         readonly struct Player
         {
-            public Player(string name, float share, int smithyBehind, bool smithyCapped)
+            public Player(string name, float share)
             {
                 Name = name;
                 Share = share;
-                SmithyBehind = smithyBehind;
-                SmithyCapped = smithyCapped;
             }
 
             public string Name { get; }
 
             /// <summary>What share of their gold went on troops rather than boons.</summary>
             public float Share { get; }
-
-            /// <summary>How many levels behind the reference their smithy is.</summary>
-            public int SmithyBehind { get; }
-
-            /// <summary>Whether they keep it at the cap instead.</summary>
-            public bool SmithyCapped { get; }
-
-            public int Smithy(int chapter)
-            {
-                if (SmithyCapped) return RunEconomy.MaxTrackLevel;
-
-                int level = ReferenceSquad.Smithy(chapter) - SmithyBehind;
-                return level < 0 ? 0 : level;
-            }
         }
 
         static readonly Player[] Players =
         {
-            new Player("prepared", ReferenceSquad.SpentOnTroops, 0, false),
-            new Player("sparing", 0.25f, 2, false),
-            new Player("thorough", 0.75f, 0, true)
+            new Player("as the curve judges", ReferenceSquad.SpentOnTroops),
+            new Player("sparing", 0.25f),
+            new Player("all on troops", ReferenceSquad.AllOnTroops)
         };
 
         /// <summary>What one run came to.</summary>
         struct Outcome
         {
             public bool Arrived;
+            public bool Fast;
             public float Escort;
             public float Wagons;
             public float Seconds;
@@ -118,11 +109,12 @@ namespace TheVeil.Editor
                             var corridor = map.CorridorOf(kind);
                             if (corridor == null) continue;
 
-                            var squad = ReferenceSquad.For(
-                                recipe, ReferenceSquad.LevelsCleared(chapter, level),
-                                player.Smithy(chapter), player.Share);
-
-                            var run = new LevelRun(map, corridor.Tiles, squad, recipe.EnemyStrength);
+                            // The player: no smithy at the start and the field forge open,
+                            // which is how a run works (FieldSmith). Driven any other way
+                            // this measures somebody who cannot exist.
+                            var run = ReferenceSquad.Play(
+                                map, corridor.Tiles, recipe,
+                                ReferenceSquad.LevelsCleared(chapter, level), player.Share);
 
                             // The rock and the walls, so the escort fights the level it is
                             // standing in rather than an empty field. Nothing is spawned:
@@ -139,7 +131,6 @@ namespace TheVeil.Editor
                             visuals.FindBridges(root.transform);
                             visuals.FindObstacles(root.transform, run);
 
-                            float started = Line(run);
                             float loaded = Load(run);
                             float seconds = 0f;
 
@@ -152,7 +143,15 @@ namespace TheVeil.Editor
                             var note = new Outcome
                             {
                                 Arrived = run.Outcome == RunOutcome.Arrived,
-                                Escort = started <= 0f ? 1f : Line(run) / started,
+                                Fast = kind == CorridorKind.Fast,
+                                // <b>The curve's own arithmetic, not a second opinion.</b>
+                                // Measured against the health the line set out with, the
+                                // field forge's armour raises the denominator's numerator
+                                // and a whole chapter came back with more escort than it
+                                // began - a negative difficulty. LevelMaps.EscortLeft
+                                // measures against the health it could have had, which is
+                                // what Judge compares to the target.
+                                Escort = LevelMaps.EscortLeft(run),
                                 Wagons = loaded <= 0f ? 1f : Load(run) / loaded,
                                 Seconds = seconds,
                                 Par = run.ParSeconds
@@ -181,7 +180,8 @@ namespace TheVeil.Editor
             foreach (var player in Players)
             {
                 said.AppendLine($"[Margin] == {player.Name} ==");
-                said.AppendLine("[Margin]  ch  runs  lost   escort left   load left   pace");
+                said.AppendLine("[Margin]  ch  runs  lost   escort left   load left   pace"
+                                + "   judged   target");
 
                 for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
                 {
@@ -190,17 +190,38 @@ namespace TheVeil.Editor
                     int lost = 0;
                     float escort = 0f, load = 0f, pace = 0f;
 
+                    // <b>And the same thing in the curve's own language.</b> LevelMaps.Judge
+                    // calls a level's difficulty the share of the escort lost on the roads
+                    // that are not the fast one, a road not got down counting as the whole
+                    // of it. Measured any other way the two cannot be compared, and the
+                    // question here is exactly whether the game delivers what the curve
+                    // promised.
+                    float steady = 0f;
+                    int counted = 0;
+
                     foreach (var run in runs)
                     {
                         if (!run.Arrived) lost++;
                         escort += run.Escort;
                         load += run.Wagons;
                         pace += run.Seconds / Mathf.Max(run.Par, 1f);
+
+                        if (run.Fast) continue;
+
+                        steady += run.Arrived ? run.Escort : 0f;
+                        counted++;
                     }
+
+                    float judged = counted > 0 ? 1f - steady / counted : 1f;
+
+                    float target = 0f;
+                    for (int l = 1; l <= Campaign.LevelsPerChapter; l++)
+                        target += DifficultyCurve.Target(chapter, l);
+                    target /= Campaign.LevelsPerChapter;
 
                     said.AppendLine($"[Margin] {chapter,3} {runs.Count,5} {lost,5} "
                                     + $"{escort / runs.Count,13:0.00} {load / runs.Count,11:0.00} "
-                                    + $"{pace / runs.Count,6:0.00}");
+                                    + $"{pace / runs.Count,6:0.00} {judged,8:0.00} {target,8:0.00}");
                 }
 
                 said.AppendLine();
@@ -213,14 +234,6 @@ namespace TheVeil.Editor
 
             Debug.Log(said.ToString());
             Debug.Log("[Margin] " + path);
-        }
-
-        /// <summary>Every hit point standing in the line.</summary>
-        static float Line(LevelRun run)
-        {
-            float total = 0f;
-            foreach (var group in run.Squad.Slots) if (group != null) total += group.Hp;
-            return total;
         }
 
         /// <summary>And every hit point left in the wagons.</summary>
