@@ -263,6 +263,27 @@ namespace TheVeil.View
         /// </summary>
         public static readonly Color Shallows = new Color(0.36f, 0.78f, 0.78f);
 
+        /// <summary>
+        /// The desert: sand, and the rock the sand came off.
+        ///
+        /// Pale enough to read as hot and not so pale that the props on it disappear -
+        /// everything the arid pack draws is the same family of ochres, so the ground has
+        /// to sit under them rather than beside them. What the country is short of is
+        /// contrast, so the dry wash and the rock are pushed apart: the road is bleached
+        /// dust and the broken ground is a darker red-brown.
+        /// </summary>
+        static readonly Color[] DesertGroundColors =
+        {
+            new Color(0.74f, 0.58f, 0.40f), // Road          — dust beaten pale
+            new Color(0.71f, 0.52f, 0.33f), // Plains        — open sand, ochre rather than straw
+            new Color(0.58f, 0.45f, 0.28f), // Forest        — scrub, which is darker than sand
+            new Color(0.56f, 0.44f, 0.30f), // Marsh         — a dry wash with something in it
+            new Color(0.62f, 0.52f, 0.38f), // Ford          — wet sand where there is any
+            new Color(0.60f, 0.38f, 0.26f), // MountainPass  — broken red rock
+            new Color(0.18f, 0.46f, 0.50f), // Water         — an oasis, and the only cool colour
+            new Color(0.66f, 0.45f, 0.30f)  // Cliff         — sandstone
+        };
+
         public static Color OfGround(TerrainType t, Biome biome)
         {
             switch (biome)
@@ -273,6 +294,7 @@ namespace TheVeil.View
                 case Biome.Mountain: return MountainGroundColors[(int)t];
                 case Biome.Farmland: return FarmlandGroundColors[(int)t];
                 case Biome.Coast: return CoastGroundColors[(int)t];
+                case Biome.Desert: return DesertGroundColors[(int)t];
                 default: return GroundColors[(int)t];
             }
         }

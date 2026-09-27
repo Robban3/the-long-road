@@ -57,12 +57,13 @@ namespace TheVeil.Tests
         [Test]
         public void AnUnpaintedCountryFallsBackToTheForest()
         {
-            // Desert ground is not painted yet, and the fallback is what keeps a chapter
-            // set there playable rather than blank. The day somebody paints it, this test
-            // says so by failing.
+            // The enchanted wood is not painted yet, and the fallback is what keeps a
+            // chapter set there playable rather than blank. The day somebody paints it,
+            // this test says so by failing - which is what it just did for the desert,
+            // correctly, on the day the desert was painted.
             foreach (TerrainType terrain in System.Enum.GetValues(typeof(TerrainType)))
                 Assert.AreEqual(TerrainPalette.OfGround(terrain, Biome.Forest),
-                                TerrainPalette.OfGround(terrain, Biome.Desert),
+                                TerrainPalette.OfGround(terrain, Biome.Enchanted),
                                 $"{terrain}");
         }
     }

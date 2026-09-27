@@ -225,6 +225,23 @@ namespace TheVeil.View
         public PropSet Mounds = new PropSet();
 
         /// <summary>
+        /// How tall this country's trees stand, against the forest's.
+        ///
+        /// <b>A saguaro is not an oak, and the scatter had no way to say so.</b> Tree
+        /// height is one number for the whole game - seven metres for a broadleaf, eight
+        /// and a half for a conifer, nine for a dead trunk - and every country's trees are
+        /// fitted to it. That is right while a country's trees are trees. The desert's are
+        /// cacti and dead scrub, four or five metres at the most, and blown up to a
+        /// conifer's height they came out as a forest of brown columns with a caravan
+        /// somewhere underneath: photographed at eye level on 7-1, trunks two metres
+        /// across.
+        ///
+        /// One for every country that has not said otherwise, so nothing already dressed
+        /// moves by a millimetre.
+        /// </summary>
+        public float TreeScale = 1f;
+
+        /// <summary>
         /// What flies over a meadow on a summer day.
         ///
         /// Butterflies, blown petals, drifting seed. They are particle effects rather than
@@ -584,6 +601,15 @@ namespace TheVeil.View
         /// The jitter stays wide on purpose: a row of identical peaks is a saw blade.
         /// </summary>
         public const float HorizonHeight = 105f;
+
+        /// <summary>
+        /// How wide a piece of skyline may be against its own height.
+        ///
+        /// Four. A mountain is about as wide as it is tall and this never bites it; a
+        /// background hill drawn flat is eight times as wide as it is high, and fitted by
+        /// height it came out a mile and a half across.
+        /// </summary>
+        const float HorizonSpread = 4f;
         public const float HorizonJitterLow = 0.55f;
         public const float HorizonJitterHigh = 1.35f;
         public const float DeadTreeHeight = 9f;
@@ -3810,8 +3836,17 @@ namespace TheVeil.View
                     ? Quaternion.Euler(-90f, rng.Range(0f, 360f), 0f)
                     : Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
 
-                ModelScaling.Fit(instance, HorizonHeight * rng.Range(HorizonJitterLow,
-                                                                    HorizonJitterHigh), 0f);
+                // <b>With a width cap, because not every pack draws a peak.</b> Fitting
+                // by height alone assumes the model is about as wide as it is tall, which
+                // the old pack's mountains are. The arid pack's background hills are drawn
+                // flat - twenty-six metres across and three and a half tall - so asking
+                // for a hundred and five metres of height gave one fifteen hundred and
+                // fifty metres wide, and the desert's skyline came out as a grey wall
+                // round the whole map. Measured by Tallest, which is what it is for.
+                ModelScaling.FitWithin(instance, HorizonHeight * rng.Range(HorizonJitterLow,
+                                                                          HorizonJitterHigh),
+                                       HorizonHeight * HorizonSpread, 0f);
+
 
                 // Placed by its own edge rather than by its centre, and this is the
                 // whole of why the caravan kept driving into a mountain.
@@ -7108,13 +7143,13 @@ namespace TheVeil.View
                 case TerrainType.MountainPass:
                     if (roll < 0.40f) return From(decor.Boulders, rng, BoulderWidth, byWidth: true);
                     if (roll < 0.86f) return From(decor.Rocks, rng, RockHeight);
-                    return Tree(decor.Pines, rng, PineHeight);
+                    return Tree(decor.Pines, rng, PineHeight * decor.TreeScale);
 
                 // Standing water killing the trees is the thing a marsh looks like, and
                 // a bare trunk is the most legible model in the pack from above.
                 case TerrainType.Marsh:
                     if (roll < 0.42f)
-                        return Tree(decor.DeadTrees, rng, DeadTreeHeight,
+                        return Tree(decor.DeadTrees, rng, DeadTreeHeight * decor.TreeScale,
                                     DeadJitterLow, DeadJitterHigh,
                                     sink: StumpSink, maxSpread: DeadTreeSpread);
 
@@ -7146,9 +7181,9 @@ namespace TheVeil.View
                     if (roll < 0.34f) return From(decor.Rocks, rng, RockHeight);
                     if (roll < 0.56f) return From(decor.Bushes, rng, BushHeight);
                     if (roll < 0.68f) return From(decor.Boulders, rng, BoulderWidth, byWidth: true);
-                    if (roll < 0.84f) return Tree(decor.Trees, rng, TreeHeight);
-                    if (roll < 0.94f) return Tree(decor.Birch, rng, TreeHeight);
-                    return Tree(decor.Pines, rng, PineHeight);
+                    if (roll < 0.84f) return Tree(decor.Trees, rng, TreeHeight * decor.TreeScale);
+                    if (roll < 0.94f) return Tree(decor.Birch, rng, TreeHeight * decor.TreeScale);
+                    return Tree(decor.Pines, rng, PineHeight * decor.TreeScale);
 
                 default:
                     return default;

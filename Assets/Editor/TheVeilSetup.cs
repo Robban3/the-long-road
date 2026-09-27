@@ -2591,6 +2591,288 @@ namespace TheVeil.Editor
         /// edge - the beach, the stacks, the line of surf - and a country dressed as
         /// thickly inland as a forest hides its own shore.
         /// </summary>
+        /// <summary>
+        /// The desert: chapter seven, and the emptiest country in the game.
+        ///
+        /// <b>Nearly all of it is one pack, because one pack drew it.</b> The arid pack
+        /// has the sand, the rock, the cacti and the bones, and the only things taken from
+        /// elsewhere are a few dead branches and the reeds at the one thread of water.
+        ///
+        /// What is left out is as deliberate: the pack ships a satellite dish, solar
+        /// panels, a wind turbine, pipes and a hose, which is a modern desert and not this
+        /// one - the same drawer the alpine pack keeps its nylon tent in. Its lava and its
+        /// sulphur pools are a volcano rather than a desert and are left for whatever
+        /// chapter wants a volcano.
+        ///
+        /// <b>Its rock is triplanar</b> - the texture is mapped by where a surface is in
+        /// the world, not by the model's own skin - so a piece blown up three times comes
+        /// out smooth. Everything here is therefore asked for at about the size the pack
+        /// drew it: the cliffs are nine to ten metres tall as they stand, so CliffRise is
+        /// set to ask for nine and a half.
+        /// </summary>
+        /// <summary>
+        /// The arid pack's rock in its own flat atlas instead of its triplanar material.
+        ///
+        /// <b>Because the skyline came out grey.</b> A triplanar material maps its texture
+        /// by where a surface is in the world rather than by the model's own skin, so a
+        /// piece scaled up stretches its texture with it - and the horizon ring asks for a
+        /// hundred metres of height from a hill the pack drew three and a half metres
+        /// tall. At fifteen times its size the texture was a single flat colour, and the
+        /// desert's own skyline read as grey mountains standing behind a sand-coloured
+        /// haze.
+        ///
+        /// The pack's plain atlas has no such trouble: it is mapped on the model, so it
+        /// scales with it. Only the horizon needs this - everything else in this country
+        /// is asked for at about the size it was drawn.
+        /// </summary>
+        static PropSet FlatStone(PropSet set)
+        {
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+
+            var triplanar = AssetDatabase.LoadAssetAtPath<Material>(
+                $"{DesertMaterials}/Rock_Triplanar_01.mat");
+
+            // <b>A colour, not the pack's atlas.</b> Swapped onto the atlas the hills came
+            // out a flat blue-grey, which is what a model drawn for a triplanar material
+            // does when it is given one that maps by UV: it has no useful UVs, so the
+            // whole hill samples one texel. At three hundred and eighty metres through a
+            // sand haze a silhouette is all a skyline is, so it is given the colour the
+            // texel should have been.
+            var stone = EnsureHillMaterial();
+
+            if (triplanar != null && stone != null) swaps[triplanar] = stone;
+
+            return new PropSet(false, Painted(set, swaps, "Flat"));
+        }
+
+        const string DesertMaterials =
+            "Assets/Synty/PolygonNatureBiomes/PNB_Arid_Desert/Materials";
+
+        const string HillMaterialPath = "Assets/_Project/Materials/DesertHill.mat";
+
+        /// <summary>The flat sandstone the desert's skyline is painted in.</summary>
+        static Material EnsureHillMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(HillMaterialPath);
+
+            if (material == null)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null) return null;
+
+                material = new Material(shader) { name = "DesertHill" };
+                AssetDatabase.CreateAsset(material, HillMaterialPath);
+            }
+
+            // Lighter and greyer than the ground it stands behind: distance washes colour
+            // out, and a skyline the same ochre as the sand at the player's feet reads as
+            // a wall rather than as miles away.
+            var sandstone = new Color(0.72f, 0.58f, 0.46f);
+
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", sandstone);
+            if (material.HasProperty("_Color")) material.SetColor("_Color", sandstone);
+            if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.05f);
+
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        static BiomeDecor LoadDesertDecor()
+        {
+            var decor = LoadForestDecor();
+
+            // Broken rock on the open ground, which is what the recipe means by a fifth of
+            // the map in pass: the placer sends threat to cover, and in a desert the cover
+            // is stone.
+            decor.RockPasses = true;
+            decor.CliffRise = 1.9f;
+
+            // <b>Half height, because these are cacti.</b> A saguaro is four or five
+            // metres and the scatter fits a tree to eight and a half; at full height the
+            // desert came out as a wood of brown columns two metres thick. See
+            // BiomeDecor.TreeScale.
+            decor.TreeScale = 0.55f;
+
+            // <b>The wood, such as it is.</b> Forest tiles in this country are scrub: the
+            // pack's three cacti and its two dead trees, with the old pack's dead pines
+            // among them so a stand is not one shape repeated.
+            // <b>Two kits, not one.</b> Besides the Synty pack there is a whole second
+            // desert already in the project - AridImporter built it and nothing but the
+            // trap bones has ever used it: tall cacti, prickly pear, dead trees, mesas, a
+            // natural arch, ruin columns, tents, and the skeletons. It is all in here now.
+            decor.Pines = Mixed(
+                Load(AridDir, new[]
+                {
+                    "AD2_Cactus_Tall_01", "AD2_Cactus_Tall_02", "AD2_Cactus_Cluster_01",
+                    "AD2_DeadTree_Large_01", "AD2_DeadTree_Large_02", "AD2_Cactus_Tall_01"
+                }),
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Cactus_03", "SM_Env_Tree_Dead_01", "SM_Env_Tree_Dead_02"
+                }));
+
+            decor.Trees = Mixed(
+                Load(AridDir, new[]
+                {
+                    "AD2_Cactus_Tall_01", "AD2_Cactus_Tall_02", "AD2_Cactus_PricklyPear_01",
+                    "AD2_DeadTree_Large_01", "AD2_DeadTree_Small_01"
+                }),
+                Load(DesertDir, new[] { "SM_Env_Cactus_02", "SM_Env_Cactus_03" }));
+
+            // <b>Not left empty.</b> The scatter rolls a tenth of its dice on the second
+            // tree kind, and an empty set means a tenth of the country gets nothing at
+            // all - which is how a desert dressed to be sparse became a desert with holes
+            // in it. The small cacti and the prickly pear go here.
+            decor.Birch = Mixed(
+                Load(AridDir, new[] { "AD2_Cactus_PricklyPear_01", "AD2_Cactus_Cluster_01" }),
+                Load(DesertDir, new[] { "SM_Env_Cactus_01", "SM_Env_Cactus_02" }));
+
+            decor.Willows = new PropSet();
+
+            decor.Bushes = Mixed(
+                Load(AridDir, new[]
+                {
+                    "AD2_DryBush_01", "AD2_DryBush_02", "AD2_Agave_01", "AD2_Agave_02"
+                }),
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Bush_Bramble_01", "SM_Env_Bush_Bramble_02",
+                    "SM_Env_Succulent_02", "SM_Env_Succulent_04"
+                }));
+
+            // The floor: succulents in the lee of the stones, and the pack's own dry
+            // ground cover where there is nothing else.
+            decor.GroundCover = Desert(
+                "SM_Env_Succulent_01", "SM_Env_Succulent_01_Alt_01", "SM_Env_Succulent_02",
+                "SM_Env_Succulent_03", "SM_Env_Succulent_04", "SM_Env_Succulent_05",
+                "SM_Env_Succulent_06", "SM_Env_GroundCover_01", "SM_Env_GroundCover_02",
+                "SM_Env_GroundCover_03", "SM_Env_Succulent_05_Single_01",
+                "SM_Env_Succulent_01_Single_01");
+
+            // No grass mats and no flowers: this is the country that has neither, and
+            // leaving the forest's in would put a lawn in the sand.
+            decor.Mats = new PropSet();
+            decor.Flowers = new PropSet();
+
+            // Loose stone, at the size the pack drew it.
+            // <b>Bones lie where stones lie.</b> The nine the pack draws go in with the
+            // loose rock rather than in the deadfall, because the deadfall is only rolled
+            // on marsh tiles - four dice in a hundred, in a country with almost no marsh -
+            // so a desert strewn with bones had none. This is the set the open sand rolls
+            // a third of its dice on.
+            decor.Rocks = Mixed(
+                Load($"{DesertDir}/Props", new[]
+                {
+                    "SM_Prop_Bones_01", "SM_Prop_Bones_02", "SM_Prop_Bones_03",
+                    "SM_Prop_Bones_04", "SM_Prop_Bones_05", "SM_Prop_Bones_06",
+                    "SM_Prop_Bones_07", "SM_Prop_Bones_08", "SM_Prop_Bones_09"
+                }),
+                Load(AridDir, new[] { "AD2_Rock_01", "AD2_Rock_02", "AD2_Rock_03" }),
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03",
+                    "SM_Env_Rock_04", "SM_Env_Rock_05", "SM_Env_Rock_06",
+                    "SM_Env_Rock_Small_01", "SM_Env_Rock_Small_03",
+                    "SM_Env_Rock_Small_05", "SM_Env_Rock_Small_07",
+                    "SM_Env_Rocks_Spikey_01", "SM_Env_Rocks_Spikey_04"
+                }));
+
+            // Standing stone: the pillars and the rough pair, six to nine metres, which is
+            // what a man hides behind.
+            // And the big dead among the standing stones: a ribcage the size of a wagon
+            // is a landmark on open sand in exactly the way a boulder is, and it is what
+            // the pack's own artwork is made of.
+            decor.Boulders = Mixed(
+                Load(AridDir, new[]
+                {
+                    "AD2_AnimalSkeleton_01", "AD2_Ribcage_01", "AD2_HornedSkull_01",
+                    "AD2_BonePile_01", "AD2_BonePile_02", "AD2_Cliff_01", "AD2_Cliff_02"
+                }),
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Rock_07", "SM_Env_Rock_08", "SM_Env_Rock_09",
+                    "SM_Env_Rock_10", "SM_Env_Rock_11", "SM_Env_Rock_12",
+                    "SM_Env_Rock_13", "SM_Env_Rock_14",
+                    "SM_Env_Rock_Rough_01", "SM_Env_Rock_Rough_02"
+                }));
+
+            // The faces, and the arches among them - which are the one landmark this
+            // country has, and are drawn at the size they are meant to stand.
+            decor.Cliffs = Mixed(
+                Load(AridDir, new[] { "AD2_Mesa_Large_01", "AD2_Mesa_Large_02",
+                                      "AD2_NaturalArch_01" }),
+                Desert("SM_Env_Rock_Cliff_01", "SM_Env_Rock_Cliff_02",
+                                  "SM_Env_Rock_Cliff_03", "SM_Env_Rock_Cliff_04",
+                                  "SM_Env_Rock_Cliff_05", "SM_Env_Rock_Cliff_06",
+                                  "SM_Env_Rock_Cliff_07", "SM_Env_Rock_Cliff_08",
+                                  "SM_Env_Rocks_Spikes_Large_01", "SM_Env_Rocks_Spikes_Large_02",
+                                  "SM_Env_Rock_Arch_Half_01", "SM_Env_Rock_Arch_Half_02").Models);
+
+            // What somebody built out here and left. The desert is the one country with
+            // ruins in it, and they are the only straight lines in a hundred levels of
+            // rock.
+            decor.Monuments = new PropSet(false, Load(AridDir, new[]
+            {
+                "AD2_RuinArch_01", "AD2_RuinColumn_01", "AD2_RuinColumn_Broken_01"
+            }));
+
+            // A desert camp, not a northern one: the kit's own tents and its fire.
+            decor.Camps = new PropSet(false, Load(AridDir, new[]
+            {
+                "AD2_Tent_Large_01", "AD2_Tent_Small_01", "AD2_Campfire_01"
+            }));
+
+            decor.Markers = new PropSet(false, Load(AridDir, new[] { "AD2_Signpost_01" }));
+
+            // Hollows: the pack's craters, and its small mound. The large one is
+            // thirty-seven metres across and is a landscape rather than a hummock.
+            decor.Mounds = Desert("SM_Env_Crater_01", "SM_Env_Crater_02", "SM_Env_Crater_03",
+                                  "SM_Env_Ground_Mound_Small_01");
+
+            // <b>Vultures.</b> The meadow has butterflies and the mountains a hawk; what
+            // circles over this country is the bird that is waiting for something.
+            decor.Fauna = new PropSet(false, Load(
+                "Assets/Synty/PolygonNatureBiomes/PNB_Arid_Desert/FX/FX_Prefabs",
+                new[] { "FX_Vulture_01", "FX_Vulture_Reverse_01" }));
+
+            // <b>Bones lying about, because that is what the country is.</b> The pack's
+            // own artwork is a plain of them - ribs, skulls, a spine the size of a wagon -
+            // and they were only ever used here as the sign at a trap. Nine of them go in
+            // the deadfall, which is the set for things that lie on the ground rather than
+            // stand on it, so the desert is strewn with what did not get across it.
+            decor.Deadfall = Mixed(
+                Load($"{DesertDir}/Props", new[]
+                {
+                    "SM_Prop_Bones_01", "SM_Prop_Bones_02", "SM_Prop_Bones_03",
+                    "SM_Prop_Bones_04", "SM_Prop_Bones_05", "SM_Prop_Bones_06",
+                    "SM_Prop_Bones_07", "SM_Prop_Bones_08", "SM_Prop_Bones_09"
+                }),
+                Load(DesertDir, new[] { "SM_Prop_Tumbleweed_01" }),
+                Load($"{SyntyNatureDir}/Trees", new[] { "SM_Tree_Branch_01" }));
+
+            decor.DeadTrees = Desert("SM_Env_Tree_Dead_01", "SM_Env_Tree_Dead_02");
+
+            decor.GroundPatches = Desert("SM_Env_GroundCover_01", "SM_Env_GroundCover_03");
+
+            // Stone at the one water there is, and reeds in it: an oasis is the only soft
+            // thing in the chapter and it should look like the exception it is.
+            decor.Shore = Desert("SM_Env_Rock_Small_02", "SM_Env_Rock_Small_04",
+                                 "SM_Env_Rock_Small_06");
+
+            decor.MarshPlants = Synty("Plants", "SM_Plant_Reeds_01", "SM_Plant_Reeds_02");
+
+            decor.Lilypads = new PropSet();
+
+            // The skyline: the pack's own hills, which are drawn flat and wide to be set
+            // at the back and blown up.
+            decor.Horizon = FlatStone(Desert("SM_Env_Backrgound_Hill_01",
+                                             "SM_Env_Backrgound_Hill_02",
+                                             "SM_Env_Backrgound_Hill_03"));
+
+            AssetDatabase.SaveAssets();
+            return decor;
+        }
+
         static BiomeDecor LoadCoastDecor()
         {
             var decor = LoadForestDecor();
@@ -3179,6 +3461,27 @@ namespace TheVeil.Editor
 
                 new BiomeLook
                 {
+                    Biome = Biome.Desert,
+                    Decor = LoadDesertDecor(),
+
+                    // <b>Thicker than it was, and the first number was wrong.</b> Half the
+                    // forest's scatter was meant to say "empty country", and what it
+                    // actually said was "bare ground with a cactus on it": a desert is not
+                    // short of things, it is short of *green* things. The pack draws nine
+                    // kinds of bone, five cacti, mesas, arches, ruins and a dozen rocks,
+                    // and the country wants all of them on it.
+                    Density = 0.85f,
+
+                    // A sky bleached by the heat rather than blue, and a haze on the
+                    // horizon - the one place fog belongs in a country you can see across.
+                    Fog = true,
+                    FogColor = new Color(0.85f, 0.78f, 0.62f),
+                    FogDensity = 0.0022f,
+                    SkyColor = new Color(0.80f, 0.79f, 0.68f)
+                },
+
+                new BiomeLook
+                {
                     Biome = Biome.Coast,
                     Decor = LoadCoastDecor(),
 
@@ -3242,6 +3545,12 @@ namespace TheVeil.Editor
                     Biome = Biome.Farmland,
                     Decor = WithoutSkyline(LoadFarmlandDecor()),
                     Density = 0.5f
+                },
+                new BiomeLook
+                {
+                    Biome = Biome.Desert,
+                    Decor = WithoutSkyline(LoadDesertDecor()),
+                    Density = 0.55f
                 },
                 new BiomeLook
                 {

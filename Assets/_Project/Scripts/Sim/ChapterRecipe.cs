@@ -133,6 +133,16 @@ namespace TheVeil.Sim
 
         /// <summary>How much of the map is sea, against one long side. See LevelRecipe.SeaShare.</summary>
         public float SeaShare;
+
+        /// <summary>
+        /// How many ways over the water a level of this country owes.
+        ///
+        /// Three everywhere the road meets a river. The desert owes none: it has no river
+        /// to cross, only the odd pool, and a country told to guarantee three crossings
+        /// over water that is not there spends its whole generation budget looking for
+        /// them. The town levels have said nought for the same reason since towns existed.
+        /// </summary>
+        public int Crossings = new LevelRecipe().CrossingsOwed;
         public int FordsPerRiver = 3;
         public float NoiseScale = 18f;
 
@@ -184,7 +194,7 @@ namespace TheVeil.Sim
                 // The demand was never about this level. It is about a river being a
                 // decision, and there is no river here - the decision is the high street
                 // against the back lanes.
-                CrossingsOwed = Towns.HasTown(Chapter, clamped) ? 0 : new LevelRecipe().CrossingsOwed,
+                CrossingsOwed = Towns.HasTown(Chapter, clamped) ? 0 : Crossings,
 
                 // And who is waiting at the end of it. See Champions.
                 GoalRetinue = Champions.Named(Chapter, clamped) ? Champions.Retinue(Chapter) : 0,
@@ -412,8 +422,16 @@ namespace TheVeil.Sim
                     // and twenty-two against fifty-two of open sand: still the emptiest
                     // country in the game by a wide margin, and no longer so empty that
                     // nobody can wait in it.
-                    recipe.TerrainMix = Mix(0.16f, 0.52f, 0.05f, 0.22f, 0.05f);
-                    recipe.FordsPerRiver = 2;
+                    // <b>And almost no water, which is the point of a desert.</b> It had
+                    // a river with two fords on it and a twentieth of the map in ponds,
+                    // and photographed it came out as a country with two lakes and a
+                    // stream in it - which is a dry grassland, not a desert. There is no
+                    // river now and nothing owed in crossings, and the one part in fifty
+                    // of water is what makes the two or three small pools a level has.
+                    // Those are the oases, and they are worth more the fewer there are.
+                    recipe.TerrainMix = Mix(0.16f, 0.52f, 0.04f, 0.26f, 0.02f);
+                    recipe.Rivers = 0;
+                    recipe.Crossings = 0;
                     recipe.NoiseScale = 26f;
                     // No wolves, and horsemen from the start: open sand is their country,
                     // and a band that lives out here lives on horseback.

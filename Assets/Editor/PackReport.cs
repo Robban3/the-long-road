@@ -56,6 +56,17 @@ namespace TheVeil.Editor
             Sheets($"{pack}/FX", "alpine-fx");
         }
 
+        /// <summary>The arid pack, in the three passes the alpine one needs.</summary>
+        [MenuItem("The Veil/Pack Report (Arid)")]
+        public static void Arid()
+        {
+            const string pack = "Assets/Synty/PolygonNatureBiomes/PNB_Arid_Desert";
+
+            Sheets(pack, "arid");
+            Sheets($"{pack}/Prefabs", "arid-props");
+            Sheets($"{pack}/FX", "arid-fx");
+        }
+
         static void Sheets(string root, string label)
         {
             string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilPack");

@@ -43,7 +43,22 @@ namespace TheVeil.Tests
                 // The generator hands the ground out by quantile, so the shares have to be
                 // a whole: summing to something else quietly reshapes all of them.
                 Assert.AreEqual(1f, total, 0.001f, $"{biome} shares sum to {total:F2}");
-                Assert.Greater(recipe.Rivers, 0, $"{biome} has no river to cross");
+
+                // <b>A country may have no river, and one of them has none.</b> This said
+                // every country must have one, which was true while every country was
+                // green: the desert has a pool or two and nothing running, because a
+                // desert with a river through it is a dry grassland. What has to hold is
+                // that the two halves agree - a country with no river must owe no
+                // crossings, or the generator spends its whole budget looking for ways
+                // over water that is not there, and a country with a river must have a
+                // way across it.
+                if (recipe.Rivers <= 0)
+                {
+                    Assert.AreEqual(0, recipe.CrossingsOwed,
+                                    $"{biome} has no river and still owes crossings");
+                    continue;
+                }
+
                 Assert.Greater(recipe.FordsPerRiver, 0, $"{biome} has a river nobody can cross");
             }
         }
