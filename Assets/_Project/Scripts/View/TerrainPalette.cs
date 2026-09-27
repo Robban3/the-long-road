@@ -221,6 +221,48 @@ namespace TheVeil.View
             }
         }
 
+        /// <summary>
+        /// The coast: grass burnt pale by salt and wind, and stone bleached with it.
+        ///
+        /// Drier and yellower than the plains without being the desert - what grows on a
+        /// headland is marram and thin turf, and the reference picture is a green that has
+        /// had the sun on it all summer.
+        /// </summary>
+        static readonly Color[] CoastGroundColors =
+        {
+            new Color(0.62f, 0.55f, 0.40f), // Road          — sand trodden into the track
+            new Color(0.53f, 0.60f, 0.33f), // Plains        — thin salt turf
+            new Color(0.40f, 0.50f, 0.30f), // Forest        — pine on the headland
+            new Color(0.44f, 0.50f, 0.34f), // Marsh         — salt marsh behind the dunes
+            new Color(0.58f, 0.57f, 0.47f), // Ford          — wet sand
+            new Color(0.62f, 0.60f, 0.53f), // MountainPass  — bleached stone
+            new Color(0.10f, 0.32f, 0.46f), // Water         — the sea, under the surface
+            new Color(0.60f, 0.57f, 0.50f)  // Cliff         — the pale stacks
+        };
+
+        /// <summary>
+        /// The sand a shore is made of.
+        ///
+        /// <b>Not a terrain type, because it is not one.</b> Sand is where the land meets
+        /// the water, which is a fact about a tile's neighbours rather than about the
+        /// tile; making it a type would put it in the cost table, the encounter tables and
+        /// the corridor search, all of which would have to be told that it is ordinary
+        /// ground. It is a colour laid over the ground colour within a few tiles of water
+        /// - see TerrainMeshBuilder.
+        /// </summary>
+        public static readonly Color Sand = new Color(0.86f, 0.79f, 0.58f);
+
+        /// <summary>
+        /// The shallows: sand seen through a foot of clear water.
+        ///
+        /// The one colour that makes a sea read as a sea rather than as a large pond. Deep
+        /// water is nearly black at this angle and the eye reads a dark shape as a hole;
+        /// what says "this is the sea" is the band of pale green-blue along the shore,
+        /// where the bottom still shows. It is laid the way the sand is - by how far the
+        /// water is from land - so a bay is pale all over and the open water goes dark.
+        /// </summary>
+        public static readonly Color Shallows = new Color(0.36f, 0.78f, 0.78f);
+
         public static Color OfGround(TerrainType t, Biome biome)
         {
             switch (biome)
@@ -230,6 +272,7 @@ namespace TheVeil.View
                 case Biome.Plains: return PlainsGroundColors[(int)t];
                 case Biome.Mountain: return MountainGroundColors[(int)t];
                 case Biome.Farmland: return FarmlandGroundColors[(int)t];
+                case Biome.Coast: return CoastGroundColors[(int)t];
                 default: return GroundColors[(int)t];
             }
         }

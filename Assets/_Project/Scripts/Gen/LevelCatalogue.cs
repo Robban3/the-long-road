@@ -290,7 +290,14 @@ namespace TheVeil.Gen
             }
         }
 
-        /// <summary>How many chapters the signature covers. The rest are the same rules.</summary>
+        /// <summary>
+        /// How many chapters the signature covers, and how many the builder searches.
+        ///
+        /// Ten - the whole first tour, not the six that are held to the curve. The table
+        /// carries an attempt for every one of the hundred levels; the later chapters are
+        /// searched for roads that can be got down rather than for a place on the curve,
+        /// and that search is worth keeping too.
+        /// </summary>
         public const int Chapters = 10;
     }
 }

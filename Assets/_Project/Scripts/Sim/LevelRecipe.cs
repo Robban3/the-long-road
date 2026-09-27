@@ -80,6 +80,21 @@ namespace TheVeil.Sim
         public int Rivers = 1;
 
         /// <summary>
+        /// How much of the map is sea, as a share of it: nought for a country inland.
+        ///
+        /// <b>A sea is not a lot of water, it is water in one place.</b> The terrain mix
+        /// can ask for any share of water it likes and gets ponds: the field is noise, and
+        /// noise scattered at a fifth gives a fifth of the map in puddles. What a coast is
+        /// is all of that water against one edge, with a shoreline between - so it is cut
+        /// as its own step (TerrainGenerator.FloodTheShore) rather than asked for in the
+        /// mix, and the mix is left to say what the land is made of.
+        ///
+        /// Along a long side, never the ends: the road runs from the left edge to the
+        /// right one, so a sea across either of those is a road into the water.
+        /// </summary>
+        public float SeaShare;
+
+        /// <summary>
         /// Crossings cut per river, which is not the same as crossings the level keeps:
         /// the country is drawn around the fords afterwards and a lake grown over one
         /// takes it away. What the level owes is <see cref="CrossingsOwed"/>, and the

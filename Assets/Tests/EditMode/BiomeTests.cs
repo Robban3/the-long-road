@@ -30,22 +30,38 @@ namespace TheVeil.Tests
         }
 
         [Test]
-        public void TheTourVisitsTenCountriesAndThenBeginsAgain()
+        public void TheTourVisitsEveryInlandCountryAndThenBeginsAgain()
         {
-            Assert.AreEqual(10, Biomes.Order.Length);
-
             var seen = new System.Collections.Generic.HashSet<Biome>();
             foreach (var biome in Biomes.Order)
                 Assert.IsTrue(seen.Add(biome), $"{biome} appears twice in the tour");
 
-            // Every biome the game knows about is somewhere in it.
+            // The sea is not on the tour, and nothing else is missing from it. The road
+            // ends at the coast (Biomes.LastChapter), so a player who met it in chapter
+            // seven would be sailing away from somewhere they had already been.
+            Assert.IsFalse(seen.Contains(Biome.Coast), "the sea is on the tour");
+            Assert.AreEqual(Biomes.All.Length - 1, Biomes.Order.Length,
+                            "a country other than the sea is missing from the tour");
+
+            // Every biome the game knows about is somewhere in the campaign.
             foreach (Biome biome in System.Enum.GetValues(typeof(Biome)))
                 Assert.Greater(Biomes.FirstChapterOf(biome), 0, $"{biome} is in no chapter at all");
 
+            // And the last ten levels are the sea, whatever the tour would have said.
+            Assert.AreEqual(Biome.Coast, Biomes.Of(Biomes.LastChapter));
+            Assert.AreEqual(Biomes.LastChapter, Biomes.FirstChapterOf(Biome.Coast));
+
+            for (int chapter = 1; chapter < Biomes.LastChapter; chapter++)
+                Assert.AreNotEqual(Biome.Coast, Biomes.Of(chapter),
+                                   $"the sea turns up in chapter {chapter} as well");
+
             // And the second pass starts one country later, so the tour is not the same
             // ten chapters over again.
-            Assert.AreEqual(Biomes.Order[1], Biomes.Of(11), "the second pass opens where the first did");
-            Assert.AreEqual(Biomes.Order[2], Biomes.Of(21), "the third pass opens where the second did");
+            int tour = Biomes.Order.Length;
+            Assert.AreEqual(Biomes.Order[1], Biomes.Of(tour + 1),
+                            "the second pass opens where the first did");
+            Assert.AreEqual(Biomes.Order[2], Biomes.Of(tour * 2 + 1),
+                            "the third pass opens where the second did");
         }
 
         [Test]
@@ -71,12 +87,16 @@ namespace TheVeil.Tests
         {
             // The first hundred levels are the country as it is; after that it comes back
             // under snow, then burnt, then flooded, and then as it was again.
+            // Counted in passes round the tour rather than in tens of chapters, because
+            // the tour is nine countries long now that the sea is held back for the end.
+            int tour = Biomes.Order.Length;
+
             Assert.AreEqual(Dressing.Plain, Biomes.DressingOf(1));
-            Assert.AreEqual(Dressing.Plain, Biomes.DressingOf(10));
-            Assert.AreEqual(Dressing.Snow, Biomes.DressingOf(11));
-            Assert.AreEqual(Dressing.Burnt, Biomes.DressingOf(21));
-            Assert.AreEqual(Dressing.Flood, Biomes.DressingOf(31));
-            Assert.AreEqual(Dressing.Plain, Biomes.DressingOf(41));
+            Assert.AreEqual(Dressing.Plain, Biomes.DressingOf(tour));
+            Assert.AreEqual(Dressing.Snow, Biomes.DressingOf(tour + 1));
+            Assert.AreEqual(Dressing.Burnt, Biomes.DressingOf(tour * 2 + 1));
+            Assert.AreEqual(Dressing.Flood, Biomes.DressingOf(tour * 3 + 1));
+            Assert.AreEqual(Dressing.Plain, Biomes.DressingOf(tour * 4 + 1));
 
             // A chapter with no campaign behind it is the opening country, plainly dressed.
             Assert.AreEqual(Dressing.Plain, Biomes.DressingOf(0));

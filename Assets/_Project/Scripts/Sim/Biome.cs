@@ -105,8 +105,27 @@ namespace TheVeil.Sim
         /// LevelRunner), so a chapter named for a marsh plays as woodland until the marsh
         /// exists. That is the safe way to be wrong: a country that is not finished looks
         /// like the one that is, rather than like bare ground.
+        ///
+        /// <b>The sea is not on this list, and that is the ending.</b> It used to be, and
+        /// the rotation put it on chapters 7, 16, 25, 34, 43, 52, 61, 80, 89 and 98 - so a
+        /// player reached the last ten levels having crossed the coast nine times already.
+        /// The road ends at the sea and the caravan sails; a sea somebody has been to nine
+        /// times is not an ending, it is a commute. So the coast is held back for
+        /// <see cref="LastChapter"/> and the tour is the nine countries that are inland.
+        /// See <see cref="Of"/>.
         /// </summary>
-        public static readonly Biome[] Order =
+        /// <summary>
+        /// Every country the game has, in the order the enum declares them.
+        ///
+        /// <b>Not the tour.</b> <see cref="Order"/> is the order chapters are visited in
+        /// and the sea is no longer on it; this is one entry per country, for the things
+        /// that are built one per country rather than one per chapter - the champions'
+        /// faces, the setup's dressing, a test that wants to name them all. Sizing those
+        /// by the tour worked only while the two lists happened to be the same, and the
+        /// day the sea left the tour the champion table came up one short and threw on the
+        /// dead lands.
+        /// </summary>
+        public static readonly Biome[] All =
         {
             Biome.Forest,
             Biome.Winter,
@@ -115,6 +134,19 @@ namespace TheVeil.Sim
             Biome.Farmland,
             Biome.Mountain,
             Biome.Coast,
+            Biome.Desert,
+            Biome.Enchanted,
+            Biome.Dead
+        };
+
+        public static readonly Biome[] Order =
+        {
+            Biome.Forest,
+            Biome.Winter,
+            Biome.Marsh,
+            Biome.Plains,
+            Biome.Farmland,
+            Biome.Mountain,
             Biome.Desert,
             Biome.Enchanted,
             Biome.Dead
@@ -138,6 +170,15 @@ namespace TheVeil.Sim
         /// along, the tour starts one country later, and the country is dressed for
         /// another season (see <see cref="DressingOf"/>).
         /// </summary>
+        /// <summary>
+        /// The last chapter of the campaign: where the road reaches the sea.
+        ///
+        /// Worked out from the two numbers that decide it rather than written down a third
+        /// time, so a campaign of a different length cannot leave the coast stranded in
+        /// the middle of it.
+        /// </summary>
+        public static int LastChapter => DifficultyCurve.Levels / Campaign.LevelsPerChapter;
+
         public static int PassOf(int chapter)
             => chapter < 1 ? 0 : (chapter - 1) / Order.Length;
 
@@ -152,6 +193,10 @@ namespace TheVeil.Sim
             // round but never in the same order: the first pass goes forest, winter,
             // marsh; the second winter, marsh, plains. Without the shift a player who has
             // seen ten chapters has seen the whole rest of the game in order.
+            // The end of the road. The last ten levels are the coast whatever the tour
+            // would have said, because that is where the caravan stops being a caravan.
+            if (chapter >= LastChapter) return Biome.Coast;
+
             int index = (chapter - 1 + PassOf(chapter)) % Order.Length;
             return Order[index];
         }
@@ -178,6 +223,11 @@ namespace TheVeil.Sim
         /// </summary>
         public static int FirstChapterOf(Biome biome)
         {
+            // The sea is off the tour and its chapter is the last one, which is also the
+            // only one. Answering nought here would have the roadmap name it after nothing
+            // and the setup build it never.
+            if (biome == Biome.Coast) return LastChapter;
+
             for (int i = 0; i < Order.Length; i++)
                 if (Order[i] == biome) return i + 1;
 

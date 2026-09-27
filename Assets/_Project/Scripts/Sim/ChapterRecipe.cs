@@ -130,6 +130,9 @@ namespace TheVeil.Sim
 
         public TerrainShare[] TerrainMix;
         public int Rivers = 1;
+
+        /// <summary>How much of the map is sea, against one long side. See LevelRecipe.SeaShare.</summary>
+        public float SeaShare;
         public int FordsPerRiver = 3;
         public float NoiseScale = 18f;
 
@@ -157,6 +160,7 @@ namespace TheVeil.Sim
                 Posts = Lerp(PostsStart, PostsEnd, t),
                 SilverMultiplier = SilverMultiplier,
                 Rivers = Rivers,
+                SeaShare = SeaShare,
                 FordsPerRiver = FordsPerRiver,
                 NoiseScale = NoiseScale,
                 EnemyPool = PoolForLevel(clamped),
@@ -375,10 +379,21 @@ namespace TheVeil.Sim
                     break;
 
                 case Biome.Coast:
-                    // Water on one hand and salt marsh behind the dunes, cut by two river
-                    // mouths.
-                    recipe.TerrainMix = Mix(0.25f, 0.33f, 0.15f, 0.05f, 0.22f);
-                    recipe.Rivers = 2;
+                    // <b>The sea is not in the mix.</b> A fifth of the map asked for as
+                    // water comes out as a fifth of the map in ponds; what a coast is is
+                    // all of it against one side, and that is cut as its own step. See
+                    // LevelRecipe.SeaShare.
+                    //
+                    // What is left to say is the land: open ground with wood in clumps and
+                    // rock at the points, which is the country in the reference picture.
+                    // Salt marsh behind the dunes is worth having and it is what Marsh is
+                    // for here.
+                    recipe.TerrainMix = Mix(0.22f, 0.50f, 0.08f, 0.12f, 0.02f);
+                    recipe.SeaShare = 0.30f;
+
+                    // One river, because a river that reaches the sea is a mouth and a
+                    // mouth is a crossing; two on a map this size leaves the road a strip.
+                    recipe.Rivers = 1;
                     break;
 
                 case Biome.Desert:

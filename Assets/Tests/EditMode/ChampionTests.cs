@@ -272,12 +272,14 @@ namespace TheVeil.Tests
 
             var library = new VisualLibrary { ChampionLiveries = new[] { red, blue } };
 
-            // Chapter one and chapter eleven are one pass apart, whatever countries they
-            // happen to be.
-            Assert.AreNotSame(library.ChampionLivery(1), library.ChampionLivery(11),
+            // One pass apart, whatever countries they happen to be and however long the
+            // tour is - it is nine countries now that the sea is kept for the end.
+            int tour = Biomes.Order.Length;
+
+            Assert.AreNotSame(library.ChampionLivery(1), library.ChampionLivery(tour + 1),
                 "the second time round the countries, the champions wear the same colours");
 
-            Assert.AreSame(library.ChampionLivery(1), library.ChampionLivery(10),
+            Assert.AreSame(library.ChampionLivery(1), library.ChampionLivery(tour),
                 "two champions of the same pass are in different houses");
         }
 
@@ -310,9 +312,11 @@ namespace TheVeil.Tests
         /// <summary>One marker per country, indexed by Biome the way the real list is.</summary>
         static ActorModel[] Faces()
         {
-            var faces = new ActorModel[Biomes.Order.Length];
+            // One per country. Sized by the tour it is one short of the countries, and
+            // the dead lands index past the end of it.
+            var faces = new ActorModel[Biomes.All.Length];
 
-            foreach (var biome in Biomes.Order)
+            foreach (var biome in Biomes.All)
                 faces[(int)biome] = Marker(biome.ToString());
 
             return faces;

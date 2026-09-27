@@ -581,12 +581,14 @@ namespace TheVeil.Editor
         /// </summary>
         static ActorModel[] ChampionActors()
         {
-            var order = Biomes.Order;
-            var faces = new ActorModel[order.Length];
+            // Every country, not every chapter of the tour: the two were one list until
+            // the sea came off the tour, and the tables below are a row per country.
+            var all = Biomes.All;
+            var faces = new ActorModel[all.Length];
 
-            for (int i = 0; i < order.Length; i++)
+            for (int i = 0; i < all.Length; i++)
             {
-                var biome = order[i];
+                var biome = all[i];
 
                 string built = RiderPrefab(ChampionMounts[i], ChampionRiders[i],
                                            ChampionPath(biome), $"TheVeil_Champion_{biome}");
@@ -2027,6 +2029,18 @@ namespace TheVeil.Editor
 
         static PropSet Alpine(params string[] names) => new PropSet(false, Load(AlpineDir, names));
 
+        /// <summary>
+        /// The arid pack, which the coast borrows from rather than the desert.
+        ///
+        /// Its rock is sandstone and its small stuff is drawn for dry ground, which is
+        /// what a dune behind a beach is: the same bleached scatter as a desert, with the
+        /// sea in front of it instead of more desert. Its cliffs wear a triplanar material
+        /// and do not survive being scaled, so only the small pieces are taken.
+        /// </summary>
+        const string DesertDir = "Assets/Synty/PolygonNatureBiomes/PNB_Arid_Desert/Prefabs";
+
+        static PropSet Desert(params string[] names) => new PropSet(false, Load(DesertDir, names));
+
         static PropSet AlpineProps(params string[] names)
             => new PropSet(false, Load($"{AlpineDir}/Props", names));
 
@@ -2561,6 +2575,139 @@ namespace TheVeil.Editor
             return decor;
         }
 
+        /// <summary>
+        /// The coast: the last ten levels of the campaign, where the road ends and the
+        /// caravan takes ship.
+        ///
+        /// <b>Assembled out of four packs, because no one pack has a shore.</b> The meadow
+        /// gives the turf and the flowers that grow on a headland; the alpine pack gives
+        /// the rounded river stone that is exactly beach shingle, and the jetty and the
+        /// canoe; the arid pack gives the bleached scatter of a dune, which is a desert
+        /// with the sea in front of it; and the old nature pack gives the pines that stand
+        /// on every point in the reference picture, the reeds for the river mouth, and the
+        /// one palm bush anybody drew.
+        ///
+        /// What is deliberately thin is the middle of the map. A coast is read along its
+        /// edge - the beach, the stacks, the line of surf - and a country dressed as
+        /// thickly inland as a forest hides its own shore.
+        /// </summary>
+        static BiomeDecor LoadCoastDecor()
+        {
+            var decor = LoadForestDecor();
+
+            // Pine on the points, which is the silhouette the reference is built on: dark
+            // verticals against pale water. Sparse, because they grow where there is
+            // shelter and a headland has none.
+            decor.Pines = Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02", "SM_Tree_PolyPine_Sparse_01",
+                    "SM_Tree_PolyPine_Sparse_02", "SM_Tree_Pine_01"
+                }),
+                Load(AlpineDir, new[] { "SM_Env_Pine_02", "SM_Env_Pine_03", "SM_Env_Pine_05" }));
+
+            decor.Trees = Mixed(
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02", "SM_Env_Tree_Birch_02"
+                }),
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_PolyPine_Sparse_02", "SM_Tree_Round_01"
+                }));
+
+            decor.Birch = Meadow("SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_03");
+            decor.Willows = Synty("Trees", "SM_Tree_Willow_Small_01");
+
+            // Dune scrub: the pack's one palm bush, brambles off the dry pack, and the
+            // meadow's own bushes for the sheltered side of a rise.
+            decor.Bushes = Mixed(
+                Load($"{SyntyNatureDir}/Plants", new[] { "SM_Plant_PalmBush_01", "SM_Plant_Bush_02" }),
+                Load(DesertDir, new[] { "SM_Env_Bush_Bramble_01", "SM_Env_Bush_Bramble_02" }),
+                Load(MeadowDir, new[] { "SM_Env_Bush_01", "SM_Env_Grass_Bush_01" }));
+
+            // Marram and thin turf, with succulents where the sand takes over.
+            decor.GroundCover = Mixed(
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Grass_Tall_Clump_01", "SM_Env_Grass_Tall_Clump_03",
+                    "SM_Env_Grass_Tall_Clump_05", "SM_Env_Grass_Med_Clump_02",
+                    "SM_Env_Grass_Short_Clump_01", "SM_Env_Grass_Short_Clump_03"
+                }),
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Succulent_01", "SM_Env_Succulent_03", "SM_Env_Succulent_05",
+                    "SM_Env_GroundCover_01", "SM_Env_GroundCover_02"
+                }),
+                Load($"{SyntyNatureDir}/Plants", new[] { "SM_Plant_Grass_03" }));
+
+            decor.Mats = Meadow("SM_Env_Grass_Short_Plane_01", "SM_Env_Grass_Med_Plane_01");
+
+            // Sea pinks: the one colour on a headland, and the reference has drifts of it.
+            decor.Flowers = Meadow("SM_Env_Wildflowers_01", "SM_Env_Wildflowers_03",
+                                   "SM_Env_Flowers_Flat_02");
+
+            // Reeds where the river comes down to the sea, which is the one soft edge on
+            // a coast made of sand and stone.
+            decor.MarshPlants = Synty("Plants", "SM_Plant_Reeds_01", "SM_Plant_Reeds_02");
+
+            // <b>Shingle.</b> The alpine pack's river stone is drawn rounded and wet, which
+            // is what a beach is made of, and nothing else in any pack is.
+            decor.Shore = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Rock_River_01", "SM_Env_Rock_River_02", "SM_Env_Rock_River_03",
+                    "SM_Env_Rock_River_04", "SM_Env_Rock_Pebbles_02", "SM_Env_Rock_Pebbles_04"
+                }),
+                Load(MeadowDir, new[] { "SM_Env_Rock_Small_Pile_01", "SM_Env_Rock_Small_Pile_02" }));
+
+            // Loose stone above the tideline, bleached: the dry pack's small rock at its
+            // own size, which is the only way a triplanar piece may be used.
+            decor.Rocks = Mixed(
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Rock_Small_01", "SM_Env_Rock_Small_03", "SM_Env_Rock_Small_05",
+                    "SM_Env_Rock_Small_07"
+                }),
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Rock_Pebbles_01", "SM_Env_Rock_Pebbles_03", "SM_Env_Rock_Small_02"
+                }));
+
+            // The stacks and the headland rock. The alpine pack's grey, because it carries
+            // a plain atlas and the decorator scales these: the dry pack's cliffs are
+            // triplanar and come out as plastic the moment they are blown up.
+            decor.Boulders = Alpine("SM_Env_Rock_06", "SM_Env_Rock_07", "SM_Env_Rock_08",
+                                    "SM_Env_Rock_Rough_01", "SM_Env_Rock_Rough_02");
+
+            decor.Cliffs = Alpine("SM_Env_Rock_08", "SM_Env_Rock_09", "SM_Env_Rock_010",
+                                  "SM_Env_Rock_Rough_01", "SM_Env_Rock_Rough_02");
+
+            decor.Deadfall = Mixed(
+                Load(AlpineDir, new[] { "SM_Env_Branch_01", "SM_Env_Branch_03" }),
+                Load($"{SyntyNatureDir}/Trees", new[] { "SM_Tree_Log_01" }));
+
+            decor.DeadTrees = Mixed(
+                Load(DesertDir, new[] { "SM_Env_Tree_Dead_01", "SM_Env_Tree_Dead_02" }),
+                Load($"{SyntyNatureDir}/Trees", new[] { "SM_Tree_Stump_01" }));
+
+            decor.GroundPatches = Meadow("SM_Env_Ground_Cover_01", "SM_Env_Ground_Cover_03");
+
+            // <b>The boats, which are the point of the chapter.</b> The knights' rowboat
+            // is the one a caravan could leave in; the alpine canoe is what is drawn up on
+            // a beach beside it.
+            decor.Boats = Mixed(
+                Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_Rowboat_01" }),
+                Load($"{AlpineDir}/Props", new[] { "SM_Prop_Canoe_01" }));
+
+            // Nothing on the skyline but weather. A coast's horizon is the sea, and a
+            // range of hills standing in it is the one thing that would say otherwise.
+            decor.Horizon = new PropSet();
+
+            AssetDatabase.SaveAssets();
+            return decor;
+        }
+
         static BiomeDecor LoadMarshDecor()
         {
             var decor = LoadForestDecor();
@@ -3013,6 +3160,21 @@ namespace TheVeil.Editor
                     // is the ground you can see, not what is standing on it.
                     Density = 0.5f,
                     SkyColor = new Color(0.70f, 0.80f, 0.86f)
+                },
+
+                new BiomeLook
+                {
+                    Biome = Biome.Coast,
+                    Decor = LoadCoastDecor(),
+
+                    // Thinner than anywhere: a coast is read along its edge, and a country
+                    // dressed as thickly as a forest hides its own shore.
+                    Density = 0.45f,
+
+                    // The light off the water. Everything else in the game is under a
+                    // temperate sky; the sea gives back what falls on it, so the last
+                    // chapter is the bright one.
+                    SkyColor = new Color(0.62f, 0.80f, 0.90f)
                 }
             };
         }
@@ -3061,6 +3223,12 @@ namespace TheVeil.Editor
                     Biome = Biome.Farmland,
                     Decor = WithoutSkyline(LoadFarmlandDecor()),
                     Density = 0.5f
+                },
+                new BiomeLook
+                {
+                    Biome = Biome.Coast,
+                    Decor = WithoutSkyline(LoadCoastDecor()),
+                    Density = 0.45f
                 }
             };
         }

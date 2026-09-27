@@ -94,6 +94,11 @@ namespace TheVeil.Gen
                 var rng = new DeterministicRandom(seed + attempt * 7919);
 
                 var grid = BuildTerrain(recipe, rng);
+
+                // Before the rivers, so a river that reaches the shore runs into the sea
+                // rather than stopping a tile short of it.
+                FloodTheShore(grid, recipe, rng);
+
                 CarveRivers(grid, recipe, rng);
 
                 // The town is part of the country, not of what stands on it: its walls are
@@ -472,6 +477,80 @@ namespace TheVeil.Gen
         /// the player pick one, and every enemy placement downstream of that choice
         /// suddenly means something.
         /// </summary>
+        /// <summary>
+        /// Puts the sea along one long side of the map, with a wandering shore.
+        ///
+        /// <b>What makes a coast is that the water is all in one place.</b> Asked for in
+        /// the terrain mix, a fifth of the map in water is a fifth of the map in ponds -
+        /// the field is noise and noise does not make a sea. So this is cut afterwards and
+        /// over the top: everything past a line near one edge is water, whatever the noise
+        /// made of it.
+        ///
+        /// The line itself is the whole of the look. A straight one is a swimming pool, so
+        /// it is wandered with the same value noise the ground is built from, deep enough
+        /// to make bays and headlands - the reference picture is a run of beaches between
+        /// points of rock, and that is one line drawn loosely.
+        ///
+        /// North or south by the seed, never east or west: the road runs from the left
+        /// edge to the right one, and a sea across either of those is a road into the
+        /// water.
+        ///
+        /// The rock in the water is left standing rather than added: where the noise had
+        /// made cliff, a tile out in the shallows stays cliff, and those are the stacks and
+        /// skerries the shore is scattered with. Nothing walks on them - cliff is
+        /// impassable ground - so they cost the routing nothing.
+        /// </summary>
+        static void FloodTheShore(TileGrid grid, LevelRecipe recipe, DeterministicRandom rng)
+        {
+            if (recipe.SeaShare <= 0f) return;
+
+            int w = grid.Width, h = grid.Height;
+
+            bool north = rng.Range(0, 2) == 0;
+            float deep = Math.Max(2f, recipe.SeaShare * h);
+
+            // The shore's own noise: one line, wandered by up to a third of the sea's own
+            // depth either way, which is a bay you could lose a caravan in and a headland
+            // you have to go round.
+            float ox = rng.Range(0f, 4096f);
+            int noise = (int)rng.NextUInt();
+            float wander = deep * ShoreWander;
+
+            for (int x = 0; x < w; x++)
+            {
+                float bend = ValueNoise.Fbm(ox + x / ShoreScale, 0.5f, noise, 3) - 0.5f;
+                int edge = (int)Math.Round(deep + bend * 2f * wander);
+
+                if (edge < 1) edge = 1;
+                if (edge > h - ShoreLeastLand) edge = h - ShoreLeastLand;
+
+                for (int step = 0; step < edge; step++)
+                {
+                    int y = north ? h - 1 - step : step;
+                    int tile = grid.ToIndex(x, y);
+
+                    // A stack of rock standing out of the water, where the ground had
+                    // rock to stand. Only out in the open water, never on the shoreline
+                    // itself, where it would read as a wall along the beach.
+                    if (grid[tile] == TerrainType.Cliff && step > ShoreStacksFrom) continue;
+
+                    grid[tile] = TerrainType.Water;
+                }
+            }
+        }
+
+        /// <summary>How far the shoreline wanders, as a share of the sea's own depth.</summary>
+        const float ShoreWander = 0.45f;
+
+        /// <summary>How long a bay is, in tiles of noise: a third of a map's width.</summary>
+        const float ShoreScale = 20f;
+
+        /// <summary>How many tiles of land are kept on the seaward side, whatever the noise says.</summary>
+        const int ShoreLeastLand = 12;
+
+        /// <summary>How far out a rock may stand in the water, in tiles from the shore.</summary>
+        const int ShoreStacksFrom = 2;
+
         static void CarveRivers(TileGrid grid, LevelRecipe recipe, DeterministicRandom rng)
         {
             for (int r = 0; r < recipe.Rivers; r++)

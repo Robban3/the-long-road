@@ -114,6 +114,7 @@ namespace TheVeil.View
                                  Towns.Plan town = default)
         {
             _biome = biome;
+            FindTheBeach(grid, biome);
             _town = town;
 
             int tiles = grid.TileCount;
@@ -513,6 +514,7 @@ namespace TheVeil.View
             float r = 0f, g = 0f, b = 0f;
             int tiles = 0, water = 0;
             bool road = false, ford = false;
+            int beach = int.MaxValue;
 
             for (int dy = -1; dy <= 0; dy++)
             {
@@ -529,6 +531,13 @@ namespace TheVeil.View
                     if (terrain == TerrainType.Road) road = true;
                     if (terrain == TerrainType.Ford) ford = true;
 
+                    // How near this land is to the water, where the country has a sea.
+                    if (_beach != null)
+                    {
+                        int near = _beach[y * grid.Width + x];
+                        if (near < beach) beach = near;
+                    }
+
                     var c = Paved(x, y) ? TerrainPalette.OfTown(terrain) : Ground(terrain);
                     r += c.r; g += c.g; b += c.b;
                 }
@@ -544,10 +553,43 @@ namespace TheVeil.View
             if (road) return Ground(TerrainType.Road);
 
             var deep = Ground(TerrainType.Water);
+
+            // <b>The shallows.</b> Deep water at this angle is nearly black and reads as a
+            // hole in the map; what makes a sea look like one is the pale band along the
+            // shore where the bottom still shows. Taken from how far the water is from
+            // land, so a bay is pale all through and the open sea goes dark.
+            if (_shallows != null)
+            {
+                int under = int.MaxValue;
+
+                for (int dy = -1; dy <= 0; dy++)
+                    for (int dx = -1; dx <= 0; dx++)
+                    {
+                        int x = cornerX + dx, y = cornerY + dy;
+                        if (!grid.InBounds(x, y)) continue;
+                        if (grid[x, y] != TerrainType.Water) continue;
+
+                        int near = _shallows[y * grid.Width + x];
+                        if (near < under) under = near;
+                    }
+
+                if (under < ShallowTiles)
+                    deep = Color.Lerp(TerrainPalette.Shallows, deep, under / (float)ShallowTiles);
+            }
+
             if (water == tiles) return deep;
 
             int land = tiles - water;
             var dry = new Color(r / land, g / land, b / land, 1f);
+
+            // <b>The beach.</b> Sand is not a terrain type - it is where the land meets
+            // the water, which is a fact about a tile's neighbours - so it is laid as a
+            // colour over whatever the ground is, fading out over the last few tiles. The
+            // waterline itself is all sand and the turf comes back inland, which is the
+            // band in the reference picture.
+            if (_beach != null && beach <= BeachTiles)
+                dry = Color.Lerp(TerrainPalette.Sand, dry,
+                                 Mathf.Clamp01((beach - 1f) / (BeachTiles - 1f)));
 
             if (water == 0) return dry;
             if (ford) return water * 2 > tiles ? deep : dry;
@@ -561,6 +603,97 @@ namespace TheVeil.View
             // straight one.
             float share = Mathf.Clamp01((float)water / tiles + Wander(cornerX, cornerY) * Wobble);
             return Color.Lerp(dry, deep, share);
+        }
+
+        /// <summary>
+        /// How far inland the sand reaches, in tiles.
+        ///
+        /// Four, which is sixteen metres: a beach you could form a column up on. At one it
+        /// reads as a wet rim round the water and at eight the whole coastal plain is a
+        /// dune. The tile against the water is all sand and the turf comes back over the
+        /// three behind it.
+        /// </summary>
+        const int BeachTiles = 4;
+
+        /// <summary>
+        /// How far out the water still shows its bottom, in tiles.
+        ///
+        /// Six - twenty-four metres of pale water round every shore and island. It is the
+        /// band the reference picture is built on: the sand does not stop at the waterline,
+        /// it goes on under it and fades.
+        /// </summary>
+        const int ShallowTiles = 6;
+
+        /// <summary>How far each water tile is from land, up to <see cref="ShallowTiles"/>.</summary>
+        static byte[] _shallows;
+
+        /// <summary>
+        /// How far each tile is from water, up to <see cref="BeachTiles"/>, or null inland.
+        ///
+        /// Built once per mesh from every water tile at once - a flood of the whole map is
+        /// one pass over it, where asking each corner "how near is the sea" would be a
+        /// search per corner.
+        /// </summary>
+        static byte[] _beach;
+
+        static void FindTheBeach(TileGrid grid, Biome biome)
+        {
+            _beach = null;
+            _shallows = null;
+            if (biome != Biome.Coast) return;
+
+            _beach = Spread(grid, BeachTiles, wet: true);
+            _shallows = Spread(grid, ShallowTiles, wet: false);
+        }
+
+        /// <summary>
+        /// How far every tile is from the water, or from the land, up to a limit.
+        ///
+        /// One flood of the whole map rather than a search per corner: every source tile
+        /// goes into the queue at once and the distance falls out of the order they come
+        /// back off it.
+        /// </summary>
+        static byte[] Spread(TileGrid grid, int limit, bool wet)
+        {
+            int w = grid.Width, h = grid.Height;
+            var near = new byte[w * h];
+            var front = new Queue<int>();
+
+            for (int i = 0; i < near.Length; i++)
+            {
+                bool water = grid[i] == TerrainType.Water || grid[i] == TerrainType.Ford;
+
+                if (water == wet)
+                {
+                    near[i] = 0;
+                    front.Enqueue(i);
+                }
+                else near[i] = byte.MaxValue;
+            }
+
+            while (front.Count > 0)
+            {
+                int tile = front.Dequeue();
+                if (near[tile] >= limit) continue;
+
+                grid.ToCoords(tile, out int x, out int y);
+
+                for (int side = 0; side < 4; side++)
+                {
+                    int nx = x + (side == 0 ? 1 : side == 1 ? -1 : 0);
+                    int ny = y + (side == 2 ? 1 : side == 3 ? -1 : 0);
+
+                    if (!grid.InBounds(nx, ny)) continue;
+
+                    int next = ny * w + nx;
+                    if (near[next] <= near[tile] + 1) continue;
+
+                    near[next] = (byte)(near[tile] + 1);
+                    front.Enqueue(next);
+                }
+            }
+
+            return near;
         }
 
         /// <summary>How far the waterline may wander, as a share of a corner. A sixth.</summary>

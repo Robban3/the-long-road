@@ -34,7 +34,13 @@ namespace TheVeil.Editor
             var runner = Object.FindAnyObjectByType<LevelRunner>();
             if (runner == null) { Debug.Log("[Demo] no LevelRunner in the scene"); return; }
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            // The built chapters, and the coast: it is the last chapter of the campaign
+            // and is being dressed now, so it wants photographing before it is built.
+            var wanted = new System.Collections.Generic.List<int>();
+            for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) wanted.Add(c);
+            wanted.Add(Biomes.LastChapter);
+
+            foreach (int chapter in wanted)
             {
                 var root = SmokeTest.Build(runner, chapter, 1, out var map);
                 var grid = map.Grid;
