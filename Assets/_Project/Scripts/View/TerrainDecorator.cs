@@ -5249,7 +5249,6 @@ namespace TheVeil.View
 
                     _boneSites.Add(tile);
 
-                    occupied.Add(tile);
                     placed += built;
 
                     // And a totem beside it, where the pack has one. A wreck says
@@ -5267,6 +5266,20 @@ namespace TheVeil.View
                     // The map has always known: MapSymbols pushes a second symbol on one
                     // tile sideways rather than letting it land on the first, and says
                     // why. The world was drawing what the map was careful not to.
+                    //
+                    // <b>And it is asked before the bones claim their tile, not after.</b>
+                    // The claim below exists so nothing is put on top of the heap; it was
+                    // being made first, so the totem went looking for clear ground on the
+                    // one tile that had just been taken. It stands in the forest either
+                    // way, because the standoff carries it onto a neighbour — but asking a
+                    // prop for ground you have just taken from it is the wrong way round
+                    // whatever it survives.
+                    //
+                    // The desert still puts none up. Its marker is the dry pack's signpost
+                    // and it is the one country whose Markers set has never produced
+                    // anything; the model measures 2.50 by 2.50 by 0.21 and is not the
+                    // reason. That one is still open. See CensusReport, which is what says
+                    // so — counted, not noticed.
                     if (decor.Markers.Any
                         && Mark(Place(parent, grid, tile, rng,
                                       new Choice(decor.Markers, Any(decor.Markers, rng),
@@ -5275,6 +5288,8 @@ namespace TheVeil.View
                                       sink: Seat(grid, tile, heightScale, MarkerHeight),
                                       standoff: TotemStandoff)) != null)
                         Landmark.Note(found, LandmarkKind.Totem, tile);
+
+                    occupied.Add(tile);
 
                     // Dead trees around it. A cart alone is small enough to miss from
                     // map height, and the signal is worthless if it is not noticed;
@@ -5296,7 +5311,24 @@ namespace TheVeil.View
                 }
             }
 
-            for (int i = 0; i < grid.TileCount && placed < MaxLandmarks; i++)
+            // <b>The trap signs were spending the budget they are exempt from.</b> The
+            // sweep above says so in as many words - "No cap. MaxLandmarks is a budget for
+            // scenery and these are not scenery" - and then counts every heap of bones and
+            // every dead tree beside it into the same running total the cap is measured
+            // against. A level carries four to eight trap sites, each worth about three of
+            // those, and MaxLandmarks is eighteen: on most levels the whole allowance was
+            // gone before this loop looked at its first tile.
+            //
+            // What that cost is everything this loop places. Counted across ten levels of
+            // each built chapter: one to four houses in a whole chapter, one or two mills,
+            // and not one watchtower in the mountains - the country that is two thirds
+            // pass, and the only one that loads a lookout at all. See CensusReport.
+            //
+            // So the cap gets its own count. `placed` stays what it always was, the number
+            // of things put on the ground, because that is what the caller adds up.
+            int landmarks = 0;
+
+            for (int i = 0; i < grid.TileCount && landmarks < MaxLandmarks; i++)
             {
                 if (clear != null && clear.Contains(i)) continue;
                 if (road != null && road.Contains(i)) continue;
@@ -5312,6 +5344,7 @@ namespace TheVeil.View
                              road, found, settled))
                 {
                     placed++;
+                    landmarks++;
                     continue;
                 }
 
@@ -5369,6 +5402,7 @@ namespace TheVeil.View
                 Landmark.Note(found, kind, i);
                 occupied.Add(i);
                 placed++;
+                landmarks++;
             }
 
             return placed;
@@ -5894,6 +5928,22 @@ namespace TheVeil.View
             var kit = decor.Kit;
             var terrain = grid[tile];
 
+            // <b>The kit tower, and only the kit tower.</b> A pass gets its watchtower from
+            // the building kit and always has. The mountains were the one country loading a
+            // Watchtowers prop of their own — the alpine pack's timber lookout — and the
+            // census found it had never stood on a single level of the game, because this
+            // line builds and returns before anything asks that set.
+            //
+            // Which was worth trying, and it did not work. Put up through Place it stood in
+            // the caravan's lane on four of the ten mountain levels; through Raise, which
+            // is the call that asks about the road, on four; capped to a tile and a quarter
+            // across, on three and buried on a fourth. It is a platform on splayed legs and
+            // it reaches the lane from a tile that is itself clear of it. The stone tower is
+            // a narrow stack, it is what a pass has always got, and it reads.
+            //
+            // So the lookout is not loaded any more — see LoadMountainDecor. The census
+            // asks whether work somebody did ever reaches the screen, and "it should not
+            // have been done" is one of the answers.
             if (terrain == TerrainType.MountainPass && kit.CanBuildTower && rng.Chance(TowerChance))
                 return Note(found, LandmarkKind.Watchtower, tile,
                             Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),

@@ -2587,7 +2587,13 @@ namespace TheVeil.Editor
             // caravan on a medieval road. The same drawer holds a thermos, a folding stool
             // and a petrol ice auger. The camps keep the army pack's tent and the nature
             // pack's fire, as every other country's do.
-            decor.Watchtowers = AlpineProps("SM_Prop_Lookout_01");
+            // <b>Not the pack's lookout post.</b> It was loaded here when the mountains
+            // were dressed and it has never stood on a single level: a pass takes its
+            // watchtower from the building kit and TerrainDecorator.Built returns before
+            // anything asks this set. Tried three ways when the census found it, and every
+            // one of them put a timber platform on splayed legs in the caravan's lane or
+            // buried it. The stone tower is what a pass gets.
+            decor.Watchtowers = new PropSet();
 
             // Worn ground, and no dust piles: the pack's are smooth sand-coloured mounds a
             // couple of metres across, and scattered over a mountainside they read as heaps
