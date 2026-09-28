@@ -527,6 +527,12 @@ namespace TheVeil.View
 
                 var lying = ModelScaling.Measure(stone);
                 stone.transform.position -= new Vector3(0f, lying.min.y, 0f);
+
+                // And it rests on its own ground once the ruin is set down. A stone lying
+                // five metres from the wall is not part of the wall: on a slope it belongs
+                // to the hillside it fell onto, not to the plane the building was seated
+                // on. See Loose, and TerrainDecorator.Settle, which does the seating.
+                stone.AddComponent<Loose>();
             }
 
             return host;

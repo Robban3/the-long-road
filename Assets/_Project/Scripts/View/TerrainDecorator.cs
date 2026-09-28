@@ -7638,6 +7638,35 @@ namespace TheVeil.View
             return placed;
         }
 
+        /// <summary>
+        /// Drops an assembly's loose pieces onto the ground each of them is actually over.
+        ///
+        /// A building is seated once, as one thing, and every piece keeps the height the
+        /// piece below gave it — which is what holds a house together. A stone lying five
+        /// metres from the wall is not held by anything: a ruin scatters two to four of
+        /// them past its own footprint, and on a hillside the uphill ones go under the
+        /// ground and the downhill ones stand on air, because they were all put on the
+        /// plane the building was set down on.
+        ///
+        /// It never showed while the country was flat. The mountains now stand two and a
+        /// half times higher (LevelRecipe.Relief), the ground moves a metre in four, and a
+        /// rubble stone on 6-5 was the last thing the smoke test could find.
+        ///
+        /// See <see cref="Loose"/>, which is how a piece says it is one of these.
+        /// </summary>
+        static void Settle(GameObject instance, TileGrid grid, float heightScale)
+        {
+            foreach (var piece in instance.GetComponentsInChildren<Loose>(true))
+            {
+                var at = piece.transform.position;
+                var box = ModelScaling.Measure(piece.gameObject);
+                if (box.size.y <= 0f) continue;
+
+                float ground = grid.SurfaceElevation(at.x, at.z) * heightScale;
+                piece.transform.position += Vector3.up * (ground - box.min.y);
+            }
+        }
+
         /// <summary>The tile a world position falls on, or -1 when it is off the map.</summary>
         static int Tile(TileGrid grid, float x, float z)
         {
@@ -7789,6 +7818,10 @@ namespace TheVeil.View
                 return false;
             }
 
+            // And its loose pieces onto their own ground, the same as Place does. A ruin
+            // reaches this path as often as the other one.
+            Settle(building, grid, heightScale);
+
             Reserve(grid, occupied, building, at.X, at.Y);
 
             return true;
@@ -7859,6 +7892,8 @@ namespace TheVeil.View
 
             if (sunkBy > deepest)
                 instance.transform.position += Vector3.up * (sunkBy - deepest);
+
+            Settle(instance, grid, heightScale);
 
             // Asked after scaling, because until it is scaled nobody knows how much
             // ground it wants — the same order Scatter and Raise use, and for the same
