@@ -46,7 +46,13 @@ namespace TheVeil.View
         /// <summary>The renderers of a prop's nearest level of detail, or null for a prop without.</summary>
         static Renderer[] Nearest(GameObject instance)
         {
-            var group = instance.GetComponentInChildren<LODGroup>();
+            // <b>On the prop itself, never on a piece of it.</b> A pack's prefab carries
+            // its LODGroup on its root, which is the case this is for. A thing this
+            // project assembles - a castle, a tor, a village house - is a root with a
+            // dozen pieces under it, and several of those pieces carry LODGroups of their
+            // own: searching the children finds the first of them and measures the whole
+            // castle by one wall panel. Nothing had gone wrong yet, and it was going to.
+            var group = instance.GetComponent<LODGroup>();
             if (group == null) return null;
 
             var levels = group.GetLODs();

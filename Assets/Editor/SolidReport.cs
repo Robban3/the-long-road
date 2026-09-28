@@ -46,7 +46,16 @@ namespace TheVeil.Editor
             var inTheRoad = new Dictionary<string, Tally>();
             var capped = new Dictionary<string, Tally>();
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            // Every built chapter and the coast. The coast is the last chapter of the
+            // campaign rather than one of the built ones, and it is where the newest
+            // placement in the game lives - the jetty, the boats on the sand, the skerries
+            // - so leaving it out of the instruments means the newest code is the least
+            // looked at.
+            var chapters = new List<int>();
+            for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) chapters.Add(c);
+            chapters.Add(Biomes.LastChapter);
+
+            foreach (int chapter in chapters)
             {
                 // The first level and the last: the last is the one with the castle on it,
                 // and the castle is half of what this report was written for.

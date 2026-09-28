@@ -32,7 +32,16 @@ namespace TheVeil.Editor
             var runner = Object.FindAnyObjectByType<LevelRunner>();
             if (runner == null) { Debug.Log("[Water] no LevelRunner in the scene"); return; }
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            // Every built chapter and the coast. The coast is the last chapter of the
+            // campaign rather than one of the built ones, and it is where the newest
+            // placement in the game lives - the jetty, the boats on the sand, the skerries
+            // - so leaving it out of the instruments means the newest code is the least
+            // looked at.
+            var chapters = new System.Collections.Generic.List<int>();
+            for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) chapters.Add(c);
+            chapters.Add(Biomes.LastChapter);
+
+            foreach (int chapter in chapters)
             {
                 var root = SmokeTest.Build(runner, chapter, 1, out _);
                 var props = root.transform.Find("Props");

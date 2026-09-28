@@ -24,11 +24,18 @@ namespace TheVeil.Editor
     {
         const string Root = "The Veil/Demo/";
 
-        // One for every country on the tour (Biomes.Order), because a chapter nobody can
-        // jump to is a chapter nobody looks at: the winter was built, shipped and only
-        // seen because this menu existed, and the marsh would have waited its turn behind
+        // One for every chapter of the first tour, because a chapter nobody can jump to
+        // is a chapter nobody looks at: the winter was built, shipped and only seen
+        // because this menu existed, and the marsh would have waited its turn behind
         // twenty levels of forest. They are written out one by one because a MenuItem is
         // an attribute and attributes cannot be looped over.
+        //
+        // <b>Which means the names drift, and they had.</b> The sea came off the tour and
+        // every country after the mountains moved up one, so this menu spent a day
+        // offering a coast that was the desert, a desert that was the enchanted wood, and
+        // a dead land that was the winter again. A menu that lies about where it takes you
+        // is worse than no menu. The names are Biomes.Of's answer for each number; when
+        // the tour changes again, they change here.
         [MenuItem(Root + "Chapter 1 — Forest")]
         static void ChapterOne() => Enter(1);
 
@@ -47,17 +54,28 @@ namespace TheVeil.Editor
         [MenuItem(Root + "Chapter 6 — Mountain")]
         static void ChapterSix() => Enter(6);
 
-        [MenuItem(Root + "Chapter 7 — Coast")]
+        [MenuItem(Root + "Chapter 7 — Desert")]
         static void ChapterSeven() => Enter(7);
 
-        [MenuItem(Root + "Chapter 8 — Desert")]
+        [MenuItem(Root + "Chapter 8 — Enchanted")]
         static void ChapterEight() => Enter(8);
 
-        [MenuItem(Root + "Chapter 9 — Enchanted")]
+        [MenuItem(Root + "Chapter 9 — Dead land")]
         static void ChapterNine() => Enter(9);
 
-        [MenuItem(Root + "Chapter 10 — Dead land")]
+        [MenuItem(Root + "Chapter 10 — Winter again, under snow")]
         static void ChapterTen() => Enter(10);
+
+        /// <summary>
+        /// The end of the road, which is nowhere near the rest of this menu.
+        ///
+        /// The coast is chapter one hundred - levels 991 to 1000 - because the caravan
+        /// takes ship there and a sea somebody has crossed nine times is not an ending. It
+        /// is built and dressed, and without this line the only way to see it is to play
+        /// ninety-nine chapters.
+        /// </summary>
+        [MenuItem(Root + "The coast — the last ten levels")]
+        static void TheCoast() => Enter(Biomes.LastChapter);
 
         [MenuItem(Root + "Chapter 1 — Forest", true)]
         [MenuItem(Root + "Chapter 2 — Winter", true)]

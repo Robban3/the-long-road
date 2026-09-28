@@ -55,11 +55,35 @@ namespace TheVeil.Editor
             var fly = typeof(LevelPreview).GetMethod("FlyEagle",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            // <b>Whichever levels were asked for, or all of them.</b> A plan takes a
+            // minute to build and a minute to fly the scout over, so photographing the
+            // whole game to look at one new country is twenty minutes of waiting for two
+            // pictures. Pass -plan <chapter> <level> for one of them.
+            var wanted = new System.Collections.Generic.List<(int Chapter, int Level)>();
+            var args = System.Environment.GetCommandLineArgs();
+
+            for (int i = 0; i + 2 < args.Length; i++)
+                if (args[i] == "-plan"
+                    && int.TryParse(args[i + 1], out int one)
+                    && int.TryParse(args[i + 2], out int two))
+                    wanted.Add((one, two));
+
+            if (wanted.Count == 0)
             {
-                // The first level and the tenth: the tenth is the one with the castle on
-                // the goal, and a plan of it has the most on it of any level in a chapter.
-                foreach (int level in new[] { 1, Campaign.LevelsPerChapter })
+                // Every built chapter and the coast, which is the last chapter of the
+                // campaign rather than one of the built ones.
+                for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++)
+                {
+                    wanted.Add((c, 1));
+                    wanted.Add((c, Campaign.LevelsPerChapter));
+                }
+
+                wanted.Add((Biomes.LastChapter, 1));
+                wanted.Add((Biomes.LastChapter, Campaign.LevelsPerChapter));
+            }
+
+            foreach (var (chapter, level) in wanted)
+            {
                 {
                     preview.Chapter = chapter;
                     preview.Level = level;

@@ -128,19 +128,36 @@ namespace TheVeil.UI
             // were shut behind a number nobody had revisited. The demo switch was given
             // its own answer for exactly this reason - it was the half of the fault
             // somebody happened to look at.
-            int tabs = campaign.OpenAll
+            int reached = campaign.OpenAll
                 ? Mathf.Max(2, DifficultyCurve.BuiltChapters)
                 : Mathf.Clamp(campaign.HighestChapter + 1, 2, DifficultyCurve.BuiltChapters);
+
+            // <b>A list of chapters rather than a count of them, so the end of the road
+            // can be on it.</b> The row was drawn by counting from one, which is right
+            // while the chapters worth showing are the first however-many - and the coast
+            // is chapter one hundred. It is built, it is dressed, it is the only place in
+            // the game where the caravan stops being a caravan, and it could not be opened
+            // from this screen by anybody, demo switch or not: the row would have had to
+            // count to a hundred to reach it.
+            var chapters = new System.Collections.Generic.List<int>();
+            for (int chapter = 1; chapter <= reached; chapter++) chapters.Add(chapter);
+
+            // The ending, when the game is being shown or when somebody has actually
+            // walked the whole road to it.
+            if (campaign.OpenAll || campaign.HighestChapter >= Biomes.LastChapter)
+                chapters.Add(Biomes.LastChapter);
 
             var row = Widgets.Node("Chapters", root);
             row.Place(new Vector2(0.5f, 1f), new Vector2(0f, -310f), new Vector2(Widgets.SafeWidth, 96f));
 
             // Narrower as they multiply, so six tabs still fit the width they have.
-            float width = Mathf.Min(360f, (Widgets.SafeWidth - (tabs - 1) * 16f) / tabs);
-            float start = -(tabs - 1) * (width + 16f) * 0.5f;
+            float width = Mathf.Min(360f, (Widgets.SafeWidth - (chapters.Count - 1) * 16f) / chapters.Count);
+            float start = -(chapters.Count - 1) * (width + 16f) * 0.5f;
 
-            for (int chapter = 1; chapter <= tabs; chapter++)
+            for (int i = 0; i < chapters.Count; i++)
             {
+                int chapter = chapters[i];
+
                 bool open = campaign.ChapterOpen(chapter);
                 bool here = chapter == _shown;
                 int number = chapter;
@@ -153,7 +170,7 @@ namespace TheVeil.UI
                     open ? null : Theme.Padlock);
 
                 tab.image.rectTransform.Place(new Vector2(0.5f, 0.5f),
-                    new Vector2(start + (chapter - 1) * (width + 16f), 0f), new Vector2(width, 92f));
+                    new Vector2(start + i * (width + 16f), 0f), new Vector2(width, 92f));
             }
 
             var name = Widgets.Label("ChapterName", root, ChapterName(_shown), Widgets.SmallSize,
