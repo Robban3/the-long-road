@@ -6101,6 +6101,27 @@ namespace TheVeil.View
         /// </summary>
         const float TownWallHeight = 7f;
 
+        /// <summary>
+        /// How long one panel of the town's curtain is built, in metres.
+        ///
+        /// Seven and a half, which is what fitting the panel to <see cref="TownWallHeight"/>
+        /// was already producing: the piece is drawn 5.40 long by 5.09 tall, so seven metres
+        /// of height came out at 7.43 of length. Stated as a length now, because the
+        /// battlements that go on top are a second model — drawn 5.00 long against the
+        /// wall's 5.40 — and two pieces fitted to one span come out the same length whatever
+        /// either of them was drawn at. Fitted to a height they do not.
+        /// </summary>
+        const float TownWallRun = 7.4f;
+
+        /// <summary>
+        /// Where the battlements sit on the wall, in metres above the ground.
+        ///
+        /// The panel comes to 6.97 m at the span above, so this is a hair under it: the walk
+        /// laps the wall by a few centimetres rather than balancing on its edge, which is
+        /// the seam the castle's own courses are built with. See BuildingBuilder.Seam.
+        /// </summary>
+        const float TownWallCrown = 6.8f;
+
         /// <summary>How tall a corner tower and a gatehouse stand, in metres.</summary>
         const float TownTowerHeight = 10f;
         const float TownGateHeight = 9f;
@@ -6173,32 +6194,64 @@ namespace TheVeil.View
                     if ((x <= town.West + 1 || x >= town.East - 1)
                         && System.Math.Abs(y - town.GateRow) == Towns.GateHalf + 1) continue;
 
-                    // The face this piece stands on decides which way it looks.
+                    // The face this piece stands on decides which way it runs.
                     //
-                    // <b>Four sides and two answers.</b> This gave the north and the south
-                    // wall the same turn and the west and the east wall the same turn,
-                    // which is right for the axis each one runs along and wrong for the way
-                    // it looks: a wall has an outside and an inside, and half the circuit
-                    // was built inside out. Reported from a picture of the town, where the
-                    // two walls nearest the camera showed their buttresses and the two
-                    // behind showed theirs to the market.
+                    // <b>It was asking about the wrong ring.</b> The turn was chosen by
+                    // comparing the tile against town.North and town.South, and no wall
+                    // tile is ever either of them: the wall is built on the inner of the
+                    // two rings, North + 1 and South - 1, which IsFace says three lines
+                    // above. So the comparison never matched, every panel in the circuit
+                    // took the fallback of ninety degrees, and on the north and south faces
+                    // that stands a seven-and-a-half-metre panel sideways.
                     //
-                    // Outward, each of them. Photographed at each of the four to find out
-                    // which way the piece looks at no turn at all, because the model is
-                    // square from the side and its bounds say nothing: the battlements go
-                    // on +z, so the south face is the one that needs no turn. The rest
-                    // follow round from there. (The plan's north is the low row - see
-                    // Towns.Layout, which builds it from nought to the edge of the map.)
+                    // Measured when it was finally reported: sixty pieces in the north run,
+                    // fifty-nine holes, the widest ninety-five centimetres. The town could
+                    // be seen through its own wall. No picture had ever said so — see
+                    // TownReport, which had one view of the circuit from two hundred metres
+                    // up and now takes four from inside, level with the stone.
+                    //
+                    // (The plan's north is the low row — see Towns.Layout, which builds it
+                    // from nought to the edge of the map.)
                     float yaw = y == town.South - 1 ? 0f
                               : y == town.North + 1 ? 180f
                               : x == town.East - 1 ? 90f
                               : 270f;
 
-                    if (Scatter(parent, grid, rng,
-                                new Choice(kit.CurtainWalls, stone, TownWallHeight, byWidth: false,
-                                           low: 1f, high: 1f, maxSpread: 3f),
-                                tile, heightScale, spread: 0f, occupied, yaw: yaw))
-                        placed++;
+                    // <b>Built to its length rather than to its height.</b> The two come to
+                    // the same wall - a panel fitted to seven metres tall is 7.43 long, and
+                    // one fitted to 7.4 long is 6.97 tall - and the length is the number
+                    // that matters, because the crenellated walk that goes on top is a
+                    // different model and has to come out the same length or it sits on the
+                    // wall like a lid that does not fit.
+                    if (!Scatter(parent, grid, rng,
+                                 new Choice(kit.CurtainWalls, stone, TownWallRun, byWidth: true,
+                                            low: 1f, high: 1f),
+                                 tile, heightScale, spread: 0f, occupied, yaw: yaw))
+                        continue;
+
+                    placed++;
+
+                    // And its battlements.
+                    //
+                    // <b>The town's wall has been a slab for as long as there has been a
+                    // town.</b> The castle at the end of a chapter has had its crenellated
+                    // walk since somebody noticed the pack ships one - see
+                    // BuildingBuilder.Crenel, which says the wall had been shipping without
+                    // its top. The circuit round the town is laid by this loop instead and
+                    // never got the same treatment, so what a player walks into at 1-8 is
+                    // three men's height of flat grey with nothing on it to stand behind,
+                    // and what they walk up to at 1-10 is a castle. Same pack, same kit,
+                    // the same two pieces, loaded in one of the two places.
+                    //
+                    // Claiming no ground, because the wall under it has already claimed
+                    // that tile: a piece refused for standing on its own wall is a piece
+                    // that never appears.
+                    if (kit.WallTops.Any)
+                        Scatter(parent, grid, rng,
+                                new Choice(kit.WallTops, Any(kit.WallTops, rng), TownWallRun,
+                                           byWidth: true, low: 1f, high: 1f),
+                                tile, heightScale, spread: 0f, occupied: null,
+                                lift: TownWallCrown, yaw: yaw);
                 }
             }
 
