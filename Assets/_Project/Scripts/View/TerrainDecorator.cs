@@ -7191,6 +7191,29 @@ namespace TheVeil.View
         public const int MillReach = 10;
 
         /// <summary>
+        /// How far a mill keeps from a crossing, in tiles.
+        ///
+        /// Three. The pack's bridge is about twenty metres of deck on a four-metre tile,
+        /// so it reaches two tiles either side of the ford it spans; a wheel inside that
+        /// is a wheel the bridge sweep takes. Three leaves the deck its ground and the
+        /// mill a quiet stretch of water, which is where a mill goes anyway.
+        /// </summary>
+        const int MillClearOfFord = 3;
+
+        /// <summary>Whether a crossing lies within <paramref name="reach"/> tiles.</summary>
+        static bool NearFord(TileGrid grid, int x, int y, int reach)
+        {
+            for (int dy = -reach; dy <= reach; dy++)
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    int nx = x + dx, ny = y + dy;
+                    if (grid.InBounds(nx, ny) && grid[nx, ny] == TerrainType.Ford) return true;
+                }
+
+            return false;
+        }
+
+        /// <summary>
         /// Builds the village, if this level has one.
         ///
         /// <b>Why a village exists at all as its own thing.</b> Houses were placed by the
@@ -7519,6 +7542,20 @@ namespace TheVeil.View
                     int wx = sx + dx, wy = sy + dy;
                     if (!grid.InBounds(wx, wy)) continue;
                     if (grid[wx, wy] != TerrainType.Water) continue;
+
+                    // <b>And not where the road crosses.</b> A mill wheel built beside a
+                    // ford is built under the bridge that spans it, and SweepTheBridges
+                    // clears whatever stands over a deck so the deck can be seen - so the
+                    // mill went up and was taken down again in the same build. That is
+                    // what 2-3 was doing: twelve water tiles within reach of its village,
+                    // four pieces of mill placed on the nearest of them, and nothing there
+                    // when the level finished. Counted by the village report, which asks
+                    // whether a wheel is standing rather than whether one was built.
+                    //
+                    // Kept clear rather than exempted, because a wheel turning inside a
+                    // bridge is not the thing that was wanted either. A mill goes on a
+                    // quiet stretch; the crossing is the opposite of one.
+                    if (NearFord(grid, wx, wy, MillClearOfFord)) continue;
 
                     // A bank beside it, towards the village.
                     foreach (var step in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
