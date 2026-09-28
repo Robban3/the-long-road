@@ -311,6 +311,16 @@ namespace TheVeil.View
         public PropSet Yard = new PropSet();
 
         /// <summary>
+        /// What hangs over a shop door.
+        ///
+        /// Its own set rather than one more thing among the lamps and braziers, because
+        /// it is not street furniture: a lamp stands on a kerb and a sign is bolted to a
+        /// wall, and filed with the lamps it was being stood on the ground on nothing.
+        /// See HangASign.
+        /// </summary>
+        public PropSet Signs = new PropSet();
+
+        /// <summary>
         /// The mill wheel and the frame it turns in, which are two models and one thing.
         ///
         /// Index-matched with <see cref="MillSupports"/>: the wheel goes in the water and
@@ -6163,9 +6173,26 @@ namespace TheVeil.View
                     if ((x <= town.West + 1 || x >= town.East - 1)
                         && System.Math.Abs(y - town.GateRow) == Towns.GateHalf + 1) continue;
 
-                    // The face this piece stands on decides which way it looks. North and
-                    // south walls run east to west; the side walls run north to south.
-                    float yaw = y == town.North || y == town.South ? 0f : 90f;
+                    // The face this piece stands on decides which way it looks.
+                    //
+                    // <b>Four sides and two answers.</b> This gave the north and the south
+                    // wall the same turn and the west and the east wall the same turn,
+                    // which is right for the axis each one runs along and wrong for the way
+                    // it looks: a wall has an outside and an inside, and half the circuit
+                    // was built inside out. Reported from a picture of the town, where the
+                    // two walls nearest the camera showed their buttresses and the two
+                    // behind showed theirs to the market.
+                    //
+                    // Outward, each of them. Photographed at each of the four to find out
+                    // which way the piece looks at no turn at all, because the model is
+                    // square from the side and its bounds say nothing: the battlements go
+                    // on +z, so the south face is the one that needs no turn. The rest
+                    // follow round from there. (The plan's north is the low row - see
+                    // Towns.Layout, which builds it from nought to the edge of the map.)
+                    float yaw = y == town.South - 1 ? 0f
+                              : y == town.North + 1 ? 180f
+                              : x == town.East - 1 ? 90f
+                              : 270f;
 
                     if (Scatter(parent, grid, rng,
                                 new Choice(kit.CurtainWalls, stone, TownWallHeight, byWidth: false,
@@ -6557,6 +6584,73 @@ namespace TheVeil.View
         /// <summary>How many of the town's houses have a fenced plot behind them.</summary>
         const float TownYardChance = 0.6f;
 
+        /// <summary>
+        /// How high the bottom of a trade sign hangs above the street, in metres.
+        ///
+        /// Three, which clears a wagon at 3.2 m by nothing at all - and that is what a
+        /// sign hanging over a street does. It is not in anybody's way because it is a
+        /// board on a bracket eighteen centimetres thick; the caravan passes under the
+        /// arm of it.
+        /// </summary>
+        const float SignHeight = 3f;
+
+        /// <summary>How many of the town's street-facing houses sell something.</summary>
+        const float SignChance = 0.16f;
+
+        /// <summary>
+        /// The trade sign over a shop door.
+        ///
+        /// <b>It was standing in the street on its own post.</b> The sign was in with the
+        /// lamps and the braziers, which are things that stand on a kerb, and it was being
+        /// set on the ground and scaled to a lamp's height - so what a town had was a
+        /// hammer and anvil on a board lying about at knee level with a beam sticking out
+        /// of it sideways. Measured, the model says plainly what it is: 1.90 m long, 0.87
+        /// tall, 18 cm thick, with its pivot at one end and everything hanging below and
+        /// behind it. That is a bracket bolted into a wall.
+        ///
+        /// So it is bolted into one. The pivot goes on the frontage of a house that faces
+        /// a street, the arm reaches out over the street, and the board hangs off the end
+        /// of the arm three metres up.
+        ///
+        /// Placed by hand rather than through Scatter, and on purpose: Scatter claims the
+        /// ground a prop stands on and turns down anything reaching into the caravan's
+        /// lane, and a shop sign hangs over the lane by design. It claims nothing, because
+        /// there is nothing under it.
+        /// </summary>
+        static int HangASign(Transform parent, TileGrid grid, DeterministicRandom rng,
+                             BiomeDecor decor, float heightScale,
+                             int x, int y, bool north, bool south, bool west, bool east)
+        {
+            if (!decor.Signs.Any) return 0;
+            if (!north && !south && !west && !east) return 0;
+            if (!rng.Chance(SignChance)) return 0;
+
+            var prefab = Any(decor.Signs, rng);
+            if (prefab == null) return 0;
+
+            // Out towards the street the house faces.
+            float outX = west ? -1f : east ? 1f : 0f;
+            float outZ = north ? -1f : south ? 1f : 0f;
+
+            // And turned so the arm goes that way. The model reaches along its own -x, so
+            // no turn at all points it west.
+            float yaw = north ? 270f : south ? 90f : west ? 0f : 180f;
+
+            var middle = Vec2.FromTile(grid, grid.ToIndex(x, y));
+
+            // On the plot line, which is half a tile out from the middle of the tile - the
+            // same line the house front is set back to. See the setback above.
+            float px = middle.X + outX * TileGrid.TileSize * 0.5f;
+            float pz = middle.Y + outZ * TileGrid.TileSize * 0.5f;
+
+            var instance = Object.Instantiate(prefab, parent);
+            instance.transform.position = new Vector3(px, 0f, pz);
+            instance.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+
+            Ground(instance, grid.SurfaceElevation(px, pz) * heightScale + SignHeight);
+            return 1;
+        }
+
         /// <summary>How far apart street furniture is set along a street, in tiles.</summary>
         const int StreetFurniture = 3;
 
@@ -6670,9 +6764,12 @@ namespace TheVeil.View
                     Landmark.Note(found, LandmarkKind.House, grid.ToIndex(x, y));
                     placed++;
 
-                    // And the plot behind it.
+                    // And the plot behind it, and the trade sign over its door.
                     placed += BackYard(parent, grid, rng, decor, heightScale, road,
                                        x, y, northStreet, southStreet, westStreet, eastStreet);
+
+                    placed += HangASign(parent, grid, rng, decor, heightScale,
+                                        x, y, northStreet, southStreet, westStreet, eastStreet);
                 }
             }
 

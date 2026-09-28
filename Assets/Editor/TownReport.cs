@@ -1,5 +1,6 @@
 using System.Linq;
 using TheVeil.Gen;
+using System.Collections.Generic;
 using TheVeil.Sim;
 using UnityEditor;
 using UnityEngine;
@@ -153,23 +154,77 @@ namespace TheVeil.Editor
 
             // What is actually standing in it, counted rather than looked for in a picture.
             int carts = 0, hay = 0, wells = 0, barrels = 0, crates = 0, houses = 0, walls = 0;
+            int signs = 0, fences = 0;
+            float lowestSign = float.MaxValue;
+
+            // Every piece of the north wall, so the run can be measured rather than
+            // squinted at: a wall you can see the town through is a wall with gaps in it,
+            // and a photograph will not say how wide they are.
+            var run = new List<(float At, float Wide)>();
 
             foreach (var piece in root.GetComponentsInChildren<MeshRenderer>(false))
             {
                 string name = piece.gameObject.name;
 
-                if (name.Contains("CartHay")) hay++;
+                if (name.Contains("ShopSign"))
+                {
+                    // <b>A sign is the one prop here that is right to be off the ground.</b>
+                    // It hangs from a bracket bolted into a frontage, and it spent months
+                    // filed with the lamps and stood on the street on nothing. So it is
+                    // counted with the height of it: under two metres and it is standing
+                    // somewhere again.
+                    signs++;
+
+                    float under = map.Grid.SurfaceElevation(piece.bounds.center.x,
+                                                            piece.bounds.center.z)
+                                  * runner.HeightScale;
+
+                    lowestSign = Mathf.Min(lowestSign, piece.bounds.min.y - under);
+                }
+                else if (name.Contains("Fence")) fences++;
+                else if (name.Contains("CartHay")) hay++;
                 else if (name.Contains("Cart")) carts++;
                 else if (name.Contains("Well")) wells++;
                 else if (name.Contains("Barrel")) barrels++;
                 else if (name.Contains("Crate")) crates++;
-                else if (name.Contains("Castle_Wall")) walls++;
+                else if (name.Contains("Castle_Wall"))
+                {
+                    walls++;
+
+                    // The north run, kept so it can be measured end to end. A wall with
+                    // holes in it is a wall you can see the town through, and no picture
+                    // taken from two hundred metres up will say how wide the holes are.
+                    if (piece.bounds.center.z < TileGrid.TileSize * 2f)
+                        run.Add((piece.bounds.center.x, piece.bounds.size.x));
+                }
                 else if (name.StartsWith("SM_Bld_House")) houses++;
             }
 
             Debug.Log($"[Town] standing in it: {houses} house piece(s), {walls} wall length(s), "
                       + $"{carts} cart(s), {hay} hay load(s), {wells} well(s), "
-                      + $"{barrels} barrel(s), {crates} crate(s).");
+                      + $"{barrels} barrel(s), {crates} crate(s), {fences} fence panel(s).");
+
+            Debug.Log($"[Town] {signs} trade sign(s), the lowest hanging "
+                      + (signs > 0 ? $"{lowestSign:0.0} m above the street." : "nowhere."));
+
+            run.Sort((a, b) => a.At.CompareTo(b.At));
+
+            float widest = 0f;
+            int holes = 0;
+
+            for (int i = 1; i < run.Count; i++)
+            {
+                float gap = (run[i].At - run[i].Wide * 0.5f)
+                            - (run[i - 1].At + run[i - 1].Wide * 0.5f);
+
+                if (gap <= 0.05f) continue;
+
+                holes++;
+                widest = Mathf.Max(widest, gap);
+            }
+
+            Debug.Log($"[Town] north wall: {run.Count} piece(s), each {(run.Count > 0 ? run[0].Wide : 0f):0.00} m "
+                      + $"wide on {TileGrid.TileSize:0.0} m centres, {holes} hole(s), widest {widest:0.00} m.");
 
             // And whether any tree is planted in a house, which is a question about the
             // trunk and not about the crown.
@@ -259,6 +314,33 @@ namespace TheVeil.Editor
             Shoot(runner, new Vector3(plan.West * tile + 10f, ground + 9f, row - 2f),
                   new Vector3(plan.East * tile, ground + 4f, row),
                   System.IO.Path.Combine(dir, "town-street.png"));
+
+            // <b>And each wall from outside it, because a wall has four sides and this
+            // report only ever saw one of them.</b> The circuit is laid with a turn per
+            // face and the turn was the same on opposite faces for as long as the town has
+            // existed, so half of it was built inside out - and nothing here could tell,
+            // because from two hundred metres up and to the south what the eye reads as the
+            // outer face is whichever side the sun is on. Four pictures, level with the
+            // wall, from outside: they should be four pictures of the same thing.
+            // From inside, which is the only side of it anybody sees: the town is the
+            // whole level, so the player never walks round the outside of its wall.
+            float outside = -34f;
+
+            foreach (var side in new[]
+                     {
+                         ("north", new Vector3(middleX, ground + 8f, plan.North * tile - outside),
+                                   new Vector3(middleX, ground + 4f, plan.North * tile)),
+                         ("south", new Vector3(middleX, ground + 6f, plan.South * tile + outside),
+                                   new Vector3(middleX, ground + 4f, plan.South * tile)),
+                         ("west", new Vector3(plan.West * tile - outside, ground + 6f, middleZ),
+                                  new Vector3(plan.West * tile, ground + 4f, middleZ)),
+                         ("east", new Vector3(plan.East * tile + outside, ground + 6f, middleZ),
+                                  new Vector3(plan.East * tile, ground + 4f, middleZ)),
+                     })
+            {
+                Shoot(runner, side.Item2, side.Item3,
+                      System.IO.Path.Combine(dir, "town-wall-" + side.Item1 + ".png"));
+            }
 
             // And the whole circuit, from the south so the map is behind it. High enough
             // for all of it: the town is the level now, a quarter of a kilometre across.

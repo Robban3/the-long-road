@@ -1661,10 +1661,13 @@ namespace TheVeil.Editor
                                  "SM_Env_Path_Stone_03",
                                  "SM_Env_Path_Cobble_01", "SM_Env_Path_Cobble_02"),
 
-                // Lamps, fire and trade: the things that say a street is used after dark
-                // and that somebody sells something behind that door.
-                Street = Knights("Props", "SM_Prop_Lampost_01", "SM_Prop_Brazier_01",
-                                 "SM_Prop_ShopSign_01"),
+                // Lamps and fire: the things that stand on a kerb and say a street is
+                // used after dark.
+                Street = Knights("Props", "SM_Prop_Lampost_01", "SM_Prop_Brazier_01"),
+
+                // And what says somebody sells something behind that door. Not in with the
+                // lamps, because it does not stand anywhere - see BiomeDecor.Signs.
+                Signs = Knights("Props", "SM_Prop_ShopSign_01"),
 
                 // And what a town raises once and is known by.
                 Monuments = Knights("Props", "SM_Prop_Statue_01", "SM_Prop_Plinth_01",

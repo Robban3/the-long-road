@@ -251,7 +251,14 @@ namespace TheVeil.Editor
                 // Written down rather than tolerated, because a check that cries about
                 // things that are right is a check nobody reads — which is the whole
                 // reason the bridge exemption above exists.
-                bool hangs = name.Contains("Banner");
+                //
+                // <b>And a trade sign, which is a board on a bracket bolted to a wall.</b>
+                // It hangs three metres over the street by design - see
+                // TerrainDecorator.HangASign, which was written because this prop spent
+                // months standing on the ground on nothing. Reported twenty-four times the
+                // first run after it was hung up, and every one of them was a shop sign
+                // over a shop door.
+                bool hangs = name.Contains("Banner") || name.Contains("ShopSign");
 
                 // A tree's branches, which are their own meshes in the meadow pack and hang
                 // above the ground by construction - that is what a branch does. The trunk
