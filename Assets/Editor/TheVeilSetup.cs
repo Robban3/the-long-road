@@ -1255,10 +1255,18 @@ namespace TheVeil.Editor
 
                 // Slabs and clusters, sized across rather than up. A pebble is texture;
                 // a boulder is something the eye steers round.
-                Boulders = Synty("Rocks", "SM_Rock_Boulder_01", "SM_Rock_Cluster_Large_01",
-                                 "SM_Rock_Cluster_Large_02", "SM_Rock_Cluster_Large_03",
-                                 "SM_Rock_Cluster_Large_04", "SM_Rock_Cluster_Large_05",
-                                 "SM_Rock_Cluster_Large_06"),
+                //
+                // <b>In plain stone, because two of them ship wearing snow.</b> See
+                // DryStone: SM_Rock_Cluster_Large_03 and _06 carry the pack's snow material
+                // rather than its rock atlas, and an eleven-metre cluster of white lying in
+                // a summer meadow reads as a model that lost its texture. It was found in
+                // the mountains and repainted there, and the forest - which is also the
+                // plains, the farmland and everything else that starts from it - went on
+                // using both of them raw. Photographed on 1-3 and 1-9, one white slab each.
+                Boulders = DryStone(Synty("Rocks", "SM_Rock_Boulder_01", "SM_Rock_Cluster_Large_01",
+                                          "SM_Rock_Cluster_Large_02", "SM_Rock_Cluster_Large_03",
+                                          "SM_Rock_Cluster_Large_04", "SM_Rock_Cluster_Large_05",
+                                          "SM_Rock_Cluster_Large_06")),
 
                 // Grass first and by a wide margin. The floor is grass with things in
                 // it, not a flowerbed with grass round the edges — so the five grasses
