@@ -71,7 +71,16 @@ namespace TheVeil.Editor
 
             var faults = new List<string>();
 
-            for (int chapter = 1; chapter <= Chapters; chapter++)
+            // The built chapters and the coast, which is chapter one hundred and therefore
+            // not one of them. The main instrument of the project counted to BuiltChapters
+            // and so never once looked at the last chapter of the game - the one with the
+            // sea in it, which is the only chapter whose ground is mostly something no
+            // other chapter has.
+            var chapters = new List<int>();
+            for (int c = 1; c <= Chapters; c++) chapters.Add(c);
+            chapters.Add(Biomes.LastChapter);
+
+            foreach (int chapter in chapters)
             {
                 var sheet = new Texture2D(ShotWidth * 5, ShotHeight * 2, TextureFormat.RGB24, false);
 
@@ -260,6 +269,15 @@ namespace TheVeil.Editor
                 // courses, and asking whether its second course rests on the ground is the
                 // wrong question - it rests on its first. See TerrainDecorator.Tor.
                 if (name.StartsWith(TerrainDecorator.TorPieceName)) continue;
+
+                // The fish on a drying rack, and the hooks they hang from. The alpine pack
+                // draws the rack as a frame with five of each on it, every one its own mesh,
+                // hanging from the crossbar a metre or so above the sand. Reported eight
+                // times on the first run that ever measured the coast - which was the run
+                // that put the coast in this test at all - and every one of them was a fish
+                // hung up to dry, doing that. The frame itself is not exempt and is what
+                // says whether the rack is standing on the ground.
+                if (name.Contains("_Rack_Fish")) continue;
 
                 var at = renderer.transform.position;
                 if (at.x < 0f || at.z < 0f || at.x > edgeX || at.z > edgeZ) continue;

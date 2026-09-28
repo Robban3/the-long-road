@@ -3006,6 +3006,12 @@ namespace TheVeil.Editor
                 Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_Rowboat_01" }),
                 Load($"{AlpineDir}/Props", new[] { "SM_Prop_Canoe_01" }));
 
+            // <b>And the water is a sea, which is what lets it reach the horizon.</b>
+            // See BiomeDecor.Sea and WaterMeshBuilder.SeaSkirt: without this the sheet
+            // stops at the edge of the map and the last chapter of the game has a straight
+            // cut across its bay with sky underneath.
+            decor.Sea = true;
+
             // The landing stage at the end of the road, and what is tied to it.
             decor.Jetty = AlpineProps("SM_Prop_Jetty_01");
 
@@ -3493,6 +3499,19 @@ namespace TheVeil.Editor
                     // as woodland with fences in it - what says "somebody works this ground"
                     // is the ground you can see, not what is standing on it.
                     Density = 0.5f,
+
+                    // <b>The clearest air in the game, which is not the same as no air.</b>
+                    // This named a sky and never turned the weather on, and the run reads
+                    // the flag and not the colour: RenderSettings.fog goes to look.Fog, and
+                    // where it is off the camera falls back to the scene skybox and clears
+                    // to a dark blue nothing. So the farmland was played under a navy sky
+                    // with its own pale one sitting unused two lines above. Turned on at a
+                    // density that is barely a haze - a third of the plains, which was
+                    // already the lightest in the game - so the air stays what it was meant
+                    // to be and the sky is the one that was written down.
+                    Fog = true,
+                    FogColor = new Color(0.86f, 0.89f, 0.90f),
+                    FogDensity = 0.0007f,
                     SkyColor = new Color(0.70f, 0.80f, 0.86f)
                 },
 
@@ -3529,6 +3548,23 @@ namespace TheVeil.Editor
                     // Thinner than anywhere: a coast is read along its edge, and a country
                     // dressed as thickly as a forest hides its own shore.
                     Density = 0.45f,
+
+                    // <b>The haze off the water, which this chapter needs more than any
+                    // other.</b> Same fault as the farmland above - a sky named and the
+                    // weather never turned on - and here it decided what the chapter looks
+                    // like. The coast is the one country with nothing on its skyline: the
+                    // horizon set was emptied on purpose, because what stands at the edge of
+                    // a sea is weather. Then there was no weather, so the sea ran out to its
+                    // own last vertex and stopped against a navy skybox with a ruled line
+                    // between them. The mountains and the marsh have hills to hide behind;
+                    // this has the haze or it has nothing.
+                    //
+                    // Thick enough that the far water is gone before the sheet ends six
+                    // hundred metres out (WaterMeshBuilder.SeaSkirt) and thin enough that a
+                    // level two hundred and fifty across is still a level you can see.
+                    Fog = true,
+                    FogColor = new Color(0.76f, 0.86f, 0.92f),
+                    FogDensity = 0.0024f,
 
                     // The light off the water. Everything else in the game is under a
                     // temperate sky; the sea gives back what falls on it, so the last

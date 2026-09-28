@@ -387,14 +387,14 @@ namespace TheVeil.View
         /// was built with. At zero — the flat planning map — the surface comes out flat
         /// too, which is right.
         /// </summary>
-        public static Mesh Build(TileGrid grid, float tileSize, float heightScale)
+        public static Mesh Build(TileGrid grid, float tileSize, float heightScale, bool sea = false)
         {
             if (grid == null) return null;
 
             var wet = new bool[grid.Width * grid.Height];
             for (int i = 0; i < wet.Length; i++) wet[i] = Wet(grid[i]);
 
-            return Build(grid, wet, Depth, tileSize, heightScale, shelve: true);
+            return Build(grid, wet, Depth, tileSize, heightScale, shelve: true, sea: sea);
         }
 
         /// <summary>
@@ -412,7 +412,7 @@ namespace TheVeil.View
         /// across is all edge, and fading it would leave it entirely foam.
         /// </summary>
         static Mesh Build(TileGrid grid, bool[] wet, float depth, float tileSize,
-                          float heightScale, bool shelve)
+                          float heightScale, bool shelve, bool sea = false)
         {
             var vertices = new List<Vector3>();
             var triangles = new List<int>();
@@ -443,6 +443,11 @@ namespace TheVeil.View
                     triangles.Add(a); triangles.Add(c); triangles.Add(b);
                 }
             }
+
+            // And out past the edge of the map, where the country has a sea.
+            if (sea)
+                Seaward(grid, wet, breadth, corners, vertices, uvs, depths, triangles,
+                        tileSize, heightScale, depth, shelve, stride);
 
             if (triangles.Count == 0) return null;
 
@@ -651,6 +656,162 @@ namespace TheVeil.View
             corners[key] = index;
 
             return index;
+        }
+
+        /// <summary>
+        /// How far the sea is carried out past the edge of the map, in metres.
+        ///
+        /// Six hundred, against a map two hundred and fifty across, and against a fog that
+        /// is finished by five hundred and twenty (TheVeilSetup, and the coast's own
+        /// BiomeLook). The number only has to be further than the weather can see, so that
+        /// what the water ends against is the haze rather than the sky.
+        /// </summary>
+        public const float SeaSkirt = 600f;
+
+        /// <summary>
+        /// Carries the sea out past the map, where the country has one.
+        ///
+        /// <b>The sea ended in mid-air.</b> The sheet is built from the map's wet tiles and
+        /// the map stops, so on the last chapter the water stopped with it: a straight cut
+        /// across the bay with sky underneath, and outside it the terrain's own apron -
+        /// drawn ground, painted the colour of deep water, with skerries standing on it and
+        /// no surface over them. Photographed on 100-1, where what it reads as is two
+        /// different seas with a ruled line between them, which is exactly what it was.
+        ///
+        /// <b>One sheet on one side, and not a tongue per tile.</b> The first version
+        /// skirted every wet tile on every edge, which is what the land does
+        /// (TerrainMeshBuilder.Skirt) and is wrong for water: where the sea only clipped
+        /// the corner of a side it produced a six-hundred-metre strip of water forty metres
+        /// wide, sticking out into nothing with a ruled edge of its own. A sea has one
+        /// shore on one side of this map. So the side with the most water on it is taken to
+        /// be that side, and it gets a single quad running the whole length of it and out
+        /// past both corners - which is also what covers the few wet tiles the wander
+        /// leaves on the two sides next to it.
+        ///
+        /// Level, at the mean of the sea's own edge, rather than following each corner. The
+        /// sheet inside the map moves its corners about by a few centimetres to keep the
+        /// bank from being a ruled line, and a quad that met all of them would have to be a
+        /// strip of quads again. A hairline of difference where the two meet is under the
+        /// ground's own surface for most of its length and invisible for the rest: the
+        /// water does not write depth, so there is nothing to fight over.
+        ///
+        /// Only where the country says it has a sea (BiomeDecor.Sea). Every other map's
+        /// water is a river, and a river handed six hundred metres of itself would run off
+        /// the edge of the world.
+        /// </summary>
+        static void Seaward(TileGrid grid, bool[] wet, int[] breadth, Dictionary<int, int> corners,
+                            List<Vector3> vertices, List<Vector2> uvs, List<float> depths,
+                            List<int> triangles, float tileSize, float heightScale, float depth,
+                            bool shelve, int stride)
+        {
+            // Which side the sea is on: the one with the most water along it. Counted
+            // rather than assumed, because the shore wanders (TerrainGenerator.FloodTheShore)
+            // and the generator is free to put it anywhere.
+            int side = -1, most = 0;
+
+            for (int s = 0; s < 4; s++)
+            {
+                int count = 0;
+
+                foreach (int tile in Border(grid, s))
+                    if (wet[tile]) count++;
+
+                if (count > most) { most = count; side = s; }
+            }
+
+            if (side < 0) return;
+
+            // The sea's own level and depth, read off the water already built along that
+            // edge. Corner returns what it made in the main pass, so this costs nothing and
+            // cannot disagree with it.
+            float level = 0f, deepest = 0f;
+            int read = 0;
+
+            foreach (int tile in Border(grid, side))
+            {
+                if (!wet[tile]) continue;
+
+                grid.ToCoords(tile, out int tx, out int ty);
+
+                int at = Corner(grid, wet, breadth, corners, vertices, uvs, depths,
+                                tx, ty, tileSize, heightScale, depth, shelve, stride);
+
+                level += vertices[at].y;
+                deepest = Mathf.Max(deepest, depths[at]);
+                read++;
+            }
+
+            if (read == 0) return;
+
+            level /= read;
+
+            float far = grid.Width * tileSize, deep = grid.Height * tileSize;
+
+            // <b>All the way round, and not out from one side.</b> A quad that left the
+            // sea's own edge covered the sea and left its own near edge lying across the
+            // open water to the left and right of the map, where there is no land to hide
+            // it: a straight line in the middle of the ocean, which is the fault this was
+            // written to remove. So the ring outside the map is laid instead - four strips,
+            // no overlap, nothing inside the map where the sheet already is.
+            //
+            // The three landward strips cost nothing and are seen by nobody. Water lies at
+            // the sea's level and the land of a coast stands above it, so on those sides the
+            // strip is underneath the apron the ground mesh draws (TerrainMeshBuilder.Skirt)
+            // and never reaches a camera. Laying them is cheaper than deciding which ones to
+            // leave out, and it is what makes the corners come out right.
+            float x0 = -SeaSkirt, x1 = far + SeaSkirt;
+
+            Strip(vertices, uvs, depths, triangles, tileSize, level, deepest,
+                  x0, x1, deep, deep + SeaSkirt);
+            Strip(vertices, uvs, depths, triangles, tileSize, level, deepest,
+                  x0, x1, -SeaSkirt, 0f);
+            Strip(vertices, uvs, depths, triangles, tileSize, level, deepest,
+                  -SeaSkirt, 0f, 0f, deep);
+            Strip(vertices, uvs, depths, triangles, tileSize, level, deepest,
+                  far, far + SeaSkirt, 0f, deep);
+        }
+
+        /// <summary>One rectangle of open sea, lying flat at the sea's own level.</summary>
+        static void Strip(List<Vector3> vertices, List<Vector2> uvs, List<float> depths,
+                          List<int> triangles, float tileSize, float level, float deepest,
+                          float x0, float x1, float z0, float z1)
+        {
+            int a = Offshore(vertices, uvs, depths, new Vector3(x0, level, z0), tileSize, deepest);
+            int b = Offshore(vertices, uvs, depths, new Vector3(x1, level, z0), tileSize, deepest);
+            int c = Offshore(vertices, uvs, depths, new Vector3(x1, level, z1), tileSize, deepest);
+            int d = Offshore(vertices, uvs, depths, new Vector3(x0, level, z1), tileSize, deepest);
+
+            triangles.Add(a); triangles.Add(d); triangles.Add(c);
+            triangles.Add(a); triangles.Add(c); triangles.Add(b);
+        }
+
+        /// <summary>The tiles along one edge of the map: 0 south, 1 north, 2 west, 3 east.</summary>
+        static IEnumerable<int> Border(TileGrid grid, int side)
+        {
+            if (side < 2)
+            {
+                int y = side == 0 ? 0 : grid.Height - 1;
+                for (int x = 0; x < grid.Width; x++) yield return grid.ToIndex(x, y);
+            }
+            else
+            {
+                int x = side == 2 ? 0 : grid.Width - 1;
+                for (int y = 0; y < grid.Height; y++) yield return grid.ToIndex(x, y);
+            }
+        }
+
+        /// <summary>A vertex of the open sea, outside the map and as deep as its edge.</summary>
+        static int Offshore(List<Vector3> vertices, List<Vector2> uvs, List<float> depths,
+                            Vector3 at, float tileSize, float deep)
+        {
+            vertices.Add(at);
+
+            // The same UV the sheet uses - the corner's place on the tile grid - so the
+            // ripple out here is the size it is everywhere else.
+            uvs.Add(new Vector2(at.x / tileSize * 0.5f, at.z / tileSize * 0.5f));
+            depths.Add(deep);
+
+            return vertices.Count - 1;
         }
 
         /// <summary>

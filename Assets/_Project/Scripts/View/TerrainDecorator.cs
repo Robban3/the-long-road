@@ -321,6 +321,20 @@ namespace TheVeil.View
         public PropSet MillSupports = new PropSet();
 
         /// <summary>
+        /// Whether the water on this country's maps is a sea.
+        ///
+        /// It decides one thing: whether the sheet is carried out past the edge of the
+        /// map (WaterMeshBuilder.SeaSkirt). A river may not be - it would be handed six
+        /// hundred metres of itself running off into the sky - and a sea must be, or it
+        /// ends in mid-air with the apron's painted seabed showing beyond it.
+        ///
+        /// Stated by the country rather than worked out from the map, for the reason
+        /// RockPasses is: what the water in a place *is* is a fact about the place, and a
+        /// mesh builder counting tiles would have to guess.
+        /// </summary>
+        public bool Sea;
+
+        /// <summary>
         /// The landing stage at the end of the road.
         ///
         /// Only the coast has one, and having one is what makes a goal a harbour instead
@@ -1463,7 +1477,8 @@ namespace TheVeil.View
             // The water goes on last, over everything laid on its bed. Nothing claims
             // ground for it: reeds stand in the shallows and pads float on the surface,
             // and a sheet that reserved its tiles would have cleared both away.
-            placed += PlaceWater(parent, grid, heightScale, waterMaterial, marshWaterMaterial);
+            placed += PlaceWater(parent, grid, heightScale, waterMaterial, marshWaterMaterial,
+                                 decor.Sea);
             placed += PlaceFalls(parent, grid, Stream(13), decor, heightScale, waterMaterial);
             placed += PlaceCliffs(parent, grid, Stream(7), decor, occupied, heightScale, road, town);
             placed += PlaceTors(parent, grid, Stream(14), decor, occupied, heightScale, road);
@@ -1841,9 +1856,9 @@ namespace TheVeil.View
         /// to read. Null keeps the project's own shader. See WaterMeshBuilder.Material.
         /// </summary>
         static int PlaceWater(Transform parent, TileGrid grid, float heightScale,
-                              Material waterMaterial, Material marshWaterMaterial)
+                              Material waterMaterial, Material marshWaterMaterial, bool sea)
         {
-            var mesh = WaterMeshBuilder.Build(grid, TileGrid.TileSize, heightScale);
+            var mesh = WaterMeshBuilder.Build(grid, TileGrid.TileSize, heightScale, sea);
             if (mesh == null) return 0;
 
             var surface = new GameObject("Water");

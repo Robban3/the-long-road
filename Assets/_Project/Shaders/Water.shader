@@ -84,6 +84,17 @@ Shader "TheVeil/Water"
             #pragma vertex vert
             #pragma fragment frag
 
+            // <b>The water was the one surface in the game that the weather could not
+            // reach.</b> The ground shader has taken the fog since it was written and this
+            // never did, which cost nothing while every sheet of water was a river inside a
+            // map two hundred and fifty metres across - the fog only begins at seventy and
+            // is not finished until five hundred and twenty. Then the sea was carried six
+            // hundred metres out past the edge of the map (WaterMeshBuilder.SeaSkirt) and
+            // the omission became the largest thing on the screen: the land went pale into
+            // the haze at the horizon and the sea stayed its own deep blue right up to a
+            // ruled edge against the sky.
+            #pragma multi_compile_fog
+
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
@@ -117,6 +128,7 @@ Shader "TheVeil/Water"
                 float3 positionWS  : TEXCOORD0;
                 half3  normalWS    : TEXCOORD1;
                 half   depth       : TEXCOORD2;
+                half   fogFactor   : TEXCOORD3;
             };
 
             // Two crossing swells rather than one, so the surface never shows the ruled
@@ -161,6 +173,7 @@ Shader "TheVeil/Water"
                 OUT.positionWS = world;
                 OUT.depth = (half)IN.colour.r;
                 OUT.positionHCS = TransformWorldToHClip(world);
+                OUT.fogFactor = (half)ComputeFogFactor(OUT.positionHCS.z);
                 return OUT;
             }
 
@@ -243,6 +256,12 @@ Shader "TheVeil/Water"
                 // A highlight has to be visible through transparency, or the glitter is
                 // brightest exactly where the water is thinnest and least opaque.
                 alpha = saturate(alpha + spec);
+
+                // And into the weather, like everything else. Colour only, which is how
+                // the pipeline fogs anything it blends: what is behind the far water is
+                // the sky, and the fog is painted the colour of the sky, so the two meet
+                // whichever of them the pixel turns out to be.
+                colour = MixFog(colour, IN.fogFactor);
 
                 return half4(colour, alpha);
             }

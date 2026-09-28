@@ -52,7 +52,23 @@ namespace TheVeil.Editor
                     painted.SetPropertyBlock(null);
 
                 var look = runner.LookFor(Biomes.Of(chapter));
-                RenderSettings.fog = false;
+
+                // Off, so a country is photographed whole rather than fading out at the
+                // back of its own picture - and on where the country has a sea, because
+                // there the haze is the horizon. The sheet is carried six hundred metres
+                // past the edge of the map (WaterMeshBuilder.SeaSkirt) and with nothing to
+                // fade it, it ends on a ruled line against the sky: a picture of the last
+                // chapter with the weather off is a picture of a slab of water.
+                bool sea = look != null && look.Decor != null && look.Decor.Sea;
+
+                RenderSettings.fog = sea && look.Fog;
+
+                if (RenderSettings.fog)
+                {
+                    RenderSettings.fogMode = FogMode.ExponentialSquared;
+                    RenderSettings.fogColor = look.FogColor;
+                    RenderSettings.fogDensity = look.FogDensity;
+                }
 
                 float span = grid.Width * TileGrid.TileSize;
 
