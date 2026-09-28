@@ -6783,6 +6783,58 @@ namespace TheVeil.View
             return 1;
         }
 
+        /// <summary>
+        /// The one thing a town raises and is known by, on the open ground inside its gate.
+        ///
+        /// <b>There has never been one.</b> The old line asked for a single tile - three in
+        /// from the west wall, two rows past the gate row - and required buildable ground
+        /// on it. The high street is three tiles wide starting on the gate row, so that
+        /// tile is the third lane of the road, and a road is not buildable: the condition
+        /// could not be met and every town this game has ever drawn has raised nothing at
+        /// all. Found by counting what was standing rather than by looking for what was
+        /// not, which is the only way a thing that is absent ever gets found. The market
+        /// square's well had the same fault on the same row.
+        ///
+        /// So it looks for its ground rather than naming it. Out from the gate a bay at a
+        /// time, both sides of the street, first buildable tile that will take it - and it
+        /// is asked for late, after the houses, so what it finds is ground nobody built on.
+        /// </summary>
+        static int Monument(Transform parent, TileGrid grid, DeterministicRandom rng,
+                            BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                            Towns.Plan town)
+        {
+            for (int out_ = MonumentNearest; out_ <= MonumentFurthest; out_++)
+            {
+                for (int off = MonumentClear; off <= MonumentClear + 6; off++)
+                {
+                    foreach (int side in new[] { -1, 1 })
+                    {
+                        int x = town.West + out_;
+                        int y = town.GateRow + side * off;
+
+                        if (!grid.InBounds(x, y)) continue;
+
+                        int at = grid.ToIndex(x, y);
+                        if (grid[at] != TerrainType.Cliff) continue;
+
+                        if (Scatter(parent, grid, rng,
+                                    new Choice(decor.Monuments, Any(decor.Monuments, rng),
+                                               MonumentHeight, byWidth: false, low: 1f, high: 1f),
+                                    at, heightScale, spread: 0f, occupied, solid: true))
+                            return 1;
+                    }
+                }
+            }
+
+            return 0;
+        }
+
+        /// <summary>How far in from the gate the monument may stand, in tiles.</summary>
+        const int MonumentNearest = 3, MonumentFurthest = 10;
+
+        /// <summary>How far off the gate row it has to be, so it is not in the high street.</summary>
+        const int MonumentClear = 4;
+
         /// <summary>How far apart street furniture is set along a street, in tiles.</summary>
         const int StreetFurniture = 3;
 
@@ -6907,18 +6959,21 @@ namespace TheVeil.View
 
             // And the monument: one to a town, on the open ground inside a gate where
             // there is room to stand and look at it.
-            if (decor.Monuments.Any)
-            {
-                int at = grid.ToIndex(town.West + 3, town.GateRow + 2);
-
-                if (grid.InBounds(town.West + 3, town.GateRow + 2)
-                    && grid[at] == TerrainType.Cliff
-                    && Scatter(parent, grid, rng,
-                               new Choice(decor.Monuments, Any(decor.Monuments, rng),
-                                          MonumentHeight, byWidth: false, low: 1f, high: 1f),
-                               at, heightScale, spread: 0f, occupied, solid: true))
-                    placed++;
-            }
+            //
+            // <b>There has never been one.</b> The tile it asked for is three in from the
+            // west wall on the gate row plus two - and the high street is three tiles wide
+            // starting on the gate row, so GateRow + 2 is the third lane of the road. The
+            // build demands buildable ground and a street is not buildable, so the one
+            // condition could never be met and every town this game has ever drawn has
+            // raised nothing. The market square's well had the same fault on the same row
+            // and was found the same way: by counting what was standing rather than by
+            // looking for what was not.
+            //
+            // It looks for its ground now instead of naming one tile. Working out from the
+            // gate, first clear of the street and then a little further in, and stopping at
+            // the first tile that will take it.
+            if (decor.Monuments.Any) placed += Monument(parent, grid, rng, decor, occupied,
+                                                        heightScale, town);
 
             return placed;
 

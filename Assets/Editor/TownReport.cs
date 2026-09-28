@@ -235,6 +235,32 @@ namespace TheVeil.Editor
                 for (int x = plan.West + 1; x < plan.East; x++)
                     if (map.Grid.IsPassable(x, y)) street++;
 
+            // What stands inside the walls that is not a building.
+            //
+            // <b>A town is the one place in this game where a tree is a decision.</b>
+            // Everywhere else they are the country; here somebody planted each one, and a
+            // walled town with a wood in it is a clearing with a wall round it. Counted
+            // against the houses, because the ratio is the thing: one tree to five or six
+            // houses is a town with trees in it and one to one is not.
+            int planted = 0, monuments = 0;
+
+            foreach (var piece in root.GetComponentsInChildren<MeshRenderer>(false))
+            {
+                var at = piece.bounds.center;
+
+                int tx = Mathf.FloorToInt(at.x / TileGrid.TileSize);
+                int ty = Mathf.FloorToInt(at.z / TileGrid.TileSize);
+
+                if (!plan.Holds(tx, ty)) continue;
+
+                string name = piece.gameObject.name;
+
+                if (name.StartsWith("SM_Tree_") || name.StartsWith("SM_Env_Tree")) planted++;
+                else if (name.Contains("Statue") || name.Contains("Plinth")) monuments++;
+            }
+
+            Debug.Log($"[Town] inside the walls: {planted} tree(s) and {monuments} monument piece(s).");
+
             // The towers, by the box each whole assembly fills: a gate tower that is only
             // as wide as a chimney is a chimney, however many courses went into it.
             foreach (var tower in root.GetComponentsInChildren<Transform>(false))
