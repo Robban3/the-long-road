@@ -7188,7 +7188,7 @@ namespace TheVeil.View
             => name.IndexOf("Gate", System.StringComparison.OrdinalIgnoreCase) >= 0;
 
         /// <summary>How far from the village a mill will look for water, in tiles.</summary>
-        const int MillReach = 10;
+        public const int MillReach = 10;
 
         /// <summary>
         /// Builds the village, if this level has one.
@@ -7501,8 +7501,17 @@ namespace TheVeil.View
 
             grid.ToCoords(site, out int sx, out int sy);
 
-            // The nearest water with dry ground beside it, which is where a mill goes.
-            int bank = -1, water = -1, nearest = int.MaxValue;
+            // Every water tile with dry ground beside it, nearest first — which is where a
+            // mill goes, and the plural is the point.
+            //
+            // <b>This took the nearest one and gave up if it would not take the wheel.</b>
+            // The wheel is solid and Scatter turns down anything standing in the caravan's
+            // lane, so a village whose closest water happens to be the ford the road
+            // crosses got no mill at all — and the next tile along, which would have taken
+            // it, was never asked. Measured after the census reported the winter as
+            // building none: 2-3 has twelve water tiles within reach of its village and
+            // built nothing.
+            var banks = new List<(int Reach, int Water, int Bank)>();
 
             for (int dy = -MillReach; dy <= MillReach; dy++)
                 for (int dx = -MillReach; dx <= MillReach; dx++)
@@ -7510,9 +7519,6 @@ namespace TheVeil.View
                     int wx = sx + dx, wy = sy + dy;
                     if (!grid.InBounds(wx, wy)) continue;
                     if (grid[wx, wy] != TerrainType.Water) continue;
-
-                    int reach = dx * dx + dy * dy;
-                    if (reach >= nearest) continue;
 
                     // A bank beside it, towards the village.
                     foreach (var step in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
@@ -7524,14 +7530,30 @@ namespace TheVeil.View
                         if (terrain == TerrainType.Water || terrain == TerrainType.Ford
                             || terrain == TerrainType.Cliff) continue;
 
-                        nearest = reach;
-                        water = grid.ToIndex(wx, wy);
-                        bank = grid.ToIndex(bx, by);
+                        banks.Add((dx * dx + dy * dy, grid.ToIndex(wx, wy), grid.ToIndex(bx, by)));
                         break;
                     }
                 }
 
-            if (bank < 0) return 0;
+            if (banks.Count == 0) return 0;
+
+            banks.Sort((a, b) => a.Reach.CompareTo(b.Reach));
+
+            foreach (var spot in banks)
+            {
+                int built = Wheel(parent, grid, rng, decor, occupied, heightScale, road,
+                                  spot.Water, spot.Bank, found);
+                if (built > 0) return built;
+            }
+
+            return 0;
+        }
+
+        /// <summary>The wheel, its frame, the mill house on the bank and the boat tied up.</summary>
+        static int Wheel(Transform parent, TileGrid grid, DeterministicRandom rng,
+                         BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                         HashSet<int> road, int water, int bank, List<Landmark> found)
+        {
 
             grid.ToCoords(water, out int ax, out int ay);
             grid.ToCoords(bank, out int bx2, out int by2);

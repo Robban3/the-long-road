@@ -315,6 +315,12 @@ namespace TheVeil.Editor
                 {
                     sunk.TryGetValue(name, out int buried);
                     sunk[name] = buried + 1;
+
+                    if (buried == 0)
+                        Debug.Log($"[Sunk] {chapter}-{level} {name}: gap {gap:0.00} m against a "
+                                  + $"height of {height:0.00}, at {at.x:0.0},{at.z:0.0}, "
+                                  + $"ground {ground:0.00}, box {renderer.bounds.min.y:0.00}"
+                                  + $"..{renderer.bounds.max.y:0.00}");
                 }
             }
 

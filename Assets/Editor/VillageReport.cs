@@ -135,6 +135,32 @@ namespace TheVeil.Editor
                     Debug.Log($"[Village] {chapter}-{level}: {solids.Count} building(s), "
                               + $"{clashes} pair(s) standing in each other, worst {worst:0.0} m of shared ground.");
 
+                    // Whether this village could have a mill at all.
+                    //
+                    // <b>The census says the winter and the coast never build one, and a
+                    // count cannot tell "never asked" from "asked and there was no
+                    // water".</b> A mill goes on the nearest water with a dry bank within
+                    // ten tiles of the village site (TerrainDecorator.MillReach), and a
+                    // village site is chosen for level plains near a road, which has
+                    // nothing to do with rivers. So the question is whether the water was
+                    // there, and that is a fact about the map rather than about the dice.
+                    int wet = 0;
+
+                    for (int dy = -TerrainDecorator.MillReach; dy <= TerrainDecorator.MillReach; dy++)
+                        for (int dx = -TerrainDecorator.MillReach; dx <= TerrainDecorator.MillReach; dx++)
+                        {
+                            int wx = vx + dx, wy = vy + dy;
+                            if (!map.Grid.InBounds(wx, wy)) continue;
+                            if (map.Grid[wx, wy] == TerrainType.Water) wet++;
+                        }
+
+                    bool milled = false;
+                    foreach (var piece in root.GetComponentsInChildren<MeshRenderer>(false))
+                        if (piece.gameObject.name.Contains("WaterWheel")) { milled = true; break; }
+
+                    Debug.Log($"[Village] {chapter}-{level}: {wet} water tile(s) within "
+                              + $"{TerrainDecorator.MillReach} of the site, mill built: {milled}.");
+
                     // And the furniture, by name and height.
                     //
                     // <b>A picture of a village does not say how big a bucket is.</b> The
