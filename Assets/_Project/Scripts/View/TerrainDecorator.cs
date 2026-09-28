@@ -5899,7 +5899,8 @@ namespace TheVeil.View
             // and a two-storey house are the same call with a different die roll.
             if (plot && kit.CanBuildHouse && rng.Chance(HouseChance))
             {
-                var house = BuildingBuilder.House(parent, kit, rng, out int storeys);
+                var house = BuildingBuilder.House(parent, kit, rng, out int storeys,
+                                                  tall: false);
                 return Note(found, LandmarkKind.House, tile,
                             Raise(grid, tile, rng, house,
                                   Storeys(HouseHeight, storeys > 1), heightScale, occupied, road));
@@ -5907,7 +5908,8 @@ namespace TheVeil.View
 
             if (plot && kit.CanBuildHouse && rng.Chance(FarmChance))
             {
-                var farm = BuildingBuilder.House(parent, kit, rng, out int storeys);
+                var farm = BuildingBuilder.House(parent, kit, rng, out int storeys,
+                                                 tall: false);
                 return Note(found, LandmarkKind.Farm, tile,
                             Raise(grid, tile, rng, farm,
                                   Storeys(FarmHeight, storeys > 1), heightScale, occupied, road));
@@ -6556,6 +6558,51 @@ namespace TheVeil.View
         /// <summary>How far apart fence posts are set along a run, in metres.</summary>
         const float FenceStep = 2.6f;
 
+        /// <summary>
+        /// How finely the bowed line of a fence is sampled before it is walked.
+        ///
+        /// Sixty-four across a run of at most thirty-four metres, so half a metre a
+        /// sample against a panel of two and a half. The error left is a centimetre or so
+        /// of chord against arc inside one sample, which is a hundredth of what stepping
+        /// the chord itself was costing.
+        /// </summary>
+        const int FenceSamples = 64;
+
+        /// <summary>
+        /// A panel of fence: a gate where the run is broken, and anything but a gate where
+        /// it is not.
+        ///
+        /// Null where the set has nothing of the kind asked for and nothing to fall back
+        /// on, which cannot happen for a set with any member at all.
+        /// </summary>
+        static GameObject Panel(PropSet fences, DeterministicRandom rng, bool gate)
+        {
+            if (!fences.Any) return null;
+
+            // Counted rather than filtered into a list: the draw has to come off the same
+            // stream in the same order or every fence in the game moves.
+            int wanted = 0;
+
+            foreach (var model in fences.Models)
+                if (model != null && IsGate(model.name) == gate) wanted++;
+
+            if (wanted == 0) return Any(fences, rng);
+
+            int pick = rng.Range(0, wanted);
+
+            foreach (var model in fences.Models)
+            {
+                if (model == null || IsGate(model.name) != gate) continue;
+                if (pick-- == 0) return model;
+            }
+
+            return Any(fences, rng);
+        }
+
+        /// <summary>Whether a fence model is the one with a gate in it.</summary>
+        static bool IsGate(string name)
+            => name.IndexOf("Gate", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
         /// <summary>How far from the village a mill will look for water, in tiles.</summary>
         const int MillReach = 10;
 
@@ -6640,7 +6687,10 @@ namespace TheVeil.View
                 if (terrain == TerrainType.Water || terrain == TerrainType.Ford
                     || terrain == TerrainType.Cliff) continue;
 
-                var house = BuildingBuilder.House(parent, decor.Kit, rng, out int storeys);
+                // One storey or two. Three is a town house and this is six buildings
+                // round a well - see BuildingBuilder.House.
+                var house = BuildingBuilder.House(parent, decor.Kit, rng, out int storeys,
+                                                  tall: false);
 
                 // Turned to the well, in quarter turns like every other building: the
                 // bearing decides which of the four it gets, so a house on the east side
@@ -6773,35 +6823,76 @@ namespace TheVeil.View
                 var mid = (from + to) * 0.5f;
                 var out0 = (mid - middle).normalized * 4f;
 
-                float yaw = Mathf.Atan2(to.y - from.y, to.x - from.x) * Mathf.Rad2Deg;
-
-                for (float t = FenceStep * 0.5f; t < span; t += FenceStep)
+                // <b>Walked along the bow, not along the chord.</b> The run is stepped at
+                // the length of one panel and then pushed sideways by up to four metres in
+                // the middle, and a curve is longer than the line it was bent from: the
+                // panels were laid 2.6 m apart along the chord and ended up further than
+                // that apart on the ground, with the daylight worst where the bow is
+                // deepest. The same fault as fitting a 2.6 m panel to a height of 1.3 -
+                // both of them put a gap in every single panel of every fence in the game,
+                // and both of them are arithmetic rather than judgement.
+                //
+                // So the bowed line is sampled first and then walked by its own length. It
+                // also gives each panel the direction of the curve where it stands rather
+                // than the direction of the chord, which was the third thing opening them:
+                // on a bowed run every panel was turned by a few degrees out of true.
+                var line = new List<Vector2>();
+                for (int step = 0; step <= FenceSamples; step++)
                 {
-                    float k = t / span;
+                    float k = step / (float)FenceSamples;
+                    line.Add(Vector2.Lerp(from, to, k) + out0 * Mathf.Sin(k * Mathf.PI));
+                }
 
-                    // A hair of bow: full at the middle of the run, none at its ends.
-                    var bow = out0 * Mathf.Sin(k * Mathf.PI);
-                    var at = Vector2.Lerp(from, to, k) + bow;
+                // Every place a panel would go, and whether it can.
+                var posts = new List<(Vector2 At, float Yaw, int Tile, bool Clear)>();
 
-                    int tile = Tile(grid, at.x, at.y);
-                    if (tile < 0) continue;
-                    if (road != null && road.Contains(tile)) continue;
+                float walked = 0f, due = FenceStep * 0.5f;
 
-                    var terrain = grid[tile];
-                    if (terrain == TerrainType.Water || terrain == TerrainType.Ford
-                        || terrain == TerrainType.Cliff) continue;
+                for (int step = 1; step < line.Count; step++)
+                {
+                    float length = Vector2.Distance(line[step - 1], line[step]);
+                    if (length <= 0.0001f) continue;
 
-                    // <b>At its own length, or the run has a gap in every panel.</b> The
-                    // step is the length of a panel - 2.6 m, which is what the meadow
-                    // pack's fences are - and the panel was being shrunk to fit a height of
-                    // 1.3 m, which took it down to 2.2. Four hundred millimetres of daylight
-                    // between every pair, the whole way round the village, which is what
-                    // turned a fence into a row of sticks. A fence panel is already the
-                    // height of a fence; there is nothing to fit it to.
+                    while (walked + length >= due)
+                    {
+                        var along = (line[step] - line[step - 1]) / length;
+                        var at = line[step - 1] + along * (due - walked);
+
+                        int tile = Tile(grid, at.x, at.y);
+
+                        bool clear = tile >= 0
+                                     && (road == null || !road.Contains(tile))
+                                     && grid[tile] != TerrainType.Water
+                                     && grid[tile] != TerrainType.Ford
+                                     && grid[tile] != TerrainType.Cliff;
+
+                        posts.Add((at, Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg, tile, clear));
+                        due += FenceStep;
+                    }
+
+                    walked += length;
+                }
+
+                for (int post = 0; post < posts.Count; post++)
+                {
+                    if (!posts[post].Clear) continue;
+
+                    // <b>A gate is where the way through is.</b> The set carries gates and
+                    // they were drawn at random, so a village had gates in the middle of a
+                    // run and a plain hole where the road went through the fence - which is
+                    // the one place a fence has a gate. Put where the run breaks: against
+                    // the road, or against the end of the run.
+                    bool opening = post == 0 || post == posts.Count - 1
+                                   || !posts[post - 1].Clear || !posts[post + 1].Clear;
+
+                    var piece = Panel(decor.Fences, rng, opening);
+                    if (piece == null) continue;
+
                     if (Scatter(parent, grid, rng,
-                                new Choice(decor.Fences, Any(decor.Fences, rng), FenceHeight,
+                                new Choice(decor.Fences, piece, FenceHeight,
                                            byWidth: false, low: 1f, high: 1f, lifeSize: true),
-                                tile, heightScale, spread: 0f, occupied: null, yaw: -yaw))
+                                posts[post].Tile, heightScale, spread: 0f, occupied: null,
+                                yaw: -posts[post].Yaw))
                         placed++;
                 }
             }
@@ -6882,7 +6973,8 @@ namespace TheVeil.View
             // And the mill itself on the bank behind the wheel.
             if (decor.Kit != null && decor.Kit.CanBuildHouse)
             {
-                var mill = BuildingBuilder.House(parent, decor.Kit, rng, out int storeys);
+                var mill = BuildingBuilder.House(parent, decor.Kit, rng, out int storeys,
+                                                 tall: false);
 
                 if (Raise(grid, bank, rng, mill, storeys * StoreyHeight,
                           heightScale, occupied, road, Mathf.Round(yaw / 90f) * 90f, landmark: false))

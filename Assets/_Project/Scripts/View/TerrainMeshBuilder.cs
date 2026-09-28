@@ -41,6 +41,40 @@ namespace TheVeil.View
         /// </summary>
         public const float SkirtWidth = TheVeil.Sim.Caravan.RunUp + 8f;
 
+        /// <summary>
+        /// How far the ground itself is carried past the map, in metres.
+        ///
+        /// <b>The apron is as wide as it is because that is how much of it gets dressed,
+        /// and the ground has to go further than that.</b> Forty-eight metres is a run-up
+        /// and a margin: it is what TerrainDecorator.PlaceApron plants fourteen hundred
+        /// trees across, and it is the right width for a wood that hides the edge of the
+        /// world. It is not the right width for the world. The run's camera stands
+        /// forty-seven metres up and sees about a hundred and thirty metres of ground
+        /// ahead of it, and at the goal - which is on the map's edge, because that is where
+        /// the road comes out - the far half of that is past the apron. What is there is
+        /// nothing.
+        ///
+        /// So the ground goes on to six hundred, which is past where the fog finishes
+        /// (TheVeilSetup: linear, done by five hundred and twenty). Flat, unplanted, the
+        /// colour of the edge it left from, and gone into the weather before it ends. It
+        /// is one more quad per border tile; the trees stay in the first forty-eight,
+        /// where they were, because a wood spread over six hundred metres is not a wood.
+        ///
+        /// The sea does the same thing for the same reason and at the same distance - see
+        /// WaterMeshBuilder.SeaSkirt, which was written first and is where this was
+        /// noticed.
+        ///
+        /// <b>And a country with a sea does not get one.</b> Its horizon is already
+        /// water, and six hundred metres of flat ground laid out from a shore at whatever
+        /// height the edge tile happened to be is a green shelf jutting into the ocean,
+        /// stepped where the edge rises and falls, half of it showing through the water
+        /// from underneath. Photographed on 100-1 the first time this was built.
+        /// </summary>
+        public const float FarSkirt = 600f;
+
+        /// <summary>How far this country's ground goes past the map: see <see cref="FarSkirt"/>.</summary>
+        static float Far => _biome == Biome.Coast ? 0f : FarSkirt;
+
         /// <summary>A set of tiles to paint over the terrain, such as one corridor.</summary>
         public struct RouteOverlay
         {
@@ -348,6 +382,14 @@ namespace TheVeil.View
             var out1 = Out(inner1, dx, dy, skirt);
             var out0 = Out(inner0, dx, dy, skirt);
 
+            // And on to the horizon. Same colours, same flat, so the seam does not read.
+            if (Far > skirt)
+                Flat(new[] { out0, out1,
+                             Out(inner1, dx, dy, Far), Out(inner0, dx, dy, Far) },
+                     new[] { CornerColour(grid, ax, ay), CornerColour(grid, bx, by),
+                             CornerColour(grid, bx, by), CornerColour(grid, ax, ay) },
+                     vertices, normals, uvs, colors, triangles);
+
             var normal0 = Normal(grid, tileSize, heightScale, ax, ay);
             var normal1 = Normal(grid, tileSize, heightScale, bx, by);
 
@@ -384,7 +426,34 @@ namespace TheVeil.View
                  new[] { normal, Vector3.up, Vector3.up, Vector3.up },
                  new[] { colour, colour, colour, colour },
                  vertices, normals, uvs, colors, triangles);
+
+            // The rest of the corner: the square out to FarSkirt, less the square just
+            // laid. An L, which is two rectangles - the far strip across the whole depth,
+            // and the near strip above what is already covered.
+            if (Far <= skirt) return;
+
+            var sides = new[] { colour, colour, colour, colour };
+
+            Flat(new[] { Corner(at, dx, dy, skirt, 0f), Corner(at, dx, dy, Far, 0f),
+                         Corner(at, dx, dy, Far, Far), Corner(at, dx, dy, skirt, Far) },
+                 sides, vertices, normals, uvs, colors, triangles);
+
+            Flat(new[] { Corner(at, dx, dy, 0f, skirt), Corner(at, dx, dy, skirt, skirt),
+                         Corner(at, dx, dy, skirt, Far), Corner(at, dx, dy, 0f, Far) },
+                 sides, vertices, normals, uvs, colors, triangles);
         }
+
+        /// <summary>A point out from a map corner: <paramref name="u"/> along dx, <paramref name="v"/> along dy.</summary>
+        static Vector3 Corner(Vector3 at, int dx, int dy, float u, float v)
+            => new Vector3(at.x + dx * u, at.y, at.z + dy * v);
+
+        /// <summary>A flat quad of ground, all facing up.</summary>
+        static void Flat(Vector3[] points, Color[] colours,
+                         List<Vector3> vertices, List<Vector3> normals, List<Vector2> uvs,
+                         List<Color> colors, List<int> triangles)
+            => Quad(points,
+                    new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up },
+                    colours, vertices, normals, uvs, colors, triangles);
 
         static Vector3 Out(Vector3 from, int dx, int dy, float skirt)
             => new Vector3(from.x + dx * skirt, from.y, from.z + dy * skirt);

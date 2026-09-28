@@ -246,9 +246,17 @@ namespace TheVeil.View
         /// <paramref name="storeys"/> is for the caller's scaling. A cottage and a
         /// three-storey town house are not the same height and must not be fitted to the
         /// same number, or the tall one is squashed and the small one stretched.
+        ///
+        /// <b>And <paramref name="tall"/>, because three storeys are a town.</b> The
+        /// shares were the same wherever a house was built, so about three in ten of the
+        /// six houses in a hamlet came out as twelve-and-a-half-metre town houses - narrow,
+        /// three floors, on their own in a field. That is a fine building and it belongs
+        /// behind a wall with a street in front of it. In a village, beside a wagon three
+        /// metres tall and a fence one and a half, it reads as a tower, which is what every
+        /// photograph of a village has been showing.
         /// </summary>
         public static GameObject House(Transform parent, BuildingKit kit, DeterministicRandom rng,
-                                       out int storeys)
+                                       out int storeys, bool tall = true)
         {
             storeys = 1;
             if (kit == null || !kit.CanBuildHouse) return null;
@@ -275,7 +283,7 @@ namespace TheVeil.View
             Stack(host.transform, Pick(kit.Foundations, style), ref top, kit.Foundations.ZUp);
             storeys = 2;
 
-            if (roll > 1f - Tall && kit.Foundations.Any)
+            if (tall && roll > 1f - Tall && kit.Foundations.Any)
             {
                 Stack(host.transform, Pick(kit.Foundations, style), ref top, kit.Foundations.ZUp);
                 storeys = 3;
