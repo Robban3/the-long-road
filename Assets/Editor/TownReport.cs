@@ -261,6 +261,68 @@ namespace TheVeil.Editor
 
             Debug.Log($"[Town] inside the walls: {planted} tree(s) and {monuments} monument piece(s).");
 
+            // And the alleys.
+            //
+            // <b>Towns.Layout cuts them and nothing has ever shown one.</b> They are the
+            // thing that is supposed to make the place look lived in rather than planned —
+            // two tiles wide, north to south, between one street and the next — and every
+            // picture of this town from above is a grid of blocks with three bands across
+            // it and nothing between them. So they are counted rather than looked for: a
+            // lane tile is one whose neighbours north and south are open and whose
+            // neighbours east and west are not, which is what a north-south lane is and
+            // what a street is not.
+            int lanes = 0, bands = 0;
+
+            for (int y = plan.North + 2; y < plan.South - 1; y++)
+                for (int x = plan.West + 2; x < plan.East - 1; x++)
+                {
+                    if (!map.Grid.IsPassable(x, y)) continue;
+
+                    bool alongY = map.Grid.IsPassable(x, y - 1) && map.Grid.IsPassable(x, y + 1);
+                    bool alongX = map.Grid.IsPassable(x - 1, y) && map.Grid.IsPassable(x + 1, y);
+
+                    if (alongY && !alongX) lanes++;
+                    else if (alongX && !alongY) bands++;
+                }
+
+            Debug.Log($"[Town] {lanes} tile(s) of north-south lane and {bands} of east-west.");
+
+            // The longest one of them, so it can be photographed along rather than across.
+            // Every picture of this town has been taken down the high street or at the
+            // gate; an alley seen from above at two hundred metres is a gap between two
+            // rows of roofs and says nothing about whether it is a place.
+            int alleyX = -1, alleyFrom = 0, alleyTo = 0;
+
+            // Clear of both walls, because the ground just inside a wall is a lane of its
+            // own (Towns.Approach) and it is the longest north-south run in the town by a
+            // wide margin. It is not an alley: an alley is the gap between two blocks, and
+            // that is the thing nothing had ever looked at.
+            for (int x = plan.West + Towns.Approach + 4; x < plan.East - Towns.Approach - 4; x++)
+            {
+                int deep = 0, from = 0;
+
+                for (int y = plan.North + 2; y < plan.South - 1; y++)
+                {
+                    bool lane = map.Grid.IsPassable(x, y)
+                                && !(map.Grid.IsPassable(x - 1, y) && map.Grid.IsPassable(x + 1, y));
+
+                    if (!lane) { deep = 0; continue; }
+
+                    if (deep == 0) from = y;
+                    deep++;
+
+                    if (deep <= alleyTo - alleyFrom) continue;
+
+                    alleyX = x;
+                    alleyFrom = from;
+                    alleyTo = y;
+                }
+            }
+
+            Debug.Log(alleyX < 0
+                      ? "[Town] no alley to look down."
+                      : $"[Town] longest alley: column {alleyX}, rows {alleyFrom} to {alleyTo}.");
+
             // The towers, by the box each whole assembly fills: a gate tower that is only
             // as wide as a chimney is a chimney, however many courses went into it.
             foreach (var tower in root.GetComponentsInChildren<Transform>(false))
@@ -442,6 +504,16 @@ namespace TheVeil.Editor
             {
                 Shoot(runner, side.Item2, side.Item3,
                       System.IO.Path.Combine(dir, "town-wall-" + side.Item1 + ".png"));
+            }
+
+            // And down the longest alley, at the height of somebody walking it.
+            if (alleyX >= 0 && alleyTo - alleyFrom >= 4)
+            {
+                float lane = (alleyX + 0.5f) * tile;
+
+                Shoot(runner, new Vector3(lane, ground + 3f, (alleyFrom - 0.5f) * tile),
+                      new Vector3(lane, ground + 3f, (alleyTo + 0.5f) * tile),
+                      System.IO.Path.Combine(dir, "town-alley.png"));
             }
 
             // And the whole circuit, from the south so the map is behind it. High enough
