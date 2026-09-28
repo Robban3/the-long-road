@@ -110,7 +110,7 @@ namespace TheVeil.Editor
                     // two cards, none of which is - so the first version reported that the
                     // farmland has no trees in it and the plains no bushes. The ancestors
                     // are walked until one of them is a model some set owns.
-                    foreach (var piece in root.GetComponentsInChildren<Renderer>(false))
+                    foreach (var piece in root.GetComponentsInChildren<Renderer>(true))
                     {
                         for (var up = piece.transform; up != null; up = up.parent)
                         {

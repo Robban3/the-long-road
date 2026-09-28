@@ -760,13 +760,33 @@ namespace TheVeil.View
             // laid flush is not swallowed: it is laid. Paving is five to fourteen
             // centimetres thick, so half of it left proud is a kerb across every tile,
             // which is what a street of slabs sitting on the grass looks like.
-            bool flat = height < Mathf.Max(box.size.x, box.size.z) * 0.25f;
+            // <b>Thin, not merely low.</b> This asked whether the thing was low against
+            // its own width, which is true of a paving stone and just as true of a fallen
+            // log: a log is a metre through and six long, so it counted as flat and was
+            // allowed to go down to within two centimetres of its top. On a slope it did.
+            // The smoke test reported one or two logs a level buried out of sight across
+            // six levels, and the rock pile beside one of them.
+            //
+            // What the allowance is for is a decal - paving is two centimetres thick and
+            // half of it left proud is a kerb across every tile. So it is asked in metres,
+            // and anything thicker than a hand keeps the half-its-own-height cap.
+            bool flat = height < FlushEnough;
             float most = flat ? height - 0.02f : height * MostOfItself;
 
             if (most < 0f) most = 0f;
 
             instance.transform.position += Vector3.down * (depth > most ? most : depth);
         }
+
+        /// <summary>
+        /// How thick a thing may be and still be laid flush, in metres.
+        ///
+        /// A quarter of a metre. Paving is five to fourteen centimetres and a ground mat
+        /// is less; a fallen log is a metre through and a rock pile more. See Bury, where
+        /// the question used to be asked as a ratio against the thing's own width and a
+        /// six-metre log came out flat.
+        /// </summary>
+        const float FlushEnough = 0.25f;
 
         public const float RuinWidth = 5f;
 
@@ -1563,13 +1583,17 @@ namespace TheVeil.View
         static readonly List<int> _boneSites = new List<int>();
 
         /// <summary>
-        /// The broken wagons laid at those traps, which the sweep must not take.
+        /// What was put at those traps on purpose, which the sweep must not take.
         ///
         /// Held as the objects rather than tested by name or by height, because both of
         /// those have already failed here: the sweep takes anything over 1.5 m standing
         /// within three metres of a heap, and the wagon is 1.57 m tall and stands 3.2 m
         /// away. It was swept off all hundred and twenty-one traps the moment it was
         /// turned the right way up, and the photographs showed an empty field.
+        ///
+        /// The banner planted beside the heap is on it for the same reason and was not,
+        /// for as long as there have been banners: 4.8 m tall, at the edge of the site by
+        /// design, and taken by the sweep every single time in every country.
         /// </summary>
         static readonly List<GameObject> _trapWrecks = new List<GameObject>();
 
@@ -5280,14 +5304,34 @@ namespace TheVeil.View
                     // anything; the model measures 2.50 by 2.50 by 0.21 and is not the
                     // reason. That one is still open. See CensusReport, which is what says
                     // so — counted, not noticed.
-                    if (decor.Markers.Any
-                        && Mark(Place(parent, grid, tile, rng,
-                                      new Choice(decor.Markers, Any(decor.Markers, rng),
-                                                 MarkerHeight, byWidth: false),
-                                      heightScale, occupied,
-                                      sink: Seat(grid, tile, heightScale, MarkerHeight),
-                                      standoff: TotemStandoff)) != null)
-                        Landmark.Note(found, LandmarkKind.Totem, tile);
+                    if (decor.Markers.Any)
+                    {
+                        var post = Place(parent, grid, tile, rng,
+                                         new Choice(decor.Markers, Any(decor.Markers, rng),
+                                                    MarkerHeight, byWidth: false),
+                                         heightScale, occupied,
+                                         sink: Seat(grid, tile, heightScale, MarkerHeight),
+                                         standoff: TotemStandoff);
+
+                        if (Mark(post) != null)
+                        {
+                            // <b>And held, or the next sweep takes it.</b> SweepTheBones
+                            // clears whatever tall thing is standing within three metres of
+                            // a heap so the heap can be seen, and it exempts the bridge, the
+                            // remains themselves and the trap's own wagon - which is this
+                            // same list. The banner was not on it. It is 4.8 m tall and it
+                            // is planted at the edge of the site on purpose, by these lines,
+                            // so every one of them was swept away by the paragraph two
+                            // screens down that exists to protect the signal it is part of.
+                            //
+                            // The desert put ten signposts up on every level and not one of
+                            // them survived to be seen. Counted, not noticed: see
+                            // CensusReport, which reported that country's marker set as
+                            // loaded and never used and was right about the second half.
+                            _trapWrecks.Add(post);
+                            Landmark.Note(found, LandmarkKind.Totem, tile);
+                        }
+                    }
 
                     occupied.Add(tile);
 
