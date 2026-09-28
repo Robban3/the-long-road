@@ -2517,13 +2517,16 @@ namespace TheVeil.Editor
             //
             // They are not thrown away: the winter has them now (LoadWinterDecor), where
             // the whole ground is white and a drift is a drift.
-            decor.Mounds = Mixed(
-                Load(AlpineDir, new[] { "SM_Env_Ground_Mound_Large_01" }),
-                Load(MeadowDir, new[]
-                {
-                    "SM_Env_Ground_Mound_Large_01", "SM_Env_Ground_Mound_Large_02",
-                    "SM_Env_Ground_Mound_Large_03", "SM_Env_Ground_Mound_Large_04"
-                }));
+            //
+            // <b>And not the alpine pack's own "ground" mound either.</b> It is called
+            // SM_Env_Ground_Mound_Large_01 and it wears Snow_Rock_Tri, so putting it in as
+            // the earth one left a fifth of the mounds in the pass still white - the same
+            // fault in the same slot, one swap later. Found by the paint report, which was
+            // written after the second time this happened and exists to make there not be
+            // a third. The meadow pack draws four hummocks with grass over them and they
+            // are what a summer shoulder has.
+            decor.Mounds = Meadow("SM_Env_Ground_Mound_Large_01", "SM_Env_Ground_Mound_Large_02",
+                                  "SM_Env_Ground_Mound_Large_03", "SM_Env_Ground_Mound_Large_04");
 
             // A hawk over the pass. The meadow has butterflies; what circles up here is
             // one bird, high, and it is the only thing moving in the whole chapter.
