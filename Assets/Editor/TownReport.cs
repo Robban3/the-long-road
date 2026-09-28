@@ -235,6 +235,18 @@ namespace TheVeil.Editor
                 for (int x = plan.West + 1; x < plan.East; x++)
                     if (map.Grid.IsPassable(x, y)) street++;
 
+            // The towers, by the box each whole assembly fills: a gate tower that is only
+            // as wide as a chimney is a chimney, however many courses went into it.
+            foreach (var tower in root.GetComponentsInChildren<Transform>(false))
+            {
+                if (tower.name != "Tower") continue;
+
+                var box = TheVeil.View.ModelScaling.Measure(tower.gameObject);
+
+                Debug.Log($"[Town] a tower at {box.center.x:0},{box.center.z:0}: "
+                          + $"{box.size.x:0.0} x {box.size.y:0.0} x {box.size.z:0.0} m.");
+            }
+
             Debug.Log($"[Town] {paving} paving stone(s) on {street} street tile(s)"
                       + (paving > 0
                          ? $", standing {thinnest * 100f:0} to {thickest * 100f:0} mm proud of the ground."
@@ -299,7 +311,7 @@ namespace TheVeil.Editor
             // four-metre grid, which is nearly two metres of gable over the street on each
             // side, and the caravan drove through the walls on every way but the middle of
             // the main street. This counts the ones that reach a walkable tile at all.
-            int leaning = 0, built = 0;
+            int leaning = 0, built = 0, standing = 0;
 
             foreach (var piece in root.GetComponentsInChildren<MeshRenderer>(false))
             {
@@ -324,10 +336,41 @@ namespace TheVeil.Editor
                     for (int tx = x0; tx <= x1 && !reaches; tx++)
                         if (map.Grid.InBounds(tx, ty) && map.Grid.IsPassable(tx, ty)) reaches = true;
 
-                if (reaches) leaning++;
+                if (!reaches) continue;
+
+                leaning++;
+
+                // <b>And how far, which is the question the count was never answering.</b>
+                // A jettied upper floor hangs out over the street: that is not a fault, it
+                // is the whole look of a town of this age, and PlaceTownHouses says so
+                // where it chooses the piece. So a count of houses touching a street tile
+                // counts jetties, and it has been reported as somewhere between three and
+                // thirteen of six hundred for as long as anybody has read it - a number
+                // that moves with the dice and means nothing either way.
+                //
+                // What would be a fault is a house standing *in* the street rather than
+                // leaning over it, and that is a distance. Asked again with three metres
+                // taken off instead of one: anything still over a lane at that is most of
+                // a house into the road.
+                var deep = piece.bounds;
+                deep.Expand(-6f);
+
+                if (deep.size.x <= 0f || deep.size.z <= 0f) continue;
+
+                for (int ty = Mathf.FloorToInt(deep.min.z / TileGrid.TileSize);
+                     ty <= Mathf.FloorToInt(deep.max.z / TileGrid.TileSize); ty++)
+                    for (int tx = Mathf.FloorToInt(deep.min.x / TileGrid.TileSize);
+                         tx <= Mathf.FloorToInt(deep.max.x / TileGrid.TileSize); tx++)
+                        if (map.Grid.InBounds(tx, ty) && map.Grid.IsPassable(tx, ty))
+                        {
+                            standing++;
+                            ty = int.MaxValue - 1;
+                            break;
+                        }
             }
 
-            Debug.Log($"[Town] {built} house(s), {leaning} of them reaching over walkable ground.");
+            Debug.Log($"[Town] {built} house(s): {leaning} lean over a street tile, which is what a "
+                      + $"jetty is for, and {standing} stand in one, which is what a fault looks like.");
 
             float tile = TileGrid.TileSize;
             float middleX = (plan.West + plan.East) * 0.5f * tile;

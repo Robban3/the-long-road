@@ -6122,8 +6122,27 @@ namespace TheVeil.View
         /// </summary>
         const float TownWallCrown = 6.8f;
 
+        /// <summary>
+        /// How far a pier stands in from the middle of its wall tile, in metres.
+        ///
+        /// The wall panel is about three metres thick and its tile is four across, so its
+        /// inner face is roughly a metre and a half from the middle. Standing the pier at
+        /// one and three quarters puts its back against that face rather than inside it.
+        /// </summary>
+        const float TownPierStandoff = 1.75f;
+
         /// <summary>How tall a corner tower and a gatehouse stand, in metres.</summary>
         const float TownTowerHeight = 10f;
+
+        /// <summary>
+        /// How tall the pair flanking a gateway stand, in metres.
+        ///
+        /// Fourteen against the corners' ten and the curtain's seven. A gate tower that
+        /// only just clears the wall it stands in is a thicker piece of wall; what says
+        /// "the road goes in here" from the far side of the map is that two of them stand
+        /// twice the height of the curtain.
+        /// </summary>
+        const float TownGateTowerHeight = 14f;
         const float TownGateHeight = 9f;
 
         /// <summary>
@@ -6167,7 +6186,20 @@ namespace TheVeil.View
                 {
                     int tile = grid.ToIndex(corner.Item1, corner.Item2);
 
-                    if (Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),
+                    // <b>One course, and the town's colours on it.</b> BuildingBuilder.Tower
+                    // flies a banner on a tower of five courses or more, which is a good
+                    // rule inside a castle and no use to a town: the whole circuit here is
+                    // built low and fitted to a height afterwards, so it flew nothing while
+                    // the castle two levels later flew four. A town with no colours on it is
+                    // a town nobody holds.
+                    //
+                    // Asking for five courses instead is what does not work, and it was
+                    // tried: a five-course tower is about twenty-four metres of stone four
+                    // across, and squeezing that into ten metres of height takes the width
+                    // down with it. Measured at 1.7 m - thinner than the wall is thick, and
+                    // what stood on the four corners was four chimneys.
+                    if (Raise(grid, tile, rng,
+                              BuildingBuilder.Tower(parent, kit, rng, 1, colours: true),
                               TownTowerHeight, heightScale, occupied, null, 0f, landmark: false))
                     {
                         Landmark.Note(found, LandmarkKind.Watchtower, tile);
@@ -6252,6 +6284,34 @@ namespace TheVeil.View
                                            byWidth: true, low: 1f, high: 1f),
                                 tile, heightScale, spread: 0f, occupied: null,
                                 lift: TownWallCrown, yaw: yaw);
+
+                    // And a pier against it every third panel.
+                    //
+                    // <b>The pack draws the buttress exactly the curtain's own height and
+                    // nothing outside the castle had ever stood one.</b> Without them the
+                    // circuit is one panel repeated - the same flat face the whole way
+                    // round, which is the fault BuildingBuilder's own comment names about
+                    // the castle's wall and which the town still had after its battlements
+                    // went on.
+                    //
+                    // On the inside, which is the only side of this wall anybody sees: the
+                    // town is the whole level and its outer ring is past the edge of the
+                    // world. Every third tile, so the bays are twelve metres, and claiming
+                    // no ground so the wall it leans on cannot refuse it.
+                    if (kit.Pillars.Any && (x + y) % 3 == 0)
+                    {
+                        var against = Vec2.FromTile(grid, tile);
+
+                        float inX = x == town.East - 1 ? -1f : x == town.West + 1 ? 1f : 0f;
+                        float inZ = y == town.South - 1 ? -1f : y == town.North + 1 ? 1f : 0f;
+
+                        Scatter(parent, grid, rng,
+                                new Choice(kit.Pillars, Any(kit.Pillars, rng), TownWallHeight,
+                                           byWidth: false, low: 1f, high: 1f),
+                                tile, heightScale, spread: 0f, occupied: null, yaw: yaw,
+                                standing: new Vec2(against.X + inX * TownPierStandoff,
+                                                   against.Y + inZ * TownPierStandoff));
+                    }
                 }
             }
 
@@ -6279,8 +6339,16 @@ namespace TheVeil.View
 
                         int tile = grid.ToIndex(side, y);
 
-                        if (Raise(grid, tile, rng, BuildingBuilder.Tower(parent, kit, rng),
-                                  TownTowerHeight, heightScale, occupied, null, 0f, landmark: false))
+                        // Taller than the four on the corners, and a course thicker: the
+                        // gate is the one part of a circuit meant to be seen from a long
+                        // way off, and it is the part the road goes through. Two courses
+                        // at fourteen metres keeps it about four metres across, which is
+                        // wider than the wall is thick. See the corners above for what
+                        // happens when the height is asked for and the width is not.
+                        if (Raise(grid, tile, rng,
+                                  BuildingBuilder.Tower(parent, kit, rng, 2, colours: true),
+                                  TownGateTowerHeight, heightScale, occupied, null, 0f,
+                                  landmark: false))
                         {
                             Landmark.Note(found, LandmarkKind.Castle, tile);
                             placed++;

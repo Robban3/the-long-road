@@ -383,7 +383,7 @@ namespace TheVeil.View
         public static GameObject Tower(Transform parent, BuildingKit kit, DeterministicRandom rng,
                                        int courses, bool round = false, bool timber = false,
                                        bool capped = true, int style = -1, bool crowned = true,
-                                       bool spired = false)
+                                       bool spired = false, bool colours = false)
         {
             if (kit == null || !kit.CanBuildTower) return null;
 
@@ -458,7 +458,18 @@ namespace TheVeil.View
             // A banner on the tall ones. The pack ships them and nothing was flying any:
             // a fortress with no colours on it is a ruin somebody still lives in, and the
             // one thing that says this castle is *held* is that somebody hung a flag.
-            if (capped && kit.Banners.Any && courses >= CornerCourses)
+            //
+            // <b>Or on any tower whose builder says it is one of the tall ones.</b> The
+            // course count is a proxy for "this is a tower somebody would fly a flag from",
+            // and it is a good one inside a castle, where a five-course mural tower stands
+            // over a two-course turret. It is no use at all to the town, whose whole
+            // circuit is built one or two courses high and fitted to a height afterwards -
+            // so the gatehouse the road goes through flew nothing while the castle two
+            // levels later flew four. Building the town's towers taller to get a flag out
+            // of them gave four chimneys: measured at 1.7 m across against a wall three
+            // metres thick, because a five-course tower squeezed into ten metres of height
+            // takes its width down with it.
+            if (capped && kit.Banners.Any && (colours || courses >= CornerCourses))
                 Stack(host.transform, Any(kit.Banners, rng), ref top, kit.Banners.ZUp);
 
             return host;
