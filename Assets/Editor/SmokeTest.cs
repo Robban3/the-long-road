@@ -300,8 +300,30 @@ namespace TheVeil.Editor
 
                 counted++;
 
-                float ground = map.Grid.SurfaceElevation(at.x, at.z) * heightScale;
-                float gap = renderer.bounds.min.y - ground;
+                // <b>Two witnesses, because no one point is the ground under a prop.</b>
+                //
+                // This sampled the surface under the pivot, which is wherever the artist
+                // left it: the nature pack's rock pile has its mesh several metres off its
+                // own origin, and in the mountains - which now stand two and a half times
+                // higher than they did - that offset is four and a half metres of
+                // hillside. One pile on 6-5 was called buried with its box entirely below
+                // a surface it was nowhere near.
+                //
+                // Sampling under the body instead only moves the fault: a four-metre
+                // paving slab laid across a slope has its centre a metre above its own
+                // downhill edge, and the castle's bailey came back with eight of them
+                // floating and buried at once.
+                //
+                // So both are asked and the kinder answer wins. A prop is floating only if
+                // it clears the higher of the two, and buried only if it is under the
+                // lower. What is left is the props that are wrong whichever point you
+                // stand on, which is the question this check was always asking.
+                var body = renderer.bounds.center;
+
+                float underPivot = map.Grid.SurfaceElevation(at.x, at.z) * heightScale;
+                float underBody = map.Grid.SurfaceElevation(body.x, body.z) * heightScale;
+
+                float gap = renderer.bounds.min.y - Mathf.Max(underPivot, underBody);
                 float height = renderer.bounds.size.y;
 
                 if (gap > FloatTolerance)
@@ -311,16 +333,11 @@ namespace TheVeil.Editor
                     floating.TryGetValue(name, out var seen);
                     floating[name] = (seen.Count + 1, Mathf.Max(seen.Worst, gap));
                 }
-                else if (height > 0.2f && gap < -height)
+                else if (height > 0.2f
+                         && renderer.bounds.max.y < Mathf.Min(underPivot, underBody))
                 {
                     sunk.TryGetValue(name, out int buried);
                     sunk[name] = buried + 1;
-
-                    if (buried == 0)
-                        Debug.Log($"[Sunk] {chapter}-{level} {name}: gap {gap:0.00} m against a "
-                                  + $"height of {height:0.00}, at {at.x:0.0},{at.z:0.0}, "
-                                  + $"ground {ground:0.00}, box {renderer.bounds.min.y:0.00}"
-                                  + $"..{renderer.bounds.max.y:0.00}");
                 }
             }
 

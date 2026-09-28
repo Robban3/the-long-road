@@ -7836,6 +7836,30 @@ namespace TheVeil.View
                 ModelScaling.FitWithin(instance, size, size * choice.MaxSpread, groundY);
             else ModelScaling.Fit(instance, size, groundY);
 
+            // <b>And never deeper than half of what it came out as.</b>
+            //
+            // The sink handed in here is Seat's, which is a share of the size the prop was
+            // *asked* for plus a share of the tile's fall. That is right for a building,
+            // whose asked height is its real one. It is wrong for anything the width cap
+            // has shrunk — and Timber is exactly that: the pack's fallen logs are three
+            // metres long and half a metre through, so asked for at a landmark's height
+            // they fit to their length instead and end up a tenth of the height the sink
+            // was computed from. Seat then buries them whole, because Place, unlike Bury,
+            // had no cap at all.
+            //
+            // That is one or two logs and stumps a level across six chapters, reported by
+            // the smoke test as buried out of sight, and measured: their tops sat ten to
+            // twenty centimetres under the ground. Bury has capped this at half the prop's
+            // own height since the same fault was found on the other path; this is that
+            // cap, applied after the fit, where the real height is finally known.
+            float surface = groundY + sink;
+            var seated = ModelScaling.Measure(instance);
+            float sunkBy = surface - seated.min.y;
+            float deepest = seated.size.y * MostOfItself;
+
+            if (sunkBy > deepest)
+                instance.transform.position += Vector3.up * (sunkBy - deepest);
+
             // Asked after scaling, because until it is scaled nobody knows how much
             // ground it wants — the same order Scatter and Raise use, and for the same
             // reason.
