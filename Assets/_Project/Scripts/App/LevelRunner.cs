@@ -205,6 +205,51 @@ namespace TheVeil.App
         float _pinchDistance;
         readonly List<Vec2> _battles = new List<Vec2>();
         Camera _camera;
+
+        /// <summary>The scene's own weather, kept so a country without any can be given it back.</summary>
+        bool _airRead;
+        bool _air;
+        FogMode _airMode;
+        Color _airColor;
+        float _airDensity, _airStart, _airEnd;
+
+        /// <summary>
+        /// Puts the country's weather on the scene, or the scene's own back.
+        ///
+        /// Read once, the first time a level is dressed, because by then the scene has
+        /// been set up and nothing has overwritten it yet. Restoring it by hand is what
+        /// keeps the desert's haze out of the forest: RenderSettings is one set of numbers
+        /// for the whole scene and every country writes to it.
+        /// </summary>
+        void Weather(BiomeLook look)
+        {
+            if (!_airRead)
+            {
+                _air = RenderSettings.fog;
+                _airMode = RenderSettings.fogMode;
+                _airColor = RenderSettings.fogColor;
+                _airDensity = RenderSettings.fogDensity;
+                _airStart = RenderSettings.fogStartDistance;
+                _airEnd = RenderSettings.fogEndDistance;
+                _airRead = true;
+            }
+
+            if (look != null && look.Fog)
+            {
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+                RenderSettings.fogColor = look.FogColor;
+                RenderSettings.fogDensity = look.FogDensity;
+                return;
+            }
+
+            RenderSettings.fog = _air;
+            RenderSettings.fogMode = _airMode;
+            RenderSettings.fogColor = _airColor;
+            RenderSettings.fogDensity = _airDensity;
+            RenderSettings.fogStartDistance = _airStart;
+            RenderSettings.fogEndDistance = _airEnd;
+        }
         Vector3 _cameraOffset;
         Mesh _mesh;
 
@@ -412,21 +457,23 @@ namespace TheVeil.App
             // And the air it stands in. Set either way rather than only when a country
             // wants it, because the setting belongs to the scene and would otherwise
             // follow the player out of the fen and into the next chapter.
-            RenderSettings.fog = look != null && look.Fog;
-
-            if (RenderSettings.fog)
-            {
-                RenderSettings.fogMode = FogMode.ExponentialSquared;
-                RenderSettings.fogColor = look.FogColor;
-                RenderSettings.fogDensity = look.FogDensity;
-            }
+            //
+            // <b>And there is always air.</b> A country that names none used to turn the
+            // fog off and leave the camera on the scene's skybox, which is a dark navy
+            // nothing - so the forest and the winter, which are the first two chapters
+            // anybody plays, were played under a night sky in daylight, and the last
+            // chapter's sea ran out and stopped against it. The scene is set up with a
+            // temperate haze and a pale sky of its own (TheVeilSetup), and a country with
+            // no weather of its own gets that rather than none.
+            Weather(look);
 
             // And the sky with it. A camera left on the skybox in a fogged country shows
             // summer blue above a country that cannot see fifty metres.
             if (_camera != null)
             {
-                _camera.clearFlags = RenderSettings.fog ? CameraClearFlags.SolidColor : CameraClearFlags.Skybox;
-                if (RenderSettings.fog) _camera.backgroundColor = look.SkyColor;
+                _camera.clearFlags = CameraClearFlags.SolidColor;
+                _camera.backgroundColor = look != null && look.Fog
+                                        ? look.SkyColor : RenderSettings.fogColor;
             }
 
             _visuals = new RunVisuals(_markerRoot, map.Grid, HeightScale)

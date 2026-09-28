@@ -51,6 +51,12 @@ namespace TheVeil.Editor
         /// </summary>
         const float FloatTolerance = 0.5f;
 
+        /// <summary>The scene's own weather, read once so a country without any can be given it.</summary>
+        static bool _airRead, _air;
+        static FogMode _airMode;
+        static Color _airColor;
+        static float _airDensity;
+
         /// <summary>Where the sheets are written.</summary>
         static string Shots => System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilSmoke");
 
@@ -68,6 +74,9 @@ namespace TheVeil.Editor
             }
 
             System.IO.Directory.CreateDirectory(Shots);
+
+            // The scene has just been opened, so whatever weather it carries is its own.
+            _airRead = false;
 
             var faults = new List<string>();
 
@@ -569,16 +578,43 @@ namespace TheVeil.Editor
             camera.fieldOfView = 50f;
             camera.farClipPlane = 900f;
 
+            // The weather the run would put on, which is the point of these sheets: they
+            // are what the player sees, not what the level is.
+            //
+            // <b>Including for a country that names none.</b> This turned the fog off and
+            // left the camera on the scene's skybox, so every sheet of the forest and the
+            // winter came back under a dark navy sky - and that is what the game did too,
+            // which is how it went unnoticed for as long as it did. See
+            // LevelRunner.Weather: a country with no weather of its own is given the
+            // scene's, not nothing.
+            if (!_airRead)
+            {
+                _air = RenderSettings.fog;
+                _airMode = RenderSettings.fogMode;
+                _airColor = RenderSettings.fogColor;
+                _airDensity = RenderSettings.fogDensity;
+                _airRead = true;
+            }
+
             bool fog = look != null && look.Fog;
-            RenderSettings.fog = fog;
+
             if (fog)
             {
+                RenderSettings.fog = true;
                 RenderSettings.fogMode = FogMode.ExponentialSquared;
                 RenderSettings.fogColor = look.FogColor;
                 RenderSettings.fogDensity = look.FogDensity;
-                camera.clearFlags = CameraClearFlags.SolidColor;
-                camera.backgroundColor = look.SkyColor;
             }
+            else
+            {
+                RenderSettings.fog = _air;
+                RenderSettings.fogMode = _airMode;
+                RenderSettings.fogColor = _airColor;
+                RenderSettings.fogDensity = _airDensity;
+            }
+
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = fog ? look.SkyColor : RenderSettings.fogColor;
 
             var rt = new RenderTexture(ShotWidth, ShotHeight, 24);
             camera.targetTexture = rt;

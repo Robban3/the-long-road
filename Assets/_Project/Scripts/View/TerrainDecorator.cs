@@ -6204,6 +6204,7 @@ namespace TheVeil.View
             placed += PavementOf(parent, grid, rng, decor, occupied, heightScale, town);
             placed += PlaceTownHouses(parent, grid, rng, decor, occupied, heightScale, town, found, road);
             placed += PlaceTownStreets(parent, grid, rng, decor, occupied, heightScale, town, road);
+            placed += Market(parent, grid, rng, decor, occupied, heightScale, town, found, road);
 
             return placed;
         }
@@ -6310,6 +6311,7 @@ namespace TheVeil.View
 
                     if ((x - town.West) % StreetFurniture != 0) continue;
                     if (!rng.Chance(0.72f)) continue;
+                    if (OnTheSquare(town, x, y)) continue;
 
                     // A well where two ways meet, a lamp or a brazier on the kerb, a tree
                     // in a corner of the block, and a cart or a load of hay everywhere
@@ -6321,12 +6323,16 @@ namespace TheVeil.View
                     // between buildings — which is exactly the ground this is walking.
                     float roll = rng.Value01();
 
-                    bool wellHere = roll < 0.10f && decor.Houses.Any;
-                    bool lampHere = !wellHere && roll < 0.34f && decor.Street.Any;
-                    bool treeHere = !wellHere && !lampHere && roll < 0.56f && decor.Trees.Any;
+                    // <b>The well is not street furniture.</b> A well on every seventh
+                    // corner came out as twenty-nine of them inside one wall, which is a
+                    // town where nobody has to walk to fetch water and nobody ever meets
+                    // anybody. There is one, and it stands on the market square - see
+                    // Market. What is left out here is a lamp, a tree, or a yard.
+                    bool wellHere = false;
+                    bool lampHere = roll < 0.34f && decor.Street.Any;
+                    bool treeHere = !lampHere && roll < 0.56f && decor.Trees.Any;
 
-                    var set = wellHere ? decor.Houses
-                            : lampHere ? decor.Street
+                    var set = lampHere ? decor.Street
                             : treeHere ? decor.Trees
                             : rng.Chance(0.66f) && decor.Yard.Any ? decor.Yard
                             : decor.Wreckage;
@@ -6353,6 +6359,120 @@ namespace TheVeil.View
                                 new Choice(set, Any(set, rng), size, byWidth: false,
                                            lifeSize: furniture),
                                 tile, heightScale, spread: 0.8f, occupied, solid: true))
+                        placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>
+        /// How much ground the market square takes, as a half-width and half-depth in
+        /// tiles either side of the town's middle.
+        ///
+        /// Five by three: eleven tiles across and seven deep, which is forty-four metres
+        /// by twenty-eight - about two house plots each way. Wide enough that the eye
+        /// finds it from the gate and small enough that it is a square rather than a
+        /// field with a wall round it.
+        /// </summary>
+        const int SquareHalfWide = 5, SquareHalfDeep = 3;
+
+        /// <summary>Whether a tile is part of the market square.</summary>
+        static bool OnTheSquare(Towns.Plan town, int x, int y)
+        {
+            if (!town.Any) return false;
+
+            int middleX = (town.West + town.East) / 2;
+
+            return System.Math.Abs(x - middleX) <= SquareHalfWide
+                   && System.Math.Abs(y - town.GateRow) <= SquareHalfDeep;
+        }
+
+        /// <summary>
+        /// The market square: the one open place inside the walls, and the town's middle.
+        ///
+        /// <b>A town laid out to its walls in one grid has no middle.</b> Houses went on
+        /// every third tile each way from one wall to the other, which is right for the
+        /// streets between them and wrong for the place as a whole: photographed from
+        /// above it read as rows in a yard, and there was nowhere in it a person would
+        /// say they were standing. What makes a town a town is one place everything else
+        /// is arranged around.
+        ///
+        /// It is put on the gate row, because that is the street both gates open onto and
+        /// the way the caravan comes through. A market off the high street is a market
+        /// nobody passes.
+        ///
+        /// The well stands in the middle of it, and it is the only well in the town - it
+        /// used to be street furniture with a chance of one in ten, which came out as
+        /// twenty-nine of them inside one wall. Round it goes what a market is when
+        /// everybody has gone home: the carts, the hay, the crates and barrels that were
+        /// already in the sets, laid out in a ring and left.
+        /// </summary>
+        static int Market(Transform parent, TileGrid grid, DeterministicRandom rng,
+                          BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                          Towns.Plan town, List<Landmark> found, HashSet<int> road)
+        {
+            if (!town.Any) return 0;
+
+            int middleX = (town.West + town.East) / 2;
+            int placed = 0;
+
+            // The well, beside the street rather than in it.
+            //
+            // <b>The middle of the square is the middle of the road.</b> The high street
+            // is three tiles wide and starts on the gate row, so the tile the square is
+            // centred on is a lane the caravan drives down - and Scatter turns down
+            // anything that reaches into the road, which is how the first market came out
+            // with no well in it at all. It stands off the corner of the square, on the
+            // first of four corners that will have it.
+            if (decor.Houses.Any)
+            {
+                foreach (var corner in new[]
+                         {
+                             (middleX - 4, town.GateRow - 2), (middleX + 4, town.GateRow - 2),
+                             (middleX - 4, town.GateRow + 4), (middleX + 4, town.GateRow + 4)
+                         })
+                {
+                    if (!grid.InBounds(corner.Item1, corner.Item2)) continue;
+
+                    int tile = grid.ToIndex(corner.Item1, corner.Item2);
+                    if (grid[tile] != TerrainType.Cliff) continue;
+
+                    if (!Scatter(parent, grid, rng,
+                                 new Choice(decor.Houses, Any(decor.Houses, rng), WellHeight,
+                                            byWidth: false),
+                                 tile, heightScale, spread: 0f, occupied, solid: true))
+                        continue;
+
+                    Landmark.Note(found, LandmarkKind.House, tile);
+                    placed++;
+                    break;
+                }
+            }
+
+            // And the market itself, round the edge of the square where the frontages
+            // would be, so the middle of it stays open.
+            for (int y = town.GateRow - SquareHalfDeep; y <= town.GateRow + SquareHalfDeep; y++)
+            {
+                for (int x = middleX - SquareHalfWide; x <= middleX + SquareHalfWide; x++)
+                {
+                    if (!grid.InBounds(x, y)) continue;
+
+                    bool edge = System.Math.Abs(x - middleX) == SquareHalfWide
+                                || System.Math.Abs(y - town.GateRow) == SquareHalfDeep;
+
+                    if (!edge) continue;
+                    if (grid[grid.ToIndex(x, y)] != TerrainType.Cliff) continue;
+                    if (!rng.Chance(0.45f)) continue;
+
+                    var set = rng.Chance(0.55f) && decor.Yard.Any ? decor.Yard : decor.Wreckage;
+                    if (!set.Any) continue;
+
+                    if (Scatter(parent, grid, rng,
+                                new Choice(set, Any(set, rng), YardHeight,
+                                           byWidth: false, lifeSize: true),
+                                grid.ToIndex(x, y), heightScale, spread: 1.2f, occupied,
+                                solid: true))
                         placed++;
                 }
             }
@@ -6407,6 +6527,11 @@ namespace TheVeil.View
 
                     if ((x - town.West + offset) % step != 0 || (y - town.North) % step != 0) continue;
                     if (rng.Chance(0.17f)) continue;
+
+                    // Not on the market square. See Market: a town laid out to the walls
+                    // in one grid has no middle, and a town with no middle is a housing
+                    // estate with a wall round it.
+                    if (OnTheSquare(town, x, y)) continue;
 
                     // Turned to whichever side has a street on it. A house with its back
                     // to the road is a house nobody uses; one in the middle of a block
