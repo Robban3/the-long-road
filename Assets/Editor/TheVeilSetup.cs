@@ -2997,6 +2997,24 @@ namespace TheVeil.Editor
             // mooring is measured off whatever is in here.
             decor.Ship = Knights("Props", "SM_Prop_Rowboat_01");
 
+            // <b>A fishing village, because the only work on this coast is the sea.</b>
+            // Two of the ten levels have a village on them (Settlements.VillageLevels) and
+            // they were being dressed with the forest's yard, which is nothing at all - the
+            // set was never filled inland, so the houses of the last chapter stood in bare
+            // sand. The alpine pack keeps the whole of it: a rack of fish hung up to dry, a
+            // stand of rods, an oar carried up and left lying, and the crates and buckets
+            // any yard has. Each is placed at its own size now, which is why an oar is an
+            // oar and not a mast.
+            decor.Yard = Mixed(
+                Load($"{AlpineDir}/Props", new[]
+                {
+                    "SM_Prop_Fish_Rack_01", "SM_Prop_Fishing_Rod_Stand_01", "SM_Prop_Oar_01"
+                }),
+                Load($"{MeadowDir}/Props", new[]
+                {
+                    "SM_Prop_Camp_Crate_01", "SM_Prop_Camp_Bucket_01", "SM_Prop_Camp_Bucket_02"
+                }));
+
             // Nothing on the skyline but weather. A coast's horizon is the sea, and a
             // range of hills standing in it is the one thing that would say otherwise.
             decor.Horizon = new PropSet();

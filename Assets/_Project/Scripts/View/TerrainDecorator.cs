@@ -4582,7 +4582,16 @@ namespace TheVeil.View
             // fraction of the height it was asked for. Forty percent of the asked-for
             // height then put the whole log under the ground. Measured over chapter one,
             // five to eight logs and branches a level were buried out of sight.
-            if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
+            // <b>Place honoured LifeSize and the scatter did not.</b> A Choice could say
+            // its models are already the size of the real thing and be scaled anyway,
+            // silently, because the flag was only read on the other path in - and the
+            // furniture of a yard and a street, which is the set the flag was written for,
+            // comes through here. Measured on the meadow pack: a bucket is 0.20 m tall and
+            // was being fitted to 1.9, which is nine times, and a crate 0.54 m at three and
+            // a half. The width cap kept them from being quite as wide as they were tall
+            // and that is all it kept them from.
+            if (choice.LifeSize) Ground(instance, groundY);
+            else if (choice.ByWidth) ModelScaling.FitToFootprint(instance, size, groundY);
             else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, groundY);
             else ModelScaling.Fit(instance, size, groundY);
 
@@ -6312,13 +6321,20 @@ namespace TheVeil.View
                                : treeHere ? rng.Range(5.5f, 8.5f)
                                : YardHeight;
 
+                    // A well, a lamp and a tree are things a town is read by and are fitted
+                    // to a height. A cart, a crate, a barrel is furniture: each of those
+                    // models is already the size of the real thing, and one height for the
+                    // lot of them made a bucket the size of a cart. See Scatter.
+                    bool furniture = !wellHere && !lampHere && !treeHere;
+
                     if (Scatter(parent, grid, rng,
                                 // Never canopy, not even for the trees. Canopy is the rule that
                                 // lets a wood look like a wood — a spruce skips the ground
                                 // check so crowns may touch — and in a town it means a tree
                                 // planted through a roof. A town tree asks like everything
                                 // else here and is refused where a house stands.
-                                new Choice(set, Any(set, rng), size, byWidth: false),
+                                new Choice(set, Any(set, rng), size, byWidth: false,
+                                           lifeSize: furniture),
                                 tile, heightScale, spread: 0.8f, occupied, solid: true))
                         placed++;
                 }
@@ -6702,7 +6718,7 @@ namespace TheVeil.View
                 if (tile >= 0 && (road == null || !road.Contains(tile))
                     && Scatter(parent, grid, rng,
                                new Choice(decor.Yard, Any(decor.Yard, rng), YardHeight,
-                                          byWidth: false),
+                                          byWidth: false, lifeSize: true),
                                tile, heightScale, spread: 1.2f, occupied))
                     placed++;
             }

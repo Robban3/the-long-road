@@ -83,10 +83,11 @@ namespace TheVeil.Editor
         [MenuItem(Root + "Chapter 4 — Plains", true)]
         [MenuItem(Root + "Chapter 5 — Farmland", true)]
         [MenuItem(Root + "Chapter 6 — Mountain", true)]
-        [MenuItem(Root + "Chapter 7 — Coast", true)]
-        [MenuItem(Root + "Chapter 8 — Desert", true)]
-        [MenuItem(Root + "Chapter 9 — Enchanted", true)]
-        [MenuItem(Root + "Chapter 10 — Dead land", true)]
+        [MenuItem(Root + "Chapter 7 — Desert", true)]
+        [MenuItem(Root + "Chapter 8 — Enchanted", true)]
+        [MenuItem(Root + "Chapter 9 — Dead land", true)]
+        [MenuItem(Root + "Chapter 10 — Winter again, under snow", true)]
+        [MenuItem(Root + "The coast — the last ten levels", true)]
         static bool Playing() => EditorApplication.isPlaying;
 
         /// <summary>

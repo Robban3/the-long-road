@@ -1,6 +1,7 @@
 using TheVeil.App;
 using TheVeil.Gen;
 using TheVeil.Sim;
+using TheVeil.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -32,7 +33,14 @@ namespace TheVeil.Editor
             string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilSmoke");
             System.IO.Directory.CreateDirectory(dir);
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            // The built chapters and the coast, which is chapter one hundred and is not
+            // one of them. Every instrument here counted to BuiltChapters and so none of
+            // them ever looked at the last chapter of the game.
+            var chapters = new System.Collections.Generic.List<int>();
+            for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) chapters.Add(c);
+            chapters.Add(Biomes.LastChapter);
+
+            foreach (int chapter in chapters)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
@@ -127,14 +135,55 @@ namespace TheVeil.Editor
                     Debug.Log($"[Village] {chapter}-{level}: {solids.Count} building(s), "
                               + $"{clashes} pair(s) standing in each other, worst {worst:0.0} m of shared ground.");
 
+                    // And the furniture, by name and height.
+                    //
+                    // <b>A picture of a village does not say how big a bucket is.</b> The
+                    // yard set was fitted to one height for every model in it, and the
+                    // models run from a 0.20 m bucket to a 3.84 m scarecrow - so the bucket
+                    // came out nine times its own size and nothing on a sheet or in a
+                    // photograph said so, because a large bucket beside a large house looks
+                    // like a village. What says so is the number. Anything here taller than
+                    // a man is either a scarecrow, a well or a fault.
+                    var yard = new System.Collections.Generic.Dictionary<string, float>();
+
+                    foreach (var prop in root.GetComponentsInChildren<MeshRenderer>(false))
+                    {
+                        if (Vector3.Distance(prop.bounds.center, at) > Settlements.Yard * TileGrid.TileSize * 2f)
+                            continue;
+
+                        string name = prop.transform.root == prop.transform
+                                    ? prop.name : Top(prop.transform).name;
+
+                        if (!name.StartsWith("SM_Prop_")) continue;
+
+                        float height = prop.bounds.size.y;
+                        if (!yard.TryGetValue(name, out float tallest) || height > tallest)
+                            yard[name] = height;
+                    }
+
+                    foreach (var pair in yard)
+                        Debug.Log($"[Village]   {pair.Key}: {pair.Value:0.00} m tall"
+                                  + (pair.Value > 2.5f ? "  <-- taller than a man" : ""));
+
                     // And each building on its own. A house is a foundation, a room,
                     // perhaps an upper room, and a roof — four pieces and about seven
                     // metres. Anything twice that, or carrying two roofs, is one building
                     // that has been stacked rather than two buildings that overlap, and
                     // the pairwise measurement above cannot see it at all.
+                    //
+                    // <b>Twice the height it is actually built at, which is not seven
+                    // metres.</b> A house is asked for at HouseHeight and then multiplied
+                    // by the run's landmark scale, because a landmark is sized against
+                    // being read from map height and not against a man - so the houses come
+                    // out at eleven metres and every village in the game was reported as
+                    // having four to seven buildings stacked in it. A report that cries
+                    // wolf on every village is a report nobody reads, and this one has been
+                    // crying since the landmark scale was put in.
+                    float built = TerrainDecorator.HouseHeight * runner.LandmarkScale;
+
                     foreach (var (id, box) in solids)
                     {
-                        if (box.size.y < 12f) continue;
+                        if (box.size.y < built * 2f) continue;
 
                         Debug.Log($"[Village] TALL: a building {box.size.y:0.0} m high at "
                                   + $"{box.center.x:0},{box.center.z:0}.");
@@ -162,6 +211,15 @@ namespace TheVeil.Editor
 
             Debug.Log($"[Village] pictures in {dir}");
             EditorSceneManager.CloseScene(scene, false);
+        }
+
+        /// <summary>The outermost object of a placed prop, which is what carries its name.</summary>
+        static Transform Top(Transform part)
+        {
+            while (part.parent != null && part.parent.name != "Props"
+                   && !part.parent.name.StartsWith("Level")) part = part.parent;
+
+            return part;
         }
 
         static void Shoot(Vector3 from, Vector3 at, string path)
