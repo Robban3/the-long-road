@@ -154,8 +154,9 @@ namespace TheVeil.Editor
 
             // What is actually standing in it, counted rather than looked for in a picture.
             int carts = 0, hay = 0, wells = 0, barrels = 0, crates = 0, houses = 0, walls = 0;
-            int signs = 0, fences = 0;
+            int signs = 0, fences = 0, paving = 0;
             float lowestSign = float.MaxValue;
+            float thinnest = float.MaxValue, thickest = 0f;
 
             // Every piece of the north wall, so the run can be measured rather than
             // squinted at: a wall you can see the town through is a wall with gaps in it,
@@ -166,7 +167,26 @@ namespace TheVeil.Editor
             {
                 string name = piece.gameObject.name;
 
-                if (name.Contains("ShopSign"))
+                if (name.Contains("Env_Path"))
+                {
+                    // <b>How much of a paving stone is above the ground.</b> The street is
+                    // laid one piece to the tile and bedded into the ground by nine tenths
+                    // of its own size, which is right for a kerbstone and a question for a
+                    // slab: a flag drawn fifteen centimetres thick has a centimetre and a
+                    // half of itself showing, and a street of those reads as gravel with
+                    // something under it. Counted, with what stands proud.
+                    paving++;
+
+                    float floor = map.Grid.SurfaceElevation(piece.bounds.center.x,
+                                                            piece.bounds.center.z)
+                                  * runner.HeightScale;
+
+                    float proud = piece.bounds.max.y - floor;
+
+                    thinnest = Mathf.Min(thinnest, proud);
+                    thickest = Mathf.Max(thickest, proud);
+                }
+                else if (name.Contains("ShopSign"))
                 {
                     // <b>A sign is the one prop here that is right to be off the ground.</b>
                     // It hangs from a bracket bolted into a frontage, and it spent months
@@ -206,6 +226,19 @@ namespace TheVeil.Editor
 
             Debug.Log($"[Town] {signs} trade sign(s), the lowest hanging "
                       + (signs > 0 ? $"{lowestSign:0.0} m above the street." : "nowhere."));
+
+            // Against the street itself: every passable tile inside the walls is one the
+            // caravan may drive, and every one of them was meant to be laid with stone.
+            int street = 0;
+
+            for (int y = plan.North + 1; y < plan.South; y++)
+                for (int x = plan.West + 1; x < plan.East; x++)
+                    if (map.Grid.IsPassable(x, y)) street++;
+
+            Debug.Log($"[Town] {paving} paving stone(s) on {street} street tile(s)"
+                      + (paving > 0
+                         ? $", standing {thinnest * 100f:0} to {thickest * 100f:0} mm proud of the ground."
+                         : "."));
 
             run.Sort((a, b) => a.At.CompareTo(b.At));
 

@@ -6336,11 +6336,22 @@ namespace TheVeil.View
                     // than a row of mats with ground showing between them, and turned in
                     // quarter turns so the pattern does not repeat down the whole street.
                     if (Scatter(parent, grid, rng,
-                                // Bedded into the ground rather than laid on it: only the top
-                                // of a paving stone is meant to show.
+                                // <b>Laid on the ground, because there is nothing to bed.</b>
+                                // This was sunk by nine tenths of the model's own size on the
+                                // reasoning that only the top of a paving stone should show -
+                                // which is right for a kerbstone and wrong for what the pack
+                                // actually draws. Measured on the town: every one of the 1370
+                                // street tiles was paved, and every stone stood two
+                                // millimetres proud of the ground. The pieces are decals
+                                // about two centimetres thick, so nine tenths of that is the
+                                // whole of it: what the street showed was the few thickest
+                                // points of the mesh coming through, which reads as gravel
+                                // with something buried under it, and two millimetres of
+                                // clearance is close enough to the terrain to flicker.
+                                //
+                                // Resting on the surface gives the full two centimetres.
                                 new Choice(decor.Paving, Any(decor.Paving, rng),
-                                           TileGrid.TileSize, byWidth: true, low: 1f, high: 1f,
-                                           sink: 0.9f),
+                                           TileGrid.TileSize, byWidth: true, low: 1f, high: 1f),
                                 tile, heightScale, spread: 0f, occupied,
                                 yaw: rng.Range(0, 4) * 90f))
                         laid++;
