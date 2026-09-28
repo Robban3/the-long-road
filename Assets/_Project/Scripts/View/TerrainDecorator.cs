@@ -6776,9 +6776,16 @@ namespace TheVeil.View
                     if (terrain == TerrainType.Water || terrain == TerrainType.Ford
                         || terrain == TerrainType.Cliff) continue;
 
+                    // <b>At its own length, or the run has a gap in every panel.</b> The
+                    // step is the length of a panel - 2.6 m, which is what the meadow
+                    // pack's fences are - and the panel was being shrunk to fit a height of
+                    // 1.3 m, which took it down to 2.2. Four hundred millimetres of daylight
+                    // between every pair, the whole way round the village, which is what
+                    // turned a fence into a row of sticks. A fence panel is already the
+                    // height of a fence; there is nothing to fit it to.
                     if (Scatter(parent, grid, rng,
                                 new Choice(decor.Fences, Any(decor.Fences, rng), FenceHeight,
-                                           byWidth: false, low: 1f, high: 1f),
+                                           byWidth: false, low: 1f, high: 1f, lifeSize: true),
                                 tile, heightScale, spread: 0f, occupied: null, yaw: -yaw))
                         placed++;
                 }
