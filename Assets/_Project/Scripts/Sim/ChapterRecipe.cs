@@ -146,6 +146,9 @@ namespace TheVeil.Sim
         public int FordsPerRiver = 3;
         public float NoiseScale = 18f;
 
+        /// <summary>How high this country stands. See <see cref="LevelRecipe.Relief"/>.</summary>
+        public float Relief = new LevelRecipe().Relief;
+
         /// <summary>Builds the recipe for one level, 1-based.</summary>
         public LevelRecipe ForLevel(int level)
         {
@@ -173,6 +176,7 @@ namespace TheVeil.Sim
                 SeaShare = SeaShare,
                 FordsPerRiver = FordsPerRiver,
                 NoiseScale = NoiseScale,
+                Relief = Relief,
                 EnemyPool = PoolForLevel(clamped),
 
                 // Levels 6 to 9 are the escalation band and owe one way through; every
@@ -384,6 +388,18 @@ namespace TheVeil.Sim
                     // Tighter than any other country: the land turns over in half the
                     // distance, so a road that is level for a hundred metres is rare.
                     recipe.NoiseScale = 10f;
+
+                    // <b>And it stands up, which it never did.</b> The tight noise gave this
+                    // country the busiest ground in the game and it was still only sixteen
+                    // metres from the bottom of a level to the top of it - two storeys of a
+                    // house across two hundred and fifty metres of map. Everything that
+                    // makes a pass a pass was in the dressing and none of it was in the
+                    // land, so the chapter photographed as a stony field. Two and a half
+                    // times: forty metres of rise, a metre of climb between one tile and
+                    // the next, and rock faces that stand on ground that is already going
+                    // somewhere. See LevelRecipe.Relief for what this does and does not
+                    // touch - it does not touch the map.
+                    recipe.Relief = 2.5f;
                     recipe.RouteTilesStart += 8;
                     recipe.RouteTilesEnd += 8;
                     break;

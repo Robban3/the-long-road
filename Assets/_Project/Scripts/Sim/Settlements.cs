@@ -103,10 +103,18 @@ namespace TheVeil.Sim
             // is worse than a village on a smaller plot, so the second pass takes a
             // smaller yard on a steeper slope and settles for open ground rather than
             // insisting on a field.
-            int site = Best(map, near, Yard, Level, plainsOnly: true);
+            // Level for the country it is in. The demand is a share of the height
+            // field, and the field is scaled per country (LevelRecipe.Relief): asked for
+            // flat in the ordinary sense, a country standing two and a half times higher
+            // has no seven-by-seven that qualifies anywhere, and both chapter six's
+            // villages would have gone without a line of code saying so.
+            float relief = ChapterRecipe.For(chapter).ForLevel(level).Relief;
+            if (relief <= 0f) relief = 1f;
+
+            int site = Best(map, near, Yard, Level * relief, plainsOnly: true);
             if (site >= 0) return site;
 
-            return Best(map, near, Yard - 1, Level * 1.8f, plainsOnly: false);
+            return Best(map, near, Yard - 1, Level * relief * 1.8f, plainsOnly: false);
         }
 
         /// <summary>The best site under one set of demands, or -1 where there is none.</summary>

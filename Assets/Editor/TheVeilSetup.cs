@@ -999,6 +999,14 @@ namespace TheVeil.Editor
                 }
             }
 
+            // <b>Drifts, which only this country can have.</b> Added after the snowing
+            // above rather than before it, because these are already snow - the alpine
+            // pack draws four of them and they were being spent on the mountain chapter,
+            // which is a pass in summer. Here the whole ground is white and a mound of snow
+            // is what it says it is.
+            decor.Mounds = Alpine("SM_Env_Snow_Mound_01", "SM_Env_Snow_Mound_02",
+                                  "SM_Env_Snow_Mound_03", "SM_Env_Snow_Mound_04");
+
             AssetDatabase.SaveAssets();
             return decor;
         }
@@ -2491,12 +2499,23 @@ namespace TheVeil.Editor
                                    "SM_Env_Bush_Flower_01", "SM_Env_Bush_Flower_01_Alt",
                                    "SM_Env_Flowers_01", "SM_Env_Bush_Flower_01");
 
-            // Snow lying in the hollows and on the shoulders, as hummocks in the ground.
-            // These wear a triplanar material, so they are laid at their own size and
-            // never built into a mass.
-            decor.Mounds = Alpine("SM_Env_Snow_Mound_01", "SM_Env_Snow_Mound_02",
-                                  "SM_Env_Snow_Mound_03", "SM_Env_Snow_Mound_04",
-                                  "SM_Env_Ground_Mound_Large_01");
+            // <b>Earth, because this chapter has no winter in it.</b> The snow mounds were
+            // put here as snow lying in the hollows and on the shoulders, which is a real
+            // thing to see in a pass - but there is no other snow in the chapter. The
+            // ground is grey gravel, the pines are green and the pasture is in flower, and
+            // three white lumps standing on that read as models that lost their material,
+            // not as drifts. Photographed on 6-1, where two of them are the first thing the
+            // eye goes to.
+            //
+            // They are not thrown away: the winter has them now (LoadWinterDecor), where
+            // the whole ground is white and a drift is a drift.
+            decor.Mounds = Mixed(
+                Load(AlpineDir, new[] { "SM_Env_Ground_Mound_Large_01" }),
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Ground_Mound_Large_01", "SM_Env_Ground_Mound_Large_02",
+                    "SM_Env_Ground_Mound_Large_03", "SM_Env_Ground_Mound_Large_04"
+                }));
 
             // A hawk over the pass. The meadow has butterflies; what circles up here is
             // one bird, high, and it is the only thing moving in the whole chapter.

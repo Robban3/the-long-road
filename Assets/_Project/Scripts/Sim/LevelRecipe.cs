@@ -63,6 +63,32 @@ namespace TheVeil.Sim
         public float NoiseScale = 18f;
 
         /// <summary>
+        /// How high this country stands, as a multiple of the ordinary.
+        ///
+        /// <b>Every country was the same shallow swell, and one of them is a mountain
+        /// range.</b> The height field is noise between nought and one and the view
+        /// multiplies it by fourteen metres, so a map two hundred and fifty metres across
+        /// rises about eleven from its lowest tile to its highest, whatever country it is
+        /// - a four per cent grade. Measured across all eight built chapters: forest 10.3,
+        /// plains 12.9, desert 10.6, and the mountains, which are meant to be a ravine,
+        /// 16.4. From above they are the same landscape painted different colours, and
+        /// chapter six photographs as a grey gravel field with stones lying on it.
+        ///
+        /// This multiplies the height field and nothing else. The terrain types are
+        /// assigned from the field *before* it is scaled, so a country's map - where the
+        /// rock is, where the water is, where the roads run and what they cost - comes out
+        /// tile for tile identical to what it was. Nothing in the simulation reads a
+        /// height; routing, costs and the difficulty curve cannot see this at all. It is
+        /// the shape of the ground under a map that was already decided.
+        ///
+        /// What it does touch is everything measured against the ground: the river's bed
+        /// is cut deeper in proportion (TerrainGenerator.CarveRivers) and a village asks
+        /// for a level yard in proportion (Settlements.Site), so that raising a country
+        /// does not quietly take its river or its village away.
+        /// </summary>
+        public float Relief = 1f;
+
+        /// <summary>
         /// Kept low deliberately. Extra octaves add detail finer than one tile, which
         /// after quantisation reads as noise rather than terrain.
         /// </summary>

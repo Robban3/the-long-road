@@ -369,7 +369,13 @@ namespace TheVeil.Gen
 
             // Keep the height field rather than discarding it once terrain types are
             // assigned: the play view needs it to stand the world up.
-            for (int i = 0; i < field.Length; i++) grid.SetElevation(i, field[i]);
+            //
+            // And how far up depends on the country. Applied here, after the mix has been
+            // read off the unscaled field, so that a country standing two and a half times
+            // higher has exactly the map it had before - same rock, same water, same roads
+            // at the same cost. See LevelRecipe.Relief.
+            float relief = recipe.Relief <= 0f ? 1f : recipe.Relief;
+            for (int i = 0; i < field.Length; i++) grid.SetElevation(i, field[i] * relief);
 
             return grid;
         }
@@ -565,7 +571,7 @@ namespace TheVeil.Gen
                 PlaceFords(grid, path, Math.Max(1, recipe.FordsPerRiver));
             }
 
-            SinkTheChannel(grid);
+            SinkTheChannel(grid, recipe.Relief);
             LevelTheCrossings(grid);
         }
 
@@ -799,12 +805,20 @@ namespace TheVeil.Gen
         /// (TileGrid.CornerElevation), so a bankside corner is already half meadow and
         /// half riverbed. Cutting the tile cuts a slope into the bank for free. Feathering
         /// as well would double it and turn every stream into a valley.
+        ///
+        /// <b>Cut in proportion to the country it is in.</b> The depth is a share of the
+        /// height field and the field is scaled per country (LevelRecipe.Relief), so a
+        /// mountain standing two and a half times higher would have had the same 1.4 m of
+        /// bed as a water meadow - a stream lying on top of forty metres of hillside.
+        /// A river in a high country cuts a high country's channel.
         /// </summary>
-        static void SinkTheChannel(TileGrid grid)
+        static void SinkTheChannel(TileGrid grid, float relief)
         {
+            float depth = ChannelDepth * (relief <= 0f ? 1f : relief);
+
             for (int i = 0; i < grid.TileCount; i++)
                 if (grid[i] == TerrainType.Water)
-                    grid.SetElevation(i, grid.Elevation(i) - ChannelDepth);
+                    grid.SetElevation(i, grid.Elevation(i) - depth);
         }
 
         /// <summary>
