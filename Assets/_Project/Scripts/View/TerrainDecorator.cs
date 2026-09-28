@@ -4524,9 +4524,18 @@ namespace TheVeil.View
         static bool Scatter(Transform parent, TileGrid grid, DeterministicRandom rng,
                             Choice choice, int tile, float heightScale, float spread,
                             HashSet<int> occupied = null, float lift = 0f, float? yaw = null,
-                            float maxWidth = 0f, bool signal = false, bool solid = false)
+                            float maxWidth = 0f, bool signal = false, bool solid = false,
+                            Vec2? standing = null)
         {
-            var position = Vec2.FromTile(grid, tile);
+            // <b>Where it was asked for, when it was asked for somewhere.</b> Everything
+            // here is scattered on a tile and a tile is the right unit for a tree - but a
+            // fence is a run of panels laid end to end, and snapping each one to the middle
+            // of its tile puts them four metres apart whatever length they are. The panels
+            // are 2.6 m, so every fence in the game had 1.4 m of daylight in it no matter
+            // how carefully the run was measured: the step was computed, the bow was walked,
+            // and then the answer was thrown away and the tile centre used instead. Only
+            // the fences pass this; everything else still lands on its tile.
+            var position = standing ?? Vec2.FromTile(grid, tile);
             float x = position.X + rng.Range(-spread, spread);
             float z = position.Y + rng.Range(-spread, spread);
 
@@ -6480,6 +6489,74 @@ namespace TheVeil.View
             return placed;
         }
 
+        /// <summary>
+        /// The fence across the back of a town plot.
+        ///
+        /// <b>A town of houses on a grid is a grid of houses.</b> They go on every third
+        /// tile each way and face whichever side has a street on it, which is right for
+        /// each of them and reads from above as rows in a yard: nothing says where one
+        /// household ends and the next begins, so the eye counts buildings instead of
+        /// seeing a place. What a town of this age has between its houses is the plot -
+        /// a strip of ground behind the frontage with a fence round it, which is the whole
+        /// reason the streets are where they are.
+        ///
+        /// So a house with a street in front of it gets a line across the back of its
+        /// plot, four metres behind the tile it stands on and three panels wide, which is
+        /// the gap between it and its neighbour. Laid at the panels' own length like every
+        /// other fence in the game - see Fences, and Scatter, which used to snap them to
+        /// the middle of a tile and put a metre and a half of daylight between each pair.
+        ///
+        /// A house in the middle of a block gets none: it has no front, so it has no back.
+        /// </summary>
+        static int BackYard(Transform parent, TileGrid grid, DeterministicRandom rng,
+                            BiomeDecor decor, float heightScale, HashSet<int> road,
+                            int x, int y, bool north, bool south, bool west, bool east)
+        {
+            if (!decor.Fences.Any) return 0;
+            if (!north && !south && !west && !east) return 0;
+            if (!rng.Chance(TownYardChance)) return 0;
+
+            // Away from the street the house faces, and across it.
+            int backX = north ? 0 : south ? 0 : west ? 1 : -1;
+            int backY = north ? 1 : south ? -1 : 0;
+
+            int sideX = backY, sideY = backX;
+
+            var middle = Vec2.FromTile(grid, grid.ToIndex(x, y));
+
+            float atX = middle.X + backX * TileGrid.TileSize;
+            float atZ = middle.Y + backY * TileGrid.TileSize;
+
+            float yaw = Mathf.Atan2(sideY, sideX) * Mathf.Rad2Deg;
+            int placed = 0;
+
+            for (int panel = -1; panel <= 1; panel++)
+            {
+                float px = atX + sideX * panel * FenceStep;
+                float pz = atZ + sideY * panel * FenceStep;
+
+                int tile = Tile(grid, px, pz);
+                if (tile < 0) continue;
+                if (road != null && road.Contains(tile)) continue;
+                if (grid[tile] != TerrainType.Cliff) continue;
+
+                var piece = Panel(decor.Fences, rng, gate: panel == 0 && rng.Chance(0.35f));
+                if (piece == null) continue;
+
+                if (Scatter(parent, grid, rng,
+                            new Choice(decor.Fences, piece, FenceHeight,
+                                       byWidth: false, low: 1f, high: 1f, lifeSize: true),
+                            tile, heightScale, spread: 0f, occupied: null, yaw: -yaw,
+                            standing: new Vec2(px, pz)))
+                    placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>How many of the town's houses have a fenced plot behind them.</summary>
+        const float TownYardChance = 0.6f;
+
         /// <summary>How far apart street furniture is set along a street, in tiles.</summary>
         const int StreetFurniture = 3;
 
@@ -6592,6 +6669,10 @@ namespace TheVeil.View
 
                     Landmark.Note(found, LandmarkKind.House, grid.ToIndex(x, y));
                     placed++;
+
+                    // And the plot behind it.
+                    placed += BackYard(parent, grid, rng, decor, heightScale, road,
+                                       x, y, northStreet, southStreet, westStreet, eastStreet);
                 }
             }
 
@@ -7017,7 +7098,8 @@ namespace TheVeil.View
                                 new Choice(decor.Fences, piece, FenceHeight,
                                            byWidth: false, low: 1f, high: 1f, lifeSize: true),
                                 posts[post].Tile, heightScale, spread: 0f, occupied: null,
-                                yaw: -posts[post].Yaw))
+                                yaw: -posts[post].Yaw,
+                                standing: new Vec2(posts[post].At.x, posts[post].At.y)))
                         placed++;
                 }
             }
