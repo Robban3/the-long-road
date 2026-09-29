@@ -1717,6 +1717,20 @@ namespace TheVeil.View
                     // it, on every level. See WaterSheet.
                     if (thing.GetComponent<WaterSheet>() != null) continue;
 
+                    // <b>And never a piece of a rock mass.</b> A tor is twenty to thirty
+                    // metres of stone built in courses, each piece standing on the one
+                    // below it, and this sweep judges one piece at a time by height. A trap
+                    // laid beside a mass took the pieces within reach of it and left the
+                    // ones they were holding up: measured by the tor report, four pieces
+                    // over twenty levels hanging with nothing under them, the worst 19.7 m
+                    // clear - and they had been placed correctly and then had the mass
+                    // pulled out from under them.
+                    //
+                    // A tor is not something standing over a heap of bones. It is the
+                    // country the heap is lying in, and it was there first.
+                    if (thing.name.StartsWith(TorPieceName, System.StringComparison.Ordinal))
+                        continue;
+
                     // Never the castle. It is forty metres of stone standing beside the
                     // goal, and a trap near its wall once took the whole of it down on
                     // 3-10. Its site keeps it off the roads now (Strongholds.Site), and
@@ -1818,6 +1832,16 @@ namespace TheVeil.View
                     // on the bridge ramp and nothing else. Photographed, and it read as
                     // nothing at all.
                     if (_trapWrecks.Contains(thing.gameObject)) continue;
+
+                    // And except a piece of a rock mass, for the reason the bone sweep may
+                    // not have one either: a tor is built in courses and taking a piece out
+                    // of the middle leaves whatever was standing on it in the air. It has
+                    // already been asked about the lane, piece by piece, as it was laid -
+                    // see Tor, which drops the ones that bar the road rather than moving
+                    // the mass, because a pass through rock is rock that opens where the
+                    // road crosses it.
+                    if (thing.name.StartsWith(TorPieceName, System.StringComparison.Ordinal))
+                        continue;
 
                     var box = ModelScaling.Measure(thing.gameObject);
 
@@ -2386,39 +2410,65 @@ namespace TheVeil.View
                 // move.
                 if (decor.Falls.Any)
                 {
-                    var sheet = Object.Instantiate(Any(decor.Falls, rng), parent);
-
                     float head = grid.Elevation(from) * heightScale;
                     float span = TileGrid.TileSize * Channel(grid, from, tx - fx, ty - fy);
 
-                    sheet.transform.rotation =
-                        Quaternion.Euler(0f, Mathf.Atan2(tx - fx, ty - fy) * Mathf.Rad2Deg, 0f);
+                    var facing = Quaternion.Euler(0f, Mathf.Atan2(tx - fx, ty - fy)
+                                                      * Mathf.Rad2Deg, 0f);
 
-                    // Its pivot is its own head and it hangs ten metres below that (measured,
-                    // FallModelTall), and it lies to one side of that pivot - so it is moved
-                    // half its width to bring the water down the middle of the channel.
-                    sheet.transform.localScale = new Vector3(span / FallModelWide,
-                                                             (head - foot + FallRaise) / FallModelTall,
-                                                             1f);
-
-                    sheet.transform.position = new Vector3(x, head, z)
-                                               + sheet.transform.right * (span * 0.5f);
-
-                    // <b>White water, and water that moves.</b> This gave the sheet the
-                    // country's river material, which is right about one thing - it is the
-                    // shader with a speed in it, and the pack's own is set to 0.042, a
-                    // river's crawl. On a vertical face at that speed it reads as a pane of
-                    // glass, and in a river's colours it reads as a lattice of green stones.
+                    // <b>Strands laid side by side, not one sheet stretched across.</b>
                     //
-                    // FallWater is that same shader with the pattern taken down to a
-                    // quarter, both colours taken to white and the speed up thirteenfold.
-                    // See TheVeilSetup.EnsureFallingWater. A country without one keeps the
-                    // river's, which is what this did for everybody until now.
-                    var falling = sheet.GetComponentInChildren<MeshRenderer>();
-                    if (falling != null)
-                        falling.sharedMaterial = decor.FallWater != null
-                            ? decor.FallWater
-                            : WaterMeshBuilder.Material(waterMaterial);
+                    // The sheet was scaled to the width of the water: at four tiles that is
+                    // sixteen metres on a model drawn 3.75 wide, which is four and a third
+                    // times across against one and a fifth up. The model is not a rectangle
+                    // - it is a sheet with the lip it comes over curled into the top of it -
+                    // and a lip stretched four times sideways is a flat tongue. Photographed
+                    // on 6-3: a white sheet of paper folded over an edge and lying out over
+                    // the pool, which is exactly what one quad at those numbers is.
+                    //
+                    // So the width is made of as many strands as it takes, each at the
+                    // width it was drawn, each fitted only in height. The lip keeps its
+                    // proportions, the strands are jittered so their tops are not one ruled
+                    // line, and a wide fall reads as several falls beside each other -
+                    // which is what a wide fall is.
+                    int strands = Mathf.Max(1, Mathf.RoundToInt(span / FallModelWide));
+
+                    for (int strand = 0; strand < strands; strand++)
+                    {
+                        var sheet = Object.Instantiate(Any(decor.Falls, rng), parent);
+                        sheet.transform.rotation = facing;
+
+                        // Its pivot is its own head and it hangs ten metres below that
+                        // (measured, FallModelTall), and it lies to one side of that pivot -
+                        // so each strand is moved out by its own width to lie beside the
+                        // last, starting from the far edge of the channel.
+                        float lower = rng.Range(0f, FallStrandStep);
+
+                        sheet.transform.localScale =
+                            new Vector3(1f, (head - foot + FallRaise - lower) / FallModelTall, 1f);
+
+                        sheet.transform.position =
+                            new Vector3(x, head - lower, z)
+                            + sheet.transform.right * (span * 0.5f - strand * FallModelWide)
+                            + sheet.transform.forward * (strand % 2 == 0 ? 0f : FallStrandApart);
+
+                        // <b>White water, and water that moves.</b> This gave the sheet the
+                        // country's river material, which is right about one thing - it is
+                        // the shader with a speed in it, and the pack's own is set to 0.042,
+                        // a river's crawl. On a vertical face at that speed it reads as a
+                        // pane of glass, and in a river's colours as a lattice of green
+                        // stones.
+                        //
+                        // FallWater is that same shader with the pattern taken down to a
+                        // quarter, the speed up thirteenfold and the colours to pale blue.
+                        // See TheVeilSetup.EnsureFallingWater. A country without one keeps
+                        // the river's, which is what this did for everybody until now.
+                        var falling = sheet.GetComponentInChildren<MeshRenderer>();
+                        if (falling != null)
+                            falling.sharedMaterial = decor.FallWater != null
+                                ? decor.FallWater
+                                : WaterMeshBuilder.Material(waterMaterial);
+                    }
                 }
 
                 taken.Add(from);
@@ -2476,6 +2526,19 @@ namespace TheVeil.View
 
         /// <summary>And how far it hangs below its own pivot.</summary>
         const float FallModelTall = 10f;
+
+        /// <summary>
+        /// How far the tops of two strands of a fall may differ, in metres, and how far
+        /// apart every other one stands.
+        ///
+        /// Three quarters of a metre of drop, so the lip is a rough edge rather than a
+        /// ruled line; and a tenth of a metre of daylight between every other strand, which
+        /// is the smallest gap that keeps two coplanar quads from fighting over the same
+        /// pixels. See PlaceFalls.
+        /// </summary>
+        const float FallStrandStep = 0.75f;
+
+        const float FallStrandApart = 0.1f;
 
         /// <summary>How far under the rock's crown the water comes over it, in metres.</summary>
         const float FallBelowCrown = 3f;
@@ -2882,6 +2945,10 @@ namespace TheVeil.View
             int courses = rng.Range(2, 4);
             float standing = 0f;
 
+            // What this mass has laid so far, so a piece can ask what is under it. Cleared
+            // for each tor: a piece of the next mass along is not holding this one up.
+            courses_.Clear();
+
             for (int course = 0; course < courses; course++)
             {
                 // Narrower and shorter as it goes up, so the mass has a shoulder and a cap
@@ -2889,6 +2956,14 @@ namespace TheVeil.View
                 float spread = TorSpread * (1f - course * 0.3f);
                 int round = Mathf.Max(3, 7 - course * 2);
                 float tall = TorPiece * (1f - course * 0.22f);
+
+                // <b>What the course below left, and not what this course is laying.</b>
+                // The pieces of one course are a ring at one angle apart, which at TorBite
+                // means each is over its neighbour - so asking "what is under me" of
+                // everything laid so far let the second piece stand on the first, the third
+                // on the second, and a ring of seven become a tower of seven. Measured: one
+                // piece 68.7 m clear of the ground, on a map whose whole relief is 33.
+                int below = courses_.Count;
 
                 for (int step = 0; step < round; step++)
                 {
@@ -2911,25 +2986,47 @@ namespace TheVeil.View
                     float x = middle.X + Mathf.Cos(turn) * out_;
                     float z = middle.Y + Mathf.Sin(turn) * out_;
 
-                    // Each course set into the one below it, so the mass reads as one rock
-                    // rather than as a pile of separate ones.
+                    // <b>Every piece stands on whatever is actually under it.</b>
                     //
-                    // <b>But the bottom course stands on its own ground, not on the tor's.</b>
-                    // The foot is sampled once, under the middle of the mass, and every
-                    // piece of the first course was seated at that one height - while the
-                    // pieces themselves are thrown out to TorSpread, which on a hillside is
-                    // metres of fall. Downhill they hung in the air; uphill they went into
-                    // the slope. Nobody had ever seen it because a tor's pieces are named so
-                    // that the smoke test's floating check skips them, and they are named
-                    // that way for a good reason - every course above the first is meant to
-                    // be off the ground. The exemption covered the one course that is not.
+                    // This took its height from one number for the whole mass - the ground
+                    // under the tor's middle, plus the courses laid so far - and both
+                    // halves of that were wrong in a different way.
                     //
-                    // Found in a photograph of a waterfall, of all things: the fall report
-                    // was given a camera to settle a different question and the rock beside
-                    // the water was hanging over the pool with daylight under it.
-                    float sits = course == 0
-                        ? grid.SurfaceElevation(x, z) * heightScale
-                        : foot + standing - box.size.y * TorSink;
+                    // The ground first: the pieces are thrown out to TorSpread in every
+                    // direction, which on a hillside is metres of fall, so the bottom course
+                    // hung in the air downhill and went into the slope uphill.
+                    //
+                    // And the courses. A tor is laid as rings - seven pieces, then five,
+                    // then three, each at its own angle and each between 0.55 and 1 of the
+                    // course's spread - so there is a hollow up the middle of it, and the
+                    // ring above is not over the ring below at every angle. A piece that
+                    // landed over the hollow was seated at the height of a course it was
+                    // not standing on. Measured by the tor report, which was written for
+                    // this and found eight of them over twenty levels, the worst 9.4 m
+                    // clear of anything at all.
+                    //
+                    // Nobody had seen any of it because a tor's pieces are named so that the
+                    // smoke test's floating check skips them, and they are named that way
+                    // for a good reason - every course above the first is meant to be off
+                    // the ground. The exemption covered the question entirely.
+                    //
+                    // So each piece asks the ground under itself and the pieces of this mass
+                    // already laid, and stands on whichever is higher. A ring over the
+                    // hollow now comes down to the ground like the ring below it, which is
+                    // also what a heap of rock does.
+                    float under = grid.SurfaceElevation(x, z) * heightScale;
+
+                    for (int i = 0; i < below; i++)
+                    {
+                        var laid = courses_[i];
+                        if (laid.max.y <= under) continue;
+                        if (laid.max.x < x - TorBite || laid.min.x > x + TorBite) continue;
+                        if (laid.max.z < z - TorBite || laid.min.z > z + TorBite) continue;
+
+                        under = laid.max.y;
+                    }
+
+                    float sits = under - (course == 0 ? 0f : box.size.y * TorSink);
 
                     rock.transform.position += new Vector3(x - box.center.x,
                                                             sits - box.min.y,
@@ -2943,6 +3040,7 @@ namespace TheVeil.View
                     // through rock looks like: the mass opens where the road crosses it.
                     if (Barring(grid, _road, rock)) { Unbuild(rock); continue; }
 
+                    courses_.Add(ModelScaling.Measure(rock));
                     pieces++;
                 }
 
@@ -2970,6 +3068,18 @@ namespace TheVeil.View
 
             return false;
         }
+
+        /// <summary>The pieces of the mass being built, so each one can ask what is under it.</summary>
+        static readonly List<Bounds> courses_ = new List<Bounds>();
+
+        /// <summary>
+        /// How far to either side a piece counts as being over another, in metres.
+        ///
+        /// A metre and a half. Boxes are axis-aligned and rock is not, so two pieces that
+        /// meet along a diagonal face overlap by very little; and a piece that is half over
+        /// the one below is standing on it, which is what a heap of rock is.
+        /// </summary>
+        const float TorBite = 1.5f;
 
         /// <summary>What a piece of a rock mass is called. See SmokeTest.</summary>
         public const string TorPieceName = "Tor_";
