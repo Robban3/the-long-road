@@ -1762,8 +1762,30 @@ namespace TheVeil.View
 
                     // Flattened, because the question is what stands over the roadway and
                     // not what passes above or below it.
-                    if (box.max.x < span.min.x || box.min.x > span.max.x) continue;
-                    if (box.max.z < span.min.z || box.min.z > span.max.z) continue;
+                    bool onTheDeck = box.max.x >= span.min.x && box.min.x <= span.max.x
+                                     && box.max.z >= span.min.z && box.min.z <= span.max.z;
+
+                    // <b>And the mouth, which is the question this was first asked about.</b>
+                    // "Rocks after the bridge that the troops walk through" was the first
+                    // report this project ever had, and the answer to it was to make the
+                    // rocks solid. That fixed the walking through and left the rest: a
+                    // bridge is the one place on a map where the way is a single lane, the
+                    // column comes off the deck onto a bank it has to take head-on, and a
+                    // boulder at the end of it narrows the only opening there is. Measured
+                    // across all eighty levels, masses were standing as close as three
+                    // tenths of a metre from the drawn line at a mouth.
+                    //
+                    // Only masses. Everything over SolidHeight carries a disc and that is
+                    // deliberate — the bushes in the road were a fault worth keeping — but
+                    // a bridge mouth swept of its grass is a bald patch, and grass is not
+                    // what a column steers round.
+                    bool atTheMouth = !onTheDeck && Mass(thing.gameObject)
+                                      && box.max.x >= span.min.x - BridgeApproach
+                                      && box.min.x <= span.max.x + BridgeApproach
+                                      && box.max.z >= span.min.z - BridgeApproach
+                                      && box.min.z <= span.max.z + BridgeApproach;
+
+                    if (!onTheDeck && !atTheMouth) continue;
 
                     if (!doomed.Contains(thing.gameObject)) doomed.Add(thing.gameObject);
                 }
@@ -1777,6 +1799,35 @@ namespace TheVeil.View
 
             return doomed.Count;
         }
+
+        /// <summary>
+        /// How far past a deck a bridge keeps its mouth clear, in metres.
+        ///
+        /// Six, which is a tile and a half either side of the four-metre lane the road is
+        /// drawn on: enough that a column coming off the planking has the width of the
+        /// crossing to turn in, and short enough that the wood still comes down to both
+        /// banks the way it is supposed to.
+        /// </summary>
+        const float BridgeApproach = 6f;
+
+        /// <summary>
+        /// Whether a prop is something a column would have to steer round.
+        ///
+        /// A disc of a metre and a half or more is a rock, a cart, a wall or a building.
+        /// Below that it is what grows: a spruce and a tall grass clump both carry a
+        /// trunk-sized one, by the rule in Block, and neither is what a bridge mouth has to
+        /// be clear of.
+        /// </summary>
+        static bool Mass(GameObject thing)
+        {
+            foreach (var disc in thing.GetComponentsInChildren<Solid>(true))
+                if (disc.Radius >= MassDisc) return true;
+
+            return false;
+        }
+
+        /// <summary>How wide a disc has to be before it counts as a mass. See <see cref="Mass"/>.</summary>
+        public const float MassDisc = 1.5f;
 
         /// <summary>
         /// Says what is actually standing on the map, biggest population first.
@@ -5312,6 +5363,16 @@ namespace TheVeil.View
                                          heightScale, occupied,
                                          sink: Seat(grid, tile, heightScale, MarkerHeight),
                                          standoff: TotemStandoff);
+
+                        // <b>And nothing solid where it stands on the road.</b> The same
+                        // rule its bones keep two lines further down, and for the same
+                        // reason: a trap sign is put beside its trap, traps are laid on the
+                        // roads, so the sign lands in the caravan's lane by design. It was
+                        // harmless while every banner was swept away before anybody saw it;
+                        // the morning that was fixed, fourteen of the desert's signposts
+                        // became fourteen posts the wagons drive at. Off the road it keeps
+                        // its disc and the escort walks round it.
+                        if (Barring(grid, _road, post)) Unsolid(post);
 
                         if (Mark(post) != null)
                         {

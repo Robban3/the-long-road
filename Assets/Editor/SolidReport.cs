@@ -55,14 +55,26 @@ namespace TheVeil.Editor
             for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) chapters.Add(c);
             chapters.Add(Biomes.LastChapter);
 
+            // <b>Every level, not two of them.</b> This looked at the first and the last of
+            // each chapter, on the reasoning that the last carries the castle - which is
+            // fair for the castle and no use at all for the question the report is named
+            // after. A prop the caravan walks through is placed by the scatter, and the
+            // scatter rolls a different set of dice on every level; sixteen of eighty is
+            // asking one map in five whether the other four are all right.
+            float tightest = float.MaxValue;
+            string worstMouth = "";
+
             foreach (int chapter in chapters)
             {
-                // The first level and the last: the last is the one with the castle on it,
-                // and the castle is half of what this report was written for.
-                foreach (int level in new[] { 1, Campaign.LevelsPerChapter })
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var root = SmokeTest.Build(runner, chapter, level, out var map);
+
                     Measure(map, $"{chapter}-{level}", root, open, leaky, inTheRoad, capped);
+
+                    float mouth = Mouths(map, $"{chapter}-{level}", root);
+                    if (mouth < tightest) { tightest = mouth; worstMouth = $"{chapter}-{level}"; }
+
                     Object.DestroyImmediate(root);
                 }
             }
@@ -73,8 +85,106 @@ namespace TheVeil.Editor
             Report($"claiming more ground than the run will give them "
                    + $"(over {ObstacleField.MaxRadius} m)", capped);
 
+            Debug.Log($"[Solid] tightest bridge mouth in the game: {tightest:0.0} m between "
+                      + $"the line and the nearest mass, on {worstMouth}. A tile is "
+                      + $"{TileGrid.TileSize:0.0} m.");
+
             Debug.Log("[Solid] done");
         }
+
+        /// <summary>
+        /// How much clear ground the caravan has at the end of each bridge on a level.
+        ///
+        /// <b>A bridge is the one place on a map where the way through is one lane wide.</b>
+        /// Everywhere else the column can swing round a boulder; at a crossing it comes
+        /// off a deck onto a bank it has to take head-on, and a stone lying at the mouth
+        /// narrows the only opening there is. That was the first thing reported about this
+        /// game — rocks after a bridge that the troops walked through — and the answer to
+        /// it was to make the rocks solid, which fixed the walking through and says
+        /// nothing about the narrowing.
+        ///
+        /// The lane check above asks whether anything solid stands *on* the drawn line.
+        /// This asks how far the nearest solid thing is *from* it, for three tiles either
+        /// side of every deck, which is the question a column eight metres to a side is
+        /// actually asking.
+        /// </summary>
+        static float Mouths(LevelMap map, string where, GameObject root)
+        {
+            var decks = root.GetComponentsInChildren<BridgeDeck>(true);
+            if (decks.Length == 0) return float.MaxValue;
+
+            var grid = map.Grid;
+            var lane = LevelPreview.Travelled(map);
+
+            // Every solid disc on the level, in the plane the caravan drives on.
+            var discs = new List<(Vector2 At, float Radius, string Name)>();
+
+            foreach (var disc in root.GetComponentsInChildren<Solid>(true))
+                discs.Add((disc.Centre, disc.Radius, Root(disc.transform)));
+
+            if (discs.Count == 0) return float.MaxValue;
+
+            float narrowest = float.MaxValue;
+
+            foreach (var deck in decks)
+            {
+                var span = ModelScaling.Measure(deck.gameObject);
+
+                foreach (int tile in lane)
+                {
+                    var at = Vec2.FromTile(grid, tile);
+                    var here = new Vector2(at.X, at.Y);
+
+                    // Off the deck itself, and within three tiles of it: the mouth.
+                    float away = Vector2.Distance(here, new Vector2(span.center.x, span.center.z));
+                    float reach = Mathf.Max(span.extents.x, span.extents.z);
+
+                    if (away <= reach) continue;
+                    if (away > reach + BridgeMouth) continue;
+
+                    foreach (var disc in discs)
+                    {
+                        // <b>A mass, not a tuft.</b> Everything over SolidHeight carries a
+                        // disc, and that is deliberate - the 1.9 m bushes were left standing
+                        // in the road once and it is the thing you can see the column pass
+                        // through. But a tall grass clump and a spruce both carry a
+                        // trunk-sized one, and the first version of this measured against
+                        // those: two hundred and ninety warnings, almost all of them
+                        // "there is grass beside the road", which is a country.
+                        //
+                        // What the question was actually about is the boulder at the end of
+                        // the bridge. A disc of a metre and a half or more is a rock, a
+                        // cart, a wall or a building; below that it is what grows.
+                        if (disc.Radius < MassDisc) continue;
+
+                        float clear = Vector2.Distance(here, disc.At) - disc.Radius;
+                        if (clear >= narrowest) continue;
+
+                        narrowest = clear;
+
+                        if (clear < TileGrid.TileSize)
+                            Debug.Log($"[Solid] {where}: {clear:0.0} m of clear ground beside "
+                                      + $"the line at a bridge mouth, at {here.x:0},{here.y:0}, "
+                                      + $"nearest is {disc.Name}.");
+                    }
+                }
+            }
+
+            return narrowest;
+        }
+
+        /// <summary>The outermost object a disc belongs to, which is what carries its name.</summary>
+        static string Root(Transform part)
+        {
+            while (part.parent != null && part.parent.name != "Props") part = part.parent;
+            return part.name;
+        }
+
+        /// <summary>How far past a deck the mouth of a bridge reaches, in metres.</summary>
+        const float BridgeMouth = 12f;
+
+        /// <summary>How wide a disc has to be before it counts as something to steer round.</summary>
+        const float MassDisc = TerrainDecorator.MassDisc;
 
         /// <summary>One model, and the worst of what was seen of it.</summary>
         sealed class Tally
