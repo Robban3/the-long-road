@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using TheVeil.Sim;
 using UnityEngine;
 
@@ -685,6 +685,15 @@ namespace TheVeil.View
         public const float TimberSpread = SpreadLimit;
 
         /// <summary>
+        /// The most a piece of timber may be blown up past the size it was drawn.
+        ///
+        /// Three, which puts a 1.4 m stump at 4.2 m on the plan - about what a wrecked cart
+        /// is drawn at there, and legible from map height without being a landmark in its
+        /// own right. See Choice.Grow.
+        /// </summary>
+        public const float TimberGrowth = 3f;
+
+        /// <summary>
         /// How many times its height a dead tree may be wide.
         ///
         /// Looser than <see cref="SpreadLimit"/>, because a bare trunk keeps its branches
@@ -696,6 +705,16 @@ namespace TheVeil.View
         /// branch settles at the sprawl it was drawn as instead of a nine-metre tree.
         /// </summary>
         public const float DeadTreeSpread = 0.8f;
+
+        /// <summary>
+        /// The most a dead tree may be blown up past the size it was drawn.
+        ///
+        /// Three halves. The trunks in that set are drawn between six and eight metres and
+        /// are asked for at nine, so they reach it or near enough; the stumps in it are
+        /// drawn between one and three and were being multiplied by up to seven. See
+        /// <see cref="Choice.Grow"/>.
+        /// </summary>
+        public const float DeadTreeGrowth = 1.5f;
 
         /// <summary>
         /// How far across a fallen branch lies, in metres.
@@ -1518,7 +1537,7 @@ namespace TheVeil.View
                                  found);
 
             placed -= SweepTheCourtyard(parent);
-            placed -= SweepTheBridges(parent);
+            placed -= SweepTheBridges(parent, grid);
             placed -= SweepTheBones(parent, grid);
 
             Census(parent);
@@ -1721,7 +1740,7 @@ namespace TheVeil.View
         /// reach the deck stays, which is the point of a bridge in a wood: the wood comes
         /// down to both banks.
         /// </summary>
-        static int SweepTheBridges(Transform parent)
+        static int SweepTheBridges(Transform parent, TileGrid grid)
         {
             var decks = parent.GetComponentsInChildren<BridgeDeck>(true);
             if (decks.Length == 0) return 0;
@@ -1779,11 +1798,33 @@ namespace TheVeil.View
                     // deliberate — the bushes in the road were a fault worth keeping — but
                     // a bridge mouth swept of its grass is a bald patch, and grass is not
                     // what a column steers round.
-                    bool atTheMouth = !onTheDeck && Mass(thing.gameObject)
-                                      && box.max.x >= span.min.x - BridgeApproach
-                                      && box.min.x <= span.max.x + BridgeApproach
-                                      && box.max.z >= span.min.z - BridgeApproach
-                                      && box.min.z <= span.max.z + BridgeApproach;
+                    //
+                    // <b>And anything at all that is standing on the drawn road there.</b>
+                    // The mass test was written against boulders and a boulder is a disc of
+                    // a metre and a half; a rock of a metre and a quarter carries a smaller
+                    // one and passed straight through it, so both mouths of a crossing were
+                    // still being photographed with a stone sitting in the middle of the
+                    // lane. Near a bridge the lane is the only way through - that is the
+                    // whole reason this sweep exists - so the second question is not how
+                    // big the thing is, it is whether it is in the road.
+                    //
+                    // Height, so the ground the road is painted on keeps its mats and its
+                    // worn patches: those are laid flat and a wheel goes over them. Asked
+                    // at a hand's thickness rather than at SolidHeight, because the thing
+                    // this was first written against - a cluster of ford stones - is 1.1 m
+                    // tall, which is under the height at which a prop is given a disc at
+                    // all. It carried no disc, so it failed the mass test; it was under
+                    // SolidHeight, so it failed the height test; and it sat in the middle
+                    // of the lane through both. FlushEnough is the line the burying uses
+                    // for "laid rather than standing", and it is the right line here.
+                    bool near = box.max.x >= span.min.x - BridgeApproach
+                                && box.min.x <= span.max.x + BridgeApproach
+                                && box.max.z >= span.min.z - BridgeApproach
+                                && box.min.z <= span.max.z + BridgeApproach;
+
+                    bool atTheMouth = !onTheDeck && near
+                                      && (Mass(thing.gameObject)
+                                          || (box.size.y > FlushEnough && OnTheRoad(grid, box)));
 
                     if (!onTheDeck && !atTheMouth) continue;
 
@@ -1828,6 +1869,32 @@ namespace TheVeil.View
 
         /// <summary>How wide a disc has to be before it counts as a mass. See <see cref="Mass"/>.</summary>
         public const float MassDisc = 1.5f;
+
+        /// <summary>
+        /// Whether a thing's outline covers any tile the road is drawn on.
+        ///
+        /// By the outline rather than by the pivot, for the reason the deck test uses the
+        /// outline: what blocks a lane is what hangs over it, and a stone with its pivot a
+        /// metre to the side of the road is still in the road.
+        /// </summary>
+        static bool OnTheRoad(TileGrid grid, Bounds box)
+        {
+            if (_road == null || grid == null) return false;
+
+            int fromX = Mathf.FloorToInt(box.min.x / TileGrid.TileSize);
+            int toX = Mathf.FloorToInt(box.max.x / TileGrid.TileSize);
+            int fromY = Mathf.FloorToInt(box.min.z / TileGrid.TileSize);
+            int toY = Mathf.FloorToInt(box.max.z / TileGrid.TileSize);
+
+            for (int y = fromY; y <= toY; y++)
+                for (int x = fromX; x <= toX; x++)
+                {
+                    if (!grid.InBounds(x, y)) continue;
+                    if (_road.Contains(grid.ToIndex(x, y))) return true;
+                }
+
+            return false;
+        }
 
         /// <summary>
         /// Says what is actually standing on the map, biggest population first.
@@ -2457,7 +2524,7 @@ namespace TheVeil.View
             // raises it — so the sheet runs thin over it and the bed shows through. What
             // was missing is the reason it reads as a place to cross rather than as
             // river that happens to be paler.
-            placed += PlaceSteppingStones(parent, grid, rng, decor, occupied, heightScale);
+            placed += PlaceSteppingStones(parent, grid, rng, decor, occupied, heightScale, bridged);
 
             return placed;
         }
@@ -2610,7 +2677,8 @@ namespace TheVeil.View
         /// them.
         /// </summary>
         static int PlaceSteppingStones(Transform parent, TileGrid grid, DeterministicRandom rng,
-                                       BiomeDecor decor, HashSet<int> occupied, float heightScale)
+                                       BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                                       int bridged)
         {
             var stones = decor.Shore.Any ? decor.Shore : decor.Rocks;
             if (!stones.Any) return 0;
@@ -2624,6 +2692,19 @@ namespace TheVeil.View
                 // The bridge claimed its own tiles on the way in, so this cannot strew
                 // stones across a roadway.
                 if (occupied.Contains(i)) continue;
+
+                // <b>And the bridge's whole ford, not only the tiles under its deck.</b>
+                // A ford is several tiles wide, the deck covers the middle of it, and the
+                // tiles left over are the two ends - which is the ground the column comes
+                // off the planking onto. Four to seven stones went down on each of them,
+                // so every bridge in the game was photographed with a pile of rock sitting
+                // in the road at both mouths, symmetrically, looking placed. It was placed:
+                // by the ford, for a ford, on a ford that had stopped being one the moment
+                // somebody built a bridge over it.
+                //
+                // A crossing is either a ford or a bridge. Where it is a bridge, the stones
+                // belong to the other two crossings on the level.
+                if (bridged >= 0 && Near(grid, i, bridged, StonesClearOfBridge)) continue;
 
                 // Four to seven, up from two to four. A ford is crossed on stones and two
                 // of them is a pair of rocks in a river; what says "you can walk here" is
@@ -2644,6 +2725,24 @@ namespace TheVeil.View
             }
 
             return placed;
+        }
+
+        /// <summary>
+        /// How many tiles of a bridge's own ford are left bare of stepping stones.
+        ///
+        /// Four, which is sixteen metres from the tile the deck is centred on: the deck is
+        /// twenty-two metres long, so half of it is under three tiles, and the fourth is
+        /// the mouth. See PlaceSteppingStones.
+        /// </summary>
+        const int StonesClearOfBridge = 4;
+
+        /// <summary>Whether two tiles are within a given number of tiles of each other.</summary>
+        static bool Near(TileGrid grid, int tile, int other, int tiles)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+            grid.ToCoords(other, out int ox, out int oy);
+
+            return Mathf.Abs(x - ox) <= tiles && Mathf.Abs(y - oy) <= tiles;
         }
 
         /// <summary>
@@ -4704,6 +4803,8 @@ namespace TheVeil.View
             else if (cap > 0f) ModelScaling.FitWithin(instance, size, cap, groundY);
             else ModelScaling.Fit(instance, size, groundY);
 
+            Outgrown(instance, choice, groundY, signal);
+
             if (choice.Sink > 0f)
                 Bury(instance, choice.Sink, Fall(grid, tile, heightScale) * SlopeSink);
 
@@ -4823,6 +4924,49 @@ namespace TheVeil.View
 
             return false;
         }
+
+        /// <summary>
+        /// Pulls a fitted prop back to the most it is allowed to have grown.
+        ///
+        /// Read off the scale rather than off the height, because the scale is the thing
+        /// the fitters multiply and it is the same question whichever way round the model
+        /// was measured. See <see cref="Choice.Grow"/> for what it is for.
+        /// </summary>
+        static void Outgrown(GameObject instance, Choice choice, float groundY, bool landmark = false)
+        {
+            if (choice.Prefab == null || instance == null) return;
+
+            float most = choice.Grow > 0f ? choice.Grow
+                       : landmark ? LandmarkGrowth
+                       : 0f;
+            if (most <= 0f) return;
+
+            float drawn = choice.Prefab.transform.localScale.x;
+            if (drawn <= 0.0001f) return;
+
+            if (instance.transform.localScale.x <= drawn * most) return;
+
+            instance.transform.localScale = choice.Prefab.transform.localScale * most;
+            Ground(instance, groundY);
+        }
+
+        /// <summary>
+        /// The most a landmark may be blown up past the size it was drawn, when nothing
+        /// else has said.
+        ///
+        /// <b>The plan lifts every landmark to a floor, and the floor is twelve metres.</b>
+        /// That is LevelPreview.LandmarkFloor and it exists for a good reason - a 2.6 m
+        /// camp cannot be made out on a map drawn from above - but it is a floor and not a
+        /// ratio, so it does the same thing to a thing of any size. The sizes that were
+        /// thought about when it was chosen start at 2.6 m. Below that the multiplier runs
+        /// away: a gravestone and a fallen stump were both being drawn twelve metres tall
+        /// on the plan, the stump fourteen metres across, larger than the farm beside it.
+        ///
+        /// Three, so the small things are still lifted - a camp to nearly eight metres,
+        /// which reads - and nothing is lifted to four times what anybody looked at. The
+        /// run is unaffected: its landmark scale is 1.6 and nothing there reaches this.
+        /// </summary>
+        public const float LandmarkGrowth = 3f;
 
         /// <summary>Takes the ground-claim off a prop, leaving it standing.</summary>
         static void Unsolid(GameObject instance)
@@ -5408,7 +5552,7 @@ namespace TheVeil.View
                                               DeadTreeHeight, byWidth: false,
                                               low: DeadJitterLow, high: DeadJitterHigh,
                                               canopy: true, maxSpread: DeadTreeSpread,
-                                              sink: StumpSink);
+                                              sink: StumpSink, grow: DeadTreeGrowth);
 
                         Scatter(parent, grid, rng, dead, tile, heightScale, spread: 2.6f);
                         placed++;
@@ -5476,9 +5620,19 @@ namespace TheVeil.View
                         kind = LandmarkKind.Watchtower;
                         break;
 
+                    // <b>Capped, because the plan lifts every landmark to a floor.</b>
+                    // A landmark under LevelPreview.LandmarkFloor is drawn larger than life
+                    // on the map so it can be made out from above, and the sizes that were
+                    // thought about when that floor was chosen start at a 2.6 m camp. A
+                    // piece of timber is 1.4 m, so the floor multiplied it by eight and a
+                    // half: the plan was drawing a fallen stump twelve metres tall and
+                    // fourteen across, which is larger than the farm it sits beside. The
+                    // run is unaffected - its landmark scale is 1.6 - so this only ever
+                    // showed on the map, where nobody was looking for a stump.
                     case TerrainType.Forest when decor.Timber.Any && rng.Chance(0.006f):
                         choice = new Choice(decor.Timber, Any(decor.Timber, rng), TimberHeight,
-                                            byWidth: false, maxSpread: TimberSpread);
+                                            byWidth: false, maxSpread: TimberSpread,
+                                            grow: TimberGrowth);
                         kind = LandmarkKind.Timber;
                         break;
                 }
@@ -5590,9 +5744,29 @@ namespace TheVeil.View
             /// </summary>
             public readonly bool LifeSize;
 
+            /// <summary>
+            /// The most a model may be blown up past the size it was drawn, or nought
+            /// for no limit.
+            ///
+            /// <b>A set fitted by height must not hold two scales of thing.</b> The dead
+            /// trees are asked for at nine metres, which is what a standing dead trunk is,
+            /// and the same set holds the stumps - because a stump is a standing thing that
+            /// happens to be short, and that reasoning is right about everything except the
+            /// number. A stump is drawn at 1.4 m; asked for at nine it is multiplied by
+            /// seven, and seven times a stump is a ten-metre root ball thirteen metres
+            /// across. Counted over the built chapters, every level of the fen and the
+            /// forest carried two to four of them.
+            ///
+            /// The set is not split, because the variety is why the models are in it. The
+            /// growth is capped instead, so a trunk drawn near its asked height reaches it
+            /// and a stump stays a stump.
+            /// </summary>
+            public readonly float Grow;
+
             public Choice(PropSet set, GameObject prefab, float size, bool byWidth,
                           float low = JitterLow, float high = JitterHigh, bool canopy = false,
-                          float maxSpread = 0f, float sink = 0f, bool lifeSize = false)
+                          float maxSpread = 0f, float sink = 0f, bool lifeSize = false,
+                          float grow = 0f)
             {
                 Prefab = prefab;
                 ZUp = set != null && set.ZUp;
@@ -5604,6 +5778,7 @@ namespace TheVeil.View
                 MaxSpread = maxSpread;
                 Sink = sink;
                 LifeSize = lifeSize;
+                Grow = grow;
             }
         }
 
@@ -7930,6 +8105,8 @@ namespace TheVeil.View
                 ModelScaling.FitWithin(instance, size, size * choice.MaxSpread, groundY);
             else ModelScaling.Fit(instance, size, groundY);
 
+            Outgrown(instance, choice, groundY, true);
+
             // <b>And never deeper than half of what it came out as.</b>
             //
             // The sink handed in here is Seat's, which is a share of the size the prop was
@@ -8045,7 +8222,8 @@ namespace TheVeil.View
                     if (roll < 0.42f)
                         return Tree(decor.DeadTrees, rng, DeadTreeHeight * decor.TreeScale,
                                     DeadJitterLow, DeadJitterHigh,
-                                    sink: StumpSink, maxSpread: DeadTreeSpread);
+                                    sink: StumpSink, maxSpread: DeadTreeSpread,
+                                    grow: DeadTreeGrowth);
 
                     // What came off them. The share is taken out of the trunks' own and
                     // not from anything else, because that is where these models were:
@@ -8102,10 +8280,11 @@ namespace TheVeil.View
         /// <summary>A tree: the wide size spread a stand of them wants, and canopy rules.</summary>
         static Choice Tree(PropSet set, DeterministicRandom rng, float size,
                            float low = TreeJitterLow, float high = TreeJitterHigh,
-                           float sink = 0f, float maxSpread = 0f) =>
+                           float sink = 0f, float maxSpread = 0f, float grow = 0f) =>
             set != null && set.Any
                 ? new Choice(set, Any(set, rng), size, false, low, high, canopy: true,
-                             maxSpread: maxSpread, sink: sink > 0f ? sink : set.Sink)
+                             maxSpread: maxSpread, sink: sink > 0f ? sink : set.Sink,
+                             grow: grow)
                 : default;
 
         static GameObject Any(PropSet set, DeterministicRandom rng) =>

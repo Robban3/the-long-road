@@ -3175,11 +3175,17 @@ namespace TheVeil.Editor
                     "SM_Env_Rocks_Spikey_05", "SM_Env_Rocks_Spikey_06",
                     "SM_Env_Rock_Arch_Half_01", "SM_Env_Rock_Arch_Half_02"
                 }),
-                Load($"{SyntyGenericDir}/Environment", new[]
+                Load(DesertDir, new[]
                 {
-                    "SM_Gen_Env_Rock_03", "SM_Gen_Env_Rock_07", "SM_Gen_Env_Rock_09"
+                    "SM_Env_Rock_03", "SM_Env_Rock_05", "SM_Env_Rock_08", "SM_Env_Rock_14"
                 })));
 
+            // <b>All from the dry pack, and none from the generic one.</b> Scorched swaps
+            // one material - the dry pack's own triplanar stone - so a model from another
+            // pack goes through it untouched. Two generic dirt cliffs and three generic
+            // rocks stood in here and came out tan among a hundred blackened ones, which
+            // reads as the country having two kinds of stone in it for no reason. The dry
+            // pack draws sixteen cliff faces; there is no need to borrow.
             decor.Cliffs = Scorched(Mixed(
                 Load(DesertDir, new[]
                 {
@@ -3189,9 +3195,9 @@ namespace TheVeil.Editor
                     "SM_Env_Rocks_Spikes_Large_02", "SM_Env_Rocks_Spikes_Large_03",
                     "SM_Env_Rock_Arch_01"
                 }),
-                Load($"{SyntyGenericDir}/Environment", new[]
+                Load(DesertDir, new[]
                 {
-                    "SM_Gen_Env_Dirt_Cliff_03", "SM_Gen_Env_Dirt_Cliff_06"
+                    "SM_Env_Rock_Cliff_01", "SM_Env_Rock_Cliff_04", "SM_Env_Rock_Cliff_10"
                 })));
 
             decor.Shore = Scorched(Desert("SM_Env_Rock_Pebbles_02", "SM_Env_Rock_Pebbles_04",
@@ -4576,6 +4582,21 @@ namespace TheVeil.Editor
             // only bright thing.
             if (material.HasProperty("_ShallowColor"))
                 material.SetColor("_ShallowColor", new Color(0.52f, 0.34f, 0.10f, 0.95f));
+
+            // <b>And the foam, which was the white ring.</b> The shader lays a band of
+            // foam where the depth runs out, in the shade a river's bank froths - 0.86,
+            // 0.92, 0.94, which is as near white as makes no difference - and nothing here
+            // had ever set it. So every pool of molten sulphur in the country wore a bright
+            // white rim four tenths of its depth wide, brighter than the sulphur itself and
+            // visible from map height on all ten levels. The shallow colour was set dark to
+            // cure that ring and did not, because the ring was never the shallow colour.
+            //
+            // What is at the edge of molten sulphur is the crust it has cooled into: duller
+            // than the middle and the colour of old brimstone. And narrow, because a crust
+            // is a rim rather than a beach.
+            if (material.HasProperty("_FoamColor"))
+                material.SetColor("_FoamColor", new Color(0.56f, 0.40f, 0.13f, 1f));
+            if (material.HasProperty("_FoamWidth")) material.SetFloat("_FoamWidth", 0.12f);
 
             // Still. A pool of sulphur sits; it does not flow and it does not chop, and
             // the glitter is what says the surface is not solid.
