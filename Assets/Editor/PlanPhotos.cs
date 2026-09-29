@@ -1,4 +1,4 @@
-using TheVeil.App;
+﻿using TheVeil.App;
 using TheVeil.Gen;
 using TheVeil.Sim;
 using TheVeil.View;
@@ -70,16 +70,19 @@ namespace TheVeil.Editor
 
             if (wanted.Count == 0)
             {
-                // Every built chapter and the coast, which is the last chapter of the
-                // campaign rather than one of the built ones.
-                for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++)
+                // <b>Every chapter that has scenery of its own, from the one place that
+                // knows which they are.</b> This walked the run of built chapters and then
+                // added the coast by hand, which was the whole list on the day it was
+                // written and has not been since: the enchanted wood and the dead land are
+                // dressed out of order, so the plan map of the two newest countries in the
+                // game was the one picture nobody could take. See DifficultyCurve.Dressed,
+                // which exists for exactly this and which every other instrument here now
+                // walks.
+                foreach (int c in DifficultyCurve.Dressed)
                 {
                     wanted.Add((c, 1));
                     wanted.Add((c, Campaign.LevelsPerChapter));
                 }
-
-                wanted.Add((Biomes.LastChapter, 1));
-                wanted.Add((Biomes.LastChapter, Campaign.LevelsPerChapter));
             }
 
             foreach (var (chapter, level) in wanted)

@@ -1,4 +1,5 @@
-using System.Text;
+﻿using System.Text;
+using TheVeil.Sim;
 using TheVeil.View;
 using UnityEditor;
 using UnityEngine;
@@ -118,21 +119,25 @@ namespace TheVeil.Editor
             string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilSmoke");
             System.IO.Directory.CreateDirectory(shots);
 
+            // Every country, for the reason ScaleReport now walks them all: a trap sign is
+            // built out of whatever remains that country loads, and nine of the ten had
+            // never been asked whether theirs stands where it should.
+            foreach (int chapter in DifficultyCurve.Dressed)
             for (int level = 1; level <= 3; level++)
             {
-                var root = SmokeTest.Build(runner, 1, level, out _);
+                var root = SmokeTest.Build(runner, chapter, level, out _);
 
                 var remains = Remains(root.transform);
                 if (remains == null)
                 {
-                    Debug.Log($"[Trap] 1-{level}: no remains anywhere on the level");
+                    Debug.Log($"[Trap] {chapter}-{level}: no remains anywhere on the level");
                     Object.DestroyImmediate(root);
                     continue;
                 }
 
                 var box = ModelScaling.Measure(remains.gameObject);
 
-                Debug.Log($"[Trap] 1-{level}: {remains.name} "
+                Debug.Log($"[Trap] {chapter}-{level}: {remains.name} "
                           + $"{box.size.x:0.00} x {box.size.y:0.00} x {box.size.z:0.00} m "
                           + $"at {box.center.x:0}, {box.center.z:0}");
 
@@ -155,7 +160,24 @@ namespace TheVeil.Editor
         const float PlayHeight = 33f;
 
         /// <summary>The first bones standing on a level, wherever they ended up.</summary>
-        static Transform Remains(Transform at)
+        /// <summary>
+        /// What is standing at a trap site, whatever it happens to be made of.
+        ///
+        /// <b>This asked for bones by name and reported a fault where there was none.</b>
+        /// Nine countries out of ten mark a trap with remains and the tenth does not: the
+        /// enchanted wood marks them with something cut in stone, on purpose, because that
+        /// is what a warning is in a country with nobody left to leave a body. Asked for
+        /// skulls, the report said "no remains anywhere on the level" for all three of its
+        /// levels, which reads as a country with no traps signed at all.
+        ///
+        /// So it asks the marker instead. Signal is what the decorator puts on the thing it
+        /// raises at a trap site - see TerrainDecorator.Mark - and it is on the piece
+        /// whatever the piece is. The name is still printed, so a country that signs its
+        /// traps with a mushroom house still says so in one line.
+        /// </summary>
+        static Transform Remains(Transform at) => Bones(at) ?? Marked(at);
+
+        static Transform Bones(Transform at)
         {
             foreach (Transform child in at)
             {
@@ -163,7 +185,21 @@ namespace TheVeil.Editor
                     || child.name.Contains("Bone"))
                     return child;
 
-                var found = Remains(child);
+                var found = Bones(child);
+                if (found != null) return found;
+            }
+
+            return null;
+        }
+
+        /// <summary>Whatever the decorator marked as a trap sign, when it is not remains.</summary>
+        static Transform Marked(Transform at)
+        {
+            foreach (Transform child in at)
+            {
+                if (child.GetComponent<Signal>() != null) return child;
+
+                var found = Marked(child);
                 if (found != null) return found;
             }
 

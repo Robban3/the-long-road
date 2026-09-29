@@ -35,8 +35,17 @@ namespace TheVeil.Editor
     /// </summary>
     public static class BridgeReport
     {
-        /// <summary>Chapters measured. Three is the span the other reports cover.</summary>
-        const int Chapters = 3;
+        /// <summary>
+        /// Chapters measured: every one that has scenery of its own.
+        ///
+        /// <b>This said three, and gave as its reason that three is the span the other
+        /// reports cover.</b> That was true when it was written and has not been for a
+        /// long time: the reports walk DifficultyCurve.Dressed now, which is ten
+        /// countries, and nine of them have bridges. The one that does not is the desert,
+        /// whose water is an oasis - it reports nought crossings on every level, which is
+        /// the right answer and costs nothing to ask for.
+        /// </summary>
+        static System.Collections.Generic.IEnumerable<int> Chapters => DifficultyCurve.Dressed;
 
         /// <summary>
         /// Tiles of approach read back from the water when measuring the wander.
@@ -59,8 +68,12 @@ namespace TheVeil.Editor
             var spread = new int[Bands.Length + 1];
             int crossings = 0, crooked = 0, torn = 0, relaid = 0;
 
-            for (int chapter = 1; chapter <= Chapters; chapter++)
+            int countries = 0;
+
+            foreach (int chapter in Chapters)
             {
+                countries++;
+
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var map = LevelMaps.For(chapter, level);
@@ -123,7 +136,7 @@ namespace TheVeil.Editor
 
             if (crossings == 0) { Debug.Log("[Bridge] no crossings on any route"); return; }
 
-            sheet.AppendLine($"[Bridge] {crossings} crossings over {Chapters} chapters");
+            sheet.AppendLine($"[Bridge] {crossings} crossings over {countries} chapters");
             sheet.AppendLine($"[Bridge] drawn:   entry {drawnEntry / crossings:0.0}° "
                              + $"off-row {drawnStray / crossings:0.00} tiles");
             sheet.AppendLine($"[Bridge] squared: entry {squaredEntry / crossings:0.0}° "

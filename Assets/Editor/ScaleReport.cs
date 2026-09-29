@@ -1,6 +1,7 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text;
 using TheVeil.App;
+using TheVeil.Sim;
 using TheVeil.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -39,7 +40,22 @@ namespace TheVeil.Editor
         static readonly string[] Excused =
         {
             "Tree", "Pine", "Birch", "Palm", "Castle", "Tower", "Church", "Spire",
-            "Banner", "Flag", "Lampost", "Chimney", "Mast"
+            "Banner", "Flag", "Lampost", "Chimney", "Mast",
+
+            // <b>And two shapes the first wide run found, both of them right.</b>
+            //
+            // A waterfall hangs from the crown of the tor it comes over, not from the
+            // brink of the shelf - see TerrainDecorator, where that is done on purpose and
+            // written down - so on the mountain it is a four-metre sheet thirty-one metres
+            // long. The steepest water step on that level is 13.3 m and the rock above it
+            // is the rest: the fall is longer than its drop because it starts higher up.
+            //
+            // A crystal is a shard. The enchanted wood's stone is a cluster of them and
+            // being three times taller than it is wide is the whole of what makes it one.
+            // The same run found the fault beside it and that one was real: the apron
+            // fitted its stone to a width and nothing else, and these came out at
+            // thirty-one metres. They are capped at the apron's own wood now.
+            "WaterFall", "Crystal", "Shard"
         };
 
         [MenuItem("The Veil/Scale Report")]
@@ -54,9 +70,16 @@ namespace TheVeil.Editor
             var sheet = new StringBuilder();
             sheet.AppendLine("[Scale] anything built at a size it probably should not be");
 
+            // <b>Every country, not the first one.</b> This has looked at chapter one and
+            // nothing else since the day it was written, and its own note above says it
+            // exists because the same bug keeps coming back wearing a different prop - so
+            // for nine countries out of ten it has never been asked. The fault it was
+            // written for was found by hand in the fen and the wood last week: a stump
+            // fitted to a dead tree's height, twelve metres tall and thirteen across.
+            foreach (int chapter in DifficultyCurve.Dressed)
             for (int level = 1; level <= 10; level++)
             {
-                var root = SmokeTest.Build(runner, 1, level, out _);
+                var root = SmokeTest.Build(runner, chapter, level, out _);
 
                 var tall = new List<(string Name, Vector3 Size, Vector3 At)>();
                 Sweep(root.transform, tall);
@@ -65,7 +88,7 @@ namespace TheVeil.Editor
 
                 foreach (var thing in tall)
                 {
-                    sheet.AppendLine($"[Scale] 1-{level,-2} {thing.Name,-44} "
+                    sheet.AppendLine($"[Scale] {chapter}-{level,-2} {thing.Name,-44} "
                                      + $"{thing.Size.x,5:0.0} x {thing.Size.y,5:0.0} "
                                      + $"x {thing.Size.z,5:0.0} m "
                                      + $"at {thing.At.x:0}, {thing.At.z:0}");

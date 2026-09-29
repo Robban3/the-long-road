@@ -3384,21 +3384,38 @@ namespace TheVeil.Editor
 
             // <b>Standing stones, a gate and a sword.</b> Nine props in the meadow pack that
             // nothing had ever loaded, and every one of them says the same thing about this
-            // country: somebody was here and it was not recently. The runes mark the traps -
-            // a warning cut in stone rather than a skull on a pole - and the arch and the
-            // gate are what the wood is built round.
-            decor.Markers = MeadowProps("SM_Prop_StoneRunes_01", "SM_Prop_StoneRunes_02",
-                                        "SM_Prop_StoneRunes_03");
+            // country: somebody was here and it was not recently. Which of them goes in
+            // which set is decided by size rather than by meaning - see Ruins below, where
+            // a six-metre arch asked to stand in a four-metre lane built nothing at all.
 
-            decor.Ruins = Mixed(
-                Load($"{MeadowDir}/Props", new[]
-                {
-                    "SM_Prop_StoneArch_01", "SM_Prop_Stone_Hole_01", "SM_Prop_StoneStack_01",
-                    "SM_Prop_StoneStack_02", "SM_Prop_Sword_Stone_01", "SM_Prop_MushroomHouse_01",
-                    "SM_Prop_MushroomHouse_02"
-                }));
+            // <b>Stone only, because this set is what marks a trap.</b> The mushroom houses
+            // were in here and they are the worst thing that could be: every other country
+            // marks its traps with remains, this one marks them with something cut in
+            // stone, and a house says the opposite of a warning. The trap report found it
+            // the first run after it was taught to look at more than chapter one - three
+            // levels of the wood with no remains on them and a dwelling standing where the
+            // bones should be.
+            // <b>Small stone, because a trap sign stands in the road.</b> Ruins is what is
+            // raised at a trap site, life size and unscaled, and a trap is laid on a road:
+            // whatever goes here has to fit beside a lane with the escort walking past it.
+            // The arch and the stacks went in first and the census reported the whole set
+            // as loaded and never used - five models, ten levels, nothing standing - which
+            // is what a six-metre arch asked to stand in a four-metre lane comes to. The
+            // runes are a metre and a half and are the right thing anyway: a warning cut in
+            // stone, which is what this country has instead of bones.
+            decor.Ruins = MeadowProps("SM_Prop_StoneRunes_01", "SM_Prop_StoneRunes_02",
+                                      "SM_Prop_StoneRunes_03", "SM_Prop_Stone_Hole_01");
 
-            decor.Watchtowers = new PropSet();
+            // What somebody drove into the ground beside the trap, and there is only one
+            // thing it could be in a wood like this.
+            decor.Markers = MeadowProps("SM_Prop_Sword_Stone_01");
+
+            // And the big stone on the high ground with the houses, where this country's
+            // standing landmarks go. Somebody lives in a wood that has its own opinion
+            // about visitors; it is simply not anybody who keeps a road.
+            decor.Watchtowers = MeadowProps("SM_Prop_MushroomHouse_01", "SM_Prop_MushroomHouse_02",
+                                            "SM_Prop_StoneArch_01", "SM_Prop_StoneStack_01",
+                                            "SM_Prop_StoneStack_02");
 
             // <b>And the worn ground on the road, which is the one thing the palette does
             // not paint.</b> The road's colour is laid into the mesh, but the gravel and
@@ -3474,10 +3491,13 @@ namespace TheVeil.Editor
                 "FX_Aurora_Mesh_01", "FX_Aurora_Mesh_02"
             }));
 
-            // A candle in the dark at every camp: the raiders are the only thing here that
-            // lights a fire on purpose.
-            decor.Camps = Mixed(decor.Camps.Models,
-                                Load(GenericFX, new[] { "FX_Candle_Flame_01" }));
+            // <b>No candle, and the reason is worth keeping.</b> A camp is placed as a
+            // landmark - one draw from this set is the thing that stands there - so adding
+            // a flame to it does not light the tent, it replaces it: one camp in five would
+            // have been a flame on bare ground with nothing pitched at all, fitted to a
+            // tent's four metres and lifted again by the plan's legibility floor. The
+            // growth cap keeps it from being a six-metre candle; nothing keeps it from
+            // being the camp. Light at a camp needs a hook of its own and there is not one.
 
             // Nobody keeps a house in a wood that has its own opinion about visitors.
             // Settlements.Settled says so; these say the same to the decorator.
@@ -4903,7 +4923,18 @@ namespace TheVeil.Editor
         /// </summary>
         static BiomeDecor WithoutSkyline(BiomeDecor decor)
         {
-            if (decor != null) decor.Horizon = new PropSet();
+            if (decor == null) return decor;
+
+            decor.Horizon = new PropSet();
+
+            // <b>And nothing hung in the air either, for the same reason and more so.</b>
+            // The skyline is drawn beyond the edge of the world to close a level in, and a
+            // plan is read from straight above where there is no horizon to close. The
+            // enchanted wood hangs three aurora ribbons ninety metres over the country and
+            // scales them to five times: on the run they are the sky, and on a map looked
+            // down on from above them they are a sheet between the reader and the map.
+            decor.Aloft = new PropSet();
+
             return decor;
         }
 

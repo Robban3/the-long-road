@@ -4033,12 +4033,22 @@ namespace TheVeil.View
 
                 if (stone)
                 {
-                    var box = ModelScaling.Measure(instance);
-                    float wide = Mathf.Max(box.size.x, box.size.z);
-                    if (wide > 0.01f)
-                        instance.transform.localScale *= BoulderWidth * rng.Range(0.9f, 2.2f) / wide;
+                    // <b>Across, but not past the wood beside it.</b> This scaled to a
+                    // width and nothing else, which is right for a boulder - a boulder is a
+                    // wide low thing and its height follows - and wrong for anything drawn
+                    // tall. The enchanted wood's stone is a cluster of crystal shards, four
+                    // metres across and twelve high in its own file, so fitted to eleven
+                    // metres across it came out at thirty-one metres tall: a hundred and
+                    // forty-one of them round the rim of that country, each one twice the
+                    // height of the tallest tree on the map. Reported by ScaleReport the
+                    // first run after it was taught to look at more than chapter one.
+                    //
+                    // The cap is the apron's own wood, because that is what these stand
+                    // among and what they are read against.
+                    ModelScaling.FitWithin(instance, PineHeight * TreeJitterHigh,
+                                           BoulderWidth * rng.Range(0.9f, 2.2f), groundY);
 
-                    box = ModelScaling.Measure(instance);
+                    var box = ModelScaling.Measure(instance);
                     instance.transform.position += new Vector3(0f, groundY - box.min.y - ApronStoneSink, 0f);
                 }
                 else
@@ -5827,9 +5837,23 @@ namespace TheVeil.View
                 // in, so a refusal does not leave a reservation on empty ground or a
                 // landmark on the plan that nobody built. The order used to be the other
                 // way because Place could not fail.
-                if (Place(parent, grid, i, rng, choice, heightScale, occupied,
-                          sink: Seat(grid, i, heightScale, choice.Size)) == null)
-                    continue;
+                var raised = Place(parent, grid, i, rng, choice, heightScale, occupied,
+                                   sink: Seat(grid, i, heightScale, choice.Size));
+                if (raised == null) continue;
+
+                // <b>And not with its body in the lane.</b> The loop above keeps a landmark
+                // off tiles the road runs through, which is the tile it stands on and
+                // nothing else - the same fault Raise was written to cure for the
+                // watchtower, still sitting in the path beside it. It never bit because
+                // until today nothing in these sets was wide enough to overhang a lane from
+                // the tile next to it: the enchanted wood's stone arch is six metres across,
+                // and the smoke test reported it on 8-7 the first run after it was loaded.
+                //
+                // Refused rather than unsolid. A trap sign in the lane keeps standing and
+                // loses its disc, because the sign is meant to be where the trap is; a
+                // piece of scenery has no business there at all, and there is always
+                // another tile.
+                if (Barring(grid, _road, raised)) { Unbuild(raised); continue; }
 
                 Landmark.Note(found, kind, i);
                 occupied.Add(i);
@@ -6036,6 +6060,22 @@ namespace TheVeil.View
                                              byWidth: true, lifeSize: true),
                                   heightScale, occupied, sink: 0f));
             if (main == null) return 0;
+
+            // <b>And spared from the sweep that exists to protect it.</b> SweepTheBones
+            // clears anything over a metre and a half standing within reach of a site, so
+            // that the heap it is guarding can be seen from the camera - and the site's own
+            // prop stands at the middle of that circle. It got away with it for nine
+            // countries because in all nine the thing standing there is remains, and
+            // remains are half a metre lying down: under the height the sweep asks about,
+            // so never looked at.
+            //
+            // The enchanted wood marks its traps with a rune stone instead. Measured: every
+            // one of them was placed and every one was gone by the time the level finished
+            // - twenty across two levels - and the census reported the whole set as loaded
+            // and never used. It is the third time in this project that a signal has been
+            // swept away by its own protector; the wagon and the banner are both on this
+            // list already, two screens down, for the same reason.
+            _trapWrecks.Add(main);
 
             // <b>And nothing solid where the warning stands on the road.</b> A trap sign
             // is put beside its trap and traps are laid on the roads, so the sign lands in

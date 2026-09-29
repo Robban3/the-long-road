@@ -43,7 +43,14 @@ namespace TheVeil.Editor
             var sheet = new StringBuilder();
             sheet.AppendLine("[Castle] the castle on the goal, per chapter");
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            // <b>Every country that has scenery, not the run of built ones.</b> A castle is
+            // raised out of whichever kit the country loads and stands on the goal of its
+            // tenth level, so a country dressed out of order has a castle nobody has
+            // looked at: the dead land's is built of 252 pieces and the enchanted wood's
+            // out of a kit that was never chosen with a keep in mind. BuiltChapters is
+            // about which chapters are tuned to be played; Dressed is about which ones
+            // have something to photograph, and this is a photographer.
+            foreach (int chapter in DifficultyCurve.Dressed)
             {
                 int level = Campaign.LevelsPerChapter;
                 var root = SmokeTest.Build(runner, chapter, level, out var map);
