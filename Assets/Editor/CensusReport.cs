@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using TheVeil.App;
 using TheVeil.Sim;
 using TheVeil.View;
@@ -35,12 +35,25 @@ namespace TheVeil.Editor
     public static class CensusReport
     {
         /// <summary>Sets that are meant to be empty on most countries, so a nought is no news.</summary>
+        // <b>And they are not named in the per-chapter line either.</b> They were: the
+        // fault line was suppressed and the summary still printed "2 with nothing built
+        // (Signs, Monuments)" for eight countries in a row, which reads as eight faults
+        // however carefully the fault lines are filtered. It was read that way, and a
+        // morning went on asking why no country in the game raises a monument. Every
+        // country but one does not raise a monument because there is one town in the game
+        // - chapter one, level eight, Towns.Chapter and Towns.Level - and chapter one
+        // raises one, which this report says two lines above in its own thin list.
+        //
+        // An instrument that cries wolf is worse than no instrument: it is the only kind
+        // that costs time rather than saving it. So the quiet ones are counted apart and
+        // said to be quiet.
         static readonly HashSet<string> Quiet = new HashSet<string>
         {
             // Only the coast has a sea to put these on, and only its last level a harbour.
             "Jetty", "Ship", "Boats",
 
-            // Only a town has streets to furnish and a plan to build from.
+            // Only a town has streets to furnish and a plan to build from, and there is
+            // one town in the game. See Towns.Chapter.
             "Street", "Signs", "Paving", "Monuments",
 
             // Only a country with rock passes stands faces on them.
@@ -124,18 +137,17 @@ namespace TheVeil.Editor
                 }
 
                 var never = new List<string>();
+                var quiet = new List<string>();
                 var rare = new List<string>();
 
                 foreach (string set in sets)
                 {
-                    if (standing[set] == 0) never.Add(set);
+                    if (standing[set] == 0) (Quiet.Contains(set) ? quiet : never).Add(set);
                     else if (standing[set] <= Campaign.LevelsPerChapter) rare.Add(set + " x" + standing[set]);
                 }
 
                 foreach (string set in never)
                 {
-                    if (Quiet.Contains(set)) continue;
-
                     empty++;
                     Debug.Log($"[Census] {chapter} ({biome}): {set} has models loaded and nothing "
                               + "standing on any of its ten levels.");
@@ -146,6 +158,7 @@ namespace TheVeil.Editor
                 Debug.Log($"[Census] {chapter} ({biome}): {sets.Count} set(s) filled, "
                           + $"{never.Count} with nothing built"
                           + (never.Count > 0 ? " (" + string.Join(", ", never) + ")" : "")
+                          + (quiet.Count > 0 ? $", {quiet.Count} quiet by design" : "")
                           + (rare.Count > 0 ? ", thin: " + string.Join(", ", rare) : "") + ".");
             }
 

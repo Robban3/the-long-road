@@ -2386,6 +2386,37 @@ namespace TheVeil.Editor
         const string DeadPrefabDir = "Assets/_Project/Prefabs/Dead";
 
         /// <summary>
+        /// The dry pack's sulphur, gone cold.
+        ///
+        /// One swap, the same shape as <see cref="Scorched"/>: the blobs wear the dry
+        /// pack's second atlas colourway, which is its brimstone yellow, and they are
+        /// given the pack's own cooled lava rock instead. Only the set handed in is
+        /// repainted, so the blobs that sit at the rim of a hollow keep their yellow -
+        /// there they are crust on ash and the colour is the point.
+        /// </summary>
+        static PropSet Crusted(PropSet set)
+        {
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+
+            var brimstone = AssetDatabase.LoadAssetAtPath<Material>(
+                $"{DesertMaterials}/Alts/PolygonNatureBiomes_AridDesert_Mat_02_A.mat");
+            var cold = AssetDatabase.LoadAssetAtPath<Material>($"{DesertMaterials}/Lavarock_mat.mat");
+
+            if (brimstone != null && cold != null) swaps[brimstone] = cold;
+
+            if (swaps.Count == 0 || set == null || !set.Any) return set;
+
+            var models = new System.Collections.Generic.List<GameObject>();
+            foreach (var model in set.Models)
+            {
+                var crust = Repainted(model, swaps, "Crust", DeadPrefabDir);
+                if (crust != null) models.Add(crust);
+            }
+
+            return new PropSet(false, models.ToArray());
+        }
+
+        /// <summary>
         /// The dry pack's stone, blackened.
         ///
         /// <b>Every rock in that pack wears one material.</b> Rock_Triplanar_01, on the
@@ -3136,8 +3167,16 @@ namespace TheVeil.Editor
             // And the crust out on the open sulphur, floating the way a lily pad floats:
             // a pool of one flat colour is a hole cut in the map, and these are what break
             // it up.
-            decor.Lilypads = Desert("SM_Env_Sulphur_Blob_01", "SM_Env_Sulphur_Blob_02",
-                                    "SM_Env_Sulphur_Blob_03");
+            //
+            // <b>In cooled lava rock, not in brimstone.</b> The pack draws its sulphur
+            // blobs in its own yellow-green, which is right for the thing they are and
+            // right where they sit at the rim of a hollow on grey ash. Out on the molten
+            // sheet they are a yellow-green speck on orange, and a dozen of them to a pool
+            // read as scum floating on it rather than as anything that belongs. What forms
+            // on the surface of something molten is the same stuff gone cold and black,
+            // and the pack ships that material two folders up. See Crusted.
+            decor.Lilypads = Crusted(Desert("SM_Env_Sulphur_Blob_01", "SM_Env_Sulphur_Blob_02",
+                                            "SM_Env_Sulphur_Blob_03"));
 
             decor.GroundPatches = Mixed(
                 Load(DesertDir, new[]
