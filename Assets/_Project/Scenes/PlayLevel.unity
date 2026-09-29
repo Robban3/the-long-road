@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &844087396
+--- !u!1 &737614264
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,10 +127,190 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 844087400}
-  - component: {fileID: 844087399}
-  - component: {fileID: 844087398}
-  - component: {fileID: 844087397}
+  - component: {fileID: 737614266}
+  - component: {fileID: 737614265}
+  m_Layer: 0
+  m_Name: Main Camera
+  m_TagString: MainCamera
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!20 &737614265
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 737614264}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.62, g: 0.75, b: 0.85, a: 1}
+  m_projectionMatrixMode: 1
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_Iso: 200
+  m_ShutterSpeed: 0.005
+  m_Aperture: 16
+  m_FocusDistance: 10
+  m_FocalLength: 50
+  m_BladeCount: 5
+  m_Curvature: {x: 2, y: 11}
+  m_BarrelClipping: 0.25
+  m_Anamorphism: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.5
+  far clip plane: 900
+  field of view: 50
+  orthographic: 0
+  orthographic size: 5
+  m_Depth: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingPath: -1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 1
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!4 &737614266
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 737614264}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.46174863, y: 0, z: 0, w: 0.8870109}
+  m_LocalPosition: {x: 128, y: 327.6608, z: -101.43057}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1007865493
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1007865495}
+  - component: {fileID: 1007865494}
+  m_Layer: 0
+  m_Name: Directional Light
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!108 &1007865494
+Light:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1007865493}
+  m_Enabled: 1
+  serializedVersion: 12
+  m_Type: 1
+  m_Color: {r: 1, g: 0.96, b: 0.88, a: 1}
+  m_Intensity: 1
+  m_Range: 10
+  m_SpotAngle: 30
+  m_InnerSpotAngle: 21.80208
+  m_CookieSize2D: {x: 0.5, y: 0.5}
+  m_Shadows:
+    m_Type: 2
+    m_Resolution: -1
+    m_CustomResolution: -1
+    m_Strength: 0.7
+    m_Bias: 0.03
+    m_NormalBias: 0.15
+    m_NearPlane: 0.2
+    m_CullingMatrixOverride:
+      e00: 1
+      e01: 0
+      e02: 0
+      e03: 0
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    m_UseCullingMatrixOverride: 0
+  m_Cookie: {fileID: 0}
+  m_DrawHalo: 0
+  m_Flare: {fileID: 0}
+  m_RenderMode: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingLayerMask: 1
+  m_Lightmapping: 4
+  m_LightShadowCasterMode: 0
+  m_AreaSize: {x: 1, y: 1}
+  m_BounceIntensity: 1
+  m_ColorTemperature: 6570
+  m_UseColorTemperature: 0
+  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_UseBoundingSphereOverride: 0
+  m_UseViewFrustumForShadowCasterCull: 1
+  m_ForceVisible: 0
+  m_ShadowRadius: 0
+  m_ShadowAngle: 0
+  m_LightUnit: 1
+  m_LuxAtDistance: 1
+  m_EnableSpotReflector: 1
+--- !u!4 &1007865495
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1007865493}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.29261872, y: -0.41448808, z: 0.14271969, w: 0.8498265}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2146454970
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2146454974}
+  - component: {fileID: 2146454973}
+  - component: {fileID: 2146454972}
+  - component: {fileID: 2146454971}
   m_Layer: 0
   m_Name: LevelRunner
   m_TagString: Untagged
@@ -138,13 +318,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &844087397
+--- !u!114 &2146454971
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 844087396}
+  m_GameObject: {fileID: 2146454970}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 276efe23f9c34824fba91cdb7a5337e1, type: 3}
@@ -5344,6 +5524,604 @@ MonoBehaviour:
     FogColor: {r: 0.76, g: 0.86, b: 0.92, a: 1}
     FogDensity: 0.0024
     SkyColor: {r: 0.62, g: 0.8, b: 0.9, a: 1}
+  - Biome: 9
+    Decor:
+      Pines:
+        Models:
+        - {fileID: 1560461424881576, guid: 11d0d688b29309541acbbbf9497b8b78, type: 3}
+        - {fileID: 7768758295742766608, guid: 183e64748acff7d4889d1836cb303ca5, type: 3}
+        - {fileID: 5162523033389567373, guid: f7efb658b10cbe14c9fbd0e5ae4b8a1a, type: 3}
+        ZUp: 0
+        Sink: 0
+      Trees:
+        Models:
+        - {fileID: 1814190282122440, guid: 33247b6aefb946246bc9f0c7346b4364, type: 3}
+        - {fileID: 1844642596526496, guid: f597615a8abb43c40be4c01539ceb80b, type: 3}
+        - {fileID: 1814772297973644, guid: 7b324b148b509104cb0f42a02b6b4b78, type: 3}
+        - {fileID: 1832163050889860, guid: c6437f01ea9e6154f8bee15a6eec78d8, type: 3}
+        - {fileID: 1467718062152118, guid: 7df36f4afc1dd884e81156cd2cb6545d, type: 3}
+        - {fileID: 5965284952787518018, guid: 57568ffb4135a5d4bbe66802d0c9519b, type: 3}
+        - {fileID: 5162523033389567373, guid: f7efb658b10cbe14c9fbd0e5ae4b8a1a, type: 3}
+        - {fileID: 6443395740361465152, guid: 7b82e04a27c74dc41b25b85279da1a13, type: 3}
+        - {fileID: 7527004103962423645, guid: 5ee5b0b0211fbca44807db7e785feb3e, type: 3}
+        - {fileID: 7989243879905098700, guid: e13d1e297156f4544ab94d99144112c0, type: 3}
+        ZUp: 0
+        Sink: 0
+      Birch:
+        Models:
+        - {fileID: 5965284952787518018, guid: 57568ffb4135a5d4bbe66802d0c9519b, type: 3}
+        - {fileID: 6443395740361465152, guid: 7b82e04a27c74dc41b25b85279da1a13, type: 3}
+        - {fileID: 1832163050889860, guid: c6437f01ea9e6154f8bee15a6eec78d8, type: 3}
+        ZUp: 0
+        Sink: 0
+      DeadTrees:
+        Models:
+        - {fileID: 1814190282122440, guid: 33247b6aefb946246bc9f0c7346b4364, type: 3}
+        - {fileID: 1844642596526496, guid: f597615a8abb43c40be4c01539ceb80b, type: 3}
+        - {fileID: 1814772297973644, guid: 7b324b148b509104cb0f42a02b6b4b78, type: 3}
+        - {fileID: 1832163050889860, guid: c6437f01ea9e6154f8bee15a6eec78d8, type: 3}
+        - {fileID: 1467718062152118, guid: 7df36f4afc1dd884e81156cd2cb6545d, type: 3}
+        - {fileID: 5965284952787518018, guid: 57568ffb4135a5d4bbe66802d0c9519b, type: 3}
+        - {fileID: 5162523033389567373, guid: f7efb658b10cbe14c9fbd0e5ae4b8a1a, type: 3}
+        - {fileID: 6443395740361465152, guid: 7b82e04a27c74dc41b25b85279da1a13, type: 3}
+        - {fileID: 7527004103962423645, guid: 5ee5b0b0211fbca44807db7e785feb3e, type: 3}
+        - {fileID: 7989243879905098700, guid: e13d1e297156f4544ab94d99144112c0, type: 3}
+        ZUp: 0
+        Sink: 0
+      Deadfall:
+        Models:
+        - {fileID: 1209787234085090, guid: e4d35fc487ff62e45b34ae45f80c88fc, type: 3}
+        - {fileID: 1609270425926636, guid: 9020d2933ec6c0544965ea4b12952c42, type: 3}
+        - {fileID: 1436310706135902, guid: d490d5805a8f22c449470acc5c2bbf6f, type: 3}
+        - {fileID: 305176673228003762, guid: 76367a35439ddea4ab1bdce14f7df589, type: 3}
+        - {fileID: 2403493241316482311, guid: ddddc64f0c6bcde43abfa8e6a264eac1, type: 3}
+        - {fileID: 3653305716081345845, guid: 8540091d29a8fea4c844833489cdde1d, type: 3}
+        - {fileID: 5214136098663067094, guid: 82f6e1b4eb6ad0b4cbaf496de554b41b, type: 3}
+        - {fileID: 5892774573051132113, guid: a8754bbee6c4ec04893daa497beb69b4, type: 3}
+        ZUp: 0
+        Sink: 0.06
+      Bushes:
+        Models:
+        - {fileID: 7981683180703600888, guid: 73720d9b23e3ec64c9793e19cd156deb, type: 3}
+        - {fileID: 2330224866814680218, guid: 8311d3cbddcc7a244828e5ffc71a64b4, type: 3}
+        - {fileID: 2403493241316482311, guid: ddddc64f0c6bcde43abfa8e6a264eac1, type: 3}
+        - {fileID: 3653305716081345845, guid: 8540091d29a8fea4c844833489cdde1d, type: 3}
+        - {fileID: 7803592360295843284, guid: b7c758d6e67b0c047a67ddd2f5ef0022, type: 3}
+        ZUp: 0
+        Sink: 0
+      MarshPlants:
+        Models:
+        - {fileID: 4000943365394186376, guid: 2bad01dceacf4db45b43ab49cc3afc3a, type: 3}
+        - {fileID: 6047929295971777299, guid: 9bafcfc8c4e1a294f8cef1c8265321e3, type: 3}
+        - {fileID: 8890705703133905841, guid: 176337897f0008940817c9e98aeabc4b, type: 3}
+        - {fileID: 2330224866814680218, guid: 8311d3cbddcc7a244828e5ffc71a64b4, type: 3}
+        - {fileID: 8429375587787154361, guid: 1701b13a21c3cee4abfdc7cf68253a01, type: 3}
+        - {fileID: 3653305716081345845, guid: 8540091d29a8fea4c844833489cdde1d, type: 3}
+        ZUp: 0
+        Sink: 0
+      Lilypads:
+        Models:
+        - {fileID: 4000943365394186376, guid: 2bad01dceacf4db45b43ab49cc3afc3a, type: 3}
+        - {fileID: 6047929295971777299, guid: 9bafcfc8c4e1a294f8cef1c8265321e3, type: 3}
+        - {fileID: 8890705703133905841, guid: 176337897f0008940817c9e98aeabc4b, type: 3}
+        ZUp: 0
+        Sink: 0
+      Rocks:
+        Models:
+        - {fileID: 8164262396516916299, guid: 3ab655bab1e9908428e933a146c2489e, type: 3}
+        - {fileID: 7292683905562417561, guid: 20417b0d7524eaf4492f53d9a514ec14, type: 3}
+        - {fileID: 513722503703642027, guid: ad973fd2f4ee16344950d4edc9f7ca90, type: 3}
+        - {fileID: 1807565480410942900, guid: df492eaf6e23a2648b3d9b51f8eca438, type: 3}
+        - {fileID: 2276302604346444757, guid: dd6f1b6199f3b9e4380a2a62f73bc2d9, type: 3}
+        - {fileID: 4079753696574878811, guid: 64ce0e0d0a353ca478bdade77625fd23, type: 3}
+        - {fileID: 1470841279682320202, guid: 680922c39ba09dc438f55de5a33efa06, type: 3}
+        - {fileID: 8330475300376051175, guid: 3212a44a1a1247849bcf7a9121bf3bac, type: 3}
+        - {fileID: 6092824236885029434, guid: d9b08ee4ea3098d42bbdf1fc3890de80, type: 3}
+        - {fileID: 8969115010925458867, guid: c2ba8a5ba1454de41924e66cb9e0cac7, type: 3}
+        - {fileID: 1742916103486875182, guid: a89e0bfc8164749439d224c9456659b7, type: 3}
+        - {fileID: 1672312173710444004, guid: 97d464fc8967ad84a9545bab07c601be, type: 3}
+        - {fileID: 3929983854930496461, guid: 8f48bd45bb718e1469d1ad24847b542b, type: 3}
+        ZUp: 0
+        Sink: 0
+      Boulders:
+        Models:
+        - {fileID: 6496263549477057957, guid: 346f719584ff6fc418e43accc67c6cc3, type: 3}
+        - {fileID: 2485924182070273508, guid: 621876c9369a39041ba8474afbae1b4f, type: 3}
+        - {fileID: 4835069672965491747, guid: beec13a16a5319843bf85e73f12476dc, type: 3}
+        - {fileID: 8703389913288469442, guid: 6cb2ddfa1f3f24545924c2f636f6a0b9, type: 3}
+        - {fileID: 3102876211546088637, guid: 6fdbab46308626244b09a1f66ed3d379, type: 3}
+        - {fileID: 6517943421479465048, guid: 00dd2408cd7d4514db0d12c6bfa9278c, type: 3}
+        - {fileID: 902113902446382661, guid: 81e50feb6d451354ab012ebecd6b9400, type: 3}
+        - {fileID: 5744265148156722991, guid: cd6acf96031d33841b1a0b076d063816, type: 3}
+        - {fileID: 4102858152435012091, guid: fec999c521dae3a4c9c0b4295d4c1c82, type: 3}
+        - {fileID: 7599890770847898731, guid: dcbf329d2a0782a4a9f5fddd4a0cbc3f, type: 3}
+        - {fileID: 5227868066494055076, guid: b4ef9590dcb92dc4b9f9e70c9e9961c5, type: 3}
+        - {fileID: 7157318269663286703, guid: 1255d28d6d2fb4f4996e12cc1e602524, type: 3}
+        - {fileID: 5434921735311000566, guid: dcaf966b4efa7514491b689893baaf66, type: 3}
+        - {fileID: 3801820609277020942, guid: a1c9a7c07d8c8e844aa7b543357c2ec2, type: 3}
+        - {fileID: 7211606713778384998, guid: cc46b771562eb3e4793292607fc3f72b, type: 3}
+        - {fileID: 6509933743064751742, guid: 46e026a974292cb479015cc7012d91ab, type: 3}
+        - {fileID: 7001493443700725908, guid: dba3a83229940fb4aa5dc5b215b125bd, type: 3}
+        ZUp: 0
+        Sink: 0
+      Horizon:
+        Models:
+        - {fileID: 6921211154097123855, guid: 8de936dd6b78d5d409ee63fa6cb9d111, type: 3}
+        - {fileID: 5241155177657573427, guid: 8db7fb9a4699fed48bace58149fb4a94, type: 3}
+        - {fileID: 4983035113476453446, guid: 3eda1addee13da0429277deb352fc600, type: 3}
+        ZUp: 0
+        Sink: 0
+      GroundCover:
+        Models:
+        - {fileID: 7981683180703600888, guid: 73720d9b23e3ec64c9793e19cd156deb, type: 3}
+        - {fileID: 2330224866814680218, guid: 8311d3cbddcc7a244828e5ffc71a64b4, type: 3}
+        - {fileID: 6850435770556105135, guid: 66d4f7c006b77084da3929add6d06f24, type: 3}
+        - {fileID: 8217716403657413284, guid: 9df62898e2ddbbd4b9df38751d895ba0, type: 3}
+        - {fileID: 2228577410674145885, guid: 60f4a106a979f784e8c8b8f879ac41e3, type: 3}
+        - {fileID: 305176673228003762, guid: 76367a35439ddea4ab1bdce14f7df589, type: 3}
+        - {fileID: 7956564297462634136, guid: b7550af82cd646d4bb442582afac3ffd, type: 3}
+        - {fileID: 2403493241316482311, guid: ddddc64f0c6bcde43abfa8e6a264eac1, type: 3}
+        ZUp: 0
+        Sink: 0
+      GroundPatches:
+        Models:
+        - {fileID: 6850435770556105135, guid: 66d4f7c006b77084da3929add6d06f24, type: 3}
+        - {fileID: 2228577410674145885, guid: 60f4a106a979f784e8c8b8f879ac41e3, type: 3}
+        - {fileID: 1588082297837222664, guid: 347394f6e8a33f24fa9e4c5a7a12dd35, type: 3}
+        - {fileID: 5388214276094364910, guid: 41a52686721349748946e63dfcf775e0, type: 3}
+        - {fileID: 8890560095366816334, guid: b29f790137fbc384492d6fa83ec92f54, type: 3}
+        ZUp: 0
+        Sink: 0
+      Flowers:
+        Models:
+        - {fileID: 4168235972698704609, guid: a29bb4ac881c18d4dbfda67c2ff21091, type: 3}
+        - {fileID: 8217716403657413284, guid: 9df62898e2ddbbd4b9df38751d895ba0, type: 3}
+        - {fileID: 7981683180703600888, guid: 73720d9b23e3ec64c9793e19cd156deb, type: 3}
+        - {fileID: 5575276299214672636, guid: 7e3d9b88013f8a0418b948e14454b577, type: 3}
+        ZUp: 0
+        Sink: 0
+      Mats:
+        Models:
+        - {fileID: 3890554199827564479, guid: 5f13adf1020d9d3428e681e3b4de11ff, type: 3}
+        - {fileID: 5388214276094364910, guid: 41a52686721349748946e63dfcf775e0, type: 3}
+        - {fileID: 8890560095366816334, guid: b29f790137fbc384492d6fa83ec92f54, type: 3}
+        - {fileID: 52144190322191893, guid: c7291645b957c444b8e4bfc1d41aaf80, type: 3}
+        - {fileID: 6850435770556105135, guid: 66d4f7c006b77084da3929add6d06f24, type: 3}
+        - {fileID: 8217716403657413284, guid: 9df62898e2ddbbd4b9df38751d895ba0, type: 3}
+        - {fileID: 2228577410674145885, guid: 60f4a106a979f784e8c8b8f879ac41e3, type: 3}
+        ZUp: 0
+        Sink: 0
+      Mounds:
+        Models:
+        - {fileID: 4000943365394186376, guid: 2bad01dceacf4db45b43ab49cc3afc3a, type: 3}
+        - {fileID: 6047929295971777299, guid: 9bafcfc8c4e1a294f8cef1c8265321e3, type: 3}
+        - {fileID: 8890705703133905841, guid: 176337897f0008940817c9e98aeabc4b, type: 3}
+        - {fileID: 5025898058596550586, guid: 670ffc644dc5458448804f5cf7aebd3b, type: 3}
+        - {fileID: 8665566002849920354, guid: 609d8787319c47444b3713322dd1abf2, type: 3}
+        - {fileID: 4534759057546812809, guid: f3ab8793d314fa84793c1c2086c914df, type: 3}
+        - {fileID: 3631072791655706503, guid: 8383d02ca00f85047b392ab7c242a360, type: 3}
+        - {fileID: 6597821364731231684, guid: 1649a4e629b575d458a0b13e637a7468, type: 3}
+        - {fileID: 5033407487733322225, guid: 10f66a4b483f36649a051b2be318366c, type: 3}
+        - {fileID: 7692969400611222784, guid: 059bbcf6c7e6ef346b58b1792aef99c1, type: 3}
+        - {fileID: 9164499003836634395, guid: 1c4faf0bf3b330a438f461e5e093c422, type: 3}
+        - {fileID: 3925971017226929698, guid: 3e2502f01f961b240a8a6c572be3bcf3, type: 3}
+        - {fileID: 50631401841075563, guid: c669b4fac71e5fc44a29d853dbd8a9f6, type: 3}
+        - {fileID: 675512647728000602, guid: aa4e5f944cc601d4b94bd9a289eed5fd, type: 3}
+        - {fileID: 2694566669582941673, guid: 1108c1b1697c5eb4c81c60ef19526733, type: 3}
+        - {fileID: 2602451029321741735, guid: 990c058d8fcd8f34daa3a02cf5253bf2, type: 3}
+        - {fileID: 2454471806871614816, guid: 963561d19150b1743989c13f99f159aa, type: 3}
+        - {fileID: 3890554199827564479, guid: 5f13adf1020d9d3428e681e3b4de11ff, type: 3}
+        ZUp: 0
+        Sink: 0
+      TreeScale: 1
+      Fauna:
+        Models:
+        - {fileID: 6305617143920761144, guid: 349bbe3d6d45fad46bfbdc6f21b9229e, type: 3}
+        - {fileID: 6139835171205169125, guid: b2033490d650190419d80167c3d0d5c0, type: 3}
+        - {fileID: 42389551646207292, guid: 37750c01484d3e7459a6c9102dc745e4, type: 3}
+        ZUp: 0
+        Sink: 0
+      Houses:
+        Models:
+        - {fileID: 148764, guid: fd4bfd190fdf71945b39f635e2671b97, type: 3}
+        - {fileID: 2353317757980482398, guid: 763a6e5ba7a00d84b88c731a56e89571, type: 3}
+        ZUp: 0
+        Sink: 0
+      Farms:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Watchtowers:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Timber:
+        Models:
+        - {fileID: 1552408322253738, guid: c104bd949dbb87644ab3fe86ab934293, type: 3}
+        - {fileID: 1357747242490952, guid: d8ab54d35fe81704b8af3b42616763a2, type: 3}
+        - {fileID: 1939049381513534, guid: fa52ff58096048c4db727a636561983f, type: 3}
+        - {fileID: 1449376034317114, guid: 679138ede056eb542b9629948780ee84, type: 3}
+        - {fileID: 7170295694990207602, guid: 4425216ae0e345c43adc010abcdd90f1, type: 3}
+        - {fileID: 7196810933511123041, guid: 29cecbe5f22b8f248abca9b49e8fe3ef, type: 3}
+        - {fileID: 5329577460968038239, guid: 38d257c588f863747bd31ff57651e099, type: 3}
+        - {fileID: 2400259571468678574, guid: 105ee0fcfe6e65241868107adc888524, type: 3}
+        - {fileID: 7054676556780264874, guid: b0fbe07c113844c4cadadde1cc036cec, type: 3}
+        - {fileID: 9014757909462221929, guid: 019953b178c48834aa12b5ec5ebc937d, type: 3}
+        ZUp: 0
+        Sink: 0
+      Kit:
+        Foundations:
+          Models:
+          - {fileID: 180184, guid: 1d4405cf69adec64a97df561b9f3661a, type: 3}
+          - {fileID: 157484, guid: 2065fe8f26032bf4e9694fa0f198c147, type: 3}
+          - {fileID: 184438, guid: 4cecd3ee2e6a59e42b606f8b165f43b2, type: 3}
+          - {fileID: 100108, guid: 8c4ffe1cdf6340143be5ddb96c2c0c5b, type: 3}
+          - {fileID: 100002, guid: 718ea5c67c197f54f8b02a9e57c8d21e, type: 3}
+          - {fileID: 177110, guid: 27e4689e1c1d6f84da2be4e3b00213dd, type: 3}
+          - {fileID: 152466, guid: 46446b93c123716498506636ebe9ef68, type: 3}
+          ZUp: 0
+          Sink: 0
+        Rooms:
+          Models:
+          - {fileID: 171434, guid: b8a7b28b67598a4408bdfe6ccf005ea4, type: 3}
+          - {fileID: 193714, guid: 53a1fad510b98f74c96763872cbd652f, type: 3}
+          - {fileID: 105206, guid: a0b4df2d799cca846a033244653040d1, type: 3}
+          - {fileID: 111328, guid: 6552478e29ecebe4b9fa6b4e41f43a81, type: 3}
+          - {fileID: 163086, guid: aeef915f0e0e8704fb1059fb67fb44d2, type: 3}
+          - {fileID: 189980, guid: 7b4a57ebbd1f0564d95d520ab4703141, type: 3}
+          - {fileID: 152740, guid: 75998fa152c866249b63168bfc7703f5, type: 3}
+          ZUp: 0
+          Sink: 0
+        UpperRooms:
+          Models:
+          - {fileID: 161898, guid: af056f47e8a2c444ea2536d3bc4303ab, type: 3}
+          - {fileID: 126070, guid: 52b992277e821a8468fdeda3da875bf8, type: 3}
+          - {fileID: 118896, guid: 9a48db7e16e60d64796239df3fc0b963, type: 3}
+          - {fileID: 182140, guid: f101780f32b5af64bb3c14fbf09b1771, type: 3}
+          - {fileID: 154720, guid: 7d7fac1794be19f468eda587e63e6774, type: 3}
+          - {fileID: 151746, guid: 7b0042f066fa9f64faf14546517ef9c0, type: 3}
+          - {fileID: 108086, guid: 632f78bd9555d2844968aa64cfd177af, type: 3}
+          ZUp: 0
+          Sink: 0
+        Roofs:
+          Models:
+          - {fileID: 187986, guid: 58fcef91f30c8c14b8ebb0165c76c637, type: 3}
+          - {fileID: 133646, guid: 138f01e248f319c4388a7199ae4e3eae, type: 3}
+          - {fileID: 128856, guid: 51aef4a8ca8fd3e44b697a916eb2325a, type: 3}
+          - {fileID: 124692, guid: d4d4c233788d2dd48b21ac853bb73351, type: 3}
+          - {fileID: 146506, guid: c44fc839a1c58f94b8cd238bd252c981, type: 3}
+          - {fileID: 176296, guid: 346402d3a99cf4645b573a2679f4ee97, type: 3}
+          - {fileID: 188552, guid: 3c171231ad46a50489587984eef66679, type: 3}
+          ZUp: 0
+          Sink: 0
+        Chimneys:
+          Models:
+          - {fileID: 105090, guid: 3789d65be84741545afcfb9b91749198, type: 3}
+          - {fileID: 172590, guid: 9798020b643705e438eaa01ca7ae48d3, type: 3}
+          - {fileID: 178018, guid: 52d2ac88e4266ae4287982747ca76a1c, type: 3}
+          - {fileID: 129550, guid: 8a198cb1ec9006347b4721ff22ac681e, type: 3}
+          - {fileID: 129510, guid: 41d3dc1fd42040a4ca89e58af09e14fc, type: 3}
+          ZUp: 0
+          Sink: 0
+        TowerBases:
+          Models:
+          - {fileID: 178616, guid: b6f3dfbb5c58a34489071b09c45b8f94, type: 3}
+          - {fileID: 186884, guid: 0c66159e6cbb60a42831373af849b686, type: 3}
+          ZUp: 0
+          Sink: 0
+        TowerShafts:
+          Models:
+          - {fileID: 147310, guid: b1ad8ef6890687249a641abef8e26baf, type: 3}
+          - {fileID: 148618, guid: 092595d39c7f3fe40bc19e13323f824d, type: 3}
+          - {fileID: 100546, guid: 5a16fbe844697354eaafd84247d55985, type: 3}
+          - {fileID: 158236, guid: 6cc63cba898ace244bba643423dfda2e, type: 3}
+          ZUp: 0
+          Sink: 0
+        TowerTops:
+          Models:
+          - {fileID: 141476, guid: 20980883898f4704f86e6d74b75682ef, type: 3}
+          ZUp: 0
+          Sink: 0
+        RoundShafts:
+          Models:
+          - {fileID: 176788, guid: a403260d581bded4d85f723fd39eb456, type: 3}
+          - {fileID: 112350, guid: a6904f5656dfe8e49bd1fae1497ddf07, type: 3}
+          ZUp: 0
+          Sink: 0
+        RoundTops:
+          Models:
+          - {fileID: 125690, guid: fa993d692bbb7fe4eadefb231970e8b7, type: 3}
+          ZUp: 0
+          Sink: 0
+        Banners:
+          Models:
+          - {fileID: 189078, guid: 909819cb4101f98478848711bc2cba21, type: 3}
+          ZUp: 0
+          Sink: 0
+        Hoardings:
+          Models:
+          - {fileID: 137164, guid: a002656da6afcd3458186e57b083c403, type: 3}
+          ZUp: 0
+          Sink: 0
+        Pillars:
+          Models:
+          - {fileID: 119398, guid: c62ebd6969ff1124792ffb1a88aa399a, type: 3}
+          ZUp: 0
+          Sink: 0
+        Portcullis:
+          Models:
+          - {fileID: 169488, guid: 0a5ef1aaf47f03547983772b8f1f3a80, type: 3}
+          ZUp: 0
+          Sink: 0
+        WallTops:
+          Models:
+          - {fileID: 153326, guid: 576b6d70e3da01b489b5b99e260ddc93, type: 3}
+          ZUp: 0
+          Sink: 0
+        Turrets:
+          Models:
+          - {fileID: 137834, guid: 98ab284b689f29148afb10f5b7f09992, type: 3}
+          - {fileID: 152396, guid: 858952fd9f8e74140bf57e65ddc472ed, type: 3}
+          ZUp: 0
+          Sink: 0
+        Spires:
+          Models:
+          - {fileID: 192576, guid: 2678ae1982dc1b74b99abd46d8ccb50c, type: 3}
+          ZUp: 0
+          Sink: 0
+        Walls:
+          Models:
+          - {fileID: 148952, guid: a5bb8fdb18a5fce4a934aac86e8ec191, type: 3}
+          - {fileID: 134056, guid: aa9bca2df395111479f08def2925a97f, type: 3}
+          - {fileID: 147672, guid: 77ad9661321c6e84280c8fbe32492c06, type: 3}
+          ZUp: 0
+          Sink: 0
+        CurtainWalls:
+          Models:
+          - {fileID: 147672, guid: 77ad9661321c6e84280c8fbe32492c06, type: 3}
+          ZUp: 0
+          Sink: 0
+        Gates:
+          Models:
+          - {fileID: 141314, guid: a342473935e669649a9be973cda516c1, type: 3}
+          ZUp: 0
+          Sink: 0
+        Rubble:
+          Models:
+          - {fileID: 113602, guid: 2b1cd4ec8dfee7041b5bc5767613d249, type: 3}
+          - {fileID: 159564, guid: 14f268b815b67ef44b43dfd0d81145d5, type: 3}
+          - {fileID: 120268, guid: 0eba33735703d6b49a1773d1396db4b8, type: 3}
+          - {fileID: 1205270495780786, guid: bfe46d6e2f03af346a70ed16cbda3eee, type: 3}
+          - {fileID: 1535380315112082, guid: 3fce99634b729594d89ee5e872b73dff, type: 3}
+          - {fileID: 1682779332229148, guid: 9d8bbbb9bf9f20a4ea09ffc827b92239, type: 3}
+          ZUp: 0
+          Sink: 0
+        Wells:
+          Models:
+          - {fileID: 2353317757980482398, guid: 763a6e5ba7a00d84b88c731a56e89571, type: 3}
+          - {fileID: 148764, guid: fd4bfd190fdf71945b39f635e2671b97, type: 3}
+          ZUp: 0
+          Sink: 0
+        Shelters:
+          Models:
+          - {fileID: 117958, guid: c34c166783f3c744686ef9143de6e3fe, type: 3}
+          ZUp: 0
+          Sink: 0
+        Tents:
+          Models:
+          - {fileID: 162728, guid: 33adbca995ce9484f9258d275aabac10, type: 3}
+          - {fileID: 193672, guid: d8e888ed02072774198f7f7ce47d5f50, type: 3}
+          - {fileID: 128636, guid: 68a8f186e1f1db64dbfe8ddd247816ec, type: 3}
+          ZUp: 0
+          Sink: 0
+        YardGear:
+          Models:
+          - {fileID: 111980, guid: fd3d2a7dec61bb842a89089e1d1e6764, type: 3}
+          - {fileID: 147522, guid: 132d1de61c7a2714f9cff49ced16356d, type: 3}
+          - {fileID: 123248, guid: f028244a47462e3449e09903dedd7955, type: 3}
+          - {fileID: 151704, guid: a46d562cc4980004b95e73322fc948be, type: 3}
+          ZUp: 0
+          Sink: 0
+        Braziers:
+          Models:
+          - {fileID: 191442, guid: 20a79b55466cdb84da379ae63fc30867, type: 3}
+          ZUp: 0
+          Sink: 0
+        Stairs:
+          Models:
+          - {fileID: 129838, guid: 60b9638239615e4458f5dc2aa7892cce, type: 3}
+          - {fileID: 148450, guid: 9d512b24ffbedb841a3b360fd5f32d6c, type: 3}
+          ZUp: 0
+          Sink: 0
+        Paving:
+          Models:
+          - {fileID: 113036, guid: 0c8b53b4a2c2a624d8f344f282d709aa, type: 3}
+          - {fileID: 111248, guid: 8cab502212f9c98408dba5ee83b4054a, type: 3}
+          - {fileID: 161712, guid: cd63e7ed2d501564ebcb6cd6729e699e, type: 3}
+          - {fileID: 188894, guid: f19c957688bdf7849aa321d60569a6b2, type: 3}
+          ZUp: 0
+          Sink: 0
+        Ground:
+          Models:
+          - {fileID: 153302, guid: c4ea6c556c8f2064a877d7f0982758f3, type: 3}
+          - {fileID: 137852, guid: 03d2eb9c9da523040929bae51949bd81, type: 3}
+          - {fileID: 126640, guid: 5192ca6ecc300684cb6da5af87a67b3b, type: 3}
+          ZUp: 0
+          Sink: 0
+        WallBanners:
+          Models:
+          - {fileID: 147606, guid: 8f2cbf2ae2d496b44ba72882a3c6d4c9, type: 3}
+          - {fileID: 140704, guid: d9d95bd4aa86d86448ff3c157b7bb366, type: 3}
+          ZUp: 0
+          Sink: 0
+        Livery: {fileID: 2100000, guid: d99fb2a16888ab54a9160cf879c5589f, type: 2}
+        Colourways:
+        - {fileID: 2100000, guid: 31b16fd87cf33014c946e9d512d1e03c, type: 2}
+        - {fileID: 2100000, guid: 5b6cfe83aa80c3f49b9fc2465c359cbf, type: 2}
+        - {fileID: 2100000, guid: d99fb2a16888ab54a9160cf879c5589f, type: 2}
+        - {fileID: 2100000, guid: 32088d00f5b8e234db93a169565266ff, type: 2}
+      Fences:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Sheds:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Yard:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Signs:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Mills:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      MillSupports:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Sea: 0
+      Jetty:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Ship:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Boats:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      RockPasses: 0
+      CliffRise: 1
+      Falls:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Whitewater:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Paving:
+        Models:
+        - {fileID: 153302, guid: c4ea6c556c8f2064a877d7f0982758f3, type: 3}
+        - {fileID: 137852, guid: 03d2eb9c9da523040929bae51949bd81, type: 3}
+        - {fileID: 126640, guid: 5192ca6ecc300684cb6da5af87a67b3b, type: 3}
+        - {fileID: 180318, guid: ceaa0dad70b28974ebaa1df6c39af657, type: 3}
+        - {fileID: 103782, guid: 32949ef0637572547b3ec7683f284b74, type: 3}
+        - {fileID: 185296, guid: 079fa19ccd7a3484f933ea909821713f, type: 3}
+        - {fileID: 186288, guid: 8882443425560684dba932aaf44f3350, type: 3}
+        - {fileID: 161712, guid: cd63e7ed2d501564ebcb6cd6729e699e, type: 3}
+        - {fileID: 188894, guid: f19c957688bdf7849aa321d60569a6b2, type: 3}
+        ZUp: 0
+        Sink: 0
+      Street:
+        Models:
+        - {fileID: 104616, guid: 5e1d462ffd80d7444837984e9e18388b, type: 3}
+        - {fileID: 191442, guid: 20a79b55466cdb84da379ae63fc30867, type: 3}
+        ZUp: 0
+        Sink: 0
+      Monuments:
+        Models:
+        - {fileID: 144138, guid: 015f23238a8ca9f4d80f824581484228, type: 3}
+        - {fileID: 139188, guid: 8a0ac44a0009f534c81764924bb79dcd, type: 3}
+        - {fileID: 124968, guid: 97f6cb46feaeb024d897f93adc19edc4, type: 3}
+        ZUp: 0
+        Sink: 0
+      Wreckage:
+        Models:
+        - {fileID: 5084126969533975707, guid: abe0e57601993284eae5822ae7dcf49d, type: 3}
+        - {fileID: 4088378569847256606, guid: bb3b857939e48534fbaee5bb503267d4, type: 3}
+        - {fileID: 6437754471708356232, guid: 9f4c2c1b331efcf43ba9dff8c938ea74, type: 3}
+        - {fileID: 7396441043885236356, guid: 6073b301e068ab146a7ca283962ea2df, type: 3}
+        - {fileID: 3983588219267002585, guid: f0cc57ef339f62e4ea1273c131afdd5b, type: 3}
+        - {fileID: 1804667845376260, guid: 4005b9a03d8625b4990b7a567bf6faa1, type: 3}
+        - {fileID: 151704, guid: a46d562cc4980004b95e73322fc948be, type: 3}
+        ZUp: 0
+        Sink: 0
+      Wrecks:
+        Models:
+        - {fileID: 8871243273156336558, guid: f0fb903234e7e79469dac336a07daf6a, type: 3}
+        ZUp: 0
+        Sink: 0
+      Ruins:
+        Models:
+        - {fileID: 628552654406660727, guid: 5ee720cd435b78948b02bfbdd5b57efa, type: 3}
+        - {fileID: 5005705887264142359, guid: 7f47cdbc15515ba41a4cec0e2c7fc386, type: 3}
+        - {fileID: 2386095417472666710, guid: bff7f0937e8241644a701a14969fe10a, type: 3}
+        - {fileID: 6862050961118142041, guid: a93e199410eb74b4aae5c239645e07b7, type: 3}
+        - {fileID: 1330193041299404, guid: 8ec29696c3f5cc04faf6c4c6a5ffb0ea, type: 3}
+        - {fileID: 111980, guid: fd3d2a7dec61bb842a89089e1d1e6764, type: 3}
+        ZUp: 0
+        Sink: 0
+      Markers:
+        Models:
+        - {fileID: 118828, guid: a6cb2939c27644a4fb2c7ccfaeb7f585, type: 3}
+        - {fileID: 193738, guid: 0d6e5cb5406ecf648812fe2278838cf4, type: 3}
+        ZUp: 0
+        Sink: 0
+      Water:
+        Models: []
+        ZUp: 0
+        Sink: 0
+      Fords:
+        Models:
+        - {fileID: 1290192323667180, guid: 387d93711c1d03a48b083591256c560c, type: 3}
+        ZUp: 0
+        Sink: 0
+      Cliffs:
+        Models:
+        - {fileID: 8573088555067897806, guid: e7e5c55617adaf24289b810779c8b1f4, type: 3}
+        - {fileID: 1644039102950493755, guid: 2cb510b89a25bcd49bfab9e482702db6, type: 3}
+        - {fileID: 6153506622269497557, guid: c5c5b52427550af4c868b6cfa4cc36b9, type: 3}
+        - {fileID: 7562725877213210527, guid: 9dd518f8b09012a499a5e0784a49491c, type: 3}
+        - {fileID: 809860419345893582, guid: 1cd1d8265f9237f419de2489333e45cc, type: 3}
+        - {fileID: 5786298019414223049, guid: 182db93fbc1f4ac47b774d232921db1d, type: 3}
+        - {fileID: 7856749703039715673, guid: 1da00d05bf6ef184290c8a70e3da477a, type: 3}
+        - {fileID: 2183308603501691529, guid: 8b2c6acf702497c4798e210000ff01e0, type: 3}
+        - {fileID: 7276850494991428262, guid: b02591b0a468202439caac3230b41b1f, type: 3}
+        - {fileID: 6869407611268315235, guid: 4d35230c88fa51248badc895479a0171, type: 3}
+        - {fileID: 7926875385503486439, guid: a9a844cb4843e9e4f902900e373cb573, type: 3}
+        - {fileID: 5263757998832949447, guid: f87592a3c1d6fdf449ed03ce024a2c93, type: 3}
+        - {fileID: 7009548978709351938, guid: 4a02d6417a35ba64d9b4c0aba0b593d2, type: 3}
+        ZUp: 0
+        Sink: 0
+      Camps:
+        Models:
+        - {fileID: 6582547804942280520, guid: c5f8e7d91485e6d4ba3107ad9e8e880b, type: 3}
+        ZUp: 0
+        Sink: 0
+      Willows:
+        Models:
+        - {fileID: 7527004103962423645, guid: 5ee5b0b0211fbca44807db7e785feb3e, type: 3}
+        - {fileID: 7989243879905098700, guid: e13d1e297156f4544ab94d99144112c0, type: 3}
+        ZUp: 0
+        Sink: 0
+      Shore:
+        Models:
+        - {fileID: 2699518585015616614, guid: 4413380e1d16c8043a3487407f390e34, type: 3}
+        - {fileID: 8732354733402502238, guid: a55a671cfdb2ce743a0947c6ee6ec038, type: 3}
+        - {fileID: 7292683905562417561, guid: 20417b0d7524eaf4492f53d9a514ec14, type: 3}
+        - {fileID: 4079753696574878811, guid: 64ce0e0d0a353ca478bdade77625fd23, type: 3}
+        ZUp: 0
+        Sink: 0
+      Backdrop:
+        Models: []
+        ZUp: 0
+        Sink: 0
+    Water: {fileID: 2100000, guid: 77a672cadb47d404892baf691c45bef0, type: 2}
+    PoolWater: {fileID: 2100000, guid: 77a672cadb47d404892baf691c45bef0, type: 2}
+    Weather: {fileID: 3897208855634592290, guid: 1b6cbdd0f83a1f04bbf162d27f55711d, type: 3}
+    Density: 1.3
+    Fog: 1
+    FogColor: {r: 0.42, g: 0.38, b: 0.36, a: 1}
+    FogDensity: 0.0034
+    SkyColor: {r: 0.44, g: 0.39, b: 0.36, a: 1}
   Formation:
   - Occupied: 1
     Kind: 0
@@ -5357,13 +6135,13 @@ MonoBehaviour:
     Kind: 6
   - Occupied: 1
     Kind: 5
---- !u!23 &844087398
+--- !u!23 &2146454972
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 844087396}
+  m_GameObject: {fileID: 2146454970}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -5406,204 +6184,24 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &844087399
+--- !u!33 &2146454973
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 844087396}
+  m_GameObject: {fileID: 2146454970}
   m_Mesh: {fileID: 0}
---- !u!4 &844087400
+--- !u!4 &2146454974
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 844087396}
+  m_GameObject: {fileID: 2146454970}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &901697741
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 901697743}
-  - component: {fileID: 901697742}
-  m_Layer: 0
-  m_Name: Directional Light
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!108 &901697742
-Light:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 901697741}
-  m_Enabled: 1
-  serializedVersion: 12
-  m_Type: 1
-  m_Color: {r: 1, g: 0.96, b: 0.88, a: 1}
-  m_Intensity: 1
-  m_Range: 10
-  m_SpotAngle: 30
-  m_InnerSpotAngle: 21.80208
-  m_CookieSize2D: {x: 0.5, y: 0.5}
-  m_Shadows:
-    m_Type: 2
-    m_Resolution: -1
-    m_CustomResolution: -1
-    m_Strength: 0.7
-    m_Bias: 0.03
-    m_NormalBias: 0.15
-    m_NearPlane: 0.2
-    m_CullingMatrixOverride:
-      e00: 1
-      e01: 0
-      e02: 0
-      e03: 0
-      e10: 0
-      e11: 1
-      e12: 0
-      e13: 0
-      e20: 0
-      e21: 0
-      e22: 1
-      e23: 0
-      e30: 0
-      e31: 0
-      e32: 0
-      e33: 1
-    m_UseCullingMatrixOverride: 0
-  m_Cookie: {fileID: 0}
-  m_DrawHalo: 0
-  m_Flare: {fileID: 0}
-  m_RenderMode: 0
-  m_CullingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_RenderingLayerMask: 1
-  m_Lightmapping: 4
-  m_LightShadowCasterMode: 0
-  m_AreaSize: {x: 1, y: 1}
-  m_BounceIntensity: 1
-  m_ColorTemperature: 6570
-  m_UseColorTemperature: 0
-  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
-  m_UseBoundingSphereOverride: 0
-  m_UseViewFrustumForShadowCasterCull: 1
-  m_ForceVisible: 0
-  m_ShadowRadius: 0
-  m_ShadowAngle: 0
-  m_LightUnit: 1
-  m_LuxAtDistance: 1
-  m_EnableSpotReflector: 1
---- !u!4 &901697743
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 901697741}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.29261872, y: -0.41448808, z: 0.14271969, w: 0.8498265}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2074119265
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2074119267}
-  - component: {fileID: 2074119266}
-  m_Layer: 0
-  m_Name: Main Camera
-  m_TagString: MainCamera
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!20 &2074119266
-Camera:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2074119265}
-  m_Enabled: 1
-  serializedVersion: 2
-  m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.62, g: 0.75, b: 0.85, a: 1}
-  m_projectionMatrixMode: 1
-  m_GateFitMode: 2
-  m_FOVAxisMode: 0
-  m_Iso: 200
-  m_ShutterSpeed: 0.005
-  m_Aperture: 16
-  m_FocusDistance: 10
-  m_FocalLength: 50
-  m_BladeCount: 5
-  m_Curvature: {x: 2, y: 11}
-  m_BarrelClipping: 0.25
-  m_Anamorphism: 0
-  m_SensorSize: {x: 36, y: 24}
-  m_LensShift: {x: 0, y: 0}
-  m_NormalizedViewPortRect:
-    serializedVersion: 2
-    x: 0
-    y: 0
-    width: 1
-    height: 1
-  near clip plane: 0.5
-  far clip plane: 900
-  field of view: 50
-  orthographic: 0
-  orthographic size: 5
-  m_Depth: 0
-  m_CullingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_RenderingPath: -1
-  m_TargetTexture: {fileID: 0}
-  m_TargetDisplay: 0
-  m_TargetEye: 3
-  m_HDR: 1
-  m_AllowMSAA: 1
-  m_AllowDynamicResolution: 0
-  m_ForceIntoRT: 0
-  m_OcclusionCulling: 1
-  m_StereoConvergence: 10
-  m_StereoSeparation: 0.022
---- !u!4 &2074119267
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2074119265}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.46174863, y: 0, z: 0, w: 0.8870109}
-  m_LocalPosition: {x: 128, y: 327.6608, z: -101.43057}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5613,6 +6211,6 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 2074119267}
-  - {fileID: 901697743}
-  - {fileID: 844087400}
+  - {fileID: 737614266}
+  - {fileID: 1007865495}
+  - {fileID: 2146454974}

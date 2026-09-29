@@ -80,14 +80,13 @@ namespace TheVeil.Editor
 
             var faults = new List<string>();
 
-            // The built chapters and the coast, which is chapter one hundred and therefore
-            // not one of them. The main instrument of the project counted to BuiltChapters
+            // Every chapter that has scenery of its own. This counted to BuiltChapters
             // and so never once looked at the last chapter of the game - the one with the
             // sea in it, which is the only chapter whose ground is mostly something no
-            // other chapter has.
-            var chapters = new List<int>();
-            for (int c = 1; c <= Chapters; c++) chapters.Add(c);
-            chapters.Add(Biomes.LastChapter);
+            // other chapter has. Six instruments each kept their own copy of that list and
+            // the coast was missing from most of them; there is one list now. See
+            // DifficultyCurve.Dressed.
+            var chapters = DifficultyCurve.Dressed;
 
             foreach (int chapter in chapters)
             {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using TheVeil.App;
@@ -2060,6 +2060,17 @@ namespace TheVeil.Editor
 
         static PropSet Desert(params string[] names) => new PropSet(false, Load(DesertDir, names));
 
+        /// <summary>
+        /// The dry pack's own effects: ash, smoke, embers, sulphur, vultures, flies.
+        ///
+        /// Loaded for the dead land rather than for the desert. The pack ships fire and
+        /// the desert has none of it — it was bought for sand and came with a burnt
+        /// country in the box.
+        /// </summary>
+        static PropSet DesertFX(params string[] names)
+            => new PropSet(false, Load("Assets/Synty/PolygonNatureBiomes/PNB_Arid_Desert/FX/FX_Prefabs",
+                                       names));
+
         static PropSet AlpineProps(params string[] names)
             => new PropSet(false, Load($"{AlpineDir}/Props", names));
 
@@ -2371,6 +2382,48 @@ namespace TheVeil.Editor
         /// the thing that looked like broken material in every photograph of the mountains
         /// and took a count of what the masses were made of to find.
         /// </summary>
+        /// <summary>Where the blackened dry-pack stone is written. See Scorched.</summary>
+        const string DeadPrefabDir = "Assets/_Project/Prefabs/Dead";
+
+        /// <summary>
+        /// The dry pack's stone, blackened.
+        ///
+        /// <b>Every rock in that pack wears one material.</b> Rock_Triplanar_01, on the
+        /// boulders, the cliffs, the spikes, the pebbles and the small stones alike - and
+        /// it is sandstone, drawn cream and sunlit for a desert. Laid out over the burnt
+        /// country's grey ash a hundred at a time it reads as a beach, which is what the
+        /// first photograph of chapter nine looked like once there was enough on the ground
+        /// to see: pale stones, evenly scattered, on flat grey.
+        ///
+        /// The pack ships the dark version of the same material beside it and nothing had
+        /// ever loaded it. One swap does every rock the country owns.
+        /// </summary>
+        static PropSet Scorched(PropSet set)
+        {
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+
+            foreach (var pair in new[] { ("01", "Dark_01"), ("02", "Dark_02") })
+            {
+                var pale = AssetDatabase.LoadAssetAtPath<Material>(
+                    $"{DesertMaterials}/Rock_Triplanar_{pair.Item1}.mat");
+                var burnt = AssetDatabase.LoadAssetAtPath<Material>(
+                    $"{DesertMaterials}/Rock_Triplanar_{pair.Item2}.mat");
+
+                if (pale != null && burnt != null) swaps[pale] = burnt;
+            }
+
+            if (swaps.Count == 0 || set == null || !set.Any) return set;
+
+            var models = new System.Collections.Generic.List<GameObject>();
+            foreach (var model in set.Models)
+            {
+                var burnt = Repainted(model, swaps, "Scorched", DeadPrefabDir);
+                if (burnt != null) models.Add(burnt);
+            }
+
+            return new PropSet(false, models.ToArray());
+        }
+
         static PropSet DryStone(PropSet set)
         {
             var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
@@ -2907,6 +2960,309 @@ namespace TheVeil.Editor
             decor.Horizon = FlatStone(Desert("SM_Env_Backrgound_Hill_01",
                                              "SM_Env_Backrgound_Hill_02",
                                              "SM_Env_Backrgound_Hill_03"));
+
+            AssetDatabase.SaveAssets();
+            return decor;
+        }
+
+        /// <summary>
+        /// The dead land: ash over rock, and what is left standing in it.
+        ///
+        /// <b>Built out of the dry pack, which is the one that has fire in it.</b> Nobody
+        /// has bought a scorched pack and nobody needs to: the arid set ships lava - a
+        /// pool, five rivers and three spreads - and sulphur - five pools, a crust and
+        /// three blobs - and every one of them had been sitting unused since the desert
+        /// was dressed, because a desert has neither. This country is what they were drawn
+        /// for.
+        ///
+        /// Three rules hold the whole chapter together.
+        ///
+        /// <b>Nothing here is alive.</b> Every set that would be green in any other
+        /// country is either emptied or swapped for the dead version of itself: the trees
+        /// are the thirteen dead ones the packs have between them, the ground cover is
+        /// bramble and twig, the flowers are gone entirely. A single green thing on this
+        /// map would be the thing the eye goes to, and it would read as a mistake rather
+        /// than as hope.
+        ///
+        /// <b>Everything is grey except what burns.</b> The palette does the ground (see
+        /// TerrainPalette.DeadGroundColors) and the props follow it. The one warm colour
+        /// in the country is the sulphur in the hollows, and it is warm because it is the
+        /// only thing a player who has walked nine countries has never seen: something
+        /// that glows.
+        ///
+        /// <b>The air is half of it.</b> Ash falling, smoke standing over the hollows,
+        /// embers off the lava, flies. A burnt country with clean air reads as a grey
+        /// meadow; what says the fire was recent is that it is still in the air.
+        /// </summary>
+        static BiomeDecor LoadDeadDecor()
+        {
+            var decor = LoadForestDecor();
+
+            // <b>The trees, and there are no trees.</b> Thirteen dead ones across four
+            // packs, which is more variety than the forest has living ones. The nature
+            // pack's are the bare broadleaf shapes, the generic pack's are thinner and
+            // more twisted, the dry pack's are the sun-bleached kind and the alpine one is
+            // a conifer stripped of everything.
+            decor.Trees = Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_Dead_01", "SM_Tree_Dead_02", "SM_Tree_Dead_03",
+                    "SM_Tree_Birch_Dead_01", "SM_Tree_Generic_Dead_01"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Tree_Dead_01", "SM_Gen_Env_Tree_Dead_02", "SM_Gen_Env_Tree_Dead_03"
+                }),
+                Load(DesertDir, new[] { "SM_Env_Tree_Dead_01", "SM_Env_Tree_Dead_02" }));
+
+            // The conifers are dead too, which is what makes a burnt wood read as a wood
+            // that burned rather than as open country with sticks in it: a pine keeps its
+            // shape long after it stops being a pine.
+            decor.Pines = Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[] { "SM_Tree_Pine_Dead_01" }),
+                Load(AlpineDir, new[] { "SM_Env_Pine_NoLeaves_01" }),
+                Load($"{SyntyGenericDir}/Environment", new[] { "SM_Gen_Env_Tree_Dead_02" }));
+
+            // <b>The birch and the willow are not emptied here, they are re-cast.</b>
+            // Both are ordinary draws - a tenth of every tree rolled on open ground is a
+            // birch and the riverbanks are willow - and an empty set is not a country
+            // without birches, it is a bare tile. The first build of this chapter emptied
+            // six sets that way and the map came back looking swept. So the generic pack's
+            // dead trees, which are the thinnest and most twisted of the lot, stand as the
+            // birch, and the dry pack's stand along the water as the willow.
+            decor.Birch = Mixed(
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Tree_Dead_01", "SM_Gen_Env_Tree_Dead_03"
+                }),
+                Load($"{SyntyNatureDir}/Trees", new[] { "SM_Tree_Birch_Dead_01" }));
+
+            decor.Willows = Desert("SM_Env_Tree_Dead_01", "SM_Env_Tree_Dead_02");
+            decor.DeadTrees = decor.Trees;
+
+            // <b>Stumps, and a great many of them.</b> What a fire leaves is not trees: it
+            // is the bottom two metres of trees. Ten across the packs, and they belong in
+            // the timber, which is the one set the decorator digs in: a stump is drawn
+            // with its root flare spread round the base, and a flare set on the surface
+            // stands the whole thing up on it like a stool. The seating test says so, and
+            // it said so about this country the first time it was built - the stumps were
+            // in the deadfall, which is laid down as it comes.
+            decor.Timber = Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_Stump_01", "SM_Tree_Stump_02", "SM_Tree_Stump_03", "SM_Tree_Stump_04"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Stump_01", "SM_Gen_Env_Stump_02", "SM_Gen_Env_Stump_03",
+                    "SM_Gen_Env_Root_01", "SM_Gen_Env_Root_02"
+                }),
+                Load(AlpineDir, new[] { "SM_Env_Pine_Stump_01" }));
+
+            // What is left of them once they are down: log, branch and twig, and nothing
+            // with a foot on it. Sunk the little the fen sinks its own fallen wood, because
+            // wood lying in ash is partly in the ash.
+            decor.Deadfall = Sunk(Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_Log_01", "SM_Tree_Log_02", "SM_Tree_Branch_01"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Twig_01", "SM_Gen_Env_Twig_02", "SM_Gen_Env_Twig_03"
+                }),
+                Load(AlpineDir, new[] { "SM_Env_Branch_01", "SM_Env_Branch_03" })), 0.06f);
+
+            // <b>Nothing grows.</b> Bramble and twig, which is what comes back first and
+            // has not come back yet. The root balls are in the timber instead: ground cover
+            // is laid on the surface as a tuft of grass is, and a root laid on the surface
+            // is a root standing on its own toes. The flowers go entirely: one patch of colour here
+            // would be the only living thing in the country and would read as a fault.
+            decor.GroundCover = Mixed(
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Bush_Bramble_01", "SM_Env_Bush_Bramble_02",
+                    "SM_Env_GroundCover_01", "SM_Env_GroundCover_02", "SM_Env_GroundCover_03"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Twig_01", "SM_Gen_Env_Twig_04", "SM_Gen_Env_Twig_02"
+                }));
+
+            decor.Bushes = Mixed(
+                Load(DesertDir, new[] { "SM_Env_Bush_Bramble_01", "SM_Env_Bush_Bramble_02" }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Twig_02", "SM_Gen_Env_Twig_03", "SM_Gen_Env_Bush_Part_01"
+                }));
+
+            // <b>The floor, which is what was missing.</b> Mats are laid over five plains
+            // tiles in six and there were none, so a country of four thousand tiles was
+            // one flat sheet of painted grey with props standing on it. That - not the
+            // count of props, which was ten thousand a level - is what reads as an empty
+            // map from above. Ash is not one colour: it is burnt earth, bare dirt and the
+            // sulphur crust, in patches, and these are the patches.
+            decor.Mats = Mixed(
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Ground_Dirt_01", "SM_Gen_Env_Ground_Dirt_02",
+                    "SM_Gen_Env_Ground_Dirt_03", "SM_Gen_Env_Ground_Dirt_04"
+                }),
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_GroundCover_01", "SM_Env_GroundCover_02", "SM_Env_GroundCover_03"
+                }));
+
+            // <b>Where the flowers would be.</b> Thirty drifts a level, laid flat, off the
+            // road, one kind to a drift. Four kinds, so about seven drifts each: tumbleweed
+            // caught against nothing, dead scrub, and one of the three lava spreads, which
+            // makes a handful of ember fields a level rather than the dozen the first
+            // attempt made. All three spreads in here came out as orange spots evenly over
+            // the map - a bed is 2.6 m across and there are thirty of them, which is the
+            // shape of a flowerbed and not of a lava flow. The rest of the lava is in the
+            // mounds, which are 6 to 13 m across and twelve to a level.
+            decor.Flowers = Desert("SM_Prop_Tumbleweed_01", "SM_Env_GroundCover_02",
+                                   "SM_Env_Bush_Bramble_01", "SM_Env_Lava_Spread_02");
+
+            // The crust at the edge of a hollow, which is what grows here instead of reeds.
+            decor.MarshPlants = Mixed(
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Sulphur_Blob_01", "SM_Env_Sulphur_Blob_02", "SM_Env_Sulphur_Blob_03",
+                    "SM_Env_Bush_Bramble_02", "SM_Env_Rock_Small_04"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[] { "SM_Gen_Env_Twig_03" }));
+
+            // And the crust out on the open sulphur, floating the way a lily pad floats:
+            // a pool of one flat colour is a hole cut in the map, and these are what break
+            // it up.
+            decor.Lilypads = Desert("SM_Env_Sulphur_Blob_01", "SM_Env_Sulphur_Blob_02",
+                                    "SM_Env_Sulphur_Blob_03");
+
+            decor.GroundPatches = Mixed(
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_GroundCover_01", "SM_Env_GroundCover_03", "SM_Env_Sulphur_Ground_01"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Ground_Dirt_02", "SM_Gen_Env_Ground_Dirt_03"
+                }));
+
+            // <b>Scorched stone.</b> The dry pack draws sixteen cliff faces and fourteen
+            // blocks, and they are the right shapes for burnt country - broken, angular,
+            // nothing softened by weather. The spiked rocks go in with them: they are the
+            // one shape in any pack that looks like ground that was pushed up rather than
+            // laid down.
+            // <b>And all of it blackened.</b> The dry pack's stone is sandstone - cream,
+            // sunlit, drawn for a desert - and a hundred cream rocks lying on grey ash read
+            // as a beach. The pack ships the same rocks' triplanar material in a dark
+            // version and nothing had ever asked for it. See Scorched.
+            decor.Rocks = Scorched(Desert("SM_Env_Rock_Small_01", "SM_Env_Rock_Small_02",
+                                 "SM_Env_Rock_Small_03", "SM_Env_Rock_Small_04",
+                                 "SM_Env_Rock_Small_05", "SM_Env_Rock_Small_06",
+                                 "SM_Env_Rock_Small_07", "SM_Env_Rock_Pebbles_01",
+                                 "SM_Env_Rock_Pebbles_03", "SM_Env_Rock_Pebbles_05",
+                                 "SM_Env_Rock_Pebbles_06", "SM_Env_Rock_Rough_01",
+                                 "SM_Env_Rock_Rough_02"));
+
+            decor.Boulders = Scorched(Mixed(
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_04", "SM_Env_Rock_07",
+                    "SM_Env_Rock_09", "SM_Env_Rock_11", "SM_Env_Rock_13",
+                    "SM_Env_Rocks_Spikey_01", "SM_Env_Rocks_Spikey_02", "SM_Env_Rocks_Spikey_03",
+                    "SM_Env_Rocks_Spikey_05", "SM_Env_Rocks_Spikey_06",
+                    "SM_Env_Rock_Arch_Half_01", "SM_Env_Rock_Arch_Half_02"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Rock_03", "SM_Gen_Env_Rock_07", "SM_Gen_Env_Rock_09"
+                })));
+
+            decor.Cliffs = Scorched(Mixed(
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Rock_Cliff_02", "SM_Env_Rock_Cliff_05", "SM_Env_Rock_Cliff_07",
+                    "SM_Env_Rock_Cliff_09", "SM_Env_Rock_Cliff_11", "SM_Env_Rock_Cliff_13",
+                    "SM_Env_Rock_Cliff_16", "SM_Env_Rocks_Spikes_Large_01",
+                    "SM_Env_Rocks_Spikes_Large_02", "SM_Env_Rocks_Spikes_Large_03",
+                    "SM_Env_Rock_Arch_01"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Dirt_Cliff_03", "SM_Gen_Env_Dirt_Cliff_06"
+                })));
+
+            decor.Shore = Scorched(Desert("SM_Env_Rock_Pebbles_02", "SM_Env_Rock_Pebbles_04",
+                                          "SM_Env_Rock_Small_02", "SM_Env_Rock_Small_06"));
+
+            // <b>The hollows, which are the chapter.</b> A tenth of this country is what
+            // the recipe calls water and none of it is water: lava where the ground opened
+            // and sulphur where it only cracked. These go on the mounds rather than in the
+            // sheet - the sheet is one mesh over every wet tile and is coloured by the
+            // palette - so what stands here is the crust and the blobs around the edge.
+            decor.Mounds = Mixed(
+                Load(DesertDir, new[]
+                {
+                    "SM_Env_Sulphur_Blob_01", "SM_Env_Sulphur_Blob_02", "SM_Env_Sulphur_Blob_03",
+                    "SM_Env_Crater_01", "SM_Env_Crater_02", "SM_Env_Crater_03",
+                    "SM_Env_Ground_Mound_Small_01", "SM_Env_Ground_Mound_Large_01",
+                    "SM_Env_Sulphur_Pool_01", "SM_Env_Sulphur_Pool_03", "SM_Env_Sulphur_Pool_05",
+                    "SM_Env_Lava_Spread_01", "SM_Env_Lava_Spread_03", "SM_Env_Lava_Pool_01",
+                    "SM_Env_Lava_River_01", "SM_Env_Lava_River_03", "SM_Env_Lava_River_05"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[] { "SM_Gen_Env_Ground_Dirt_01" }));
+
+            // <b>Bones, and they are not a warning here.</b> Every other country marks its
+            // traps with them; in this one they are the country. Nine in the dry pack that
+            // nothing had ever loaded, plus the ones the trap signs already use.
+            decor.Wreckage = Mixed(
+                Load($"{DesertDir}/Props", new[]
+                {
+                    "SM_Prop_Bones_01", "SM_Prop_Bones_03", "SM_Prop_Bones_05",
+                    "SM_Prop_Bones_07", "SM_Prop_Bones_09"
+                }),
+                Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Skull_01" }),
+                Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_CartWheel_01" }));
+
+            decor.Ruins = Mixed(
+                Load($"{DesertDir}/Props", new[]
+                {
+                    "SM_Prop_Bones_02", "SM_Prop_Bones_04", "SM_Prop_Bones_06", "SM_Prop_Bones_08"
+                }),
+                Load($"{SyntyNatureDir}/Props", new[] { "SM_Prop_Skeleton_Ground_01" }),
+                Load($"{SyntyKnightsDir}/Props", new[] { "SM_Prop_Cart_01" }));
+
+            // What somebody drove into the ground beside a trap, back when there was
+            // somebody. A gravestone rather than a banner: nobody here is claiming ground.
+            decor.Markers = Knights("Props", "SM_Prop_Gravestone_01", "SM_Prop_Gravestone_02");
+
+            // Nothing lives here and nothing lives beside it either: no village, no farm,
+            // no mill. Settlements.Settled says so for the simulation; these say the same
+            // thing to the decorator, which would otherwise inherit the forest's.
+            decor.Farms = new PropSet();
+            decor.Mills = new PropSet();
+            decor.MillSupports = new PropSet();
+            decor.Fences = new PropSet();
+            decor.Yard = new PropSet();
+            decor.Sheds = new PropSet();
+            decor.Signs = new PropSet();
+
+            // <b>The air, which is half the chapter.</b> Ash falling over everything, smoke
+            // standing where the ground is still hot, embers off it, and flies. A burnt
+            // country with clean air is a grey meadow.
+            decor.Fauna = DesertFX("FX_Vulture_01", "FX_Vulture_Reverse_01", "FX_Flies_01");
+
+            // Nothing on the skyline but the hills the fire came over.
+            decor.Horizon = Desert("SM_Env_Backrgound_Hill_01", "SM_Env_Backrgound_Hill_02",
+                                   "SM_Env_Backrgound_Hill_03");
+
+            decor.Falls = new PropSet();
+            decor.Whitewater = new PropSet();
+            decor.Boats = new PropSet();
+            decor.Jetty = new PropSet();
+            decor.Ship = new PropSet();
 
             AssetDatabase.SaveAssets();
             return decor;
@@ -3590,6 +3946,42 @@ namespace TheVeil.Editor
                     // temperate sky; the sea gives back what falls on it, so the last
                     // chapter is the bright one.
                     SkyColor = new Color(0.62f, 0.80f, 0.90f)
+                },
+
+                new BiomeLook
+                {
+                    Biome = Biome.Dead,
+                    Decor = LoadDeadDecor(),
+
+                    // Sulphur in the hollows, which is the one thing in the game that
+                    // glows. See EnsureSulphurMaterial.
+                    Water = EnsureSulphurMaterial(),
+                    PoolWater = EnsureSulphurMaterial(),
+
+                    // Thick. <b>A burnt country is not an empty one.</b> What a fire leaves
+                    // is more on the ground than a living wood has, not less: every tree
+                    // that stood is still standing or lying, and the stumps are the ground
+                    // cover. Thinned out, this reads as a grey field somebody forgot to
+                    // dress rather than as a country something happened to - which is what
+                    // the first build of it did read as, at 0.95 with six of its sets empty.
+                    // A dead tree is a stick: it covers a fraction of the ground a living
+                    // one covers, so the same number of them is a thinner country.
+                    Density = 1.3f,
+
+                    // Ash, falling. It is the weather here the way the plains have leaves
+                    // and the winter has snow, and it is what says the fire was recent
+                    // rather than long ago.
+                    Weather = One("Assets/Synty/PolygonNatureBiomes/PNB_Arid_Desert"
+                                  + "/FX/FX_Prefabs/FX_Ash_01.prefab"),
+
+                    // Smoke standing in the air and a sun that cannot get through it. The
+                    // thickest fog in the game by a wide margin: the desert's haze is
+                    // 0.0022 and this is half again, because what is in the air here is not
+                    // heat, it is what the country turned into.
+                    Fog = true,
+                    FogColor = new Color(0.42f, 0.38f, 0.36f),
+                    FogDensity = 0.0034f,
+                    SkyColor = new Color(0.44f, 0.39f, 0.36f)
                 }
             };
         }
@@ -3651,6 +4043,15 @@ namespace TheVeil.Editor
                     Decor = WithoutSkyline(LoadCoastDecor()),
                     Water = EnsureSeaMaterial(),
                     Density = 0.45f
+                },
+
+                new BiomeLook
+                {
+                    Biome = Biome.Dead,
+                    Decor = WithoutSkyline(LoadDeadDecor()),
+                    Water = EnsureSulphurMaterial(),
+                    PoolWater = EnsureSulphurMaterial(),
+                    Density = 0.95f
                 }
             };
         }
@@ -4124,6 +4525,66 @@ namespace TheVeil.Editor
             if (material.HasProperty("_WaveSpeed")) material.SetFloat("_WaveSpeed", 0.55f);
             if (material.HasProperty("_RippleScale")) material.SetFloat("_RippleScale", 34f);
             if (material.HasProperty("_FlowSpeed")) material.SetFloat("_FlowSpeed", 0.5f);
+
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        const string SulphurMaterialPath = "Assets/_Project/Materials/Sulphur.mat";
+
+        /// <summary>
+        /// What lies in the hollows of the dead land, which is not water.
+        ///
+        /// <b>The one thing in this game that glows.</b> Nine countries of river, fen,
+        /// oasis and sea, every one of them a shade of blue or green, and then a country
+        /// where the low ground is molten. It is the project's own water shader with its
+        /// colours changed and its surface stilled — a pool of sulphur does not run, and a
+        /// current in it would read as a stream somebody tinted yellow.
+        ///
+        /// The ground under it is painted the same family (TerrainPalette.DeadGroundColors)
+        /// so the crust round the edge belongs to the pool rather than butting against it.
+        /// </summary>
+        static Material EnsureSulphurMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(SulphurMaterialPath);
+
+            if (material == null)
+            {
+                var shader = Shader.Find("TheVeil/Water");
+                if (shader == null)
+                {
+                    Debug.LogWarning("[The Veil] The project's water shader is missing, so the "
+                                     + "dead land keeps the river's colours.");
+                    return null;
+                }
+
+                material = new Material(shader) { name = "Sulphur" };
+                AssetDatabase.CreateAsset(material, SulphurMaterialPath);
+            }
+
+            // Molten in the middle and crusting at the edge. The alpha is high because
+            // there is nothing to see through: this is not water over a bed, it is the
+            // surface of the thing itself.
+            if (material.HasProperty("_BaseColor"))
+                material.SetColor("_BaseColor", new Color(0.92f, 0.52f, 0.08f, 0.96f));
+
+            // <b>Darker at the rim, not brighter.</b> The shallow colour is the sheet's
+            // edge, and mixed paler than the middle it drew a bright halo round every pool
+            // — which is what a shore looks like when the bottom shows through clear water
+            // and the opposite of what happens to molten sulphur, which cools and crusts
+            // where it meets the ground. So the rim is the crust and the middle is the
+            // only bright thing.
+            if (material.HasProperty("_ShallowColor"))
+                material.SetColor("_ShallowColor", new Color(0.52f, 0.34f, 0.10f, 0.95f));
+
+            // Still. A pool of sulphur sits; it does not flow and it does not chop, and
+            // the glitter is what says the surface is not solid.
+            if (material.HasProperty("_WaveHeight")) material.SetFloat("_WaveHeight", 0.04f);
+            if (material.HasProperty("_WaveScale")) material.SetFloat("_WaveScale", 9f);
+            if (material.HasProperty("_WaveSpeed")) material.SetFloat("_WaveSpeed", 0.12f);
+            if (material.HasProperty("_RippleScale")) material.SetFloat("_RippleScale", 14f);
+            if (material.HasProperty("_FlowSpeed")) material.SetFloat("_FlowSpeed", 0.06f);
+            if (material.HasProperty("_Glitter")) material.SetFloat("_Glitter", 2.4f);
 
             EditorUtility.SetDirty(material);
             return material;

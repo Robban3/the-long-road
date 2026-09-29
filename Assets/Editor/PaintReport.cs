@@ -48,14 +48,20 @@ namespace TheVeil.Editor
         /// Swamp, Arid - and a country wearing a word that is not its own is either a
         /// mistake or a decision somebody should have to look at once.
         /// </summary>
-        static readonly (string Word, Biome Belongs)[] Seasons =
+        static readonly (string Word, Biome[] Belongs)[] Seasons =
         {
-            ("snow", Biome.Winter),
-            ("ice", Biome.Winter),
-            ("frost", Biome.Winter),
-            ("swamp", Biome.Marsh),
-            ("desert", Biome.Desert),
-            ("arid", Biome.Desert),
+            ("snow", new[] { Biome.Winter }),
+            ("ice", new[] { Biome.Winter }),
+            ("frost", new[] { Biome.Winter }),
+            ("swamp", new[] { Biome.Marsh }),
+
+            // <b>Two countries, because the dry pack ships a burnt one in the box.</b> It
+            // was bought for the desert and it carries lava, sulphur, craters and spiked
+            // rock, none of which a desert has any use for — so the dead land is built out
+            // of it almost entirely and every one of its models says "arid" in the name.
+            // See LoadDeadDecor.
+            ("desert", new[] { Biome.Desert, Biome.Dead }),
+            ("arid", new[] { Biome.Desert, Biome.Dead }),
         };
 
         /// <summary>
@@ -180,7 +186,10 @@ namespace TheVeil.Editor
             {
                 if (lower.IndexOf(word, System.StringComparison.Ordinal) < 0) continue;
 
-                return belongs == biome ? null : $"{word} belongs to {belongs}";
+                foreach (var owner in belongs)
+                    if (owner == biome) return null;
+
+                return $"{word} belongs to {string.Join(" or ", belongs)}";
             }
 
             return null;

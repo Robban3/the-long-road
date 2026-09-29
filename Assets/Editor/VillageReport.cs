@@ -36,9 +36,8 @@ namespace TheVeil.Editor
             // The built chapters and the coast, which is chapter one hundred and is not
             // one of them. Every instrument here counted to BuiltChapters and so none of
             // them ever looked at the last chapter of the game.
-            var chapters = new System.Collections.Generic.List<int>();
-            for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) chapters.Add(c);
-            chapters.Add(Biomes.LastChapter);
+            // Every dressed chapter, from the one place that knows which they are.
+            var chapters = DifficultyCurve.Dressed;
 
             foreach (int chapter in chapters)
             {

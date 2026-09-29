@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 
 namespace TheVeil.Sim
@@ -42,6 +43,41 @@ namespace TheVeil.Sim
         /// see CatalogueBuilder.
         /// </summary>
         public const int BuiltChapters = 7;
+
+        /// <summary>
+        /// Chapters that have been dressed out of order, outside the run of seven above.
+        ///
+        /// <b>The tour is not the order things get built in.</b> Chapter eight is the
+        /// enchanted wood and nobody has bought a pack for one; chapter nine is the dead
+        /// land and every model it needs was already on disk, in the dry pack, waiting —
+        /// it ships lava and sulphur and a desert has neither. So nine was built before
+        /// eight, and BuiltChapters cannot say so, because it is a count and this is a
+        /// hole.
+        ///
+        /// The coast is here for the older version of the same reason: it is chapter one
+        /// hundred and has been dressed since the day the sea came off the tour.
+        /// </summary>
+        static readonly int[] AlsoDressed = { 9 };
+
+        /// <summary>
+        /// Every chapter that has scenery of its own, in the order they were built.
+        ///
+        /// What the instruments walk. Each of them used to count to BuiltChapters and then
+        /// add the coast by hand, in six separate files, which is how the coast spent a
+        /// week outside the smoke test: a list that is rebuilt in every caller is a list
+        /// that is wrong in one of them.
+        /// </summary>
+        public static IEnumerable<int> Dressed
+        {
+            get
+            {
+                for (int chapter = 1; chapter <= BuiltChapters; chapter++) yield return chapter;
+
+                foreach (int chapter in AlsoDressed) yield return chapter;
+
+                yield return Biomes.LastChapter;
+            }
+        }
 
         /// <summary>How many levels the curve spans: the whole campaign.</summary>
         public const int Levels = 1000;

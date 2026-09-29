@@ -51,9 +51,8 @@ namespace TheVeil.Editor
             // placement in the game lives - the jetty, the boats on the sand, the skerries
             // - so leaving it out of the instruments means the newest code is the least
             // looked at.
-            var chapters = new List<int>();
-            for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) chapters.Add(c);
-            chapters.Add(Biomes.LastChapter);
+            // Every dressed chapter, from the one place that knows which they are.
+            var chapters = DifficultyCurve.Dressed;
 
             // <b>Every level, not two of them.</b> This looked at the first and the last of
             // each chapter, on the reasoning that the last carries the castle - which is

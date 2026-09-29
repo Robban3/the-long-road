@@ -284,11 +284,50 @@ namespace TheVeil.View
             new Color(0.66f, 0.45f, 0.30f)  // Cliff         — sandstone
         };
 
+        /// <summary>
+        /// The dead land: ash over rock, and the one thing on it that is not grey.
+        ///
+        /// <b>Every other country in this game is a colour.</b> The forest is green, the
+        /// winter white, the desert ochre, the coast blue — and a country that used to be
+        /// one of those and is not any more cannot be a colour, or it is just another
+        /// place. So the whole table is grey: cold ash on the open ground, the ash beaten
+        /// darker where the road runs through it, and bare scorched rock where the fire
+        /// reached the stone.
+        ///
+        /// Which leaves the water, and that is the chapter. The recipe gives this country
+        /// a tenth of its ground as water (ChapterRecipe, Biome.Dead), and in a burnt land
+        /// there is no water: what is in the hollows is sulphur, and it is the only warm
+        /// thing anywhere on the map. A player who has walked nine countries has never
+        /// seen anything glow.
+        ///
+        /// The marsh goes with it — a fen here is the ground around a sulphur pool, which
+        /// is crusted yellow rather than green — and the ford is the crust you cross on.
+        /// </summary>
+        static readonly Color[] DeadGroundColors =
+        {
+            new Color(0.30f, 0.28f, 0.27f), // Road          — ash beaten flat
+            new Color(0.38f, 0.36f, 0.34f), // Plains        — cold ash, the colour of the whole country
+            new Color(0.29f, 0.27f, 0.25f), // Forest        — burnt woodland, darker for the char
+            // <b>Crust, not paint.</b> These were mixed two shades too light and a third
+            // too saturated, and the first picture of the country came back with lemon
+            // spilled across it: vertex colour is interpolated between tile corners, so a
+            // bright tile does not stay on its tile - it bleeds a tile in every direction,
+            // and at this saturation the bleed is the thing you see. Dulled until the
+            // crust belongs to the ash it lies on and the pool is the only thing that
+            // carries the colour.
+            new Color(0.40f, 0.35f, 0.21f), // Marsh         — sulphur crust round a pool
+            new Color(0.45f, 0.39f, 0.22f), // Ford          — the crust you can cross on
+            new Color(0.34f, 0.30f, 0.29f), // MountainPass  — scorched stone
+            new Color(0.46f, 0.31f, 0.10f), // Water         — the bed under the sulphur, not the sulphur
+            new Color(0.32f, 0.29f, 0.28f)  // Cliff         — bare rock, blackened
+        };
+
         public static Color OfGround(TerrainType t, Biome biome)
         {
             switch (biome)
             {
                 case Biome.Winter: return WinterGroundColors[(int)t];
+                case Biome.Dead: return DeadGroundColors[(int)t];
                 case Biome.Marsh: return MarshGroundColors[(int)t];
                 case Biome.Plains: return PlainsGroundColors[(int)t];
                 case Biome.Mountain: return MountainGroundColors[(int)t];

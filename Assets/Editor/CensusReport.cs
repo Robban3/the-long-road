@@ -55,9 +55,8 @@ namespace TheVeil.Editor
             var runner = Object.FindAnyObjectByType<LevelRunner>();
             if (runner == null) { Debug.Log("[Census] no LevelRunner in the scene"); return; }
 
-            var chapters = new List<int>();
-            for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) chapters.Add(c);
-            chapters.Add(Biomes.LastChapter);
+            // Every dressed chapter, from the one place that knows which they are.
+            var chapters = DifficultyCurve.Dressed;
 
             int empty = 0, thin = 0;
 

@@ -34,11 +34,10 @@ namespace TheVeil.Editor
             var runner = Object.FindAnyObjectByType<LevelRunner>();
             if (runner == null) { Debug.Log("[Demo] no LevelRunner in the scene"); return; }
 
-            // The built chapters, and the coast: it is the last chapter of the campaign
-            // and is being dressed now, so it wants photographing before it is built.
-            var wanted = new System.Collections.Generic.List<int>();
-            for (int c = 1; c <= DifficultyCurve.BuiltChapters; c++) wanted.Add(c);
-            wanted.Add(Biomes.LastChapter);
+            // Every chapter that has scenery of its own, from the one place that knows
+            // which they are: the run of built ones, the coast at a hundred, and whatever
+            // has been dressed out of order since. See DifficultyCurve.Dressed.
+            var wanted = DifficultyCurve.Dressed;
 
             foreach (int chapter in wanted)
             {
