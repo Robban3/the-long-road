@@ -258,6 +258,19 @@ namespace TheVeil.View
         /// is and ends wherever the model says. Nothing claims ground under one and
         /// nothing is kept off it: the caravan drives through light.
         /// </summary>
+        /// <summary>
+        /// How much of its bare rock a country lays its mats over, or nought for none.
+        ///
+        /// <b>Because a headland is not a mountain pass.</b> The mat table has no entry for
+        /// rock, and that is right where rock means a pass between peaks: bare stone is
+        /// what the ground is there. On a coast the same terrain means the points and
+        /// bluffs a shore is broken by, and those are shingle with turf blown over them.
+        /// Photographed, the last chapter had two bald grey stretches in the middle of a
+        /// green headland with nothing on them at all, and the reason was that the one
+        /// layer which covers ground rather than standing on it does not look at rock.
+        /// </summary>
+        public float RockMats;
+
         public PropSet Beams = new PropSet();
 
         /// <summary>The same, hung over the country rather than standing in it.</summary>
@@ -4360,7 +4373,11 @@ namespace TheVeil.View
 
             for (int i = 0; i < grid.TileCount && placed < MostMats; i++)
             {
-                if (!MatDensity.TryGetValue(grid[i], out float chance)) continue;
+                if (!MatDensity.TryGetValue(grid[i], out float chance))
+                {
+                    if (grid[i] != TerrainType.MountainPass || decor.RockMats <= 0f) continue;
+                    chance = decor.RockMats;
+                }
                 if (occupied.Contains(i)) continue;
 
                 // Thinned on the drawn line rather than cleared, as the cover is: a

@@ -4151,6 +4151,10 @@ namespace TheVeil.Editor
             // cut across its bay with sky underneath.
             decor.Sea = true;
 
+            // Turf blown over the points, because on this country bare rock is a bluff
+            // above a beach and not a pass between peaks. See BiomeDecor.RockMats.
+            decor.RockMats = 0.55f;
+
             // The landing stage at the end of the road, and what is tied to it.
             decor.Jetty = AlpineProps("SM_Prop_Jetty_01");
 
