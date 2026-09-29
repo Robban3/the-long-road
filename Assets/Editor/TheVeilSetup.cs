@@ -2455,6 +2455,204 @@ namespace TheVeil.Editor
             return new PropSet(false, models.ToArray());
         }
 
+        /// <summary>Where the enchanted wood's repaints are written.</summary>
+        const string FaePrefabDir = "Assets/_Project/Prefabs/Enchanted";
+
+        /// <summary>
+        /// Leaves in a colour the pack does not ship, mixed the way the pack mixes its own.
+        ///
+        /// <b>The pack's colour names are not its colours.</b> Leaves_01_Pink tints its
+        /// atlas (1, 0.97, 0) and emits orange: it is a yellow tree, and a wood dressed in
+        /// it came back looking like October. Leaves_01_Yellow is tan. Only the willow's
+        /// pink is pink, and it is pink because of the *emission* - tint near white, emit
+        /// (0.77, 0.12, 0.33) - which is how this shader is meant to be asked for a colour
+        /// that is not in the texture.
+        ///
+        /// So the colours are mixed here rather than chosen from a list of names, by the
+        /// pack's own method on the pack's own material. Two numbers to a leaf: what the
+        /// atlas is multiplied by, and what is added to it.
+        ///
+        /// <b>The cards as well as the crowns.</b> A Synty tree is a trunk, a crown and two
+        /// flat cards that stand in for the crown once the camera is far enough off, and
+        /// the cards wear their own materials. Paint the crown alone and the wood is violet
+        /// where the player stands and green everywhere else, which is worse than leaving
+        /// it green - it reads as the far trees being a different kind of tree. The snow
+        /// learned this and so did the autumn.
+        /// </summary>
+        static System.Collections.Generic.Dictionary<Material, Material> FaeLeaves(
+            Color tint, Color glow, Color bark, string suffix)
+        {
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+
+            void Leaf(string from)
+            {
+                var a = AssetDatabase.LoadAssetAtPath<Material>(from);
+                if (a != null) swaps[a] = EnsureLeaf(a, tint, glow, suffix);
+            }
+
+            Leaf($"{NatureMaterials}/Leaves/Leaves_01_Base.mat");
+            Leaf($"{NatureMaterials}/Leaves/Leaves_Willow_01.mat");
+            Leaf($"{NatureMaterials}/LODS/Leaves_Base_LOD_01.mat");
+            Leaf($"{NatureMaterials}/LODS/Leaves_Willow_LOD_01.mat");
+            Leaf($"{NatureMaterials}/LODS/Leaves_FlowerBush_LOD_01.mat");
+
+            // And the bark, which is the other half of a tree and the half that decides
+            // whether the crown reads as lit. A violet crown on a brown trunk is a tree
+            // somebody has painted; on a near-black one it is a tree with light in it.
+            var trunk = AssetDatabase.LoadAssetAtPath<Material>(
+                $"{NatureMaterials}/Alts/PolygonNature_Tree_01.mat");
+            if (trunk != null) swaps[trunk] = EnsureLeaf(trunk, bark, Color.black, suffix + "Bark");
+
+            return swaps;
+        }
+
+        /// <summary>
+        /// A copy of one of the pack's leaf materials, multiplied and lit. See FaeLeaves.
+        /// </summary>
+        static Material EnsureLeaf(Material source, Color tint, Color glow, string suffix)
+        {
+            MakeFolder(MaterialsDir);
+            string path = $"{MaterialsDir}/{source.name}_{suffix}.mat";
+
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                material = new Material(source) { name = $"{source.name}_{suffix}" };
+                AssetDatabase.CreateAsset(material, path);
+            }
+
+            Light(material, tint, glow);
+            return material;
+        }
+
+        /// <summary>
+        /// Tints a Synty material and turns its emission on, by the names that shader uses.
+        ///
+        /// <b>Not Unity's names.</b> Every one of these models wears Synty's own shader
+        /// graph, which has _Color_Tint and _Emission_Color of its own and ignores the
+        /// _EmissionColor that URP's Lit shader reads. The first attempt at a glowing
+        /// mushroom set _EmissionColor, enabled the _EMISSION keyword, and produced a
+        /// mushroom exactly as bright as before - written, built, photographed and only
+        /// then found, because a thing that fails to glow looks like a thing nobody lit.
+        /// </summary>
+        static void Light(Material material, Color tint, Color glow)
+        {
+            // <b>Three names for one thing, and which one works depends on the shader.</b>
+            // The nature pack's leaves wear one shader graph and tint through _Color_Tint;
+            // the meadow and generic packs wear another and tint through _BaseColor. Both
+            // materials list both properties, because the serialised leftovers of whatever
+            // shader they were authored under stay in the file - so the list cannot be read
+            // and HasProperty has to be asked. Setting only _Color_Tint lit every mushroom
+            // in the country and tinted none of them: they came out white, which is what
+            // the atlas draws them as, with a faint blue glow on top.
+            if (material.HasProperty("_Color_Tint")) material.SetColor("_Color_Tint", tint);
+            else if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", tint);
+            else if (material.HasProperty("_Color")) material.SetColor("_Color", tint);
+            if (material.HasProperty("_Enable_Emission")) material.SetFloat("_Enable_Emission", 1f);
+            if (material.HasProperty("_Enable_Emission_Texture"))
+                material.SetFloat("_Enable_Emission_Texture", 0f);
+            if (material.HasProperty("_Emission_Color")) material.SetColor("_Emission_Color", glow);
+            if (material.HasProperty("_Emission_Color_Tint"))
+                material.SetColor("_Emission_Color_Tint", glow);
+
+            // And Unity's, for anything in here that is an ordinary Lit material.
+            if (material.HasProperty("_EmissionColor")) material.SetColor("_EmissionColor", glow);
+            material.EnableKeyword("_EMISSION");
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+
+            EditorUtility.SetDirty(material);
+        }
+
+        /// <summary>The same set, repainted, as a set - and written where it is told.</summary>
+        static PropSet Recast(PropSet set,
+                              System.Collections.Generic.Dictionary<Material, Material> swaps,
+                              string suffix, string dir)
+        {
+            if (set == null || !set.Any || swaps.Count == 0) return set;
+
+            var models = new System.Collections.Generic.List<GameObject>();
+            foreach (var model in set.Models)
+            {
+                var painted = Repainted(model, swaps, suffix, dir);
+                if (painted != null) models.Add(painted);
+            }
+
+            return new PropSet(false, models.ToArray());
+        }
+
+        /// <summary>
+        /// The same models with light coming out of them.
+        ///
+        /// <b>Every glowing thing in the enchanted wood is a prop somebody else drew for
+        /// a meadow.</b> There is no bioluminescent anything in the three packs this game
+        /// owns - that is the one part of that country which cannot be borrowed - so the
+        /// glow is made rather than found: the model's own material is copied, emission is
+        /// turned on, and the copy is tinted. The mushroom keeps its own colours and its
+        /// own shading and gains a light; it is not repainted into a flat lozenge, which is
+        /// what setting the base colour would have done.
+        ///
+        /// One material to a set, named rather than discovered, because a Synty prop wears
+        /// its pack's whole atlas and the atlas is the thing to light.
+        /// </summary>
+        static PropSet Glowing(PropSet set, string atlasPath, Color tint, Color glow, string suffix)
+        {
+            var atlas = AssetDatabase.LoadAssetAtPath<Material>(atlasPath);
+            if (atlas == null || set == null || !set.Any) return set;
+
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>
+            {
+                [atlas] = EnsureLeaf(atlas, tint, glow, suffix)
+            };
+
+            return Recast(set, swaps, suffix, FaePrefabDir);
+        }
+
+        /// <summary>Water with light under it, for the wood that has light in everything.</summary>
+        static Material EnsureFaeWaterMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(FaeWaterMaterialPath);
+
+            if (material == null)
+            {
+                var shader = Shader.Find("TheVeil/Water");
+                if (shader == null)
+                {
+                    Debug.LogWarning("[The Veil] The project's water shader is missing, so the "
+                                     + "enchanted wood keeps the forest's river.");
+                    return null;
+                }
+
+                material = new Material(shader) { name = "FaeWater" };
+                AssetDatabase.CreateAsset(material, FaeWaterMaterialPath);
+            }
+
+            // <b>Brighter at the rim, which is the opposite of the sulphur.</b> Molten rock
+            // cools where it meets the ground, so its edge is crust and its middle is the
+            // only bright thing. Water with something lit under it does the reverse: the
+            // shallow edge is where the light is nearest the surface. So the rim carries
+            // the colour here and the foam is kept - it is the one country where a bright
+            // ring round a pool is the thing that was wanted.
+            if (material.HasProperty("_BaseColor"))
+                material.SetColor("_BaseColor", new Color(0.05f, 0.44f, 0.52f, 0.88f));
+            if (material.HasProperty("_ShallowColor"))
+                material.SetColor("_ShallowColor", new Color(0.26f, 0.92f, 0.92f, 0.72f));
+            if (material.HasProperty("_FoamColor"))
+                material.SetColor("_FoamColor", new Color(0.66f, 1f, 1f, 1f));
+            if (material.HasProperty("_FoamWidth")) material.SetFloat("_FoamWidth", 0.30f);
+
+            if (material.HasProperty("_WaveHeight")) material.SetFloat("_WaveHeight", 0.07f);
+            if (material.HasProperty("_WaveScale")) material.SetFloat("_WaveScale", 11f);
+            if (material.HasProperty("_WaveSpeed")) material.SetFloat("_WaveSpeed", 0.25f);
+            if (material.HasProperty("_RippleScale")) material.SetFloat("_RippleScale", 16f);
+            if (material.HasProperty("_FlowSpeed")) material.SetFloat("_FlowSpeed", 0.18f);
+            if (material.HasProperty("_Glitter")) material.SetFloat("_Glitter", 3.2f);
+
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        const string FaeWaterMaterialPath = MaterialsDir + "/FaeWater.mat";
+
         static PropSet DryStone(PropSet set)
         {
             var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
@@ -3013,6 +3211,442 @@ namespace TheVeil.Editor
             AssetDatabase.SaveAssets();
             return decor;
         }
+
+        /// <summary>
+        /// The enchanted wood: a close forest lit from underneath.
+        ///
+        /// <b>Built without the pack it is a picture of.</b> Synty draw an Enchanted Forest
+        /// biome and this project does not own it, so every piece of this country is
+        /// something else wearing a different colour. What the borrowed packs can give is
+        /// the shape of it - a close wood, a floor of mushrooms, shards of rock, water with
+        /// light in it - and what they cannot give is a tree drawn as a lamp. When the pack
+        /// is bought, the canopy and the leaf shapes are the first things to replace; the
+        /// rest of this holds.
+        ///
+        /// Three things make it read:
+        ///
+        ///   * <b>The canopy is not green.</b> The nature pack ships its leaves in pink and
+        ///     yellow and its trunks in four colourways, and none of the six had ever been
+        ///     loaded. Pink broadleaf, pink willow, gold birch - and the conifers left dark,
+        ///     because something has to be the silhouette the colour is seen against.
+        ///   * <b>The floor glows.</b> Twenty-five mushroom models across two packs, not one
+        ///     of them used anywhere, and Glowing gives them light. They go in the flower
+        ///     beds, which is thirty drifts a level of one kind each - a ring of mushrooms
+        ///     is what a flowerbed is here.
+        ///   * <b>The stone is crystal.</b> The dry pack's spiked rocks are the shape of a
+        ///     shard cluster and nothing else in three packs is; lit magenta they are the
+        ///     thing the country is named for.
+        ///
+        /// And nobody lives here: Settlements.Settled has said so about this country since
+        /// before it had any scenery.
+        /// </summary>
+        static BiomeDecor LoadEnchantedDecor()
+        {
+            var decor = LoadForestDecor();
+
+            // <b>Only the nature pack's trees.</b> The forest mixes in five from the
+            // knights pack, and those wear the knights atlas, which has no pink in it: a
+            // repaint passes them through untouched and they stand green in a pink wood.
+            // One pack here, on purpose.
+            decor.Trees = Recast(Synty("Trees",
+                                       "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
+                                       "SM_Tree_Round_04", "SM_Tree_Round_05", "SM_Tree_TallRound_01",
+                                       "SM_Tree_01", "SM_Tree_02", "SM_Tree_03", "SM_Tree_04",
+                                       "SM_Tree_Large_01", "SM_Tree_Generic_Giant_01"),
+                                 Violet, "Violet", FaePrefabDir);
+
+            decor.Birch = Recast(Synty("Trees", "SM_Tree_Birch_01", "SM_Tree_Birch_02",
+                                       "SM_Tree_Birch_03", "SM_Tree_Birch_04",
+                                       "SM_Tree_Birch_Small_01"),
+                                 Blush, "Blush", FaePrefabDir);
+
+            // The hanging canopy, which is the shape the whole country is read by, and the
+            // one the pack's own pink card was drawn for. The vine trees go in with them:
+            // they are the same silhouette with something growing down it.
+            decor.Willows = Recast(Synty("Trees", "SM_Tree_Willow_Large_01",
+                                         "SM_Tree_Willow_Medium_01", "SM_Tree_Willow_Small_01",
+                                         "SM_Tree_Vines_01", "SM_Tree_Vines_02",
+                                         "SM_Tree_Vines_03", "SM_Tree_Vines_04"),
+                                   Rose, "Rose", FaePrefabDir);
+
+            // <b>Darkened, and then given a light of their own.</b> The conifers are half
+            // of every tree rolled on wooded ground, and left in the pack's own sage green
+            // they were the brightest thing in a country whose point is that the bright
+            // things are the lit ones: photographed, the wood was a pale green wood with
+            // violet trees in it rather than a dark wood with violet trees in it.
+            //
+            // So the tint goes down to a deep teal - dark enough that a stand of them is
+            // still the mass everything else is seen against - and the emission comes up,
+            // which is a different thing from being pale. A needle that is bright because
+            // the sun is on it and a needle that is bright because it is lit from inside
+            // look nothing alike from above: the first flattens the wood and the second
+            // picks out its edges.
+            decor.Pines = Recast(Synty("Trees", "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02",
+                                       "SM_Tree_PolyPine_03", "SM_Tree_PolyPine_Sparse_01",
+                                       "SM_Tree_PolyPine_Sparse_02",
+                                       "SM_Tree_Pine_Large_01", "SM_Tree_Pine_01"),
+                                 Nightfall, "Night", FaePrefabDir);
+
+            decor.DeadTrees = Recast(Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02",
+                                           "SM_Tree_Generic_Dead_01"),
+                                     Nightfall, "Night", FaePrefabDir);
+
+            // And the skyline in the same colours, or the wood ends at the edge of the map
+            // and a green one begins.
+            decor.Horizon = Recast(decor.Horizon, Violet, "Violet", FaePrefabDir);
+
+            // <b>The mushrooms, and there are twenty-five of them.</b> Sixteen in the
+            // meadow pack's props, six plants in the nature pack, three in the generic one,
+            // and before this country existed exactly one of the twenty-five was named
+            // anywhere in the game. In the flower beds, which is where one kind grows in a
+            // drift of its own: thirty a level, off the road, laid flat and measured across.
+            // <b>And four colours of them, not one.</b> A flower bed is one species to a
+            // drift - that is how the pass works and it is right - so a country whose
+            // mushrooms are all the same colour gets thirty identical rings of the same
+            // light. Four repaints of the same seven models cost nothing but four
+            // materials, and what comes out is a wood where the next clearing is lit a
+            // different colour from the one behind you.
+            decor.Flowers = Mixed(
+                Glowing(MeadowProps("SM_Prop_Mushroom_Group_02", "SM_Prop_Mushroom_Sparse_01"),
+                        MeadowAtlas, new Color(0.30f, 0.86f, 0.94f),
+                        new Color(0.04f, 0.34f, 0.44f), "LitCyan").Models,
+                Glowing(MeadowProps("SM_Prop_Mushroom_Group_03", "SM_Prop_Mushroom_Sparse_03"),
+                        MeadowAtlas, new Color(0.94f, 0.36f, 0.72f),
+                        new Color(0.42f, 0.03f, 0.26f), "LitRose").Models,
+                Glowing(MeadowProps("SM_Prop_Mushroom_Group_04", "SM_Prop_Mushroom_Sparse_05"),
+                        MeadowAtlas, new Color(0.62f, 0.38f, 0.96f),
+                        new Color(0.22f, 0.05f, 0.46f), "LitViolet").Models,
+                Glowing(MeadowProps("SM_Prop_Mushroom_Group_05", "SM_Prop_Mushroom_Sparse_04"),
+                        MeadowAtlas, new Color(0.96f, 0.74f, 0.32f),
+                        new Color(0.40f, 0.22f, 0.02f), "LitAmber").Models);
+
+            // The single caps, big enough to stand under, among the undergrowth. The
+            // ferns are lifted out of the dark with them: left as the pack draws them they
+            // came out as black lumps on a violet floor, which is what a dark green reads
+            // as under this light.
+            decor.Bushes = Mixed(
+                Glowing(MeadowProps("SM_Prop_Mushroom_01"), MeadowAtlas,
+                        new Color(0.30f, 0.86f, 0.94f), new Color(0.04f, 0.34f, 0.44f),
+                        "LitCyan").Models,
+                Glowing(MeadowProps("SM_Prop_Mushroom_03"), MeadowAtlas,
+                        new Color(0.94f, 0.36f, 0.72f), new Color(0.42f, 0.03f, 0.26f),
+                        "LitRose").Models,
+                Glowing(MeadowProps("SM_Prop_Mushroom_05"), MeadowAtlas,
+                        new Color(0.96f, 0.74f, 0.32f), new Color(0.40f, 0.22f, 0.02f),
+                        "LitAmber").Models,
+                Glowing(MeadowProps("SM_Prop_Mushroom_02", "SM_Prop_Mushroom_06"), MeadowAtlas,
+                        new Color(0.62f, 0.38f, 0.96f), new Color(0.22f, 0.05f, 0.46f),
+                        "LitViolet").Models,
+                Shade(Synty("Plants", "SM_Plant_Fern_01", "SM_Plant_Fern_02",
+                            "SM_Plant_Fern_03", "SM_Plant_Bush_Leaves_01",
+                            "SM_Plant_Undergrowth_01", "SM_Plant_PurpleFlower_01")).Models);
+
+            decor.GroundCover = Mixed(
+                Glade(Synty("Plants",
+                            "SM_Plant_Mushrooms_01", "SM_Plant_Mushrooms_02",
+                            "SM_Plant_Mushrooms_03", "SM_Plant_Mushrooms_04",
+                            "SM_Plant_Mushrooms_05", "SM_Plant_Mushrooms_06",
+                            "SM_Plant_Fern_Leaves_01", "SM_Plant_Fern_Leaves_02",
+                            "SM_Plant_PurpleFlower_01", "SM_Plant_Undergrowth_01")).Models,
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Mushroom_01", "SM_Gen_Env_Mushroom_02", "SM_Gen_Env_Mushroom_03"
+                }));
+
+            // <b>Crystal, out of a desert.</b> Three packs and not one of them draws a
+            // shard; the dry pack's spiked rock is the shape - clustered, angular, rising
+            // out of the ground rather than lying on it - and lit magenta it is the thing
+            // the chapter is named for. Nothing else here needed inventing.
+            decor.Boulders = Glowing(Desert("SM_Env_Rocks_Spikey_01", "SM_Env_Rocks_Spikey_02",
+                                            "SM_Env_Rocks_Spikey_03", "SM_Env_Rocks_Spikey_04",
+                                            "SM_Env_Rocks_Spikey_05", "SM_Env_Rocks_Spikey_06"),
+                                     AridStone, new Color(0.62f, 0.26f, 0.80f),
+                                     new Color(0.30f, 0.03f, 0.38f), "Crystal");
+
+            decor.Cliffs = Glowing(Desert("SM_Env_Rocks_Spikes_Large_01",
+                                          "SM_Env_Rocks_Spikes_Large_02",
+                                          "SM_Env_Rocks_Spikes_Large_03"),
+                                   AridStone, new Color(0.24f, 0.78f, 0.86f),
+                                   new Color(0.03f, 0.30f, 0.40f), "Shard");
+
+            // The small stone stays stone: a floor of lit gravel is a floor nobody can read
+            // a lit mushroom against.
+            // In the pack's navy, which is the third of its four stone colourways and was
+            // loaded by nothing. Its own dark grey is a warm grey, and a hundred warm grey
+            // stones lying along a violet riverbank read as a beach in the wrong country.
+            decor.Rocks = Recast(Synty("Rocks", "SM_Rock_01", "SM_Rock_02", "SM_Rock_Rounded_01",
+                                       "SM_Rock_Small_01", "SM_Rock_Small_02", "SM_Rock_Pile_01"),
+                                 StoneColour(3), "Navy", FaePrefabDir);
+
+            decor.Shore = Recast(Synty("Rocks", "SM_Rock_Small_01", "SM_Rock_Small_02",
+                                       "SM_Rock_Pile_02", "SM_Rock_Pile_03"),
+                                 StoneColour(3), "Navy", FaePrefabDir);
+
+            // <b>Standing stones, a gate and a sword.</b> Nine props in the meadow pack that
+            // nothing had ever loaded, and every one of them says the same thing about this
+            // country: somebody was here and it was not recently. The runes mark the traps -
+            // a warning cut in stone rather than a skull on a pole - and the arch and the
+            // gate are what the wood is built round.
+            decor.Markers = MeadowProps("SM_Prop_StoneRunes_01", "SM_Prop_StoneRunes_02",
+                                        "SM_Prop_StoneRunes_03");
+
+            decor.Ruins = Mixed(
+                Load($"{MeadowDir}/Props", new[]
+                {
+                    "SM_Prop_StoneArch_01", "SM_Prop_Stone_Hole_01", "SM_Prop_StoneStack_01",
+                    "SM_Prop_StoneStack_02", "SM_Prop_Sword_Stone_01", "SM_Prop_MushroomHouse_01",
+                    "SM_Prop_MushroomHouse_02"
+                }));
+
+            decor.Watchtowers = new PropSet();
+
+            // <b>And the worn ground on the road, which is the one thing the palette does
+            // not paint.</b> The road's colour is laid into the mesh, but the gravel and
+            // bare earth scattered along it are props, and the forest's are meadow brown:
+            // photographed, this country had a sand-coloured track winding across a violet
+            // floor, which reads as somebody having forgotten to dress the road.
+            decor.GroundPatches = Recast(decor.GroundPatches, Loam, "Loam", FaePrefabDir);
+            decor.Mats = Recast(decor.Mats, Loam, "Loam", FaePrefabDir);
+
+            // Wood on the floor with things growing on it.
+            decor.Timber = Synty("Trees", "SM_Tree_Stump_01", "SM_Tree_Stump_02",
+                                 "SM_Tree_Stump_03", "SM_Tree_Log_01", "SM_Tree_Log_02");
+
+            decor.Deadfall = Sunk(Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_Log_01", "SM_Tree_Log_02", "SM_Tree_Branch_01"
+                }),
+                Load($"{SyntyGenericDir}/Environment", new[]
+                {
+                    "SM_Gen_Env_Ivy_01", "SM_Gen_Env_Ivy_05", "SM_Gen_Env_Ivy_09",
+                    "SM_Gen_Env_Vines_01", "SM_Gen_Env_Vines_03"
+                })), 0.06f);
+
+            // <b>What is in the air, and it is half the country.</b> Fourteen effects
+            // across four packs, and before this chapter was built the game used five of
+            // them anywhere: ash, flies, vultures, snow and leaves. A wood is enchanted or
+            // it is dark, and what decides which is whether anything is moving in the air
+            // between the trunks.
+            //
+            // Fireflies and glowing dust first, because those are the ones everybody
+            // pictures. Then four kinds of butterfly - the lunar and the blue are drawn for
+            // the dark on purpose - petals in three colours, a drift of pink leaves, and
+            // the dry pack's arcing light, which is the one effect here that says somebody
+            // is doing this to the wood rather than the wood simply being like this.
+            decor.Fauna = Mixed(
+                Load($"{SyntyNatureDir}/FX", new[]
+                {
+                    "FX_Fireflies_01", "FX_Fireflies_01",
+                    "FX_Butterlies_Particle_01_Blue", "FX_Butterlies_Particle_01_MultiColour",
+                    "FX_Leaves_Solo_Pink_01"
+                }),
+                Load(GenericFX, new[] { "FX_Dust_Spots_01" }),
+                Load(AlpineFXDir, new[] { "FX_Petals_Purple_01" }),
+                Load(MeadowFXDir, new[]
+                {
+                    "FX_Butterflies_Lunar_01", "FX_Butterflies_Blue_01",
+                    "FX_Petals_Red_01", "FX_Petals_Yellow_01"
+                }),
+                Load(DesertFXDir, new[] { "FX_Electricity_01" }));
+
+            // <b>The light, standing in the wood.</b> Two of these are meshes rather than
+            // particles - LightRay_Round and LightRay_Cube - which is why they are worth
+            // more here than anything else in the list: a particle effect is invisible in
+            // a still, and half of what this country is going to be judged by is stills.
+            // The mist goes in with them: it is the same layer, and a shaft of light with
+            // nothing for it to fall through is a shaft of light in a vacuum.
+            decor.Beams = Mixed(
+                Load(GenericFX, new[]
+                {
+                    "LightRay_Round_01", "LightRay_Cube_01", "FX_SunBeam_01", "FX_Fog_01"
+                }),
+                Load(AlpineFXDir, new[] { "FX_Sunray_01" }),
+                Load($"{SyntyNatureDir}/FX", new[]
+                {
+                    "FX_SunBeams_Particle_01", "FX_Smoke_Light_01"
+                }));
+
+            // And the aurora, hung over the whole country. The alpine pack draws two and
+            // nothing had ever asked for either; they are meshes, so they hang.
+            decor.Aloft = new PropSet(false, Load(AlpineFXDir, new[]
+            {
+                "FX_Aurora_Mesh_01", "FX_Aurora_Mesh_02"
+            }));
+
+            // A candle in the dark at every camp: the raiders are the only thing here that
+            // lights a fire on purpose.
+            decor.Camps = Mixed(decor.Camps.Models,
+                                Load(GenericFX, new[] { "FX_Candle_Flame_01" }));
+
+            // Nobody keeps a house in a wood that has its own opinion about visitors.
+            // Settlements.Settled says so; these say the same to the decorator.
+            decor.Farms = new PropSet();
+            decor.Mills = new PropSet();
+            decor.MillSupports = new PropSet();
+            decor.Fences = new PropSet();
+            decor.Yard = new PropSet();
+            decor.Sheds = new PropSet();
+            decor.Signs = new PropSet();
+
+            AssetDatabase.SaveAssets();
+            return decor;
+        }
+
+        /// <summary>
+        /// The three colours the wood is dressed in, and one for its bark.
+        ///
+        /// Violet for the broadleaf, which is the canopy and most of what is seen; rose for
+        /// the hanging willows, which are the shape the country is read by; and blush for
+        /// the birch, which is the lightest of the three and is what the eye lands on.
+        ///
+        /// <b>Three shades of one thing rather than a contrast.</b> The birch was teal at
+        /// first, on the reasoning that two warm colours want something cold to stand
+        /// against - and they do, but the cold thing here is the dark, not a third hue.
+        /// A wood of violet, rose and blush is a wood; violet, rose and teal is a paint
+        /// chart. The bark is near-black under all three: see FaeLeaves.
+        /// </summary>
+        static System.Collections.Generic.Dictionary<Material, Material> Violet
+            => FaeLeaves(new Color(0.52f, 0.34f, 0.78f), new Color(0.34f, 0.06f, 0.52f),
+                         Bark, "Violet");
+
+        static System.Collections.Generic.Dictionary<Material, Material> Rose
+            => FaeLeaves(new Color(0.88f, 0.52f, 0.78f), new Color(0.66f, 0.08f, 0.38f),
+                         Bark, "Rose");
+
+        static System.Collections.Generic.Dictionary<Material, Material> Blush
+            => FaeLeaves(new Color(0.94f, 0.58f, 0.86f), new Color(0.74f, 0.14f, 0.54f),
+                         Bark, "Blush");
+
+        static readonly Color Bark = new Color(0.24f, 0.20f, 0.30f);
+
+        /// <summary>The conifers and the bare trunks, taken down to a silhouette.</summary>
+        static System.Collections.Generic.Dictionary<Material, Material> Nightfall
+        {
+            get
+            {
+                var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+                var night = new Color(0.26f, 0.26f, 0.38f);
+
+                void Dark(string from)
+                {
+                    var a = AssetDatabase.LoadAssetAtPath<Material>(from);
+                    if (a != null) swaps[a] = EnsureLeaf(a, night, Color.black, "Night");
+                }
+
+                void Needles(string from)
+                {
+                    var a = AssetDatabase.LoadAssetAtPath<Material>(from);
+                    if (a != null)
+                        swaps[a] = EnsureLeaf(a, new Color(0.20f, 0.44f, 0.42f),
+                                              new Color(0.04f, 0.30f, 0.26f), "Needle");
+                }
+
+                Needles($"{NatureMaterials}/Leaves/Leaves_Pine_01.mat");
+                Needles($"{NatureMaterials}/LODS/Leaves_Pine_LOD_01.mat");
+                Dark($"{NatureMaterials}/Alts/PolygonNature_Tree_01.mat");
+                Dark($"{NatureMaterials}/Alts/PolygonNature_Tree_TrunkDead_01.mat");
+                Dark($"{NatureMaterials}/LODS/Tree_Dead_Branch_LOD_01.mat");
+                Dark($"{NatureMaterials}/LODS/Tree_Dead_Trunk_LOD_01.mat");
+                Dark($"{NatureMaterials}/Misc/Tree_Dead_01.mat");
+
+                return swaps;
+            }
+        }
+
+        /// <summary>
+        /// The floor's leaves, lifted out of the dark and given a little light of their own.
+        ///
+        /// A fern is drawn dark green, and dark green under a violet sky with no sun in it
+        /// is black. The floor of this country carries more props than anything else on the
+        /// map and every one of them was a black lump.
+        /// </summary>
+        static PropSet Fronds(PropSet set, Color leaf, Color lit, string suffix)
+        {
+            var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+
+            void Lift(string from, Color tint, Color glow)
+            {
+                var a = AssetDatabase.LoadAssetAtPath<Material>(from);
+                if (a != null) swaps[a] = EnsureLeaf(a, tint, glow, suffix);
+            }
+
+            Lift($"{NatureMaterials}/Alts/PolygonNature_Plants_01.mat", leaf, lit);
+            Lift($"{NatureMaterials}/Misc/Fern_01.mat", leaf, lit);
+            Lift($"{NatureMaterials}/Misc/Undergrowth_01.mat", leaf, lit);
+            Lift($"{NatureMaterials}/LODS/Leaves_Fern_LOD_01.mat", leaf, lit);
+            Lift($"{NatureMaterials}/LODS/Leaves_Undergrowth_LOD_01.mat", leaf, lit);
+
+            // The flowering bush keeps its own colour whichever floor it is on: it is the
+            // one piece of this layer that is meant to be looked at.
+            Lift($"{NatureMaterials}/Misc/Flower_Bush_01.mat",
+                 new Color(0.94f, 0.50f, 0.84f), new Color(0.44f, 0.05f, 0.34f));
+
+            return Recast(set, swaps, suffix, FaePrefabDir);
+        }
+
+        /// <summary>Violet, for the floor under the canopy.</summary>
+        static PropSet Shade(PropSet set)
+            => Fronds(set, new Color(0.58f, 0.36f, 0.74f), new Color(0.20f, 0.04f, 0.28f),
+                      "Shade");
+
+        /// <summary>
+        /// Turquoise, for the floor in the open.
+        ///
+        /// <b>Three families of colour, not one.</b> The wood went all-violet once and read
+        /// as a country somebody had put a filter over; it went all-pink and read the same
+        /// way in a different hue. What makes a wood enchanted rather than tinted is that
+        /// the colours in it do not agree: cold light low down, warm colour overhead, and
+        /// the dark between them. So the undergrowth in the open is turquoise, the
+        /// undergrowth in the shade is violet, the canopy is rose and blush, and the water
+        /// and the mushrooms are the coldest things on the map.
+        /// </summary>
+        static PropSet Glade(PropSet set)
+            => Fronds(set, new Color(0.32f, 0.72f, 0.74f), new Color(0.03f, 0.26f, 0.32f),
+                      "Glade");
+
+        /// <summary>The ground the road is worn into, in this country's colours.</summary>
+        static System.Collections.Generic.Dictionary<Material, Material> Loam
+        {
+            get
+            {
+                var swaps = new System.Collections.Generic.Dictionary<Material, Material>();
+                var earth = new Color(0.34f, 0.28f, 0.44f);
+
+                foreach (string mat in new[]
+                {
+                    MeadowAtlas,
+                    $"{NatureMaterials}/Alts/PolygonNature_Plants_01.mat",
+                    $"{NatureMaterials}/Alts/PolygonNature_01.mat"
+                })
+                {
+                    var a = AssetDatabase.LoadAssetAtPath<Material>(mat);
+                    if (a != null) swaps[a] = EnsureLeaf(a, earth, Color.black, "Loam");
+                }
+
+                return swaps;
+            }
+        }
+
+        /// <summary>Where each pack files its effects. None of them agree.</summary>
+        const string GenericFX = "Assets/Synty/PolygonGeneric/Prefabs/FX";
+
+        const string AlpineFXDir =
+            "Assets/Synty/PolygonNatureBiomes/PNB_Alpine_Mountain/FX/FX_Prefabs";
+
+        const string MeadowFXDir =
+            "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/FX/FX_Prefabs";
+
+        const string DesertFXDir =
+            "Assets/Synty/PolygonNatureBiomes/PNB_Arid_Desert/FX/FX_Prefabs";
+
+        /// <summary>The atlas every meadow prop wears, and the dry pack's stone.</summary>
+        const string MeadowAtlas =
+            "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Materials"
+            + "/PolygonNatureBiomesMeadow_Mat_01.mat";
+
+        const string AridStone = DesertMaterials + "/Rock_Triplanar_01.mat";
+
 
         /// <summary>
         /// The dead land: ash over rock, and what is left standing in it.
@@ -4038,6 +4672,37 @@ namespace TheVeil.Editor
 
                 new BiomeLook
                 {
+                    Biome = Biome.Enchanted,
+                    Decor = LoadEnchantedDecor(),
+
+                    // Water with light under it rather than sky on it. See
+                    // EnsureFaeWaterMaterial.
+                    Water = EnsureFaeWaterMaterial(),
+                    PoolWater = EnsureFaeWaterMaterial(),
+
+                    // The thickest country in the game. The recipe gives it fifty-six parts
+                    // of forest in a hundred and the wood is meant to not want the road:
+                    // what says that from above is that you cannot see between the trunks.
+                    Density = 1.5f,
+
+                    // Dust with light in it, which is this country's snow. It is also the
+                    // one piece of weather that is doing a job rather than dressing: half
+                    // of what makes a wood read as enchanted rather than as dark is that
+                    // the air is not empty.
+                    Weather = One("Assets/Synty/PolygonNature/Prefabs/FX"
+                                  + "/FX_Glowing_Dust_01.prefab"),
+
+                    // Violet, and thicker than the burnt country's smoke. A wood you can
+                    // see across is a wood, not a maze; and every lit thing in here is only
+                    // worth what the dark around it is worth.
+                    Fog = true,
+                    FogColor = new Color(0.20f, 0.13f, 0.30f),
+                    FogDensity = 0.0042f,
+                    SkyColor = new Color(0.10f, 0.06f, 0.18f)
+                },
+
+                new BiomeLook
+                {
                     Biome = Biome.Dead,
                     Decor = LoadDeadDecor(),
 
@@ -4140,6 +4805,14 @@ namespace TheVeil.Editor
                     Water = EnsureSulphurMaterial(),
                     PoolWater = EnsureSulphurMaterial(),
                     Density = 0.95f
+                },
+                new BiomeLook
+                {
+                    Biome = Biome.Enchanted,
+                    Decor = WithoutSkyline(LoadEnchantedDecor()),
+                    Water = EnsureFaeWaterMaterial(),
+                    PoolWater = EnsureFaeWaterMaterial(),
+                    Density = 1.5f
                 }
             };
         }

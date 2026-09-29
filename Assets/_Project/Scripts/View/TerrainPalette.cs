@@ -1,4 +1,4 @@
-using TheVeil.Sim;
+﻿using TheVeil.Sim;
 using UnityEngine;
 
 namespace TheVeil.View
@@ -126,6 +126,24 @@ namespace TheVeil.View
         /// it are gravel rather than the road itself.
         /// </summary>
         public static readonly Color Track = new Color(0.66f, 0.57f, 0.40f);
+
+        /// <summary>
+        /// The road's own colour in a country that cannot have a sandy one.
+        ///
+        /// Sand is right for eight countries out of ten and it was the only answer for all
+        /// of them: a bright ochre track wound across the enchanted wood's violet floor and
+        /// was the first thing the eye went to on the whole map, which is the opposite of
+        /// what a worn path is for. A path through moss in a wood with no sun in it is the
+        /// moss with the moss walked off it.
+        /// </summary>
+        public static Color TrackFor(Biome biome)
+        {
+            switch (biome)
+            {
+                case Biome.Enchanted: return new Color(0.33f, 0.27f, 0.42f);
+                default: return Track;
+            }
+        }
 
         /// <summary>
         /// The mountains: stone, scree and the little grass that holds on between them.
@@ -303,6 +321,38 @@ namespace TheVeil.View
         /// The marsh goes with it — a fen here is the ground around a sulphur pool, which
         /// is crusted yellow rather than green — and the ford is the crust you cross on.
         /// </summary>
+        /// <summary>
+        /// The enchanted wood: violet ground under a canopy that is not green.
+        ///
+        /// <b>Dark, and dulled on purpose, for the reason the dead land's crust was.</b>
+        /// Vertex colour is interpolated between tile corners, so a bright tile does not
+        /// stay on its tile - it bleeds a tile in every direction, and at any real
+        /// saturation the bleed is the thing you see. Everything that glows in this
+        /// country glows because it is a prop with light in it or water with light under
+        /// it; the ground is what they are seen against, and the darker it is the more
+        /// they are worth. A violet floor painted as brightly as the mushrooms standing
+        /// on it is a country with no mushrooms in it.
+        /// </summary>
+        static readonly Color[] EnchantedGroundColors =
+        {
+            new Color(0.23f, 0.19f, 0.28f), // Road          — a violet track, worn pale
+            new Color(0.19f, 0.16f, 0.26f), // Plains        — moss with no green left in it
+            new Color(0.14f, 0.12f, 0.21f), // Forest        — under the canopy, and the
+                                            //                 canopy is the darkest thing here
+            new Color(0.16f, 0.25f, 0.28f), // Marsh         — the bog at a lit pool's edge
+            new Color(0.21f, 0.31f, 0.34f), // Ford          — where you can cross it
+            new Color(0.22f, 0.18f, 0.27f), // MountainPass  — violet stone
+            // <b>And the bed stays the darkest thing on the map.</b> Every palette in the
+            // game keeps water well below its own bank, because a river the player cannot
+            // see is a river they cannot plan round, and a lit country is exactly where
+            // that rule is easiest to break: the water here glows, so the bed underneath
+            // it was mixed bright to match and came out lighter than the ground beside it.
+            // The glow belongs to the sheet (EnsureFaeWaterMaterial); this is what the
+            // sheet is seen against.
+            new Color(0.05f, 0.14f, 0.17f), // Water         — the bed under lit water
+            new Color(0.16f, 0.14f, 0.22f)  // Cliff         — bare rock in the dark
+        };
+
         static readonly Color[] DeadGroundColors =
         {
             new Color(0.30f, 0.28f, 0.27f), // Road          — ash beaten flat
@@ -328,6 +378,7 @@ namespace TheVeil.View
             {
                 case Biome.Winter: return WinterGroundColors[(int)t];
                 case Biome.Dead: return DeadGroundColors[(int)t];
+                case Biome.Enchanted: return EnchantedGroundColors[(int)t];
                 case Biome.Marsh: return MarshGroundColors[(int)t];
                 case Biome.Plains: return PlainsGroundColors[(int)t];
                 case Biome.Mountain: return MountainGroundColors[(int)t];

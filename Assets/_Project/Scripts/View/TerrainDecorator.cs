@@ -251,6 +251,19 @@ namespace TheVeil.View
         public PropSet Fauna = new PropSet();
 
         /// <summary>
+        /// Light standing in the air: shafts through the canopy, mist between the trunks.
+        ///
+        /// Seated on the ground and left at the size it was drawn, because a shaft of
+        /// light is not a prop with a height - it is a column that starts where the ground
+        /// is and ends wherever the model says. Nothing claims ground under one and
+        /// nothing is kept off it: the caravan drives through light.
+        /// </summary>
+        public PropSet Beams = new PropSet();
+
+        /// <summary>The same, hung over the country rather than standing in it.</summary>
+        public PropSet Aloft = new PropSet();
+
+        /// <summary>
         /// Landmarks. Unlike the scatter above, these are placed where they make sense
         /// rather than where the dice fall: people build beside roads, watchtowers go
         /// where there is something to watch, timber is cut where the trees are.
@@ -1519,6 +1532,7 @@ namespace TheVeil.View
                                       densityScale, road);
             placed += PlaceMounds(parent, grid, Stream(16), decor, occupied, heightScale, road);
             placed += PlaceFauna(parent, grid, Stream(17), decor, heightScale, road);
+            placed += PlaceLight(parent, grid, Stream(18), decor, heightScale, road);
             placed += PlaceBoats(parent, grid, Stream(20), decor, occupied, heightScale, road);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
                                      densityScale, road);
@@ -1539,6 +1553,10 @@ namespace TheVeil.View
             placed -= SweepTheCourtyard(parent);
             placed -= SweepTheBridges(parent, grid);
             placed -= SweepTheBones(parent, grid);
+
+            // And the sky last, because it is the one thing on the map that is not on the
+            // ground and must not be judged as though it were. See PlaceSky.
+            placed += PlaceSky(parent, grid, Stream(19), decor);
 
             Census(parent);
             Tallest(parent);
@@ -1779,6 +1797,16 @@ namespace TheVeil.View
 
                     var box = ModelScaling.Measure(thing.gameObject);
 
+                    // <b>And nothing that passes overhead.</b> The test below is flattened
+                    // on purpose - what matters is what stands over the roadway - and
+                    // flattened means a thing ninety metres up counts as standing on the
+                    // deck if its shadow would fall on it. The enchanted wood hangs aurora
+                    // ribbons over the whole country at that height, scaled up to five
+                    // times, and four of the thirty a chapter should carry survived: the
+                    // rest were swept off bridges they were nowhere near. Counted by the
+                    // census, which reported the set as thin and was right.
+                    if (box.min.y > span.max.y + Overhead) continue;
+
                     // Flattened, because the question is what stands over the roadway and
                     // not what passes above or below it.
                     bool onTheDeck = box.max.x >= span.min.x && box.min.x <= span.max.x
@@ -1840,6 +1868,14 @@ namespace TheVeil.View
 
             return doomed.Count;
         }
+
+        /// <summary>
+        /// How far above a deck a thing may be and still be counted as clear of it.
+        ///
+        /// Eight metres, which is above the tallest thing that could be standing on a
+        /// bridge and below anything that is meant to be in the sky.
+        /// </summary>
+        const float Overhead = 8f;
 
         /// <summary>
         /// How far past a deck a bridge keeps its mouth clear, in metres.
@@ -4692,6 +4728,112 @@ namespace TheVeil.View
 
             return flying.Count;
         }
+
+        /// <summary>
+        /// The light itself, which in one country is scenery rather than lighting.
+        ///
+        /// <b>Two layers, and neither of them is a prop.</b> The shafts stand on the ground
+        /// among the trunks; the ribbons hang over the whole map where a skyline would be.
+        /// Both are instantiated rather than scattered, for the reason the butterflies are:
+        /// no fitting, no width cap, no solid disc, no claim on the ground. A column of
+        /// light fitted to a height would be scaled by its own aspect ratio and come out as
+        /// a disc, and one that reserved its tile would keep a tree out of the very place a
+        /// shaft through a canopy has to be.
+        ///
+        /// Off the road, so the drawn line stays the clearest thing on the map, and far
+        /// enough apart that the wood is dark between them. Light everywhere is daylight.
+        /// </summary>
+        static int PlaceLight(Transform parent, TileGrid grid, DeterministicRandom rng,
+                              BiomeDecor decor, float heightScale, HashSet<int> road)
+        {
+            int placed = 0;
+
+            if (decor.Beams.Any)
+            {
+                var lit = new List<int>();
+
+                for (int i = 0; i < grid.TileCount && lit.Count < MostBeams; i++)
+                {
+                    if (grid[i] != TerrainType.Plains && grid[i] != TerrainType.Forest) continue;
+                    if (road != null && road.Contains(i)) continue;
+                    if (!rng.Chance(BeamChance)) continue;
+                    if (!Apart(grid, i, lit, BeamsApart)) continue;
+
+                    lit.Add(i);
+
+                    var at = Vec2.FromTile(grid, i);
+                    float ground = grid.SurfaceElevation(at.X, at.Y) * heightScale;
+
+                    var shaft = Object.Instantiate(Any(decor.Beams, rng), parent);
+                    shaft.transform.position = new Vector3(at.X + rng.Range(-1.5f, 1.5f),
+                                                           ground,
+                                                           at.Y + rng.Range(-1.5f, 1.5f));
+                    shaft.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+
+                    float spread = rng.Range(0.7f, 1.6f);
+                    shaft.transform.localScale *= spread;
+                    placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>
+        /// The ribbons, hung at a height rather than placed on a tile: what they are is the
+        /// sky of this country, and a sky is not somewhere in particular.
+        ///
+        /// <b>Hung after the sweeps, and that is the whole reason this is its own pass.</b>
+        /// Every sweep on the map compares flattened outlines - what stands over a bridge,
+        /// what lies within reach of a trap - because what matters on the ground is where a
+        /// thing is, not how high. An aurora ninety metres up and scaled to five times is
+        /// wider than the map, so it overlapped every bridge and every trap site on every
+        /// level and was taken down by both: four of the thirty a chapter should carry
+        /// survived. Counted by the census, which reported the set as thin and was right.
+        ///
+        /// The sweeps could be taught about height, and SweepTheBridges now is. But the
+        /// honest answer is that nothing which is not on the ground should be walking past
+        /// the rules for things on the ground at all.
+        /// </summary>
+        static int PlaceSky(Transform parent, TileGrid grid, DeterministicRandom rng,
+                            BiomeDecor decor)
+        {
+            if (!decor.Aloft.Any) return 0;
+
+            float span = grid.Width * TileGrid.TileSize;
+            int placed = 0;
+
+            for (int i = 0; i < Ribbons; i++)
+            {
+                var ribbon = Object.Instantiate(Any(decor.Aloft, rng), parent);
+
+                ribbon.transform.position =
+                    new Vector3(span * rng.Range(0.1f, 0.9f), RibbonHeight,
+                                span * rng.Range(0.1f, 0.9f));
+                ribbon.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+                ribbon.transform.localScale *= rng.Range(2.5f, 5f);
+                placed++;
+            }
+
+            return placed;
+        }
+
+        /// <summary>How many shafts a level carries, how far apart, and how likely.</summary>
+        // Eighteen on a map of four thousand tiles, six tiles apart at the closest. Fewer
+        // and the wood has one lit clearing in it; more and it is a lit wood, which is a
+        // wood in daylight.
+        const int MostBeams = 18;
+
+        const int BeamsApart = 6;
+
+        const float BeamChance = 0.05f;
+
+        /// <summary>How many ribbons hang over a level, and how high.</summary>
+        // Three, at ninety metres - above the tallest thing on any map (a keep is 22) and
+        // below the skyline's own peaks, so they read as sky rather than as scenery.
+        const int Ribbons = 3;
+
+        const float RibbonHeight = 90f;
 
         /// <summary>How many flights a level carries, how far apart, and how likely.</summary>
         // Ten. They are the only thing in the country that moves while nothing is

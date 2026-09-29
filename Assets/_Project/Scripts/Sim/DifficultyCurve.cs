@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System;
 
 namespace TheVeil.Sim
@@ -57,7 +57,7 @@ namespace TheVeil.Sim
         /// The coast is here for the older version of the same reason: it is chapter one
         /// hundred and has been dressed since the day the sea came off the tour.
         /// </summary>
-        static readonly int[] AlsoDressed = { 9 };
+        static readonly int[] AlsoDressed = { 8, 9 };
 
         /// <summary>
         /// Every chapter that has scenery of its own, in the order they were built.

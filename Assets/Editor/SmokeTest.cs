@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using TheVeil.App;
 using TheVeil.Gen;
@@ -130,6 +130,18 @@ namespace TheVeil.Editor
         /// build with its own arguments would drift from the first the day either one is
         /// changed, and then the tool is reporting on a world nobody plays.
         /// </summary>
+        /// <summary>Whether a model is one the country hangs in its sky. See PlaceSky.</summary>
+        static bool Aloft(BiomeDecor decor, string name)
+        {
+            if (decor == null || decor.Aloft == null || !decor.Aloft.Any) return false;
+
+            foreach (var model in decor.Aloft.Models)
+                if (model != null && name.StartsWith(model.name, System.StringComparison.Ordinal))
+                    return true;
+
+            return false;
+        }
+
         internal static GameObject Build(LevelRunner runner, int chapter, int level, out LevelMap map)
         {
             map = LevelMaps.For(chapter, level);
@@ -149,7 +161,8 @@ namespace TheVeil.Editor
             if (map.Corridors != null)
                 foreach (var road in map.Corridors)
                     if (road?.Tiles != null)
-                        tracks.Add(new TerrainMeshBuilder.RouteOverlay(road.Tiles, TerrainPalette.Track));
+                        tracks.Add(new TerrainMeshBuilder.RouteOverlay(road.Tiles,
+                                                                      TerrainPalette.TrackFor(biome)));
 
             var mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize, tracks, -1, -1,
                                                 runner.HeightScale, TerrainMeshBuilder.SkirtWidth, biome,
@@ -203,7 +216,8 @@ namespace TheVeil.Editor
             var root = Build(runner, chapter, level, out var map);
             var look = runner.LookFor(Biomes.Of(chapter));
 
-            Measure(map, root.transform.Find("Props"), runner.HeightScale, chapter, level, faults);
+            Measure(map, root.transform.Find("Props"), runner.HeightScale, chapter, level, faults,
+                    look != null && look.Decor != null ? look.Decor : runner.Decor);
 
             var shot = Shoot(map, runner, look, Settlements.Site(map, chapter, level), chapter, level);
 
@@ -221,7 +235,7 @@ namespace TheVeil.Editor
         /// is not about them.
         /// </summary>
         static void Measure(LevelMap map, Transform props, float heightScale,
-                            int chapter, int level, List<string> faults)
+                            int chapter, int level, List<string> faults, BiomeDecor decor)
         {
             float edgeX = map.Grid.Width * TileGrid.TileSize;
             float edgeZ = map.Grid.Height * TileGrid.TileSize;
@@ -257,7 +271,16 @@ namespace TheVeil.Editor
                 // months standing on the ground on nothing. Reported twenty-four times the
                 // first run after it was hung up, and every one of them was a shop sign
                 // over a shop door.
-                bool hangs = name.Contains("Banner") || name.Contains("ShopSign");
+                //
+                // <b>And the sky, which is the only layer on the map that is not on the
+                // ground at all.</b> The enchanted wood hangs aurora ribbons ninety metres
+                // over the country - see TerrainDecorator.PlaceSky - and this reported all
+                // three of them on every level of that chapter, seventy-six metres clear,
+                // which is exactly what they are and exactly what they are for. Asked of
+                // the set the decorator put them in rather than of the name, so buying a
+                // pack with its own aurora in it does not quietly turn the check back on.
+                bool hangs = name.Contains("Banner") || name.Contains("ShopSign")
+                             || Aloft(decor, name);
 
                 // A tree's branches, which are their own meshes in the meadow pack and hang
                 // above the ground by construction - that is what a branch does. The trunk
@@ -340,7 +363,7 @@ namespace TheVeil.Editor
                 }
             }
 
-            Solidity(map, props, chapter, level, faults);
+            Solidity(map, props, chapter, level, faults, decor);
 
             foreach (var pair in floating.OrderByDescending(p => p.Value.Worst).Take(4))
                 faults.Add($"{chapter}-{level}: {pair.Key} hangs in the air, "
@@ -399,7 +422,7 @@ namespace TheVeil.Editor
         /// meant to be driven over and a river is not walked round.
         /// </summary>
         static void Solidity(LevelMap map, Transform props, int chapter, int level,
-                             List<string> faults)
+                             List<string> faults, BiomeDecor decor)
         {
             if (props == null) return;
 
@@ -414,6 +437,13 @@ namespace TheVeil.Editor
             {
                 if (prop.GetComponentInChildren<MeshRenderer>() == null) continue;
                 if (Driven(prop.name)) continue;
+
+                // <b>And the sky, for the same reason it is not floating.</b> An aurora is
+                // ninety metres up and carries no disc, which is exactly right: nothing
+                // walks round the sky. This check asks about things standing on the
+                // playing field, and the one layer on the map that is not on it has to say
+                // so somewhere. See TerrainDecorator.PlaceSky.
+                if (Aloft(decor, prop.name)) continue;
 
                 var bounds = ModelScaling.Measure(prop.gameObject);
                 if (bounds.size.y < TerrainDecorator.SolidHeight) continue;

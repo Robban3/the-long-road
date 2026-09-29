@@ -1,4 +1,4 @@
-using TheVeil.Sim;
+﻿using TheVeil.Sim;
 using TheVeil.View;
 using NUnit.Framework;
 
@@ -55,16 +55,26 @@ namespace TheVeil.Tests
         }
 
         [Test]
-        public void AnUnpaintedCountryFallsBackToTheForest()
+        public void EveryCountryHasGroundOfItsOwn()
         {
-            // The enchanted wood is not painted yet, and the fallback is what keeps a
-            // chapter set there playable rather than blank. The day somebody paints it,
-            // this test says so by failing - which is what it just did for the desert,
-            // correctly, on the day the desert was painted.
-            foreach (TerrainType terrain in System.Enum.GetValues(typeof(TerrainType)))
-                Assert.AreEqual(TerrainPalette.OfGround(terrain, Biome.Forest),
-                                TerrainPalette.OfGround(terrain, Biome.Enchanted),
-                                $"{terrain}");
+            // <b>This used to be the other way round.</b> It asked that the enchanted wood
+            // fall back to the forest, because that country had no scenery and the
+            // fallback was what kept a chapter set there playable rather than blank - and
+            // it was written to fail on the day somebody painted it, which it did for the
+            // desert, and has now done for the wood. There is no country left unpainted,
+            // so the promise worth keeping is the stronger one: ten countries, ten floors,
+            // and no two of them the same.
+            foreach (Biome biome in System.Enum.GetValues(typeof(Biome)))
+            {
+                if (biome == Biome.Forest) continue;
+
+                bool own = false;
+                foreach (TerrainType terrain in System.Enum.GetValues(typeof(TerrainType)))
+                    own |= TerrainPalette.OfGround(terrain, Biome.Forest)
+                           != TerrainPalette.OfGround(terrain, biome);
+
+                Assert.IsTrue(own, $"{biome} is painted in the forest's colours");
+            }
         }
     }
 }

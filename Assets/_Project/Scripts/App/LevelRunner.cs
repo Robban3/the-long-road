@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using TheVeil.Gen;
 using TheVeil.Sim;
 using TheVeil.UI;
@@ -369,7 +369,8 @@ namespace TheVeil.App
             if (map.Corridors != null)
                 foreach (var road in map.Corridors)
                     if (road?.Tiles != null)
-                        tracks.Add(new TerrainMeshBuilder.RouteOverlay(road.Tiles, TerrainPalette.Track));
+                        tracks.Add(new TerrainMeshBuilder.RouteOverlay(road.Tiles,
+                                                                      TerrainPalette.TrackFor(biome)));
 
             _mesh = TerrainMeshBuilder.Build(map.Grid, TileGrid.TileSize,
                 tracks, -1, -1, HeightScale, TerrainMeshBuilder.SkirtWidth, biome,
