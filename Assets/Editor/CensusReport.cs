@@ -54,7 +54,17 @@ namespace TheVeil.Editor
 
             // Only a town has streets to furnish and a plan to build from, and there is
             // one town in the game. See Towns.Chapter.
-            "Street", "Signs", "Paving", "Monuments",
+            //
+            // <b>The wreckage is on this list and it was written for something else.</b>
+            // Its own note in the setup calls it what a wrecked cart leaves - a wheel, a
+            // crate, three barrels - and the trap that was meant to be marked with it draws
+            // from the ruins instead (see Wreck, which asks Bones(decor.Ruins)). The only
+            // two places that read decor.Wreckage are the town's streets and its market
+            // square. So it builds in chapter one and nowhere else, and the reason it does
+            // not show as a nought in seven other countries is that its barrels are in
+            // their yard sets as well and this report credits a model to every set that
+            // holds it. On the coast, whose yard is fishing gear, it showed the truth.
+            "Street", "Signs", "Paving", "Monuments", "Wreckage",
 
             // Only a country with rock passes stands faces on them.
             "Cliffs", "Backdrop",

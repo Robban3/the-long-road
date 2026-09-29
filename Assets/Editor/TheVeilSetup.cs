@@ -2992,6 +2992,24 @@ namespace TheVeil.Editor
                                              "SM_Env_Backrgound_Hill_02",
                                              "SM_Env_Backrgound_Hill_03"));
 
+            // <b>Nobody lives here and nothing runs here.</b> Six sets inherited from the
+            // forest that this country cannot use, and it has carried all six since it was
+            // dressed.
+            //
+            // Three of them are the village's: Settlements.Settled says nobody keeps a
+            // house on sand, so there is no yard to fence and no village to build a mill
+            // for. The other three are the river's, and the desert has no river - measured
+            // over all ten of its levels, every one reports nought crossings. What water
+            // it has is the oasis, which is a pool: no ford to bridge, no fall to hang, no
+            // white water to break. See WaterReport for the count and the smoke test for
+            // the crossings.
+            decor.Mills = new PropSet();
+            decor.MillSupports = new PropSet();
+            decor.Fences = new PropSet();
+            decor.Fords = new PropSet();
+            decor.Falls = new PropSet();
+            decor.Whitewater = new PropSet();
+
             AssetDatabase.SaveAssets();
             return decor;
         }
@@ -3465,6 +3483,15 @@ namespace TheVeil.Editor
             // range of hills standing in it is the one thing that would say otherwise.
             decor.Horizon = new PropSet();
 
+            // <b>No mill, because there is no stream and nobody stands near what water
+            // there is.</b> A wheel needs a bank within ten tiles of the village, and
+            // measured on both of this country's village levels there are none: the water
+            // in reach is the sea, the village stands back from it, and a water wheel does
+            // not turn in a tide anyway. Two sets the census has been reporting as loaded
+            // and never used since the coast was built.
+            decor.Mills = new PropSet();
+            decor.MillSupports = new PropSet();
+
             AssetDatabase.SaveAssets();
             return decor;
         }
@@ -3609,6 +3636,22 @@ namespace TheVeil.Editor
                 {
                     "SM_Prop_CampFire_01", "SM_Prop_TorchStick_01", "SM_Prop_TorchStick_01"
                 }));
+
+            // <b>And nobody lives here, so nothing that belongs to living here.</b>
+            // Settlements.Settled has said "nobody keeps a house in a bog" since it was
+            // written, and this country inherited the forest's fences, its mill wheel and
+            // the wheel's frame anyway: three sets of models loaded into a country with no
+            // village to put them in. A fence is run round a yard and a mill is built for a
+            // village; with no village neither is ever asked for, and the census has been
+            // reporting all three as loaded and never used for as long as it has existed.
+            // The dead land already says this in as many words - see LoadDeadDecor, which
+            // is the same country under a different weather.
+            //
+            // The sheds and the yards stay: those are the raiders' camps, and raiders are
+            // not settlers.
+            decor.Mills = new PropSet();
+            decor.MillSupports = new PropSet();
+            decor.Fences = new PropSet();
 
             return decor;
         }
