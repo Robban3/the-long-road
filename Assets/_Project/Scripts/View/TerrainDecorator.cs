@@ -271,6 +271,17 @@ namespace TheVeil.View
         /// </summary>
         public float RockMats;
 
+        /// <summary>
+        /// The water of a fall, which has to move and so cannot be a Lit material.
+        ///
+        /// Built in the editor off the pack's own river water, because that is the shader
+        /// with a speed in it - see TheVeilSetup.EnsureFallingWater - and left null by a
+        /// country that has no falls. Where it is null the decorator builds a white
+        /// transparent Lit material instead, which looks right in a still and does not
+        /// move: a waterfall that does not fall is a pane of glass leaning on a rock.
+        /// </summary>
+        public Material FallWater;
+
         public PropSet Beams = new PropSet();
 
         /// <summary>The same, hung over the country rather than standing in it.</summary>
@@ -2220,10 +2231,41 @@ namespace TheVeil.View
                 // it half its width back. Placed by its foot, or by its middle, or scaled to
                 // the drop and seated on the pool, it ended up flat on the shelf or inside
                 // the rock - four attempts, all of them guessing at where its nought was.
+
+                // <b>Spray at both ends of it, and across the channel.</b> There was one, at
+                // the foot, in the middle - which is a puff of white at the bottom of a
+                // sheet that is four to sixteen metres wide. Water that comes over a lip
+                // breaks where it leaves the rock as well as where it lands, and a fall
+                // wider than the one effect needs more than one of them.
+                //
+                // Spaced across the channel rather than scaled: these are particle systems
+                // and scaling one scales its particles into a cloud of dinner plates.
                 if (decor.Whitewater.Any)
                 {
-                    var spray = Object.Instantiate(Any(decor.Whitewater, rng), parent);
-                    spray.transform.position = new Vector3(x, foot, z);
+                    float channel = TileGrid.TileSize * Channel(grid, from, tx - fx, ty - fy);
+                    float brink = grid.Elevation(from) * heightScale;
+
+                    int across = Mathf.Clamp(Mathf.RoundToInt(channel / SprayApart), 1, MostSpray);
+
+                    var sideways = Quaternion.Euler(0f, Mathf.Atan2(tx - fx, ty - fy)
+                                                        * Mathf.Rad2Deg, 0f) * Vector3.right;
+
+                    for (int i = 0; i < across; i++)
+                    {
+                        // Spread evenly across the water, each inset half a step so the
+                        // outermost is in the channel rather than on the rock beside it.
+                        float along = across == 1 ? 0f
+                                    : (i + 0.5f) / across * channel - channel * 0.5f;
+
+                        var at = new Vector3(x, foot, z) + sideways * along;
+
+                        Object.Instantiate(Any(decor.Whitewater, rng), parent)
+                              .transform.position = at;
+
+                        // And at the brink, where it comes off the rock.
+                        Object.Instantiate(Any(decor.Whitewater, rng), parent)
+                              .transform.position = new Vector3(at.x, brink, at.z);
+                    }
                 }
 
                 // <b>The rock the fall is cut through.</b> A row of stones along the brink
@@ -2305,9 +2347,6 @@ namespace TheVeil.View
                 // is a step in a field; what the reference country has is a mass of stone
                 // with the fall coming down the middle of it. So in a country built of rock,
                 // a tor is raised on each bank, two tiles clear of the channel.
-                float crowns = 0f;
-                int crowned = 0;
-
                 if (decor.RockPasses)
                     foreach (int side in new[] { -1, 1 })
                     {
@@ -2319,25 +2358,37 @@ namespace TheVeil.View
                         int at = grid.ToIndex(mx, my);
                         if (IsWet(grid[at])) continue;
 
-                        placed += Tor(parent, grid, rng, decor, at, heightScale, new HashSet<int>(),
-                                      out float crown);
-
-                        crowns += crown;
-                        crowned++;
+                        placed += Tor(parent, grid, rng, decor, at, heightScale, new HashSet<int>());
                     }
 
-                // <b>The water comes over the top of the rock, not out from under it.</b>
-                // Hung at the brink - the height of the shelf's own water - the fall stood at
-                // the foot of a twenty-five metre mass of stone and could not be seen at all.
-                // What the reference country has is water coming off the crown of the rock
-                // and down its face into the pool, so the sheet hangs from the rock's own top
-                // and is cut long enough to reach the water below it.
+                // <b>The water comes over the ground it is standing on.</b>
+                //
+                // This hung the sheet from the crown of the tors instead, and the note that
+                // did it is worth keeping because the reasoning is sound and the geometry
+                // is not: hung at the brink the fall stood at the foot of a twenty-five
+                // metre mass of stone and could not be seen, and what the reference country
+                // has is water coming off the top of a rock rather than out from under one.
+                // So the sheet was made as tall as the rock.
+                //
+                // The rock is twenty metres away. TorFromFall is five tiles, the tors stand
+                // one on each bank, and between them is forty metres of open hillside - so
+                // taking the sheet's head from their crown put its top eighteen metres above
+                // the only ground anywhere near it. Photographed on 6-1 from across the
+                // gorge: a blue plane hanging in the air with a slope behind it, and from
+                // play height a flap standing up out of the grass. The numbers had said so
+                // for months without anybody being able to see it - the fall report gives
+                // 6-1 a steepest step of 13.3 m and the scale report gives the sheet 31.1 m
+                // - and two right numbers that disagree are not a fault anybody reads.
+                //
+                // The brink is the drop the ground actually has. A fall that is thirteen
+                // metres and lands on its pool is worth more than one that is thirty-one
+                // and starts in the sky; if it is hidden behind a tor, the tor is what to
+                // move.
                 if (decor.Falls.Any)
                 {
                     var sheet = Object.Instantiate(Any(decor.Falls, rng), parent);
 
-                    float brink = grid.Elevation(from) * heightScale;
-                    float head = crowned > 0 ? crowns / crowned - FallBelowCrown : brink;
+                    float head = grid.Elevation(from) * heightScale;
                     float span = TileGrid.TileSize * Channel(grid, from, tx - fx, ty - fy);
 
                     sheet.transform.rotation =
@@ -2353,9 +2404,21 @@ namespace TheVeil.View
                     sheet.transform.position = new Vector3(x, head, z)
                                                + sheet.transform.right * (span * 0.5f);
 
+                    // <b>White water, and water that moves.</b> This gave the sheet the
+                    // country's river material, which is right about one thing - it is the
+                    // shader with a speed in it, and the pack's own is set to 0.042, a
+                    // river's crawl. On a vertical face at that speed it reads as a pane of
+                    // glass, and in a river's colours it reads as a lattice of green stones.
+                    //
+                    // FallWater is that same shader with the pattern taken down to a
+                    // quarter, both colours taken to white and the speed up thirteenfold.
+                    // See TheVeilSetup.EnsureFallingWater. A country without one keeps the
+                    // river's, which is what this did for everybody until now.
                     var falling = sheet.GetComponentInChildren<MeshRenderer>();
                     if (falling != null)
-                        falling.sharedMaterial = WaterMeshBuilder.Material(waterMaterial);
+                        falling.sharedMaterial = decor.FallWater != null
+                            ? decor.FallWater
+                            : WaterMeshBuilder.Material(waterMaterial);
                 }
 
                 taken.Add(from);
@@ -2365,53 +2428,13 @@ namespace TheVeil.View
             return placed;
         }
 
-        /// <summary>
-        /// One face of falling water, standing in the step between two wet tiles.
-        ///
-        /// Two quads back to back, because a quad is one-sided and a waterfall is seen from
-        /// both banks. Slightly proud of the step on each side, so the river's surface above
-        /// and the pool below meet it rather than clip through it.
-        /// </summary>
-        static void Falling(Transform parent, TileGrid grid, int from, int to, float drop,
-                            float heightScale, Material waterMaterial)
-        {
-            if (waterMaterial == null) return;
-
-            grid.ToCoords(from, out int fx, out int fy);
-            grid.ToCoords(to, out int tx, out int ty);
-
-            var above = Vec2.FromTile(grid, from);
-            var below = Vec2.FromTile(grid, to);
-
-            float x = (above.X + below.X) * 0.5f;
-            float z = (above.Y + below.Y) * 0.5f;
-            float head = grid.Elevation(from) * heightScale;
-
-            // How wide the water is here, so the sheet spans the channel and no more.
-            float wide = TileGrid.TileSize * Channel(grid, from, tx - fx, ty - fy);
-
-            for (int side = 0; side < 2; side++)
-            {
-                var face = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                face.name = "Waterfall";
-                Object.DestroyImmediate(face.GetComponent<Collider>());
-
-                face.transform.SetParent(parent, false);
-                face.transform.position = new Vector3(x, head - drop * 0.5f + FallRaise, z);
-
-                float turn = Mathf.Atan2(tx - fx, ty - fy) * Mathf.Rad2Deg + side * 180f;
-                face.transform.rotation = Quaternion.Euler(0f, turn, 0f);
-                face.transform.localScale = new Vector3(wide, drop + FallRaise * 2f, 1f);
-
-                var renderer = face.GetComponent<MeshRenderer>();
-                // <b>White water, not river water.</b> The river's material is a caustic
-                // pattern sized for a broad surface seen from above; on a six-metre vertical
-                // face it came out as a lattice of green stones. What falls over a lip is
-                // white and half transparent, and that is what this is.
-                renderer.sharedMaterial = FallingWater();
-                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            }
-        }
+        // <b>Falling(), one face of water in a step, lived here and had no callers.</b>
+        // It was the first way a fall was built - a quad per step, given a white Lit
+        // material - and the pack's own sheet replaced it above without the old one being
+        // taken out. Two hundred lines of comment about a thing the game has never drawn,
+        // and the only reason it was found is that it would not compile after the material
+        // it asks for grew an argument. The reasoning in it that is still true has been
+        // moved to where the sheet is actually placed.
 
         /// <summary>How many tiles of water lie across the step, measured from one of them.</summary>
         /// <summary>
@@ -2457,30 +2480,6 @@ namespace TheVeil.View
         /// <summary>How far under the rock's crown the water comes over it, in metres.</summary>
         const float FallBelowCrown = 3f;
 
-        static Material _fallingWater;
-
-        /// <summary>The white, part-transparent water of a fall. Built once and shared.</summary>
-        static Material FallingWater()
-        {
-            if (_fallingWater != null) return _fallingWater;
-
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) return null;
-
-            _fallingWater = new Material(shader) { name = "Falling water" };
-            _fallingWater.SetFloat("_Surface", 1f);
-            _fallingWater.SetFloat("_Blend", 0f);
-            _fallingWater.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            _fallingWater.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            _fallingWater.SetFloat("_ZWrite", 0f);
-            _fallingWater.SetFloat("_Smoothness", 0.7f);
-            _fallingWater.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            _fallingWater.SetColor("_BaseColor", new Color(0.92f, 0.96f, 0.98f, 0.82f));
-            _fallingWater.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-
-            return _fallingWater;
-        }
-
         static bool IsWet(TerrainType terrain)
             => terrain == TerrainType.Water || terrain == TerrainType.Ford;
 
@@ -2491,6 +2490,12 @@ namespace TheVeil.View
 
         /// <summary>How much longer than the drop the sheet is cut, so it sinks into both waters.</summary>
         const float FallSpare = 0.8f;
+
+        /// <summary>How far apart the sprays stand across a fall, in metres, and how many.</summary>
+        // Five metres, so a four-metre channel gets one and a sixteen-metre one gets three.
+        const float SprayApart = 5f;
+
+        const int MostSpray = 3;
 
         /// <summary>How many falls a level may have, largest first.</summary>
         const int MostFalls = 3;
@@ -2853,7 +2858,25 @@ namespace TheVeil.View
                        int tile, float heightScale, HashSet<int> occupied, out float crown)
         {
             var middle = Vec2.FromTile(grid, tile);
+
+            // <b>The lowest ground the mass covers, not the ground under its middle.</b>
+            // A tor is thrown out to TorSpread in every direction, and on a hillside that
+            // is metres of fall. Seating the bottom course on its own ground cures that
+            // course and not the mass: everything above it stacks from this number, so
+            // taken from the centre the upper courses hang over the low side instead.
+            //
+            // Sampled at the centre and at the four corners of the spread, lowest wins. The
+            // mass then starts under all of itself - the bottom course is bedded where it
+            // stands and the courses above sink into it rather than hover over it.
             float foot = grid.SurfaceElevation(middle.X, middle.Y) * heightScale;
+
+            foreach (var (dx, dz) in new[] { (1, 1), (1, -1), (-1, 1), (-1, -1) })
+            {
+                float sample = grid.SurfaceElevation(middle.X + dx * TorSpread,
+                                                     middle.Y + dz * TorSpread) * heightScale;
+
+                if (sample < foot) foot = sample;
+            }
 
             int pieces = 0;
             int courses = rng.Range(2, 4);
@@ -2890,7 +2913,23 @@ namespace TheVeil.View
 
                     // Each course set into the one below it, so the mass reads as one rock
                     // rather than as a pile of separate ones.
-                    float sits = foot + standing - (course == 0 ? 0f : box.size.y * TorSink);
+                    //
+                    // <b>But the bottom course stands on its own ground, not on the tor's.</b>
+                    // The foot is sampled once, under the middle of the mass, and every
+                    // piece of the first course was seated at that one height - while the
+                    // pieces themselves are thrown out to TorSpread, which on a hillside is
+                    // metres of fall. Downhill they hung in the air; uphill they went into
+                    // the slope. Nobody had ever seen it because a tor's pieces are named so
+                    // that the smoke test's floating check skips them, and they are named
+                    // that way for a good reason - every course above the first is meant to
+                    // be off the ground. The exemption covered the one course that is not.
+                    //
+                    // Found in a photograph of a waterfall, of all things: the fall report
+                    // was given a camera to settle a different question and the rock beside
+                    // the water was hanging over the pool with daylight under it.
+                    float sits = course == 0
+                        ? grid.SurfaceElevation(x, z) * heightScale
+                        : foot + standing - box.size.y * TorSink;
 
                     rock.transform.position += new Vector3(x - box.center.x,
                                                             sits - box.min.y,

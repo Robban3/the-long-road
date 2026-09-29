@@ -83,7 +83,11 @@ namespace TheVeil.Editor
             string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilFalls");
             System.IO.Directory.CreateDirectory(shots);
 
-            foreach (int level in new[] { 1, 4, 7 })
+            // Every level of the country, not a sample of three. A fall is built out of the
+            // ground it lands in and no two levels have the same ground; three of ten told
+            // us that 6-1 was wrong and said nothing about the seven that were not looked
+            // at, which is the same fault the reports themselves had.
+            for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
             {
                 var root = SmokeTest.Build(runner, FallChapter, level, out _);
 
@@ -101,11 +105,16 @@ namespace TheVeil.Editor
                           + $"{box.size.x:0.0} x {box.size.y:0.0} x {box.size.z:0.0} m "
                           + $"at {box.center.x:0}, {box.center.z:0}");
 
-                // From across the gorge, a little above the pool: what a fall is looked at
-                // from. Backed off by its own height so the whole of it is in frame.
-                float away = box.size.y * 1.2f + 12f;
+                // From across the gorge and above the brink: what a fall is looked at from.
+                //
+                // <b>Backed off by a fixed distance and not by the sheet's own height.</b>
+                // It was the height, which is circular - the whole reason for taking the
+                // picture is that the sheet's height is the thing in question - and when
+                // the fall stopped being thirty-one metres and became thirteen the camera
+                // walked in with it and photographed the spruce standing in front of it.
+                float away = box.size.y + 34f;
 
-                Shoot(box.center + new Vector3(away, box.size.y * 0.25f, -away), box.center,
+                Shoot(box.center + new Vector3(away, box.size.y * 0.9f + 6f, -away), box.center,
                       System.IO.Path.Combine(shots, $"fall-{FallChapter}-{level}-near.png"));
 
                 // And from where the game is played.

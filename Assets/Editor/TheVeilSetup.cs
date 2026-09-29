@@ -1417,6 +1417,9 @@ namespace TheVeil.Editor
                 // and the river's own surface pours down the gorge between them.
                 // The pack's fall, hung by its pivot at the brink. See TerrainDecorator.PlaceFalls.
                 Falls = Synty("Terrain", "SM_River_Plane_WaterFall_01"),
+
+                // And the water on it, which has to move. See EnsureFallingWater.
+                FallWater = EnsureFallingWater(),
                 Whitewater = new PropSet(false, Load($"{SyntyNatureDir}/FX", new[]
                 {
                     "FX_Waterfall_Foam_01"
@@ -2608,6 +2611,64 @@ namespace TheVeil.Editor
         }
 
         /// <summary>Water with light under it, for the wood that has light in everything.</summary>
+        /// <summary>
+        /// The white water of a fall, off the pack's own river so it keeps a speed.
+        ///
+        /// <b>What falls over a lip has to be seen to fall.</b> The decorator built this as
+        /// a plain Lit material with a white colour on it, which is the right colour and
+        /// cannot move: a Lit material has no time in it. Photographed it read correctly
+        /// and in the game it was a pane of glass leaning on a rock.
+        ///
+        /// The objection that put the Lit material there is still right and is still
+        /// answered. The river's own material on a vertical face came out as a lattice of
+        /// green stones - that is its caustic pattern, drawn at 4.8 for a broad surface
+        /// seen from above, in a river's colours. So the pattern comes down to a quarter of
+        /// that, which makes the streaks the height of a man rather than of the fall; both
+        /// water colours go to white; and the speed goes up thirteenfold, which is about
+        /// the difference between a river and a fall.
+        /// </summary>
+        static Material EnsureFallingWater()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(FallWaterMaterialPath);
+
+            if (material == null)
+            {
+                var river = AssetDatabase.LoadAssetAtPath<Material>(PackRiverWater);
+                if (river == null)
+                {
+                    Debug.LogWarning("[The Veil] The nature pack's water is missing, so a "
+                                     + "waterfall keeps the decorator's still white sheet.");
+                    return null;
+                }
+
+                material = new Material(river) { name = "FallingWater" };
+                AssetDatabase.CreateAsset(material, FallWaterMaterialPath);
+            }
+
+            // <b>Pale blue, not white.</b> Both colours went to white first, on the
+            // reasoning that what falls over a lip is white - which is true of the broken
+            // water at the foot and not of the sheet, and the sheet is what is being
+            // coloured. Photographed against the mountains' own pale grey rock it
+            // disappeared: a white fall on a white cliff. The broken water is the spray,
+            // which is a separate effect and already white.
+            if (material.HasProperty("_Water_Shallow_Color"))
+                material.SetColor("_Water_Shallow_Color", new Color(0.82f, 0.93f, 0.98f, 1f));
+            if (material.HasProperty("_Water_Deep_Color"))
+                material.SetColor("_Water_Deep_Color", new Color(0.36f, 0.62f, 0.76f, 1f));
+
+            if (material.HasProperty("_Water_Speed")) material.SetFloat("_Water_Speed", 0.55f);
+            if (material.HasProperty("_Water_Scale")) material.SetFloat("_Water_Scale", 1.2f);
+            if (material.HasProperty("_Water_Opacity")) material.SetFloat("_Water_Opacity", 0.88f);
+            if (material.HasProperty("_Foam_Depth")) material.SetFloat("_Foam_Depth", 2.6f);
+
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        const string FallWaterMaterialPath = MaterialsDir + "/FallingWater.mat";
+
+        const string PackRiverWater = SyntyNaturePack + "/Materials/Water/Water_01.mat";
+
         static Material EnsureFaeWaterMaterial()
         {
             var material = AssetDatabase.LoadAssetAtPath<Material>(FaeWaterMaterialPath);
