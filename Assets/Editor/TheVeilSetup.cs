@@ -3946,10 +3946,30 @@ namespace TheVeil.Editor
             decor.Sheds = new PropSet();
             decor.Signs = new PropSet();
 
-            // <b>The air, which is half the chapter.</b> Ash falling over everything, smoke
-            // standing where the ground is still hot, embers off it, and flies. A burnt
-            // country with clean air is a grey meadow.
-            decor.Fauna = DesertFX("FX_Vulture_01", "FX_Vulture_Reverse_01", "FX_Flies_01");
+            // <b>The air, which is half the chapter - and for a while this paragraph was
+            // the only place any of it existed.</b> It has said "ash falling over
+            // everything, smoke standing where the ground is still hot, embers off it, and
+            // flies" since the country was built, and what the code under it did was load
+            // two vultures and a swarm of flies. The ash is the weather and was there; the
+            // smoke and the embers were a sentence.
+            //
+            // A comment that promises what the code does not do is worse than no comment:
+            // it is the one kind that stops anybody looking. Both are loaded now, from the
+            // same pack, where they had been sitting unused since the desert was dressed.
+            decor.Fauna = DesertFX("FX_Vulture_01", "FX_Vulture_Reverse_01", "FX_Flies_01",
+                                   "FX_Lava_Ember_01", "FX_Sulphur_Bubbles_01",
+                                   "FX_Dust_Blowing_01");
+
+            // And the smoke, standing rather than drifting: it goes in the beam layer,
+            // which is the one that seats a thing on the ground and leaves it at the size
+            // it was drawn. A column of smoke over ground that is still hot is the same
+            // shape as a shaft of light through a canopy, and wants the same treatment.
+            decor.Beams = Mixed(
+                Load(DesertFXDir, new[]
+                {
+                    "FX_Sulphur_Smoke", "FX_Smoke_Large_01", "FX_Smoke_Cloud_01", "FX_Fog_01"
+                }),
+                Load($"{SyntyNatureDir}/FX", new[] { "FX_Smoke_Light_01" }));
 
             // Nothing on the skyline but the hills the fire came over.
             decor.Horizon = Desert("SM_Env_Backrgound_Hill_01", "SM_Env_Backrgound_Hill_02",
@@ -3996,9 +4016,16 @@ namespace TheVeil.Editor
             // Dune scrub: the pack's one palm bush, brambles off the dry pack, and the
             // meadow's own bushes for the sheltered side of a rise.
             decor.Bushes = Mixed(
-                Load($"{SyntyNatureDir}/Plants", new[] { "SM_Plant_PalmBush_01", "SM_Plant_Bush_02" }),
+                Load($"{SyntyNatureDir}/Plants", new[]
+                {
+                    "SM_Plant_PalmBush_01", "SM_Plant_Bush_02", "SM_Plant_Bush_01",
+                    "SM_Plant_Bush_Leaves_02", "SM_Plant_Undergrowth_01"
+                }),
                 Load(DesertDir, new[] { "SM_Env_Bush_Bramble_01", "SM_Env_Bush_Bramble_02" }),
-                Load(MeadowDir, new[] { "SM_Env_Bush_01", "SM_Env_Grass_Bush_01" }));
+                Load(MeadowDir, new[]
+                {
+                    "SM_Env_Bush_01", "SM_Env_Bush_02", "SM_Env_Bush_03", "SM_Env_Grass_Bush_01"
+                }));
 
             // Marram and thin turf, with succulents where the sand takes over.
             decor.GroundCover = Mixed(
@@ -4013,13 +4040,52 @@ namespace TheVeil.Editor
                     "SM_Env_Succulent_01", "SM_Env_Succulent_03", "SM_Env_Succulent_05",
                     "SM_Env_GroundCover_01", "SM_Env_GroundCover_02"
                 }),
-                Load($"{SyntyNatureDir}/Plants", new[] { "SM_Plant_Grass_03" }));
+                Load($"{SyntyNatureDir}/Plants", new[]
+                {
+                    "SM_Plant_Grass_03", "SM_Plant_Grass_01", "SM_Plant_Grass_05",
+                    "SM_Plant_Fern_Leaves_01"
+                }));
 
-            decor.Mats = Meadow("SM_Env_Grass_Short_Plane_01", "SM_Env_Grass_Med_Plane_01");
+            decor.Mats = Meadow("SM_Env_Grass_Short_Plane_01", "SM_Env_Grass_Med_Plane_01",
+                                "SM_Env_Grass_Tall_Plane_01", "SM_Env_Ground_Cover_02");
 
             // Sea pinks: the one colour on a headland, and the reference has drifts of it.
-            decor.Flowers = Meadow("SM_Env_Wildflowers_01", "SM_Env_Wildflowers_03",
-                                   "SM_Env_Flowers_Flat_02");
+            // All three wildflowers and all three patches, plus the sunflower, which the
+            // meadow pack draws and nothing in this game had ever stood up.
+            decor.Flowers = Meadow("SM_Env_Wildflowers_01", "SM_Env_Wildflowers_02",
+                                   "SM_Env_Wildflowers_03", "SM_Env_Wildflowers_Patch_01",
+                                   "SM_Env_Wildflowers_Patch_02", "SM_Env_Wildflowers_Patch_03",
+                                   "SM_Env_Flowers_Flat_01", "SM_Env_Flowers_Flat_02",
+                                   "SM_Env_Flowers_Flat_03", "SM_Env_Sunflower_01");
+
+            // <b>Hummocks, which a headland is made of and this country had none of.</b>
+            // Four in the meadow pack, drawn as a piece of grassed earth and sunk to their
+            // own edge, and the bald grey stretches in the middle of every coast level were
+            // ground with nothing on it at all.
+            decor.Mounds = Meadow("SM_Env_Ground_Mound_Large_01", "SM_Env_Ground_Mound_Large_02",
+                                  "SM_Env_Ground_Mound_Large_03", "SM_Env_Ground_Mound_Large_04");
+
+            // Dry stone, which is what a coast wall is, and the fence posts that go with
+            // it. The village has yards here and had nothing to put round them.
+            // The pack files its walls beside its prefabs and its fences under Props.
+            decor.Fences = Mixed(
+                Load(MeadowDir, new[]
+                {
+                    "SM_Prop_Stonewall_Long_01", "SM_Prop_Stonewall_Small_01",
+                    "SM_Prop_Stonewall_Small_02"
+                }),
+                Load($"{MeadowDir}/Props", new[]
+                {
+                    "SM_Prop_Meadow_Fence_01", "SM_Prop_Meadow_Fence_03"
+                }));
+
+            // Driftwood above the tide line.
+            decor.Timber = Mixed(
+                Load($"{SyntyNatureDir}/Trees", new[]
+                {
+                    "SM_Tree_Log_01", "SM_Tree_Log_02", "SM_Tree_Stump_01", "SM_Tree_Stump_03"
+                }),
+                Load(MeadowDir, new[] { "SM_Prop_Leaves_Pile_01" }));
 
             // Reeds where the river comes down to the sea, which is the one soft edge on
             // a coast made of sand and stone.
@@ -4643,9 +4709,15 @@ namespace TheVeil.Editor
                     // open water. See EnsureSeaMaterial.
                     Water = EnsureSeaMaterial(),
 
-                    // Thinner than anywhere: a coast is read along its edge, and a country
-                    // dressed as thickly as a forest hides its own shore.
-                    Density = 0.45f,
+                    // <b>Thin, and it was thinner than that.</b> The reasoning was right -
+                    // a coast is read along its edge, and a country dressed as thickly as a
+                    // forest hides its own shore - and 0.45 took it past thin into bare:
+                    // photographed, the headland was a green sheet with a tree every thirty
+                    // metres and two grey patches of nothing in the middle of it. What
+                    // hides a shore is a wood standing on it, not grass and flowers in the
+                    // turf behind it, and the sets that fill the turf are the ones this
+                    // country had least of.
+                    Density = 0.9f,
 
                     // <b>The haze off the water, which this chapter needs more than any
                     // other.</b> Same fault as the farmland above - a sky named and the

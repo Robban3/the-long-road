@@ -141,6 +141,15 @@ namespace TheVeil.View
             switch (biome)
             {
                 case Biome.Enchanted: return new Color(0.33f, 0.27f, 0.42f);
+
+                // Ash beaten flat, which is what a road is in a country that burned. Paler
+                // than the ash beside it because it is trodden smooth rather than because
+                // it is a different stuff - there is no earth left under this one to wear
+                // down to. Grey with barely any warmth in it: the sandy track read as a
+                // road somebody had carted gravel in for, on a map where nobody has carted
+                // anything anywhere for a long time.
+                case Biome.Dead: return new Color(0.47f, 0.44f, 0.41f);
+
                 default: return Track;
             }
         }
