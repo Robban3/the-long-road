@@ -2658,7 +2658,11 @@ namespace TheVeil.Editor
 
             if (material.HasProperty("_Water_Speed")) material.SetFloat("_Water_Speed", 0.55f);
             if (material.HasProperty("_Water_Scale")) material.SetFloat("_Water_Scale", 1.2f);
-            if (material.HasProperty("_Water_Opacity")) material.SetFloat("_Water_Opacity", 0.88f);
+            // <b>And you can see through it.</b> At 0.88 the strands read as slabs of
+            // white plastic: water that hides what is behind it is not water, it is a wall
+            // the colour of water. Two thirds, so the rock the fall comes down shows
+            // through the sheet and the sheet still reads as a sheet.
+            if (material.HasProperty("_Water_Opacity")) material.SetFloat("_Water_Opacity", 0.66f);
             if (material.HasProperty("_Foam_Depth")) material.SetFloat("_Foam_Depth", 2.6f);
 
             EditorUtility.SetDirty(material);

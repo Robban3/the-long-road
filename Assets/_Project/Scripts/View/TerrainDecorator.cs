@@ -2436,16 +2436,27 @@ namespace TheVeil.View
                     for (int strand = 0; strand < strands; strand++)
                     {
                         var sheet = Object.Instantiate(Any(decor.Falls, rng), parent);
-                        sheet.transform.rotation = facing;
+
+                        // <b>And no two of them the same.</b> Four strands of one model at
+                        // one width and one height is a curtain of identical copies, which
+                        // from any angle reads as a repeat rather than as water. Each is
+                        // turned a few degrees off the line of the channel and made a
+                        // little wider than its step, so the strands overlap instead of
+                        // meeting edge to edge: there is no seam to find and no gap to see
+                        // the rock through.
+                        sheet.transform.rotation =
+                            facing * Quaternion.Euler(0f, rng.Range(-FallStrandTurn,
+                                                                    FallStrandTurn), 0f);
 
                         // Its pivot is its own head and it hangs ten metres below that
                         // (measured, FallModelTall), and it lies to one side of that pivot -
-                        // so each strand is moved out by its own width to lie beside the
-                        // last, starting from the far edge of the channel.
+                        // so each strand is moved out by a step of its drawn width to lie
+                        // beside the last, starting from the far edge of the channel.
                         float lower = rng.Range(0f, FallStrandStep);
 
                         sheet.transform.localScale =
-                            new Vector3(1f, (head - foot + FallRaise - lower) / FallModelTall, 1f);
+                            new Vector3(rng.Range(1f, FallStrandOver),
+                                        (head - foot + FallRaise - lower) / FallModelTall, 1f);
 
                         sheet.transform.position =
                             new Vector3(x, head - lower, z)
@@ -2518,8 +2529,17 @@ namespace TheVeil.View
             return wide;
         }
 
-        /// <summary>How far the sheet stands proud of the water above and below it, in metres.</summary>
-        const float FallRaise = 0.5f;
+        /// <summary>
+        /// How far the sheet stands proud of the water above and below it, in metres.
+        ///
+        /// <b>A metre and a half, up from half a metre.</b> The bottom of a strand is a
+        /// straight cut across its quad, and half a metre of pool over it is not enough to
+        /// hide the line: photographed on 6-3, the curtain ended in a ruled horizontal edge
+        /// where it met the water. What a fall does at its foot is disappear into white,
+        /// and the spray does that in motion; the edge has to be under the surface for the
+        /// still to hold up as well.
+        /// </summary>
+        const float FallRaise = 1.5f;
 
         /// <summary>How wide the pack's fall is drawn, in metres. Measured, not guessed.</summary>
         const float FallModelWide = 3.75f;
@@ -2539,6 +2559,16 @@ namespace TheVeil.View
         const float FallStrandStep = 0.75f;
 
         const float FallStrandApart = 0.1f;
+
+        /// <summary>How far off the channel's line a strand may be turned, in degrees.</summary>
+        // Five. Enough that four strands are not four copies and little enough that none of
+        // them leaves the water it is falling into.
+        const float FallStrandTurn = 5f;
+
+        /// <summary>And how much wider than its step a strand may be laid.</summary>
+        // A fifth. They overlap rather than meet, so there is no seam along the edge of a
+        // quad and no gap to see the rock through when the camera moves.
+        const float FallStrandOver = 1.2f;
 
         /// <summary>How far under the rock's crown the water comes over it, in metres.</summary>
         const float FallBelowCrown = 3f;
