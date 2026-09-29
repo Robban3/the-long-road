@@ -3988,7 +3988,21 @@ namespace TheVeil.View
                 // Where the ground it would stand on is wet, the piece is stone and it is
                 // a skerry - which is what the reference picture has out there anyway -
                 // and where there is no stone to use, nothing is placed at all.
-                bool sea = Wet(grid, x, z);
+                // <b>And on a coast, everywhere out here is sea.</b> The test below asks
+                // the nearest tile inside the map, clamped - which answers correctly for a
+                // point beyond a water edge and wrongly for a point beyond a beach. A shore
+                // tile is dry by terrain and below the sea by height, so the ground skirt
+                // drawn out from it (TerrainMeshBuilder.Skirt) lies under the sea ring
+                // (WaterMeshBuilder.Seaward, whose own note assumes the land of a coast
+                // stands above the water - along the east and west edges it does not), and
+                // a wood planted on it stands in open water with nothing under it. Two
+                // hundred pines an edge, on both sides of every level of the last chapter.
+                //
+                // The apron is the wood outside the boundary and on this country the
+                // boundary is ocean: there is no outside-the-map that is land. So the whole
+                // apron of a coast is skerries, which is what its reference picture has out
+                // there and is the same answer this country already gives for its skyline.
+                bool sea = decor.Sea || Wet(grid, x, z);
 
                 bool stone = decor.Boulders.Any && (sea || rng.Chance(ApronStone));
                 if (sea && !stone) continue;
