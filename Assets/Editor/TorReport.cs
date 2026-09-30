@@ -157,6 +157,137 @@ namespace TheVeil.Editor
             Debug.Log(sheet.ToString());
         }
 
+        /// <summary>
+        /// Everything on one level that is off the ground, exemptions ignored:
+        /// `The Veil &gt; Off The Ground`.
+        ///
+        /// <b>For when a picture and an instrument disagree.</b> The smoke test skips whole
+        /// classes of prop by name - a tor's pieces, a shop sign, a banner, the sky, the
+        /// water - and every one of those exemptions is right and was paid for. What none
+        /// of them can do is answer "then what is that thing hanging over the hillside in
+        /// the photograph", because the answer is by construction something the check is
+        /// not allowed to mention.
+        ///
+        /// So this asks the same question of everything, says what it finds by name and
+        /// position, and lets a person decide. It is not a check and nothing should be
+        /// made to satisfy it: most of what it lists is meant to be where it is.
+        /// </summary>
+        [MenuItem("The Veil/Off The Ground")]
+        public static void OffTheGround()
+        {
+            EditorSceneManager.OpenScene("Assets/_Project/Scenes/PlayLevel.unity", OpenSceneMode.Single);
+
+            var runner = Object.FindAnyObjectByType<LevelRunner>();
+            if (runner == null) { Debug.Log("[Air] no LevelRunner in the scene"); return; }
+
+            var root = SmokeTest.Build(runner, Chapter, Level, out var map);
+            var found = new List<(string Name, float Gap, Vector3 At, float Size)>();
+
+            Sweep(root.transform, map, runner.HeightScale, found);
+
+            found.Sort((a, b) => b.Gap.CompareTo(a.Gap));
+
+            var sheet = new StringBuilder();
+            sheet.AppendLine($"[Air] {Chapter}-{Level}: what is off the ground, tallest gap first");
+
+            for (int i = 0; i < found.Count && i < Listed; i++)
+                sheet.AppendLine($"[Air] {found[i].Name,-44} {found[i].Gap,6:0.0} m clear, "
+                                 + $"{found[i].Size:0.0} m tall, at {found[i].At.x:0}, {found[i].At.z:0}");
+
+            sheet.AppendLine($"[Air] {found.Count} thing(s) over {Clear:0.0} m clear of the ground.");
+
+            // <b>And a picture of the worst of them, which is the whole point.</b> A list
+            // saying a rock is twenty-one metres off the ground does not say whether it is
+            // the top of a mass that is twenty-one metres tall or a rock in the sky, and
+            // those want opposite answers. Shot level with the thing and from far enough
+            // out to see what is under it.
+            if (found.Count > 0)
+            {
+                string shots = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilFalls");
+                System.IO.Directory.CreateDirectory(shots);
+
+                var worst = found[0];
+                float away = worst.Gap + 30f;
+
+                Shoot(worst.At + new Vector3(away, worst.Gap * 0.4f, -away), worst.At,
+                      System.IO.Path.Combine(shots, $"air-{Chapter}-{Level}.png"));
+
+                sheet.AppendLine("[Air] picture of the worst: "
+                                 + System.IO.Path.Combine(shots, $"air-{Chapter}-{Level}.png"));
+                Debug.Log(sheet.ToString());
+                Object.DestroyImmediate(root);
+                return;
+            }
+
+            Debug.Log(sheet.ToString());
+            Object.DestroyImmediate(root);
+        }
+
+        /// <summary>The level the drill-down looks at, and how much of it it prints.</summary>
+        const int Chapter = 6, Level = 1, Listed = 25;
+
+        /// <summary>How far off the ground a thing has to be to be worth listing, in metres.</summary>
+        const float Clear = 2f;
+
+        static void Shoot(Vector3 from, Vector3 at, string path)
+        {
+            var go = new GameObject("Air camera");
+            var camera = go.AddComponent<Camera>();
+
+            camera.transform.position = from;
+            camera.transform.LookAt(at);
+            camera.fieldOfView = 45f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.62f, 0.70f, 0.78f);
+            camera.farClipPlane = 2000f;
+
+            var texture = new RenderTexture(1100, 1100, 24);
+            camera.targetTexture = texture;
+
+            // Twice, the first thrown away. See GroundPhotos.
+            camera.Render();
+            camera.Render();
+
+            RenderTexture.active = texture;
+            var shot = new Texture2D(1100, 1100, TextureFormat.RGB24, false);
+            shot.ReadPixels(new Rect(0, 0, 1100, 1100), 0, 0);
+            shot.Apply();
+            RenderTexture.active = null;
+
+            camera.targetTexture = null;
+            Object.DestroyImmediate(go);
+
+            System.IO.File.WriteAllBytes(path, shot.EncodeToPNG());
+        }
+
+        static void Sweep(Transform at, LevelMap map, float heightScale,
+                          List<(string, float, Vector3, float)> found)
+        {
+            foreach (Transform child in at)
+            {
+                var box = ModelScaling.Measure(child.gameObject);
+
+                if (box.size.y > 0.5f)
+                {
+                    // The kinder of the two witnesses, as the smoke test asks it: a thing on
+                    // a slope is over one of them and not the other.
+                    float ground = Mathf.Max(
+                        map.Grid.SurfaceElevation(box.center.x, box.center.z) * heightScale,
+                        map.Grid.SurfaceElevation(child.position.x, child.position.z) * heightScale);
+
+                    float gap = box.min.y - ground;
+
+                    if (gap > Clear)
+                    {
+                        found.Add((child.name, gap, box.center, box.size.y));
+                        continue;
+                    }
+                }
+
+                Sweep(child, map, heightScale, found);
+            }
+        }
+
         readonly struct Piece
         {
             public readonly Bounds Box;
