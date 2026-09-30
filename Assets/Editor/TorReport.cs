@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text;
 using TheVeil.App;
 using TheVeil.Sim;
@@ -33,6 +33,21 @@ namespace TheVeil.Editor
     /// </summary>
     public static class TorReport
     {
+        /// <summary>
+        /// How much of a piece may be out over nothing before it is worth saying so.
+        ///
+        /// Half. A boulder resting on a shelf with a third of itself past the edge is what
+        /// rock on a hillside looks like; one that is mostly out over air is a thing the
+        /// eye reads as floating whatever is holding the other end of it, and from a low
+        /// camera across a slope that is the only thing it reads as.
+        /// </summary>
+        const float Juts = 0.5f;
+
+        /// <summary>How many points across a piece's footprint the ground is asked at.</summary>
+        // Five by five. The pieces are two to eight metres across, so the samples are
+        // half a metre to two metres apart, which is finer than the ground is.
+        const int Samples = 5;
+
         /// <summary>How far a piece may hang before it is worth saying so, in metres.</summary>
         // Half a metre. Rock is laid rough and a hand's daylight under one edge of a
         // boulder is how rock lies; half a metre is a gap a person could put an arm into.
@@ -58,9 +73,9 @@ namespace TheVeil.Editor
             var sheet = new StringBuilder();
             sheet.AppendLine("[Tor] pieces of rock with nothing under them");
 
-            int levels = 0, hanging = 0;
-            float worst = 0f;
-            string where = "nowhere";
+            int levels = 0, hanging = 0, juts = 0;
+            float worst = 0f, reach = 0f;
+            string where = "nowhere", out_ = "nowhere";
 
             foreach (int chapter in DifficultyCurve.Dressed)
             {
@@ -73,23 +88,42 @@ namespace TheVeil.Editor
 
                     levels++;
 
-                    int loose = 0;
-                    float deepest = 0f;
-                    Vector3 at = Vector3.zero;
+                    int loose = 0, jutting = 0;
+                    float deepest = 0f, furthest = 0f;
+                    Vector3 at = Vector3.zero, over = Vector3.zero;
 
                     foreach (var piece in pieces)
                     {
                         float gap = Hanging(piece, pieces, map, runner.HeightScale);
-                        if (gap <= Hangs) continue;
 
-                        loose++;
-                        if (gap <= deepest) continue;
+                        if (gap > Hangs)
+                        {
+                            loose++;
 
-                        deepest = gap;
-                        at = piece.Box.center;
+                            if (gap > deepest)
+                            {
+                                deepest = gap;
+                                at = piece.Box.center;
+                            }
+                        }
+
+                        // And how much of it is out over nothing, which is a different
+                        // question with a different answer: a piece can be standing on its
+                        // own middle and still reach half its width past anything at all.
+                        float air = Jutting(piece, pieces, map, runner.HeightScale,
+                                            out float drop);
+
+                        if (air < Juts) continue;
+
+                        jutting++;
+                        if (drop <= furthest) continue;
+
+                        furthest = drop;
+                        over = piece.Box.center;
                     }
 
                     hanging += loose;
+                    juts += jutting;
 
                     if (deepest > worst)
                     {
@@ -97,10 +131,19 @@ namespace TheVeil.Editor
                         where = $"{chapter}-{level} at {at.x:0}, {at.z:0}";
                     }
 
+                    if (furthest > reach)
+                    {
+                        reach = furthest;
+                        out_ = $"{chapter}-{level} at {over.x:0}, {over.z:0}";
+                    }
+
                     sheet.AppendLine($"[Tor] {chapter}-{level}: {pieces.Count} piece(s), "
                                      + (loose == 0
-                                        ? "all of them carried"
-                                        : $"{loose} hanging, worst {deepest:0.0} m clear"));
+                                        ? "all carried"
+                                        : $"{loose} hanging, worst {deepest:0.0} m clear")
+                                     + (jutting == 0
+                                        ? ", none overhanging"
+                                        : $", {jutting} overhanging, worst {furthest:0.0} m"));
 
                     Object.DestroyImmediate(root);
                 }
@@ -108,6 +151,8 @@ namespace TheVeil.Editor
 
             sheet.AppendLine($"[Tor] {hanging} piece(s) hanging over {levels} level(s) with rock on "
                              + $"them; worst {worst:0.0} m, {where}");
+            sheet.AppendLine($"[Tor] {juts} piece(s) more than {Juts:P0} out over nothing; "
+                             + $"worst {reach:0.0} m of daylight, {out_}");
 
             Debug.Log(sheet.ToString());
         }
@@ -139,6 +184,72 @@ namespace TheVeil.Editor
 
                 Walk(child, found);
             }
+        }
+
+        /// <summary>
+        /// How much of a piece's footprint has nothing under it, and how far the emptiest
+        /// point of it is above whatever is down there.
+        ///
+        /// <b>A different question from whether it is carried.</b> A piece is carried if
+        /// anything at all holds it up anywhere; it overhangs if most of it does not. The
+        /// first is about whether the decorator put it somewhere impossible and the second
+        /// is about whether a player looking across a hillside sees rock floating - and a
+        /// mass can be perfectly carried, every piece standing on the one below, and still
+        /// lean its whole shoulder out over a valley.
+        /// </summary>
+        static float Jutting(Piece piece, List<Piece> all, LevelMap map, float heightScale,
+                             out float drop)
+        {
+            drop = 0f;
+
+            int empty = 0, asked = 0;
+
+            for (int ix = 0; ix < Samples; ix++)
+                for (int iz = 0; iz < Samples; iz++)
+                {
+                    float x = Mathf.Lerp(piece.Box.min.x, piece.Box.max.x,
+                                         (ix + 0.5f) / Samples);
+                    float z = Mathf.Lerp(piece.Box.min.z, piece.Box.max.z,
+                                         (iz + 0.5f) / Samples);
+
+                    asked++;
+
+                    float under = map.Grid.SurfaceElevation(x, z) * heightScale;
+
+                    // <b>Rock at this level here, not rock whose top stops below me.</b>
+                    // The first version of this asked for a piece whose top was under the
+                    // sample and no higher than it, which is the test for something the
+                    // piece is resting on - and it is the wrong test for whether there is
+                    // anything there. A piece standing low among taller neighbours has rock
+                    // all round it at its own height and none of it stops below its foot,
+                    // so every one of those neighbours was rejected and the ground twenty
+                    // metres down was taken as the answer: a third of every mass in the
+                    // mountains reported as leaning over air, with 27 m under the worst of
+                    // it, and every one of them bedded in the middle of a rock pile.
+                    //
+                    // Measuring the wrong thing and then changing the world until the
+                    // number improves is the expensive way to be wrong. What is being asked
+                    // is whether there is stone under this point at all.
+                    foreach (var other in all)
+                    {
+                        if (other.Box == piece.Box) continue;
+                        if (other.Box.min.y > piece.Box.min.y + Slack) continue;
+                        if (other.Box.max.y < piece.Box.min.y - Slack) continue;
+                        if (x < other.Box.min.x || x > other.Box.max.x) continue;
+                        if (z < other.Box.min.z || z > other.Box.max.z) continue;
+
+                        under = piece.Box.min.y;
+                        break;
+                    }
+
+                    float gap = piece.Box.min.y - under;
+                    if (gap <= Hangs) continue;
+
+                    empty++;
+                    if (gap > drop) drop = gap;
+                }
+
+            return asked == 0 ? 0f : empty / (float)asked;
         }
 
         /// <summary>

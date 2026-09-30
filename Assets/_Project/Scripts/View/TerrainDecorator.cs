@@ -2998,7 +2998,26 @@ namespace TheVeil.View
                 for (int step = 0; step < round; step++)
                 {
                     float turn = step / (float)round * Mathf.PI * 2f + rng.Range(-0.3f, 0.3f);
-                    float out_ = spread * rng.Range(0.55f, 1f);
+
+                    // <b>A core to each course, and not only a ring.</b> Every piece stood
+                    // between 0.55 and 1 of the course's spread, which is a ring with a
+                    // hollow up the middle of it - and a mass of rock with a hole through
+                    // the centre is not a mass, it is a circle of standing stones.
+                    //
+                    // The first piece of each course goes in the middle. The rest ring it,
+                    // so a course is a core with a shoulder round it and the course above
+                    // has something under its own middle to stand on.
+                    //
+                    // <b>This was done to cure the overhang and did not.</b> The tor report
+                    // said a third of every mass leaned more than half of itself over air,
+                    // filling the hollow moved the number by two percent, and the reason is
+                    // that the number was wrong: the report was asking for rock whose top
+                    // stopped below a piece, which rejects every neighbour a piece is
+                    // bedded among. The real count was nine pieces in two thousand four
+                    // hundred. The core stays because a hollow tor is a worse tor, not
+                    // because it fixed anything.
+                    float out_ = step == 0 ? spread * rng.Range(0f, 0.2f)
+                                           : spread * rng.Range(0.55f, 1f);
 
                     var rock = Object.Instantiate(Any(decor.Cliffs, rng), parent);
                     rock.transform.rotation = Quaternion.Euler(decor.Cliffs.ZUp ? -90f : 0f,
@@ -3070,6 +3089,24 @@ namespace TheVeil.View
                     // through rock looks like: the mass opens where the road crosses it.
                     if (Barring(grid, _road, rock)) { Unbuild(rock); continue; }
 
+                    // <b>And nothing leaning its whole shoulder out over a valley.</b> A
+                    // piece on the outer ring of an upper course can touch the course below
+                    // at its inner edge and reach the rest of itself out past everything:
+                    // carried, and yet mostly over air. Nine of them across the two
+                    // countries that build masses, the worst with 28.6 m of daylight under
+                    // it, and those nine are what the eye picks out of a hillside.
+                    //
+                    // Dropped rather than pulled inward, for the reason the road's are: a
+                    // mass is built of what fits, and one piece in two hundred and fifty is
+                    // not a shape anybody will miss. See TorReport, which measures this and
+                    // measured it wrongly first - a piece bedded among taller neighbours
+                    // read as leaning over nothing, and a third of the mountains with it.
+                    if (OutOverAir(grid, heightScale, ModelScaling.Measure(rock)))
+                    {
+                        Unbuild(rock);
+                        continue;
+                    }
+
                     courses_.Add(ModelScaling.Measure(rock));
                     pieces++;
                 }
@@ -3098,6 +3135,59 @@ namespace TheVeil.View
 
             return false;
         }
+
+        /// <summary>
+        /// Whether most of a piece of rock is out over nothing.
+        ///
+        /// Asked of the ground and of the mass already laid, at twenty-five points across
+        /// the piece's own footprint. A point is held if the ground is within a pace of the
+        /// piece's foot, or if another piece of this mass stands at that point and reaches
+        /// the piece's own level - not if another piece's *top* is below it, which is the
+        /// test for what it is resting on and rejects every neighbour a piece is bedded
+        /// among. See TorReport, where that mistake was made first and cost a third of the
+        /// mountains a fault they did not have.
+        /// </summary>
+        static bool OutOverAir(TileGrid grid, float heightScale, Bounds box)
+        {
+            int empty = 0, asked = 0;
+
+            for (int ix = 0; ix < TorProbes; ix++)
+                for (int iz = 0; iz < TorProbes; iz++)
+                {
+                    float x = Mathf.Lerp(box.min.x, box.max.x, (ix + 0.5f) / TorProbes);
+                    float z = Mathf.Lerp(box.min.z, box.max.z, (iz + 0.5f) / TorProbes);
+
+                    asked++;
+
+                    if (box.min.y - grid.SurfaceElevation(x, z) * heightScale <= TorDaylight)
+                        continue;
+
+                    bool held = false;
+
+                    foreach (var laid in courses_)
+                    {
+                        if (laid.min.y > box.min.y + TorDaylight) continue;
+                        if (laid.max.y < box.min.y - TorDaylight) continue;
+                        if (x < laid.min.x || x > laid.max.x) continue;
+                        if (z < laid.min.z || z > laid.max.z) continue;
+
+                        held = true;
+                        break;
+                    }
+
+                    if (!held) empty++;
+                }
+
+            return asked > 0 && empty > asked / 2;
+        }
+
+        /// <summary>How many points across a piece the ground is asked at, and how much
+        /// daylight counts as none.</summary>
+        // Five by five, and half a metre. Rock is laid rough and a hand under one edge is
+        // how rock lies.
+        const int TorProbes = 5;
+
+        const float TorDaylight = 0.5f;
 
         /// <summary>The pieces of the mass being built, so each one can ask what is under it.</summary>
         static readonly List<Bounds> courses_ = new List<Bounds>();
