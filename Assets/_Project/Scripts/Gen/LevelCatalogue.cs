@@ -97,7 +97,63 @@ namespace TheVeil.Gen
         public static void Tune(int chapter, int level, float factor) => _tuning[(chapter, level)] = factor;
 
         /// <summary>For the catalogue builder: drops what it set, once the table is written.</summary>
-        public static void ClearTuning() => _tuning.Clear();
+        public static void ClearTuning()
+        {
+            _tuning.Clear();
+            _dressing.Clear();
+        }
+
+        /// <summary>Which set of props each level wears, as the dressing pass chose it.</summary>
+        static Dictionary<(int, int), int> _dressings;
+
+        /// <summary>Dressings set by a pass in progress, ahead of anything read from a file.</summary>
+        static readonly Dictionary<(int, int), int> _dressing = new Dictionary<(int, int), int>();
+
+        /// <summary>
+        /// Which set of props a level wears: nought, unless the dressing pass found better.
+        ///
+        /// <b>A dial nobody knew was there.</b> The curve is held by choosing a map and
+        /// calibrating its enemies, and both of those are settled on a bare map - the ground,
+        /// the water and the groups on it - because that is all there is when a level is
+        /// generated. The props are hung on it much later, by the view.
+        ///
+        /// BareReport played every built level twice, once with the built world's obstacles
+        /// read in and once without, and the two answers were as much as a fifth of a point
+        /// apart: 6-6 came in at 0.60 against a target of 0.34, and 7-5 at 0.22 against 0.36.
+        /// Not by lengthening the road - the travel times are identical to the second - but
+        /// because a solid prop shoves troops and enemies out of position while they fight
+        /// (Squad.Obstacles, CombatSystem.Obstacles), so who reaches whom is partly decided
+        /// by where rock happens to stand. Nine of seventy levels were out by more than a
+        /// tenth, and the mean over all seventy was nought: the scenery does not make the
+        /// game harder, it scatters it.
+        ///
+        /// Then the same three maps were dressed eight ways each, and almost every other
+        /// dressing landed on the target - 6-6 gave 0.34, 0.35, 0.35, 0.35, 0.35 at five of
+        /// the seven other settings. The shipped dressing simply happened to be the outlier.
+        /// So the answer is to choose it, like everything else in this table, and the choice
+        /// costs nothing else: the map does not move, the bare judgement does not move, and
+        /// no test moves, because none of them can see the props at all.
+        /// </summary>
+        public static int Dressing(int chapter, int level)
+        {
+            if (_dressing.TryGetValue((chapter, level), out int chosen)) return chosen;
+            if (_dressings != null && _dressings.TryGetValue((chapter, level), out int read)) return read;
+            return 0;
+        }
+
+        /// <summary>
+        /// The number a level's dressing seed is shifted by, which is what the decorator
+        /// wants. One formula, here, so a level dressed for a measurement and the same level
+        /// dressed for a player cannot come out differently.
+        /// </summary>
+        public static int DressingShift(int chapter, int level) => ShiftOf(Dressing(chapter, level));
+
+        /// <summary>The shift a dressing number means. Nought is the dressing as it falls out.</summary>
+        public static int ShiftOf(int dressing) => dressing == 0 ? 0 : dressing * 0x9E3779;
+
+        /// <summary>For the dressing pass: a dressing to use until the table is written.</summary>
+        public static void Dress(int chapter, int level, int dressing)
+            => _dressing[(chapter, level)] = dressing;
 
         public static void Load(string text)
         {
@@ -106,6 +162,7 @@ namespace TheVeil.Gen
 
             var table = new Dictionary<(int, int), int>();
             var factors = new Dictionary<(int, int), float>();
+            var dressings = new Dictionary<(int, int), int>();
             string signature = null;
 
             foreach (string line in text.Split((char)10))
@@ -120,7 +177,7 @@ namespace TheVeil.Gen
                 }
 
                 var parts = row.Split(' ');
-                if (parts.Length != 3 && parts.Length != 4) continue;
+                if (parts.Length < 3 || parts.Length > 5) continue;
 
                 if (int.TryParse(parts[0], out int chapter)
                     && int.TryParse(parts[1], out int level)
@@ -130,10 +187,16 @@ namespace TheVeil.Gen
 
                     // A fourth number is the level's strength factor. Invariant, for the
                     // reason Signature is: "1,250" on one machine and "1.250" on another.
-                    if (parts.Length == 4
+                    if (parts.Length >= 4
                         && float.TryParse(parts[3], System.Globalization.NumberStyles.Float,
                                           System.Globalization.CultureInfo.InvariantCulture, out float factor))
                         factors[(chapter, level)] = factor;
+
+                    // And a fifth is which set of props it wears. See Dressing. A table
+                    // written before there was a dressing column has four numbers and every
+                    // level wears the dressing as it falls out, which is what it did then.
+                    if (parts.Length == 5 && int.TryParse(parts[4], out int dressing))
+                        dressings[(chapter, level)] = dressing;
                 }
             }
 
@@ -149,6 +212,7 @@ namespace TheVeil.Gen
 
             _shipped = table;
             _factors = factors;
+            _dressings = dressings;
         }
 
         /// <summary>Forgets what was read, for the tool that writes a new one.</summary>
@@ -156,6 +220,7 @@ namespace TheVeil.Gen
         {
             _shipped = null;
             _factors = null;
+            _dressings = null;
             Refused = null;
         }
 

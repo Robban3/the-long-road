@@ -205,7 +205,16 @@ namespace TheVeil.Editor
 
                 // Where the champion waits, so the castle stands on his side of
                 // the goal. See Strongholds.Site.
-                guard: Champions.Post(map));
+                guard: Champions.Post(map),
+
+                // <b>And the set of props the catalogue chose, which this forgot.</b>
+                // Three places build the world - the run (LevelRunner), the plan
+                // (LevelPreview) and the instruments (here) - and all three have to pass
+                // this or they are looking at different levels. It cost a whole pass of the
+                // dressing choice: every level came back reporting that all eight of its
+                // dressings played identically, because this call was handing the decorator
+                // the same one eight times. See LevelCatalogue.Dressing.
+                dressing: LevelCatalogue.DressingShift(chapter, level));
 
             return root;
         }

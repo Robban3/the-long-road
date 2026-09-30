@@ -453,7 +453,12 @@ namespace TheVeil.App
 
                 // And where the chapter.s champion stands, so the castle goes up on his
                 // side of the goal rather than behind him. See Strongholds.Site.
-                guard: Champions.Post(map));
+                guard: Champions.Post(map),
+
+                // The set of props the catalogue chose for this level. See
+                // LevelCatalogue.Dressing: the scenery is worth difficulty and this is
+                // where the chosen scenery gets to the ground the player walks on.
+                dressing: LevelCatalogue.DressingShift(Chapter, Level));
 
             // And the air it stands in. Set either way rather than only when a country
             // wants it, because the setting belongs to the scene and would otherwise

@@ -1394,7 +1394,18 @@ namespace TheVeil.View
                                    // Strongholds.Site: he is mechanism and cannot be moved to
                                    // the castle without costing a chapter, so the castle comes
                                    // to him.
-                                   int guard = -1)
+                                   int guard = -1,
+
+                                   // <b>Which of the level's several possible dressings this
+                                   // is.</b> Nought is the props as they fall out of the
+                                   // seed, which is what every level wore until the day the
+                                   // scenery was measured: it moves a level's difficulty by
+                                   // as much as a fifth of a point, because a solid prop
+                                   // shoves troops and enemies out of position while they
+                                   // fight. Chosen per level and written in the catalogue -
+                                   // see LevelCatalogue.Dressing, which carries the
+                                   // measurements. Nothing but the props reads it.
+                                   int dressing = 0)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -1422,7 +1433,7 @@ namespace TheVeil.View
             // stage is still independent of what any other did first; it quietly ties two
             // of them together, which is the thing one stream per stage exists to prevent.
             // Counted, not noticed: the numbers were listed and two of them appeared twice.
-            DeterministicRandom Stream(int stage) => new DeterministicRandom(seed ^ (0x5EED10 + stage * 0x3C6EF35F));
+            DeterministicRandom Stream(int stage) => new DeterministicRandom(seed ^ dressing ^ (0x5EED10 + stage * 0x3C6EF35F));
 
             var clear = keepClear == null ? null : new HashSet<int>(keepClear);
 
@@ -3354,9 +3365,25 @@ namespace TheVeil.View
         /// Dry, passable and not a crossing. Searched outward in rings so the camp moves
         /// as little as it can: a band watching a ford should still be at the ford.
         /// </summary>
-        static int DryGroundNear(TileGrid grid, int tile)
+        static int DryGroundNear(TileGrid grid, int tile, float heightScale)
         {
             grid.ToCoords(tile, out int x, out int y);
+
+            // <b>The flattest ground within reach, and not simply the nearest.</b>
+            //
+            // This took the first dry tile it found, which on the mountain is a hillside. A
+            // tent is seated like a house so its pegged edge meets the ground - half a metre
+            // for the canvas skirt, plus three fifths of the tile.s own fall - so on ground
+            // that drops five metres across a tile the whole tent goes under. The smoke test
+            // found it the first time the levels were dressed differently: 5-8, one set of
+            // tent poles buried out of sight, on a level in the one country made of slopes.
+            //
+            // Nobody pitches a tent on a hillside, so the fix is not to cap the seating and
+            // leave daylight under one corner - it is to pitch where a tent would be
+            // pitched. Still the nearest ground on ties, because the camp is the signal for
+            // the band watching the crossing and it should stay by the crossing.
+            int best = -1;
+            float flattest = float.MaxValue;
 
             for (int ring = 0; ring <= CampReach; ring++)
             {
@@ -3368,17 +3395,35 @@ namespace TheVeil.View
                         if (ring > 0 && Mathf.Abs(dx) != ring && Mathf.Abs(dy) != ring) continue;
                         if (!grid.InBounds(x + dx, y + dy)) continue;
 
-                        var terrain = grid[grid.ToIndex(x + dx, y + dy)];
+                        int at = grid.ToIndex(x + dx, y + dy);
+                        var terrain = grid[at];
                         if (terrain == TerrainType.Water || terrain == TerrainType.Ford) continue;
                         if (!grid.IsPassable(x + dx, y + dy)) continue;
 
-                        return grid.ToIndex(x + dx, y + dy);
+                        float fall = Fall(grid, at, heightScale);
+                        if (fall >= flattest) continue;
+
+                        flattest = fall;
+                        best = at;
+
+                        // Flat enough to stop looking: the seating is then the canvas skirt
+                        // and nothing else, which is what it was written for.
+                        if (fall <= CampGround) return best;
                     }
                 }
             }
 
-            return -1;
+            return best;
         }
+
+        /// <summary>
+        /// How much a tile may fall across itself and still be camping ground, in metres.
+        ///
+        /// Half a metre. At that fall the seating comes to eight tenths of a metre on a
+        /// four-metre tent, which buries the canvas skirt and nothing else. See
+        /// DryGroundNear, and Seat for the arithmetic.
+        /// </summary>
+        const float CampGround = 0.5f;
 
         static bool WithinReachOfWater(TileGrid grid, int x, int y, int reach)
         {
@@ -3422,7 +3467,7 @@ namespace TheVeil.View
                 // Its own name rather than reusing the loop's, which C# will not let a
                 // foreach assign to anyway: the site is where the band is, the pitch is
                 // where its tent stands, and they are two different tiles.
-                int pitch = DryGroundNear(grid, tile);
+                int pitch = DryGroundNear(grid, tile, heightScale);
                 if (pitch < 0) continue;
 
                 if (occupied.Contains(pitch)) continue;

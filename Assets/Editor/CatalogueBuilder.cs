@@ -46,7 +46,10 @@ namespace TheVeil.Editor
 
             table.AppendLine("# Which attempt each level ships. Built by "
                              + "The Veil > Build Level Catalogue.");
-            table.AppendLine("# Three numbers a line: chapter, level, attempt.");
+            table.AppendLine("# Three numbers a line: chapter, level, attempt - and for the "
+                             + "chapters the curve");
+            table.AppendLine("# is tuned for, the level's strength factor and which of its "
+                             + "dressings it wears.");
             table.AppendLine("#");
             table.AppendLine("# The signature is what these answers were judged against. A "
                              + "catalogue whose");
@@ -119,7 +122,8 @@ namespace TheVeil.Editor
                     if (chapter <= BuiltChapters)
                         table.AppendLine($"{chapter} {level} {attempt} "
                                          + LevelCatalogue.Factor(chapter, level)
-                                             .ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+                                             .ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
+                                         + $" {LevelCatalogue.Dressing(chapter, level)}");
                     else
                         table.AppendLine($"{chapter} {level} {attempt}");
                     walked++;

@@ -92,7 +92,12 @@ namespace TheVeil.Editor
             var runner = Object.FindAnyObjectByType<LevelRunner>();
             if (runner == null) { Debug.LogError("[Margin] PlayLevel has no LevelRunner."); return; }
 
-            // Filed by player and chapter.
+            // Filed by player, chapter and level. <b>By level because the chapter average
+            // hid where the trouble was.</b> The table below is a mean over ten levels, and
+            // the day chapter six came in five hundredths over its target there was nothing
+            // to say whether that was ten levels a little hard or two levels badly wrong -
+            // which are different faults with different answers. A worst case hides a set
+            // and so does an average.
             var tally = new Dictionary<string, List<Outcome>>();
 
             for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
@@ -157,7 +162,7 @@ namespace TheVeil.Editor
                                 Par = run.ParSeconds
                             };
 
-                            string key = $"{player.Name} {chapter}";
+                            string key = $"{player.Name} {chapter} {level}";
                             if (!tally.TryGetValue(key, out var runs)) tally[key] = runs = new List<Outcome>();
                             runs.Add(note);
 
@@ -185,7 +190,12 @@ namespace TheVeil.Editor
 
                 for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
                 {
-                    if (!tally.TryGetValue($"{player.Name} {chapter}", out var runs)) continue;
+                    var runs = new List<Outcome>();
+                    for (int l = 1; l <= Campaign.LevelsPerChapter; l++)
+                        if (tally.TryGetValue($"{player.Name} {chapter} {l}", out var some))
+                            runs.AddRange(some);
+
+                    if (runs.Count == 0) continue;
 
                     int lost = 0;
                     float escort = 0f, load = 0f, pace = 0f;
@@ -226,6 +236,45 @@ namespace TheVeil.Editor
 
                 said.AppendLine();
             }
+
+            // <b>And every level on its own, for the player the targets are written for.</b>
+            // The curve is a per-level promise: DifficultyCurve.Target takes a chapter and a
+            // level, and the catalogue calibrates each level to its own number. Reading the
+            // result ten levels at a time is reading it in the wrong unit.
+            said.AppendLine($"[Margin] == every level, {Players[0].Name} ==");
+            said.AppendLine("[Margin]  level  runs  lost   escort left   judged   target   off");
+
+            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            {
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                {
+                    if (!tally.TryGetValue($"{Players[0].Name} {chapter} {level}", out var runs)) continue;
+
+                    int lost = 0;
+                    float escort = 0f, steady = 0f;
+                    int counted = 0;
+
+                    foreach (var run in runs)
+                    {
+                        if (!run.Arrived) lost++;
+                        escort += run.Escort;
+
+                        if (run.Fast) continue;
+
+                        steady += run.Arrived ? run.Escort : 0f;
+                        counted++;
+                    }
+
+                    float judged = counted > 0 ? 1f - steady / counted : 1f;
+                    float target = DifficultyCurve.Target(chapter, level);
+
+                    said.AppendLine($"[Margin] {chapter,3}-{level,-3} {runs.Count,5} {lost,5} "
+                                    + $"{escort / runs.Count,13:0.00} {judged,8:0.00} {target,8:0.00} "
+                                    + $"{judged - target,6:+0.00;-0.00; 0.00}");
+                }
+            }
+
+            said.AppendLine();
 
             string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TheVeilPlaytest",
                                                  "margin.txt");

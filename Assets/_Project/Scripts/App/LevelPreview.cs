@@ -1555,6 +1555,9 @@ namespace TheVeil.App
                           ? Towns.Layout(map.Grid.Width, map.Grid.Height, map.Seed, map.StartY)
                           : Towns.None,
                 guard: Champions.Post(map),
+                // The same dressing the run will build, so the plan shows the level that
+                // will be played. See LevelCatalogue.Dressing.
+                dressing: LevelCatalogue.DressingShift(Chapter, Level),
                 // The castle only at the end of a chapter, and the caller decides that
                 // because the decorator only knows there is a goal. Standing one on every
                 // level made ten keeps in a chapter and turned the thing the roadmap
