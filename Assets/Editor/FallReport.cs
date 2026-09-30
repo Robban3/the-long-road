@@ -17,7 +17,7 @@ namespace TheVeil.Editor
             float worst = 0f;
             int steep = 0, levels = 0;
 
-            for (int chapter = 6; chapter <= 6; chapter++)
+            for (int chapter = FallChapter; chapter <= FallChapter; chapter++)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var grid = LevelMaps.For(chapter, level).Grid;
@@ -137,8 +137,15 @@ namespace TheVeil.Editor
             Debug.Log($"[Fall] pictures in {shots}");
         }
 
-        /// <summary>The one country with rock high enough to drop water off. See Run.</summary>
-        const int FallChapter = 6;
+        /// <summary>
+        /// The one country with rock high enough to drop water off. See Run.
+        ///
+        /// <b>Asked for by country, because chapter numbers move.</b> This was 6 while the
+        /// mountain was the sixth chapter; the wheel turned one step and the mountain became
+        /// the fifth, which would have left both of this file's jobs - the measurement and
+        /// the photographs - pointed at the desert, reporting no falls and no fault.
+        /// </summary>
+        static int FallChapter => Biomes.FirstChapterOf(Biome.Mountain);
 
         /// <summary>The height the game's own camera sits at, in metres.</summary>
         const float PlayHeight = 33f;

@@ -1,4 +1,4 @@
-using TheVeil.Gen;
+﻿using TheVeil.Gen;
 using TheVeil.Sim;
 using NUnit.Framework;
 
@@ -58,8 +58,15 @@ namespace TheVeil.Tests
             // eighteen points and six posts it finished the first chapter with.
             Assert.AreEqual((1.35f + 0.035f) * ChapterRecipe.EnemyHardness, first.EnemyStrength, 0.001f);
             Assert.AreEqual(1.70f * ChapterRecipe.EnemyHardness, last.EnemyStrength, 0.001f);
-            Assert.AreEqual(1.4f, first.TrapDensity, 0.001f);
-            Assert.AreEqual(1.6f, last.TrapDensity, 0.001f);
+            // <b>Times the country's own trap factor, which shows here only because the
+            // tour turned.</b> The agreed curve is the chapter's - 1.4 at its first level
+            // and 1.6 at its last, which is TrapsAtEndOf(1) and TrapsAtEndOf(2) - and the
+            // country multiplies it. Chapter two was the winter when that was agreed and
+            // the winter multiplies nothing; it is the fen now, and a fen is a trappier
+            // country by a tenth. The shape is untouched: the ratio is the same eight to
+            // seven it always was, and the height is the country's.
+            Assert.AreEqual(1.4f * 1.1f, first.TrapDensity, 0.001f);
+            Assert.AreEqual(1.6f * 1.1f, last.TrapDensity, 0.001f);
             Assert.AreEqual(18, first.SquadBudget);
             Assert.AreEqual(22, last.SquadBudget);
             Assert.AreEqual(TroopTable.LinePosts, first.Posts);

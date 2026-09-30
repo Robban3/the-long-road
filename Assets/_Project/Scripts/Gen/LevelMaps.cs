@@ -67,7 +67,7 @@ namespace TheVeil.Gen
             var recipe = Recipe(chapter, level);
 
             var map = TerrainGenerator.Generate(recipe,
-                                                DeterministicRandom.SeedFor(chapter, level),
+                                                Biomes.GroundSeed(chapter, level),
                                                 candidate => chapter > DifficultyCurve.BuiltChapters
                                                     ? (RoadsThrough(candidate, chapter, level, recipe.RoutesOwed)
                                                        >= recipe.RoutesOwed ? TerrainGenerator.Accepted : 0)

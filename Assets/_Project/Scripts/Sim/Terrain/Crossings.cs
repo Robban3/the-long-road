@@ -453,6 +453,67 @@ namespace TheVeil.Sim
         /// Whether this crossing has ground to land on: dry tiles within
         /// <see cref="BankReach"/> on two opposite sides.
         /// </summary>
+        /// <summary>
+        /// How far out a crossing weighs the ground, in tiles.
+        ///
+        /// <b>This number belongs to two callers and used to belong to one.</b> The
+        /// generator levels a ford to the average of the dry ground in this window; the
+        /// castle yard has to know the same number, because ground it levels inside the
+        /// window is ground a ford was weighed against. They were two tiles and one tile in
+        /// two files, and the day the wheel turned and 1-10's keep came down beside a
+        /// crossing the two disagreed and the suite said so.
+        /// </summary>
+        // Not called Reach: this type already has one, and it is eight and about something
+        // else entirely.
+        public const int LevellingWindow = 2;
+
+        /// <summary>
+        /// Sets one crossing to the height of the banks it joins, and answers whether it
+        /// moved.
+        ///
+        /// A river is carved by lowering its tiles and a ford is carved with the rest of
+        /// it, so without this the crossing sits at the bottom of the channel: everything
+        /// in the game takes its height from the ground, so the caravan drove down into the
+        /// river at the one place it is meant to get across, and the bridge arched over the
+        /// top of it. A ford is not a hole in the river, it is the shallow place - a bar of
+        /// gravel level with the banks, which is why anything can cross there at all.
+        ///
+        /// Dry ground only. Averaging the river in would put the crossing back in the
+        /// water, a fraction higher than before.
+        /// </summary>
+        public static bool LevelToTheBanks(TileGrid grid, int tile)
+        {
+            if (grid == null || grid[tile] != TerrainType.Ford) return false;
+
+            grid.ToCoords(tile, out int x, out int y);
+
+            float sum = 0f;
+            int banks = 0;
+
+            for (int dy = -LevellingWindow; dy <= LevellingWindow; dy++)
+            {
+                for (int dx = -LevellingWindow; dx <= LevellingWindow; dx++)
+                {
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                    int neighbour = grid.ToIndex(x + dx, y + dy);
+                    var terrain = grid[neighbour];
+
+                    if (terrain == TerrainType.Water || terrain == TerrainType.Ford) continue;
+
+                    sum += grid.Elevation(neighbour);
+                    banks++;
+                }
+            }
+
+            if (banks == 0) return false;
+
+            float was = grid.Elevation(tile);
+            grid.SetElevation(tile, sum / banks);
+
+            return System.Math.Abs(grid.Elevation(tile) - was) > 0.00001f;
+        }
+
         public static bool Spans(TileGrid grid, int tile)
         {
             grid.ToCoords(tile, out int x, out int y);

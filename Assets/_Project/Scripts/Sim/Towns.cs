@@ -237,11 +237,34 @@ namespace TheVeil.Sim
             // than bunched: the gates open onto the middle one, and the ends of the town
             // carry the two lanes that reach the others.
             int lane = StreetWidth;
+
+            // <b>And where the two back streets run is the one thing that varies.</b>
+            //
+            // This was handed a seed and never read it. Every other level in the game is
+            // generated and re-rolled; the town's ground is stamped, so the recipe cannot
+            // touch it and neither can the tour - the same walls, the same three streets
+            // on the same three rows, the same blocks between them, every seed and every
+            // attempt. Measured by LikenessReport on the day the wheel turned: ninety-nine
+            // levels came back 38 % alike to what they had been and 1-8 came back at a
+            // hundred. It is the only level in the game that is the same level twice, and
+            // nobody had seen it because there is only one town.
+            //
+            // The high street stays on the gate row, because the gates open onto it and
+            // the plan the view reads carries that row and nothing else. What moves is the
+            // two behind it, each within the depth it has to play with - so the blocks are
+            // deep on one side and shallow on the other, and a town is a different town.
+            var dice = new DeterministicRandom(seed ^ 0x70FF);
+
+            int firstLow = north + 2 + Approach;
+            int firstHigh = gateRow - lane - 2;
+            int lastHigh = south - 2 - Approach - lane + 1;
+            int lastLow = gateRow + lane + 2;
+
             int[] streets =
             {
-                north + 2 + Approach,
+                firstHigh > firstLow ? dice.Range(firstLow, firstHigh + 1) : firstLow,
                 gateRow,
-                south - 2 - Approach - lane + 1
+                lastHigh > lastLow ? dice.Range(lastLow, lastHigh + 1) : lastHigh
             };
 
             // <b>The main street is a road and the other two are not, and that is the

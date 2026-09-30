@@ -1,4 +1,4 @@
-using TheVeil.Sim;
+﻿using TheVeil.Sim;
 using NUnit.Framework;
 
 namespace TheVeil.Tests
@@ -11,22 +11,37 @@ namespace TheVeil.Tests
     public class BiomeTests
     {
         [Test]
-        public void TheRoadOpensInTheForestAndTurnsToWinterInTheSecond()
+        public void TheRoadOpensInWinterAndTheForestClosesTheTour()
         {
-            Assert.AreEqual(Biome.Forest, Biomes.Of(1));
+            // <b>The wheel turned one step on the day the last country was dressed.</b>
+            // The forest opened the tour for as long as it was the only country with any
+            // scenery, because everything after it fell back to the forest's dressing and
+            // the opening had to be the one place that was finished. All ten are built
+            // now, so the first country a player sees no longer has to be the first one
+            // that was made.
+            //
+            // Pinned as hard as it was before, and for the same reason: the plan, the run
+            // and the ground colours all ask Biomes.Of, and the day it answers differently
+            // for any of them is the day somebody plans a level in snow and drives it
+            // through a forest.
+            Assert.AreEqual(Biome.Winter, Biomes.Of(1));
+            Assert.AreEqual(Biome.Forest, Biomes.Of(Biomes.Order.Length));
             Assert.AreEqual(Biome.Winter, Biomes.Of(Biomes.WinterChapter));
-            Assert.AreEqual(2, Biomes.WinterChapter, "winter moved off chapter 2 without anyone saying so");
+            Assert.AreEqual(1, Biomes.WinterChapter, "winter moved off chapter 1 without anyone saying so");
             Assert.AreEqual(Biome.Winter, Biomes.Order[Biomes.WinterChapter - 1],
                             "the winter constant and the tour disagree");
         }
 
         [Test]
-        public void TheThirdChapterIsTheMarsh()
+        public void TheThirdChapterIsThePlains()
         {
-            // Which is what the roadmap has been calling it — "THE WETLANDS" — while
-            // playing it as forest.
-            Assert.AreEqual(Biome.Marsh, Biomes.Of(3));
-            Assert.AreEqual(3, Biomes.FirstChapterOf(Biome.Marsh));
+            // It was the marsh while the forest opened; the marsh is the second now. What
+            // this test is for is that the name the roadmap prints and the country the
+            // level is built in are the same thing - it was written because the roadmap
+            // had been calling chapter three "THE WETLANDS" while playing it as forest.
+            Assert.AreEqual(Biome.Plains, Biomes.Of(3));
+            Assert.AreEqual(3, Biomes.FirstChapterOf(Biome.Plains));
+            Assert.AreEqual(Biome.Marsh, Biomes.Of(2));
         }
 
         [Test]
@@ -99,8 +114,11 @@ namespace TheVeil.Tests
             Assert.AreEqual(Dressing.Plain, Biomes.DressingOf(tour * 4 + 1));
 
             // A chapter with no campaign behind it is the opening country, plainly dressed.
+            // The opening is winter since the wheel turned; what this is checking is that a
+            // caller with no campaign gets the first country on the tour rather than a
+            // throw, so it asks the tour rather than naming one.
             Assert.AreEqual(Dressing.Plain, Biomes.DressingOf(0));
-            Assert.AreEqual(Biome.Forest, Biomes.Of(0));
+            Assert.AreEqual(Biomes.Order[0], Biomes.Of(0));
         }
 
         [Test]

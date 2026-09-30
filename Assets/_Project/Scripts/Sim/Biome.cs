@@ -139,9 +139,24 @@ namespace TheVeil.Sim
             Biome.Dead
         };
 
+        /// <b>Turned one step, on the day the last country was dressed.</b> The tour ran
+        /// forest, winter, marsh for as long as the forest was the only country with any
+        /// scenery in it - the opening had to be the one place that was finished, and
+        /// everything after it fell back to the forest's dressing anyway. That reason is
+        /// gone: all ten are built, and the first country a player sees no longer has to be
+        /// the first one that was made.
+        ///
+        /// So the wheel turns by one. Winter opens, the forest closes the tour, and every
+        /// chapter is a country the player would have met somewhere else before. The
+        /// second pass turns it again by itself (see PassOf), as it always did.
+        ///
+        /// <b>And the ground is sown again with it.</b> Turning the wheel alone puts the
+        /// same seed through a different recipe, which is most of a new level - but only
+        /// most, and on two stretches of the road not even that. See
+        /// <see cref="GroundSeed"/>, which carries the measurements, and LikenessReport,
+        /// which took them.
         public static readonly Biome[] Order =
         {
-            Biome.Forest,
             Biome.Winter,
             Biome.Marsh,
             Biome.Plains,
@@ -149,18 +164,21 @@ namespace TheVeil.Sim
             Biome.Mountain,
             Biome.Desert,
             Biome.Enchanted,
-            Biome.Dead
+            Biome.Dead,
+            Biome.Forest
         };
 
         /// <summary>
         /// The chapter that is winter.
         ///
-        /// Still the second: the first biome after the forest wants to be reachable in a
-        /// few levels and judged in play. Kept as a name because the view, the setup and
-        /// the tests all had one, and checked against <see cref="Order"/> by
-        /// BiomeTests so the two cannot drift apart.
+        /// <b>The first, since the wheel turned.</b> It was the second while the forest
+        /// opened the tour, and the reason given was that the first country after the
+        /// forest wants to be reachable in a few levels and judged in play. That is now
+        /// truer than ever: it is the first country at all. Kept as a name because the
+        /// view, the setup and the tests all had one, and checked against
+        /// <see cref="Order"/> by BiomeTests so the two cannot drift apart.
         /// </summary>
-        public const int WinterChapter = 2;
+        public const int WinterChapter = 1;
 
         /// <summary>
         /// Which time round the tour this chapter is, counting from nought.
@@ -181,6 +199,57 @@ namespace TheVeil.Sim
 
         public static int PassOf(int chapter)
             => chapter < 1 ? 0 : (chapter - 1) / Order.Length;
+
+        /// <summary>
+        /// How many steps the wheel has been turned by hand, on top of the turn each pass
+        /// makes by itself.
+        /// </summary>
+        public const int Turn = 1;
+
+        /// <summary>A turn's worth of ground, measured in seed. Prime, and far wider than the campaign.</summary>
+        // Wider than the campaign on purpose: added to a level's seed it must not land on
+        // another level's, or two chapters would be growing their ground from one number.
+        const int TurnStride = 524287;
+
+        /// <summary>
+        /// The seed a level's ground is grown from, which is not quite the same thing as
+        /// the level's own seed.
+        ///
+        /// A level's seed is its identity - the chapter times a thousand plus the level,
+        /// the number that goes in save data and in bug reports - and for every chapter on
+        /// the tour it is also the number its ground comes from. That is enough, because
+        /// turning the wheel puts the same seed through a different country's recipe, and
+        /// a different recipe is most of a new level.
+        ///
+        /// <b>Turning the wheel was not enough, and it was measured twice before this was
+        /// written.</b> The reasoning was that a level's terrain comes from its seed through
+        /// its country's recipe, so a new recipe over the same seed is a new level. It is
+        /// mostly true and it fails in two places.
+        ///
+        /// The sea is the first. It is pinned to <see cref="LastChapter"/> because that is
+        /// where the road ends, so when the wheel turned, nine countries moved and the sea
+        /// stood exactly where it was: same recipe, same seed, the same ten levels tile for
+        /// tile. LikenessReport put 100-1 through 100-10 at a hundred per cent alike to what
+        /// they had been.
+        ///
+        /// The second place is worse, because the wheel did reach it. Chapter nine went from
+        /// the dead land to the forest - and five of its ten levels came back eighty per cent
+        /// the ground they had been, which is the very number LikenessReport calls the point
+        /// at which two levels read as the same place. The two countries are built from
+        /// nearly the same terrain numbers: the dead land is a forest that died. So the
+        /// river, the rock and the roads stayed where they were and only the props changed,
+        /// which is one level in two sets of clothes and not two levels.
+        ///
+        /// So the ground is sown again, everywhere, by the same turn. The identity is
+        /// untouched - the number in save data and bug reports is still the chapter and the
+        /// level - and what moves is only the field the level is grown in. Everything that
+        /// generates a campaign level comes through here: a tool that asks
+        /// <see cref="DeterministicRandom.SeedFor"/> directly will search a different
+        /// sequence than the one the catalogue was written from, and the map a player gets
+        /// will not be the map that was measured.
+        /// </summary>
+        public static int GroundSeed(int chapter, int level)
+            => DeterministicRandom.SeedFor(chapter, level) + Turn * TurnStride;
 
         public static Biome Of(int chapter)
         {

@@ -376,7 +376,7 @@ namespace TheVeil.Editor
                     bare.GoalBlocks = false;
                     bare.GoalRetinue = 0;
 
-                    var before = TerrainGenerator.Generate(bare, DeterministicRandom.SeedFor(chapter, level));
+                    var before = TerrainGenerator.Generate(bare, Biomes.GroundSeed(chapter, level));
 
                     int owed = level >= 6 && level <= 9 ? 1 : 2;
 
@@ -449,7 +449,7 @@ namespace TheVeil.Editor
                 bare.GoalBlocks = false;
                 bare.GoalRetinue = 0;
 
-                var before = TerrainGenerator.Generate(bare, DeterministicRandom.SeedFor(chapter, level));
+                var before = TerrainGenerator.Generate(bare, Biomes.GroundSeed(chapter, level));
 
                 // The road has to be bit for bit what it was before there were champions,
                 // or none of the numbers below mean what they say: a level whose terrain

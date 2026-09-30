@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text;
 using TheVeil.Gen;
 using TheVeil.Sim;
@@ -181,7 +181,7 @@ namespace TheVeil.Editor
         {
             var recipe = LevelMaps.Uncalibrated(chapter, level);
             float baseStrength = recipe.EnemyStrength;
-            int seed = DeterministicRandom.SeedFor(chapter, level);
+            int seed = Biomes.GroundSeed(chapter, level);
             int cleared = ReferenceSquad.LevelsCleared(chapter, level);
 
             var maps = new System.Collections.Generic.List<LevelMap>();
@@ -324,6 +324,37 @@ namespace TheVeil.Editor
         /// the fast road killing or sparing against the chapter's pattern (every second level
         /// kills, the first of a chapter spares), then the distance from the curve.
         /// </summary>
+        /// <summary>
+        /// Whether a level's castle can stand clear of every road on it.
+        ///
+        /// The same question CampaignRulesTests asks of the shipped maps, asked here of
+        /// the candidates - which is the only place it can be answered by choosing a
+        /// different map instead of by reporting a fault.
+        /// </summary>
+        static bool RoomForACastle(LevelMap map)
+        {
+            int site = Strongholds.SiteOf(map);
+            if (site < 0) return false;
+            if (map.Corridors == null) return true;
+
+            map.Grid.ToCoords(site, out int cx, out int cy);
+
+            foreach (var corridor in map.Corridors)
+            {
+                if (corridor?.Tiles == null) continue;
+
+                foreach (int tile in corridor.Tiles)
+                {
+                    map.Grid.ToCoords(tile, out int x, out int y);
+
+                    int dx = x - cx, dy = y - cy;
+                    if (dx * dx + dy * dy <= Strongholds.Bailey * Strongholds.Bailey) return false;
+                }
+            }
+
+            return true;
+        }
+
         static System.Collections.Generic.Dictionary<(int, int), LevelMap> Choose(StringBuilder sheet)
         {
             var levels = new System.Collections.Generic.List<(int Chapter, int Level)>();
@@ -348,7 +379,7 @@ namespace TheVeil.Editor
                 factors[i] = factor;
 
                 var recipe = LevelMaps.Recipe(chapter, level);
-                int seed = DeterministicRandom.SeedFor(chapter, level);
+                int seed = Biomes.GroundSeed(chapter, level);
 
                 var list = new System.Collections.Generic.List<Candidate>();
 
@@ -364,6 +395,20 @@ namespace TheVeil.Editor
 
                     // Levelled as LevelMaps.For levels it, so the map judged is the map played.
                     Strongholds.Flatten(map, level);
+
+                    // <b>And a tenth level has somewhere to put its castle.</b> Strongholds
+                    // looks for a site at the standoff on either side of the goal, then
+                    // round the whole ring, and where none of them is clear it falls back
+                    // to one with a road under it - which is written down as a last resort
+                    // and is a bad one: a trap on that road stands inside the walls and the
+                    // decorator's sweep round the trap takes the castle down, so the chapter
+                    // ends at an empty goal with nothing saying so. CampaignRulesTests has
+                    // checked it since the day it happened; the search has never known
+                    // about it, so it could only ever be found after the fact.
+                    //
+                    // A map with nowhere clear for its keep is not a map this chapter can
+                    // ship, and there are two hundred others.
+                    if (level == Campaign.LevelsPerChapter && !RoomForACastle(map)) continue;
 
                     var judged = LevelMaps.Judge(map, chapter, level, recipe.RoutesOwed);
                     if (!judged.Hard) continue;
@@ -547,7 +592,7 @@ namespace TheVeil.Editor
 
                 var pick = candidates[i][picks[i]];
                 var recipe = LevelMaps.Recipe(chapter, level);
-                chosen[(chapter, level)] = TerrainGenerator.Generate(recipe, DeterministicRandom.SeedFor(chapter, level),
+                chosen[(chapter, level)] = TerrainGenerator.Generate(recipe, Biomes.GroundSeed(chapter, level),
                                                                      null, pick.Attempt);
 
                 if (pick.Judged.FastLost) kills++;
@@ -637,19 +682,65 @@ namespace TheVeil.Editor
             var recipe = LevelMaps.Recipe(chapter, level);
 
             if (chapter > BuiltChapters)
-                return TerrainGenerator.Generate(recipe,
-                                                 DeterministicRandom.SeedFor(chapter, level),
-                                                 candidate => LevelMaps.RoadsThrough(candidate, chapter, level,
-                                                                                     recipe.RoutesOwed)
+            {
+                // <b>Twelve attempts, and the day the wheel turned twelve was not enough.</b>
+                //
+                // The chapters past the tuned ones were searched by handing the generator a
+                // predicate and letting it run its own loop, which stops at
+                // recipe.MaxGenerationAttempts - twelve. That held for as long as it held.
+                // The wheel turned, chapter eight became the dead land, and all twelve of
+                // 8-10's candidates failed: the search ran out, the least bad one was
+                // written down, and the row it wrote said nothing about it. This report's
+                // own last two lines said it plainly - "the search ran out" and "no road the
+                // reference escort can get down" - which is the only reason it was seen.
+                //
+                // So these chapters get the same patience the tuned ones get. Not the same
+                // gate: there is no tuned factor out here and nothing to judge a level
+                // against, so the question is the one it always was - are the roads the
+                // level owes there, and can the escort get down them. The difference is that
+                // it is now asked a hundred and sixty times instead of twelve.
+                LevelMap first = null;
+
+                for (int attempt = 0; attempt < BuiltAttempts; attempt++)
+                {
+                    var candidate = TerrainGenerator.Generate(recipe, Biomes.GroundSeed(chapter, level),
+                                                              null, attempt);
+                    if (candidate == null || !candidate.Accepted) continue;
+
+                    first = first ?? candidate;
+
+                    // Levelled as LevelMaps.For levels it, so what is asked is what is played.
+                    Strongholds.Flatten(candidate, level);
+
+                    // And a tenth level has somewhere to put its castle. See the same rule
+                    // in Choose for what a keep with a road under it costs.
+                    if (level == Campaign.LevelsPerChapter && !RoomForACastle(candidate)) continue;
+
+                    if (LevelMaps.RoadsThrough(candidate, chapter, level, recipe.RoutesOwed)
+                        < recipe.RoutesOwed) continue;
+
+                    return candidate;
+                }
+
+                // Nothing passed. The least bad candidate is handed back the way it always
+                // was, and Run says so out loud rather than writing a quiet row - and where
+                // not one of the hundred and sixty even came out whole, the generator's own
+                // loop is asked, because it keeps a best among the broken ones and this loop
+                // does not. A row with a bad map in it is a fault Run reports; no row at all
+                // is a level that searches itself on the player's device.
+                return first ?? TerrainGenerator.Generate(recipe, Biomes.GroundSeed(chapter, level),
+                                                          candidate => LevelMaps.RoadsThrough(
+                                                              candidate, chapter, level, recipe.RoutesOwed)
                                                               >= recipe.RoutesOwed
-                                                     ? TerrainGenerator.Accepted : 0);
+                                                              ? TerrainGenerator.Accepted : 0);
+            }
 
             // The gate the game uses, not a part of it. This called RoadsThrough alone, so
             // for a day the catalogue chose maps without asking whether a prepared player
             // could get down every road - the game asked when it loaded the level, and the
             // catalogue had simply been lucky that its choices passed.
             return TerrainGenerator.Generate(recipe,
-                                             DeterministicRandom.SeedFor(chapter, level),
+                                             Biomes.GroundSeed(chapter, level),
                                              candidate => LevelMaps.Gate(candidate, chapter,
                                                                          level, recipe.RoutesOwed, floor));
         }

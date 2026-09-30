@@ -227,6 +227,8 @@ namespace TheVeil.Sim
             map.Grid.ToCoords(site, out int cx, out int cy);
             float floor = map.Grid.Elevation(site);
 
+            var moved = new List<int>();
+
             for (int dy = -Bailey; dy <= Bailey; dy++)
             {
                 for (int dx = -Bailey; dx <= Bailey; dx++)
@@ -248,8 +250,43 @@ namespace TheVeil.Sim
                     // already found dry.
                     if (Wet(map.Grid, x, y)) continue;
 
-                    map.Grid.SetElevation(map.Grid.ToIndex(x, y), floor);
+                    int tile = map.Grid.ToIndex(x, y);
+                    if (System.Math.Abs(map.Grid.Elevation(tile) - floor) > 0.00001f) moved.Add(tile);
+
+                    map.Grid.SetElevation(tile, floor);
                 }
+            }
+
+            // <b>And the crossings that were weighed against ground the yard just moved.</b>
+            //
+            // Wet keeps the water's own bed and the tiles touching it, which is one step
+            // out. A ford takes its height from the average of the dry ground two steps out
+            // (Crossings.LevellingWindow), so a yard could drop a bank at two tiles' distance and
+            // leave the crossing standing over the ground it was levelled against. Measured
+            // on 1-10 the day the ground was sown again: four tiles at the corner of the
+            // yard fell about a metre and a half and left the ford six centimetres high.
+            //
+            // Six centimetres is nothing to look at, and that is the point: it was fixed
+            // this way round because the other way round was tried first. Widening Wet to
+            // two steps kept the ford exact and left three of the hundred and fourteen
+            // tiles under the castle a metre and a half out of true, which is a step you
+            // can see in the courtyard from the planning map. An invisible fault in the
+            // river is the cheaper of the two, and re-weighing the ford costs nothing at
+            // all.
+            //
+            // Here rather than in LevelMaps, so that every caller gets the same map: the
+            // catalogue's search flattens a candidate to judge it, and a level flattened
+            // one way for the search and another for the run is two different countries.
+            foreach (int tile in moved)
+            {
+                map.Grid.ToCoords(tile, out int mx, out int my);
+
+                for (int dy = -Crossings.LevellingWindow; dy <= Crossings.LevellingWindow; dy++)
+                    for (int dx = -Crossings.LevellingWindow; dx <= Crossings.LevellingWindow; dx++)
+                    {
+                        if (!map.Grid.InBounds(mx + dx, my + dy)) continue;
+                        Crossings.LevelToTheBanks(map.Grid, map.Grid.ToIndex(mx + dx, my + dy));
+                    }
             }
         }
 

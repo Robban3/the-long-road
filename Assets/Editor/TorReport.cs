@@ -223,8 +223,19 @@ namespace TheVeil.Editor
             Object.DestroyImmediate(root);
         }
 
-        /// <summary>The level the drill-down looks at, and how much of it it prints.</summary>
-        const int Chapter = 6, Level = 1, Listed = 25;
+        /// <summary>
+        /// The level the drill-down looks at, and how much of it it prints.
+        ///
+        /// <b>The country, not the sixth chapter.</b> The tors are the mountain's, and this
+        /// said 6 for as long as the mountain was the sixth chapter. The wheel turned one
+        /// step on the day the last country was dressed and the mountain became the fifth -
+        /// so a report written to photograph standing stone would have photographed sand and
+        /// found nothing off the ground, which is the worst thing an instrument can do.
+        /// Waterfalls.Cuts learned this before it happened and says so in its own comment.
+        /// </summary>
+        static int Chapter => Biomes.FirstChapterOf(Biome.Mountain);
+
+        const int Level = 1, Listed = 25;
 
         /// <summary>How far off the ground a thing has to be to be worth listing, in metres.</summary>
         const float Clear = 2f;

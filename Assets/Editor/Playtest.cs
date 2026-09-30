@@ -1131,7 +1131,7 @@ namespace TheVeil.Editor
             }
 
             var recipe = LevelMaps.Recipe(chapter, level);
-            int seed = DeterministicRandom.SeedFor(chapter, level);
+            int seed = Biomes.GroundSeed(chapter, level);
             int cleared = ReferenceSquad.LevelsCleared(chapter, level);
 
             var said = new System.Text.StringBuilder();
@@ -1227,7 +1227,7 @@ namespace TheVeil.Editor
                 float factor = CatalogueBuilder.Calibrate(chapter, level, target, out float typical);
 
                 int roads = 0, prepared = 0, ordinary = 0, careful = 0;
-                int seed = DeterministicRandom.SeedFor(chapter, level);
+                int seed = Biomes.GroundSeed(chapter, level);
                 int maps = 0;
 
                 for (int attempt = 0; attempt < 40 && maps < 8; attempt++)
