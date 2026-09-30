@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text;
 using TheVeil.Gen;
 using TheVeil.Sim;
@@ -105,16 +105,26 @@ namespace TheVeil.Editor
                           + $"{box.size.x:0.0} x {box.size.y:0.0} x {box.size.z:0.0} m "
                           + $"at {box.center.x:0}, {box.center.z:0}");
 
-                // From across the gorge and above the brink: what a fall is looked at from.
+                // <b>From where the water goes, looking back up at it.</b>
                 //
-                // <b>Backed off by a fixed distance and not by the sheet's own height.</b>
-                // It was the height, which is circular - the whole reason for taking the
-                // picture is that the sheet's height is the thing in question - and when
-                // the fall stopped being thirty-one metres and became thirteen the camera
-                // walked in with it and photographed the spruce standing in front of it.
+                // This stood off at forty-five degrees across the gorge, which is the one
+                // angle a fall in a cleft cannot be seen from: the bank is between the
+                // camera and the water. It cost an hour - the rock was brought in close to
+                // the channel to match the pack's own picture, the photograph came back as
+                // a wall of stone with no water in it, and the rock was very nearly moved
+                // back out again. The rock was right. The camera was standing on the bank.
+                //
+                // A waterfall is looked at from downstream. The sheet's own forward is the
+                // way the water is going, so the camera goes out along it and turns round.
+                //
+                // Backed off by a fixed distance and not by the sheet's own height, which
+                // is circular: the whole reason for the picture is that the height is the
+                // thing in question, and when the fall stopped being thirty-one metres and
+                // became thirteen the camera walked in with it and photographed a spruce.
                 float away = box.size.y + 34f;
 
-                Shoot(box.center + new Vector3(away, box.size.y * 0.9f + 6f, -away), box.center,
+                Shoot(box.center + sheet.forward * away + Vector3.up * (box.size.y * 0.25f),
+                      box.center,
                       System.IO.Path.Combine(shots, $"fall-{FallChapter}-{level}-near.png"));
 
                 // And from where the game is played.

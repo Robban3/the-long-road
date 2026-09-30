@@ -2609,9 +2609,25 @@ namespace TheVeil.View
         const float MassifThins = 0.22f;
 
         /// <summary>How much a piece may stand above the brink, in metres.</summary>
-        const float MassifCrown = 3.5f;
+        // <b>Six, up from three and a half.</b> The walls of the gorge stood a little over
+        // the brink and the water came down past their tops: from across the valley that
+        // reads as a shelf with a sheet on it. In the reference the rock goes up well past
+        // the head of the fall on both sides and the water is a ribbon in the middle of it,
+        // which is most of what makes it read as a fall at all.
+        const float MassifCrown = 6f;
 
-        /// <summary>How wide the gap in the rock is, in tiles either side of the water.</summary>
+        /// <summary>
+        /// How wide the gap in the rock is, in tiles either side of the water.
+        ///
+        /// <b>Two, and it was tried at one.</b> Eight metres of open ground either side of
+        /// a fall is not a cleft, and the pack's own picture of this country is water
+        /// coming down the middle of a mass with the stone at its shoulders - so the gap
+        /// was closed to a single tile. Photographed from downstream, the rock had roofed
+        /// the water over: the pieces are scaled to the height of the step and their width
+        /// follows, so a piece one tile out still reaches across the channel. The shoulders
+        /// come from raising the walls (MassifCrown) and bringing the masses in
+        /// (TorFromFall), not from standing rock in the water's way.
+        /// </summary>
         const int CliffGap = 2;
 
         /// <summary>How far the lip stands above the water it drops from, in metres.</summary>
@@ -3231,7 +3247,11 @@ namespace TheVeil.View
         /// Five. At three their shoulders met over the channel and the fall was walled in:
         /// photographed from downstream, the picture was two rocks and a sliver of water.
         /// </summary>
-        const int TorFromFall = 5;
+        // <b>Three tiles, down from five.</b> Twelve metres from the channel rather than
+        // twenty: at twenty there is forty metres of open hillside between the two masses
+        // and the fall has nothing to do with them, which is how the sheet came to be hung
+        // from a crown it was nowhere near. They frame the water now.
+        const int TorFromFall = 3;
 
         static int PlaceCliffs(Transform parent, TileGrid grid, DeterministicRandom rng,
                                BiomeDecor decor, HashSet<int> occupied, float heightScale,
