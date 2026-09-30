@@ -1,4 +1,4 @@
-using TheVeil.App;
+﻿using TheVeil.App;
 using TheVeil.Gen;
 using TheVeil.Sim;
 using TheVeil.View;
@@ -21,6 +21,13 @@ namespace TheVeil.Editor
     /// </summary>
     public static class VillageReport
     {
+        /// <summary>What BuildingBuilder calls the things it assembles.</summary>
+        static readonly System.Collections.Generic.HashSet<string> Hosts =
+            new System.Collections.Generic.HashSet<string>
+            {
+                "House", "Tower", "Ruin", "Castle", "Shed"
+            };
+
         [MenuItem("The Veil/Village Report")]
         public static void Run()
         {
@@ -68,18 +75,32 @@ namespace TheVeil.Editor
                     // thing to measure and not to judge from a picture. Every building is
                     // taken as the box its own renderers fill; two boxes that share space
                     // are two buildings sharing space.
-                    var solids = new System.Collections.Generic.List<(string Name, Bounds Box)>();
+                    var solids =
+                        new System.Collections.Generic.List<(string Name, string Kind, Bounds Box)>();
 
                     foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>(false))
                     {
                         var part = renderer.transform;
                         Transform building = null;
 
-                        // Up to the thing the builder made: a House host, or the prop
+                        // Up to the thing the builder made: one of its hosts, or the prop
                         // itself where it was placed whole.
+                        //
+                        // <b>All five hosts, not just the house.</b> BuildingBuilder makes
+                        // a House, a Tower, a Ruin, a Castle and a Shed, and this knew
+                        // about one of them - so the other four were never found and the
+                        // climb stopped at the topmost SM_Bld_ piece inside them instead.
+                        // A tower is a base, a shaft and a top standing one on another by
+                        // construction, which is exactly what this report calls two
+                        // buildings standing in each other: sixteen pairs on 1-3, twenty-
+                        // three on 2-3, every one of them a tower being read course by
+                        // course. A check that cries about what it is looking at is the
+                        // kind nobody reads, and it was hiding whatever is really stacked.
                         while (part != null)
                         {
-                            if (part.name == "House" || part.name.StartsWith("SM_Bld_")) building = part;
+                            if (Hosts.Contains(part.name) || part.name.StartsWith("SM_Bld_"))
+                                building = part;
+
                             part = part.parent;
                         }
 
@@ -92,9 +113,9 @@ namespace TheVeil.Editor
                         {
                             var box = solids[seen].Box;
                             box.Encapsulate(renderer.bounds);
-                            solids[seen] = (solids[seen].Name, box);
+                            solids[seen] = (solids[seen].Name, solids[seen].Kind, box);
                         }
-                        else solids.Add((id, renderer.bounds));
+                        else solids.Add((id, building.name, renderer.bounds));
                     }
 
                     int clashes = 0;
@@ -206,9 +227,19 @@ namespace TheVeil.Editor
                     // crying since the landmark scale was put in.
                     float built = TerrainDecorator.HouseHeight * runner.LandmarkScale;
 
-                    foreach (var (id, box) in solids)
+                    foreach (var (id, kind, box) in solids)
                     {
                         if (box.size.y < built * 2f) continue;
+
+                        // <b>Except the two that are meant to be tall.</b> This measures
+                        // whether a house has been stacked into a tower, and it began
+                        // reporting the castle the moment the report learned to group a
+                        // building by its host rather than by its pieces: a keep is 22 m
+                        // and a watchtower 15, both on purpose, and both above twice the
+                        // height a house is built at. The check was right about houses
+                        // before and after; what changed is that it could finally see the
+                        // things that are not houses.
+                        if (kind == "Castle" || kind == "Tower") continue;
 
                         Debug.Log($"[Village] TALL: a building {box.size.y:0.0} m high at "
                                   + $"{box.center.x:0},{box.center.z:0}.");
