@@ -1415,6 +1415,13 @@ namespace TheVeil.View
             // each, and the bridge the player planned their route over was on another
             // crossing in the game. A stage with its own stream is the same stage in
             // both, whatever else either of them did first.
+            // <b>And no two stages on the same number.</b> The two passes added this week
+            // were given 18 and 19, which were taken - the mats and the harbour - so four
+            // stages were drawing the same sequence in pairs and the light stood wherever
+            // the grass did. It does not break what this was written for, because each
+            // stage is still independent of what any other did first; it quietly ties two
+            // of them together, which is the thing one stream per stage exists to prevent.
+            // Counted, not noticed: the numbers were listed and two of them appeared twice.
             DeterministicRandom Stream(int stage) => new DeterministicRandom(seed ^ (0x5EED10 + stage * 0x3C6EF35F));
 
             var clear = keepClear == null ? null : new HashSet<int>(keepClear);
@@ -1556,7 +1563,7 @@ namespace TheVeil.View
                                       densityScale, road);
             placed += PlaceMounds(parent, grid, Stream(16), decor, occupied, heightScale, road);
             placed += PlaceFauna(parent, grid, Stream(17), decor, heightScale, road);
-            placed += PlaceLight(parent, grid, Stream(18), decor, heightScale, road);
+            placed += PlaceLight(parent, grid, Stream(21), decor, heightScale, road);
             placed += PlaceBoats(parent, grid, Stream(20), decor, occupied, heightScale, road);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
                                      densityScale, road);
@@ -1580,7 +1587,7 @@ namespace TheVeil.View
 
             // And the sky last, because it is the one thing on the map that is not on the
             // ground and must not be judged as though it were. See PlaceSky.
-            placed += PlaceSky(parent, grid, Stream(19), decor);
+            placed += PlaceSky(parent, grid, Stream(22), decor);
 
             Census(parent);
             Tallest(parent);
