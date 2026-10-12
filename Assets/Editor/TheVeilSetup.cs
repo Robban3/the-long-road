@@ -2035,6 +2035,33 @@ namespace TheVeil.Editor
         const string MeadowPlants = "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Materials/Plants";
 
         /// <summary>
+        /// The enchanted forest pack, bought on 2026-10-12.
+        ///
+        /// <b>The country was built without it and the file says so throughout.</b> Every
+        /// set in LoadEnchantedDecor was something else wearing a repaint - meadow
+        /// mushrooms tinted four ways, the desert's spiked rock lit magenta and called a
+        /// crystal, the nature pack's conifers taken down to a teal so they would read as
+        /// dark. That was the right thing to do with what was owned, and the note on
+        /// LoadEnchantedDecor named what to replace first the day a pack arrived.
+        ///
+        /// This is that day. What the pack brings that no repaint could: thirty-six
+        /// mushrooms already drawn in their own colours, eight crystals and two geodes
+        /// that are actually shards, sixteen root pieces, giant trees, a portal, and
+        /// fifteen effects drawn for this light - fireflies, wisps, sparkles, sunrays,
+        /// drifting dust.
+        /// </summary>
+        const string FaeDir = "Assets/Synty/PolygonNatureBiomes/PNB_Enchanted_Forest/Prefabs";
+
+        static PropSet Fae(params string[] names) => new PropSet(false, Load(FaeDir, names));
+
+        static PropSet FaeProps(params string[] names)
+            => new PropSet(false, Load($"{FaeDir}/Props", names));
+
+        static PropSet FaeFX(params string[] names)
+            => new PropSet(false, Load("Assets/Synty/PolygonNatureBiomes/PNB_Enchanted_Forest/FX/FX_Prefabs",
+                                       names));
+
+        /// <summary>
         /// The alpine pack: rock, pine, moss and ice, drawn for a mountain.
         ///
         /// <b>Measured before it was used.</b> Its grey rock - Rock_01 to _010, the rough
@@ -3313,26 +3340,33 @@ namespace TheVeil.Editor
             // knights pack, and those wear the knights atlas, which has no pink in it: a
             // repaint passes them through untouched and they stand green in a pink wood.
             // One pack here, on purpose.
-            decor.Trees = Recast(Synty("Trees",
-                                       "SM_Tree_Round_01", "SM_Tree_Round_02", "SM_Tree_Round_03",
-                                       "SM_Tree_Round_04", "SM_Tree_Round_05", "SM_Tree_TallRound_01",
-                                       "SM_Tree_01", "SM_Tree_02", "SM_Tree_03", "SM_Tree_04",
-                                       "SM_Tree_Large_01", "SM_Tree_Generic_Giant_01"),
-                                 Violet, "Violet", FaePrefabDir);
+            // <b>The pack's trees, where there were repaints of somebody else's.</b> These
+            // were the nature pack's rounds and birches passed through a violet and a
+            // blush, which is the best a borrowed wood can be done and is not a tree drawn
+            // as a lamp. The note at the top of this method named the canopy as the first
+            // thing to replace the day a pack arrived, and this is it.
+            decor.Trees = Fae("SM_Env_Tree_Large_01", "SM_Env_Tree_Large_02",
+                              "SM_Env_Tree_Medium_01", "SM_Env_Tree_Medium_02");
 
-            decor.Birch = Recast(Synty("Trees", "SM_Tree_Birch_01", "SM_Tree_Birch_02",
-                                       "SM_Tree_Birch_03", "SM_Tree_Birch_04",
-                                       "SM_Tree_Birch_Small_01"),
-                                 Blush, "Blush", FaePrefabDir);
+            decor.Birch = Fae("SM_Env_Tree_Small_01", "SM_Env_Tree_Small_02",
+                              "SM_Env_Fern_Tree_01", "SM_Env_Fern_Tree_02");
 
             // The hanging canopy, which is the shape the whole country is read by, and the
             // one the pack's own pink card was drawn for. The vine trees go in with them:
             // they are the same silhouette with something growing down it.
-            decor.Willows = Recast(Synty("Trees", "SM_Tree_Willow_Large_01",
-                                         "SM_Tree_Willow_Medium_01", "SM_Tree_Willow_Small_01",
-                                         "SM_Tree_Vines_01", "SM_Tree_Vines_02",
-                                         "SM_Tree_Vines_03", "SM_Tree_Vines_04"),
-                                   Rose, "Rose", FaePrefabDir);
+            // The giants, beside the water where the willows went. They are the one shape
+            // in the pack that reads from the planning camera as something other than
+            // wood, and the bank is where a player is looking anyway.
+            // <b>The giants, and not the tree house.</b> The house went in with them and
+            // the smoke test threw it straight back: its door is a separate mesh at the
+            // foot of the trunk and stands six to eight tenths of a metre clear of the
+            // ground, on four levels at once. It is drawn to sit on the pack's own flat
+            // demo ground and this country has none. It is also the wrong idea for this
+            // set - Willows is the bankside strip, laid along every pool on every level,
+            // and a dwelling repeated down every bank says somebody lives here, which
+            // Settlements.Settled has denied about this country since before it had any
+            // scenery.
+            decor.Willows = Fae("SM_Env_Tree_Giant_01", "SM_Env_Tree_Giant_02");
 
             // <b>Darkened, and then given a light of their own.</b> The conifers are half
             // of every tree rolled on wooded ground, and left in the pack's own sage green
@@ -3352,9 +3386,9 @@ namespace TheVeil.Editor
                                        "SM_Tree_Pine_Large_01", "SM_Tree_Pine_01"),
                                  Nightfall, "Night", FaePrefabDir);
 
-            decor.DeadTrees = Recast(Synty("Trees", "SM_Tree_Dead_01", "SM_Tree_Dead_02",
-                                           "SM_Tree_Generic_Dead_01"),
-                                     Nightfall, "Night", FaePrefabDir);
+            decor.DeadTrees = Fae("SM_Env_Tree_Trunk_01", "SM_Env_Tree_Trunk_02",
+                                  "SM_Env_Log_01", "SM_Env_Log_02",
+                                  "SM_Env_Log_03", "SM_Env_Log_04");
 
             // And the skyline in the same colours, or the wood ends at the edge of the map
             // and a green one begins.
@@ -3371,68 +3405,77 @@ namespace TheVeil.Editor
             // light. Four repaints of the same seven models cost nothing but four
             // materials, and what comes out is a wood where the next clearing is lit a
             // different colour from the one behind you.
+            // <b>The pack's own, and the repaints are gone.</b> Four drifts of mushroom,
+            // one species to a bed, which is how the flower pass works and is right. It
+            // used to be two meadow models tinted four ways: a real saving at the time -
+            // four materials bought four colours of light - and a thing the pack simply
+            // does better, because its groups differ in shape as well as in colour and its
+            // _Alt_01 variants are drawn as alternates rather than computed as them.
             decor.Flowers = Mixed(
-                Glowing(MeadowProps("SM_Prop_Mushroom_Group_02", "SM_Prop_Mushroom_Sparse_01"),
-                        MeadowAtlas, new Color(0.30f, 0.86f, 0.94f),
-                        new Color(0.04f, 0.34f, 0.44f), "LitCyan").Models,
-                Glowing(MeadowProps("SM_Prop_Mushroom_Group_03", "SM_Prop_Mushroom_Sparse_03"),
-                        MeadowAtlas, new Color(0.94f, 0.36f, 0.72f),
-                        new Color(0.42f, 0.03f, 0.26f), "LitRose").Models,
-                Glowing(MeadowProps("SM_Prop_Mushroom_Group_04", "SM_Prop_Mushroom_Sparse_05"),
-                        MeadowAtlas, new Color(0.62f, 0.38f, 0.96f),
-                        new Color(0.22f, 0.05f, 0.46f), "LitViolet").Models,
-                Glowing(MeadowProps("SM_Prop_Mushroom_Group_05", "SM_Prop_Mushroom_Sparse_04"),
-                        MeadowAtlas, new Color(0.96f, 0.74f, 0.32f),
-                        new Color(0.40f, 0.22f, 0.02f), "LitAmber").Models);
+                Fae("SM_Env_Mushroom_Small_Group_01", "SM_Env_Mushroom_Small_Group_02").Models,
+                Fae("SM_Env_Mushroom_Small_Group_03", "SM_Env_Mushroom_Small_Group_04").Models,
+                Fae("SM_Env_Mushroom_Small_Group_03_Alt_01",
+                    "SM_Env_Mushroom_Small_Group_04_Alt_01").Models,
+                Fae("SM_Env_Mushroom_Small_Group_05", "SM_Env_Mushroom_Small_Group_06",
+                    "SM_Env_Mushroom_Small_Group_05_Alt_01",
+                    "SM_Env_Mushroom_Small_Group_06_Alt_01").Models);
 
             // The single caps, big enough to stand under, among the undergrowth. The
             // ferns are lifted out of the dark with them: left as the pack draws them they
             // came out as black lumps on a violet floor, which is what a dark green reads
             // as under this light.
             decor.Bushes = Mixed(
-                Glowing(MeadowProps("SM_Prop_Mushroom_01"), MeadowAtlas,
-                        new Color(0.30f, 0.86f, 0.94f), new Color(0.04f, 0.34f, 0.44f),
-                        "LitCyan").Models,
-                Glowing(MeadowProps("SM_Prop_Mushroom_03"), MeadowAtlas,
-                        new Color(0.94f, 0.36f, 0.72f), new Color(0.42f, 0.03f, 0.26f),
-                        "LitRose").Models,
-                Glowing(MeadowProps("SM_Prop_Mushroom_05"), MeadowAtlas,
-                        new Color(0.96f, 0.74f, 0.32f), new Color(0.40f, 0.22f, 0.02f),
-                        "LitAmber").Models,
-                Glowing(MeadowProps("SM_Prop_Mushroom_02", "SM_Prop_Mushroom_06"), MeadowAtlas,
-                        new Color(0.62f, 0.38f, 0.96f), new Color(0.22f, 0.05f, 0.46f),
-                        "LitViolet").Models,
-                Shade(Synty("Plants", "SM_Plant_Fern_01", "SM_Plant_Fern_02",
-                            "SM_Plant_Fern_03", "SM_Plant_Bush_Leaves_01",
-                            "SM_Plant_Undergrowth_01", "SM_Plant_PurpleFlower_01")).Models);
+                Fae("SM_Env_Mushroom_01", "SM_Env_Mushroom_02", "SM_Env_Mushroom_03",
+                    "SM_Env_Mushroom_04", "SM_Env_Mushroom_05").Models,
+                Fae("SM_Env_Mushroom_Cap_01", "SM_Env_Mushroom_Cap_02",
+                    "SM_Env_Mushroom_Cap_03", "SM_Env_Mushroom_Cap_04").Models,
+                Fae("SM_Env_Fern_01", "SM_Env_Fern_02", "SM_Env_Fern_03",
+                    "SM_Env_Fern_Koru_01", "SM_Env_Fern_Koru_02").Models);
 
+            // The floor: ten small mushrooms with their alternates, ten ferns of
+            // undergrowth, and moss. All of it the pack's, all of it lit by the pack
+            // rather than by a material this project wrote.
             decor.GroundCover = Mixed(
-                Glade(Synty("Plants",
-                            "SM_Plant_Mushrooms_01", "SM_Plant_Mushrooms_02",
-                            "SM_Plant_Mushrooms_03", "SM_Plant_Mushrooms_04",
-                            "SM_Plant_Mushrooms_05", "SM_Plant_Mushrooms_06",
-                            "SM_Plant_Fern_Leaves_01", "SM_Plant_Fern_Leaves_02",
-                            "SM_Plant_PurpleFlower_01", "SM_Plant_Undergrowth_01")).Models,
-                Load($"{SyntyGenericDir}/Environment", new[]
-                {
-                    "SM_Gen_Env_Mushroom_01", "SM_Gen_Env_Mushroom_02", "SM_Gen_Env_Mushroom_03"
-                }));
+                Fae("SM_Env_Mushroom_Small_01", "SM_Env_Mushroom_Small_02",
+                    "SM_Env_Mushroom_Small_03", "SM_Env_Mushroom_Small_04",
+                    "SM_Env_Mushroom_Small_05", "SM_Env_Mushroom_Small_06",
+                    "SM_Env_Mushroom_Small_07", "SM_Env_Mushroom_Small_08",
+                    "SM_Env_Mushroom_Small_09", "SM_Env_Mushroom_Small_10").Models,
+                Fae("SM_Env_Mushroom_Small_04_Alt_01", "SM_Env_Mushroom_Small_05_Alt_01",
+                    "SM_Env_Mushroom_Small_06_Alt_01", "SM_Env_Mushroom_Small_07_Alt_01",
+                    "SM_Env_Mushroom_Small_08_Alt_01", "SM_Env_Mushroom_Small_09_Alt_01",
+                    "SM_Env_Mushroom_Small_10_Alt_01").Models,
+                Fae("SM_Env_Undergrowth_Fern_01", "SM_Env_Undergrowth_Fern_02",
+                    "SM_Env_Undergrowth_Fern_03", "SM_Env_Undergrowth_Fern_04",
+                    "SM_Env_Undergrowth_Fern_05", "SM_Env_Undergrowth_Fern_06",
+                    "SM_Env_Undergrowth_Fern_07", "SM_Env_Undergrowth_Fern_08",
+                    "SM_Env_Undergrowth_Fern_09", "SM_Env_Undergrowth_Fern_10").Models,
+                Fae("SM_Env_Moss_Lumps_01", "SM_Env_Moss_Lumps_02",
+                    "SM_Env_Moss_Lumps_03", "SM_Env_Moss_Lumps_04").Models);
 
-            // <b>Crystal, out of a desert.</b> Three packs and not one of them draws a
-            // shard; the dry pack's spiked rock is the shape - clustered, angular, rising
-            // out of the ground rather than lying on it - and lit magenta it is the thing
-            // the chapter is named for. Nothing else here needed inventing.
-            decor.Boulders = Glowing(Desert("SM_Env_Rocks_Spikey_01", "SM_Env_Rocks_Spikey_02",
-                                            "SM_Env_Rocks_Spikey_03", "SM_Env_Rocks_Spikey_04",
-                                            "SM_Env_Rocks_Spikey_05", "SM_Env_Rocks_Spikey_06"),
-                                     AridStone, new Color(0.62f, 0.26f, 0.80f),
-                                     new Color(0.30f, 0.03f, 0.38f), "Crystal");
+            // <b>Crystal, and now it is crystal.</b> This was the dry pack's spiked rock
+            // lit magenta, because three packs owned at the time drew no shard and a
+            // spiked rock is the shape of one. It worked and it was never the thing: a
+            // sandstone cluster with light thrown at it has the silhouette of a crystal
+            // and the surface of a rock. The pack ships eight shards and two geodes drawn
+            // as what they are.
+            // FaeProps and not Fae: the pack keeps what it calls a prop in its own folder,
+            // and the crystals are props while the roots and the cliffs are environment.
+            decor.Boulders = FaeProps("SM_Prop_Crystal_01", "SM_Prop_Crystal_02",
+                                      "SM_Prop_Crystal_03", "SM_Prop_Crystal_04",
+                                      "SM_Prop_Crystal_05", "SM_Prop_Crystal_06",
+                                      "SM_Prop_Crystal_07", "SM_Prop_Crystal_08",
+                                      "SM_Prop_Geode_01", "SM_Prop_Geode_02");
 
-            decor.Cliffs = Glowing(Desert("SM_Env_Rocks_Spikes_Large_01",
-                                          "SM_Env_Rocks_Spikes_Large_02",
-                                          "SM_Env_Rocks_Spikes_Large_03"),
-                                   AridStone, new Color(0.24f, 0.78f, 0.86f),
-                                   new Color(0.03f, 0.30f, 0.40f), "Shard");
+            // The mass the shards are seen against. The pack's dirt cliffs are its own
+            // ground raised, which is what this country's rock should be - the shards are
+            // the lit thing and the cliff is what is dark behind them.
+            decor.Cliffs = Fae("SM_Env_Dirt_Cliff_01", "SM_Env_Dirt_Cliff_02",
+                               "SM_Env_Dirt_Cliff_03", "SM_Env_Dirt_Cliff_04",
+                               "SM_Env_Dirt_Cliff_05", "SM_Env_Dirt_Cliff_06",
+                               "SM_Env_Dirt_Cliff_07", "SM_Env_Dirt_Cliff_08",
+                               "SM_Env_Dirt_Cliff_09", "SM_Env_Dirt_Cliff_10",
+                               "SM_Env_Dirt_Cliff_11", "SM_Env_Dirt_Cliff_12");
 
             // The small stone stays stone: a floor of lit gravel is a floor nobody can read
             // a lit mushroom against.
@@ -3443,9 +3486,34 @@ namespace TheVeil.Editor
                                        "SM_Rock_Small_01", "SM_Rock_Small_02", "SM_Rock_Pile_01"),
                                  StoneColour(3), "Navy", FaePrefabDir);
 
-            decor.Shore = Recast(Synty("Rocks", "SM_Rock_Small_01", "SM_Rock_Small_02",
-                                       "SM_Rock_Pile_02", "SM_Rock_Pile_03"),
-                                 StoneColour(3), "Navy", FaePrefabDir);
+            // <b>Roots at the water, which is what this set is for.</b> Shore is the
+            // margin: the strip the pass lays along every bank. In nine countries that is
+            // stone the water piled up, and in this one it is root - the pack draws
+            // sixteen pieces of it, low and clustered and reaching, and a pool with roots
+            // going into it is the single clearest thing the pack says about the country.
+            // The pebbles stay in with them so the bank is not all one thing.
+            //
+            // Sunk, and PropSeatingTests said so before anything was photographed: a root
+            // laid on the surface stands on its own flare, which is the fault the fen's
+            // trees had and the reason a set carries a sink of its own rather than every
+            // site having to know what it is dressing. Six hundredths, as the fen and the
+            // forest bury their deadfall - the same kind of piece and the same problem.
+            decor.Shore = Sunk(Mixed(
+                Fae("SM_Env_Roots_Low_01", "SM_Env_Roots_Low_02",
+                    "SM_Env_Roots_Small_01", "SM_Env_Roots_Small_02",
+                    "SM_Env_Roots_Small_03", "SM_Env_Roots_Small_04",
+                    "SM_Env_Roots_01", "SM_Env_Roots_02", "SM_Env_Roots_03",
+                    "SM_Env_Roots_04", "SM_Env_Roots_05", "SM_Env_Roots_06",
+                    "SM_Env_Roots_Cluster_01", "SM_Env_Roots_Cluster_02",
+                    "SM_Env_Roots_Cluster_03").Models,
+                Fae("SM_Env_Rock_Pebbles_01", "SM_Env_Rock_Pebbles_02",
+                    "SM_Env_Rock_Pebbles_03", "SM_Env_Rock_Pebbles_04",
+                    "SM_Env_Rock_Pebbles_05", "SM_Env_Rock_Pebbles_06").Models), 0.06f);
+
+            // And what moves in the water the roots go into. Nothing else in the game has
+            // a shoal; see TerrainDecorator.PlaceShoals, which is Fauna's twin and exists
+            // because Fauna asks for plains and woodland and would never land in a river.
+            decor.Shoals = FaeFX("FX_Eels_01");
 
             // <b>Standing stones, a gate and a sword.</b> Nine props in the meadow pack that
             // nothing had ever loaded, and every one of them says the same thing about this
@@ -3516,21 +3584,27 @@ namespace TheVeil.Editor
             // the dark on purpose - petals in three colours, a drift of pink leaves, and
             // the dry pack's arcing light, which is the one effect here that says somebody
             // is doing this to the wood rather than the wood simply being like this.
+            // <b>The pack's own effects, drawn for this light.</b> What was here before was
+            // five packs raided for anything that glowed or drifted - a forest's
+            // fireflies, a meadow's butterflies, the dry pack's lightning - and it read as
+            // a summer meadow with a storm in it. These were drawn together for one
+            // country: fireflies in two sizes, wisps, sparkles that move and sparkles that
+            // hang, drifting dust, falling leaves. The fantail and the weta go in because
+            // the pack ships them and a wood with something living in it is a wood.
+            //
+            // Kept as separate groups so no one effect is half the air: Mixed draws one
+            // group per placement, so a level gets fireflies in one clearing and wisps in
+            // the next rather than a blend of everything everywhere.
             decor.Fauna = Mixed(
-                Load($"{SyntyNatureDir}/FX", new[]
-                {
-                    "FX_Fireflies_01", "FX_Fireflies_01",
-                    "FX_Butterlies_Particle_01_Blue", "FX_Butterlies_Particle_01_MultiColour",
-                    "FX_Leaves_Solo_Pink_01"
-                }),
-                Load(GenericFX, new[] { "FX_Dust_Spots_01" }),
-                Load(AlpineFXDir, new[] { "FX_Petals_Purple_01" }),
-                Load(MeadowFXDir, new[]
-                {
-                    "FX_Butterflies_Lunar_01", "FX_Butterflies_Blue_01",
-                    "FX_Petals_Red_01", "FX_Petals_Yellow_01"
-                }),
-                Load(DesertFXDir, new[] { "FX_Electricity_01" }));
+                FaeFX("FX_Fireflies_01", "FX_Fireflies_Large_01").Models,
+                FaeFX("FX_Wisps_01").Models,
+                FaeFX("FX_Sparkles", "FX_Sparkle_Static").Models,
+                FaeFX("FX_Dust_Spots_01", "FX_Leaves_01").Models,
+                FaeFX("FX_Birds_Fantail_01", "FX_Weta_01").Models);
+
+            // The gate is not set here, though this is the country it leads to: see
+            // GiveEveryCountryTheGate, which hands it to all of them, because one of the
+            // three levels it stands on belongs to whichever country comes before.
 
             // <b>The light, standing in the wood.</b> Two of these are meshes rather than
             // particles - LightRay_Round and LightRay_Cube - which is why they are worth
@@ -4898,7 +4972,43 @@ namespace TheVeil.Editor
                     SkyColor = new Color(0.44f, 0.39f, 0.36f)
                 }
             };
+
+            GiveEveryCountryTheGate(runner.Looks, runner.Decor);
         }
+
+        /// <summary>
+        /// Hands the gate into the enchanted wood to every country, and to the forest the
+        /// rest fall back to.
+        ///
+        /// <b>Because the gate is not the wood's to keep.</b> It stands on three levels:
+        /// the first and the last of the wood, and the last of whatever country comes
+        /// before it - and that third one is the whole point, since walking into a gate at
+        /// the end of one chapter and out of it at the start of the next is what makes it
+        /// a door rather than an ornament. The first build put the set on the enchanted
+        /// decor alone, and the probe said what that comes to: Portals asked for a gate at
+        /// the goal of 7-10 and the desert's dressing had none to raise, so the level the
+        /// player leaves through had nothing standing on it.
+        ///
+        /// Which country that is changes every pass round the tour (see Biomes.PassOf), so
+        /// it cannot be given to one of them. It is three prefabs; every country carries
+        /// them and eight countries never raise one.
+        /// </summary>
+        static void GiveEveryCountryTheGate(BiomeLook[] looks, BiomeDecor fallback)
+        {
+            if (fallback != null) fallback.Portal = TheGate();
+
+            if (looks == null) return;
+
+            foreach (var look in looks)
+                if (look != null && look.Decor != null)
+                    look.Decor.Portal = TheGate();
+        }
+
+        /// <summary>The gate itself: the tree it is grown through, the arch, and its light.</summary>
+        static PropSet TheGate()
+            => Mixed(Fae("SM_Env_Tree_Portal_01").Models,
+                     FaeProps("SM_Prop_Portal_01").Models,
+                     FaeFX("FX_Portal_01").Models);
 
         static void FitWaterAndWinter(LevelPreview preview)
         {
@@ -4976,6 +5086,13 @@ namespace TheVeil.Editor
                     Density = 1.5f
                 }
             };
+
+            // The plan shows the gate too, and on the same three levels: it is the way in
+            // and out of a country, which is exactly the kind of thing a player plans
+            // around. See GiveEveryCountryTheGate.
+            // The fallback decor goes in too - both callers set it before they call this,
+            // which is the only reason passing it here works.
+            GiveEveryCountryTheGate(preview.Looks, preview.Decor);
         }
 
         /// <summary>

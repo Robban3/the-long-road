@@ -251,6 +251,26 @@ namespace TheVeil.View
         public PropSet Fauna = new PropSet();
 
         /// <summary>
+        /// What moves in the water, as <see cref="Fauna"/> is what moves over the ground.
+        ///
+        /// Kept apart from Fauna for one reason: Fauna is scattered over plains and
+        /// woodland and would never once land in a river. A country can have both, one, or
+        /// neither - the enchanted wood has eels in its pools and the fen has nothing,
+        /// because a fen that moves is a different idea.
+        /// </summary>
+        public PropSet Shoals = new PropSet();
+
+        /// <summary>
+        /// The gate into the enchanted wood and out of it. See Sim.Portals, which decides
+        /// which levels have one and which end of the road it stands on.
+        ///
+        /// Raised on the start or the goal itself rather than beside it, and so the whole
+        /// set is one thing standing in one place: a gate the caravan walks past is
+        /// scenery, and a gate it walks through is the way in.
+        /// </summary>
+        public PropSet Portal = new PropSet();
+
+        /// <summary>
         /// Light standing in the air: shafts through the canopy, mist between the trunks.
         ///
         /// Seated on the ground and left at the size it was drawn, because a shaft of
@@ -1405,7 +1425,14 @@ namespace TheVeil.View
                                    // fight. Chosen per level and written in the catalogue -
                                    // see LevelCatalogue.Dressing, which carries the
                                    // measurements. Nothing but the props reads it.
-                                   int dressing = 0)
+                                   int dressing = 0,
+
+                                   // The tile the gate into the enchanted wood stands on, or
+                                   // -1 where this level has none. Worked out by the caller
+                                   // from Sim.Portals, exactly as `village` is worked out
+                                   // from Settlements: the decorator knows there is a start
+                                   // and a goal and has never known which chapter it is in.
+                                   int portal = -1)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -1574,6 +1601,11 @@ namespace TheVeil.View
                                       densityScale, road);
             placed += PlaceMounds(parent, grid, Stream(16), decor, occupied, heightScale, road);
             placed += PlaceFauna(parent, grid, Stream(17), decor, heightScale, road);
+            placed += PlaceShoals(parent, grid, Stream(23), decor, heightScale);
+
+            // The gate last of the ground-standing things, so nothing that was scattered
+            // earlier is holding the tile it has to stand on. See PlacePortal.
+            placed += PlacePortal(parent, grid, Stream(24), decor, occupied, heightScale, portal);
             placed += PlaceLight(parent, grid, Stream(21), decor, heightScale, road);
             placed += PlaceBoats(parent, grid, Stream(20), decor, occupied, heightScale, road);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
@@ -5109,6 +5141,116 @@ namespace TheVeil.View
             }
 
             return flying.Count;
+        }
+
+        /// <summary>
+        /// What moves in the water: eels in the pools of the enchanted wood.
+        ///
+        /// <see cref="PlaceFauna"/>'s twin, and a separate pass rather than a flag on it,
+        /// because the two ask opposite questions of the ground. Fauna walks the plains and
+        /// the woodland and skips everything else; this one wants the tiles Fauna refuses.
+        /// A country with both gets both, one with neither gets nothing, and neither pass
+        /// has to know about the other.
+        ///
+        /// Nothing is reserved and nothing is fitted, as with Fauna: an effect is not a
+        /// prop, claims no ground, and a shoal that kept a tile would keep the water's own
+        /// reeds out of the one place a shoal belongs.
+        /// </summary>
+        static int PlaceShoals(Transform parent, TileGrid grid, DeterministicRandom rng,
+                               BiomeDecor decor, float heightScale)
+        {
+            if (!decor.Shoals.Any) return 0;
+
+            var swimming = new List<int>();
+
+            for (int i = 0; i < grid.TileCount && swimming.Count < MostShoals; i++)
+            {
+                if (grid[i] != TerrainType.Water) continue;
+                if (!rng.Chance(ShoalChance)) continue;
+                if (!Apart(grid, i, swimming, ShoalsApart)) continue;
+
+                swimming.Add(i);
+
+                var at = Vec2.FromTile(grid, i);
+
+                // Just under the surface rather than on the bed. The bed is where the
+                // channel was cut to and an eel lying on it reads as a stick; a hand's
+                // width up it moves against the water instead of in the mud.
+                var shoal = Object.Instantiate(Any(decor.Shoals, rng), parent);
+                shoal.transform.position = new Vector3(at.X + rng.Range(-1.5f, 1.5f),
+                                                       grid.SurfaceElevation(at.X, at.Y) * heightScale
+                                                       + ShoalLift,
+                                                       at.Y + rng.Range(-1.5f, 1.5f));
+                shoal.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+            }
+
+            return swimming.Count;
+        }
+
+        /// <summary>At most this many shoals, how often a water tile has one, and how far apart.</summary>
+        const int MostShoals = 8;
+        const int ShoalsApart = 6;
+        const float ShoalChance = 0.08f;
+
+        /// <summary>How far above the bed a shoal swims, in metres.</summary>
+        const float ShoalLift = 0.4f;
+
+        /// <summary>
+        /// The gate into the enchanted wood, raised on the tile the caravan actually
+        /// crosses. See Sim.Portals for which levels have one and why it is asked for by
+        /// country rather than by chapter number.
+        ///
+        /// <b>Every model in the set, in one place.</b> This is the one set that is not a
+        /// list of alternatives: it is the gate, the tree it is grown through and the light
+        /// standing in it, and a gate drawn as one of those three at random is a gate on
+        /// two levels in three. They share a position and a facing so the pieces line up.
+        ///
+        /// Turned to face the middle of the map, which is right at both ends of the road:
+        /// at the start the caravan comes out of it heading inland, and at the goal it
+        /// walks into it from inland. Facing it down the road would need the road, and the
+        /// decorator is handed a set of travelled tiles with no direction in it.
+        /// </summary>
+        static int PlacePortal(Transform parent, TileGrid grid, DeterministicRandom rng,
+                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                               int tile)
+        {
+            if (tile < 0 || tile >= grid.TileCount || !decor.Portal.Any) return 0;
+
+            var at = Vec2.FromTile(grid, tile);
+            float ground = grid.SurfaceElevation(at.X, at.Y) * heightScale;
+
+            var middle = Vec2.FromTile(grid, grid.ToIndex(grid.Width / 2, grid.Height / 2));
+            var facing = Quaternion.LookRotation(
+                new Vector3(middle.X - at.X, 0f, middle.Y - at.Y).sqrMagnitude > 0.01f
+                    ? new Vector3(middle.X - at.X, 0f, middle.Y - at.Y)
+                    : Vector3.forward);
+
+            int placed = 0;
+
+            foreach (var model in decor.Portal.Models)
+            {
+                if (model == null) continue;
+
+                var piece = Object.Instantiate(model, parent);
+                piece.transform.position = new Vector3(at.X, ground, at.Y);
+                piece.transform.rotation = facing;
+                placed++;
+            }
+
+            // The tile and its neighbours are spoken for, so nothing is scattered through
+            // the archway afterwards. The gate is the last thing raised on the ground for
+            // the same reason, but the sweeps that run after it read this.
+            if (occupied != null)
+            {
+                grid.ToCoords(tile, out int x, out int y);
+
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (grid.InBounds(x + dx, y + dy))
+                            occupied.Add(grid.ToIndex(x + dx, y + dy));
+            }
+
+            return placed;
         }
 
         /// <summary>

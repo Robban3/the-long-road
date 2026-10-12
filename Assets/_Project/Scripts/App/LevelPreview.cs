@@ -1519,6 +1519,9 @@ namespace TheVeil.App
                 // The same dressing the run will build, so the plan shows the level that
                 // will be played. See LevelCatalogue.Dressing.
                 dressing: LevelCatalogue.DressingShift(Chapter, Level),
+                // The same gate the run will raise, so the plan shows the way in and out.
+                // See Sim.Portals.
+                portal: Portals.Site(map, Chapter, Level),
                 // The castle only at the end of a chapter, and the caller decides that
                 // because the decorator only knows there is a goal. Standing one on every
                 // level made ten keeps in a chapter and turned the thing the roadmap

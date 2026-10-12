@@ -214,7 +214,8 @@ namespace TheVeil.Editor
                 // dressing choice: every level came back reporting that all eight of its
                 // dressings played identically, because this call was handing the decorator
                 // the same one eight times. See LevelCatalogue.Dressing.
-                dressing: LevelCatalogue.DressingShift(chapter, level));
+                dressing: LevelCatalogue.DressingShift(chapter, level),
+                portal: Portals.Site(map, chapter, level));
 
             return root;
         }
@@ -468,6 +469,16 @@ namespace TheVeil.Editor
                 // drive through. See TerrainDecorator.Wreck, which takes the disc off a
                 // sign that lands in the road and leaves it on one that does not.
                 if (prop.GetComponent<Signal>() != null) continue;
+
+                // <b>And the gate, which is the one tall thing the caravan goes through
+                // rather than round.</b> A portal with a disc on it is a wall across the
+                // start or the goal: the tile it stands on is the tile the road begins or
+                // ends at, so a solid gate would be a level nobody can leave. It is the
+                // same exemption the castle has below and for the same reason - the road
+                // runs through it by construction. See Sim.Portals and
+                // TerrainDecorator.PlacePortal.
+                if (prop.name.StartsWith("SM_Env_Tree_Portal")
+                    || prop.name.StartsWith("SM_Prop_Portal")) continue;
 
                 var discs = prop.GetComponentsInChildren<Solid>(true);
                 if (discs.Length == 0) { open.Add(prop.name); continue; }

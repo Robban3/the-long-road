@@ -458,7 +458,12 @@ namespace TheVeil.App
                 // The set of props the catalogue chose for this level. See
                 // LevelCatalogue.Dressing: the scenery is worth difficulty and this is
                 // where the chosen scenery gets to the ground the player walks on.
-                dressing: LevelCatalogue.DressingShift(Chapter, Level));
+                dressing: LevelCatalogue.DressingShift(Chapter, Level),
+
+                // The gate into the enchanted wood, where this level has one. See
+                // Sim.Portals - and note that all three places which build the world have
+                // to pass this, exactly as they do the dressing.
+                portal: Portals.Site(map, Chapter, Level));
 
             // And the air it stands in. Set either way rather than only when a country
             // wants it, because the setting belongs to the scene and would otherwise
