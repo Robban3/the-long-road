@@ -11,37 +11,47 @@ namespace TheVeil.Tests
     public class BiomeTests
     {
         [Test]
-        public void TheRoadOpensInWinterAndTheForestClosesTheTour()
+        public void TheRoadOpensInTheForestAndWinterIsSecond()
         {
-            // <b>The wheel turned one step on the day the last country was dressed.</b>
-            // The forest opened the tour for as long as it was the only country with any
-            // scenery, because everything after it fell back to the forest's dressing and
-            // the opening had to be the one place that was finished. All ten are built
-            // now, so the first country a player sees no longer has to be the first one
-            // that was made.
+            // <b>Pinned because it was turned by one and turned straight back.</b> The
+            // argument for turning it was that the forest only ever led because it was the
+            // first country anybody dressed; the answer is that the order a player meets
+            // the countries in is a decision about the game, and the shift the road is
+            // meant to have is the one between passes - see the pass tests below, where
+            // chapter ten is winter.
             //
-            // Pinned as hard as it was before, and for the same reason: the plan, the run
-            // and the ground colours all ask Biomes.Of, and the day it answers differently
-            // for any of them is the day somebody plans a level in snow and drives it
-            // through a forest.
-            Assert.AreEqual(Biome.Winter, Biomes.Of(1));
-            Assert.AreEqual(Biome.Forest, Biomes.Of(Biomes.Order.Length));
+            // The plan, the run and the ground colours all ask Biomes.Of, and the day it
+            // answers differently for any of them is the day somebody plans a level in snow
+            // and drives it through a forest.
+            Assert.AreEqual(Biome.Forest, Biomes.Of(1));
+            Assert.AreEqual(Biome.Winter, Biomes.Of(2));
+            Assert.AreEqual(Biome.Dead, Biomes.Of(Biomes.Order.Length));
             Assert.AreEqual(Biome.Winter, Biomes.Of(Biomes.WinterChapter));
-            Assert.AreEqual(1, Biomes.WinterChapter, "winter moved off chapter 1 without anyone saying so");
+            Assert.AreEqual(2, Biomes.WinterChapter, "winter moved off chapter 2 without anyone saying so");
             Assert.AreEqual(Biome.Winter, Biomes.Order[Biomes.WinterChapter - 1],
                             "the winter constant and the tour disagree");
         }
 
         [Test]
-        public void TheThirdChapterIsThePlains()
+        public void TheSecondPassOpensInWinter()
         {
-            // It was the marsh while the forest opened; the marsh is the second now. What
-            // this test is for is that the name the roadmap prints and the country the
+            // <b>The one shift the road has, named where somebody asked for it.</b> A pass
+            // is nine chapters and the next one starts a country later, so the tenth
+            // chapter is the second country rather than the first again. Asserted on the
+            // chapter number because that is how it was asked for - "chapter ten becomes
+            // winter" - and the arithmetic in Of is easy to get one step out.
+            Assert.AreEqual(Biome.Winter, Biomes.Of(10));
+            Assert.AreEqual(Biome.Marsh, Biomes.Of(11));
+        }
+
+        [Test]
+        public void TheThirdChapterIsTheMarsh()
+        {
+            // What this test is for is that the name the roadmap prints and the country the
             // level is built in are the same thing - it was written because the roadmap
             // had been calling chapter three "THE WETLANDS" while playing it as forest.
-            Assert.AreEqual(Biome.Plains, Biomes.Of(3));
-            Assert.AreEqual(3, Biomes.FirstChapterOf(Biome.Plains));
-            Assert.AreEqual(Biome.Marsh, Biomes.Of(2));
+            Assert.AreEqual(Biome.Marsh, Biomes.Of(3));
+            Assert.AreEqual(3, Biomes.FirstChapterOf(Biome.Marsh));
         }
 
         [Test]
