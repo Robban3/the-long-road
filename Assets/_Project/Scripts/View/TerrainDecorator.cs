@@ -1493,6 +1493,17 @@ namespace TheVeil.View
                 placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
                                       goalTile, travelled, found, guard);
 
+            // <b>And the gate up here with the keep, because it reserves ground.</b>
+            //
+            // It was raised last of everything that stands on the ground, on the argument
+            // that then nothing scattered earlier could be holding the tile it has to
+            // stand on. That is true and it is the wrong end: by the time the last pass
+            // runs, the ring it reserves is already full, and the first photographs showed
+            // exactly that - a spruce standing in front of the archway with the
+            // reservation written round it after the fact. Nothing is holding the tile up
+            // here either, since only the keep has run.
+            placed += PlacePortal(parent, grid, Stream(24), decor, occupied, heightScale, portal);
+
             // The town before any of it, because its walls are the largest built thing
             // on any map and they are not negotiable: the ground they stand on was made
             // impassable before the ways through were found, so nothing else may take it.
@@ -1602,10 +1613,6 @@ namespace TheVeil.View
             placed += PlaceMounds(parent, grid, Stream(16), decor, occupied, heightScale, road);
             placed += PlaceFauna(parent, grid, Stream(17), decor, heightScale, road);
             placed += PlaceShoals(parent, grid, Stream(23), decor, heightScale);
-
-            // The gate last of the ground-standing things, so nothing that was scattered
-            // earlier is holding the tile it has to stand on. See PlacePortal.
-            placed += PlacePortal(parent, grid, Stream(24), decor, occupied, heightScale, portal);
             placed += PlaceLight(parent, grid, Stream(21), decor, heightScale, road);
             placed += PlaceBoats(parent, grid, Stream(20), decor, occupied, heightScale, road);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
@@ -5237,15 +5244,33 @@ namespace TheVeil.View
                 placed++;
             }
 
-            // The tile and its neighbours are spoken for, so nothing is scattered through
-            // the archway afterwards. The gate is the last thing raised on the ground for
-            // the same reason, but the sweeps that run after it read this.
-            if (occupied != null)
+            // <b>The ground the gate covers, measured off the gate.</b>
+            //
+            // This reserved the tile and the eight round it, which is twelve metres on a
+            // four-metre grid - and the tree the arch is cut into is twenty-eight metres
+            // across, so the reservation was a third of the width of the thing it was
+            // meant to keep clear. A spruce stood in front of the archway in the first
+            // photographs, outside the ring and squarely in the way.
+            //
+            // So the radius comes from the gate rather than from a number somebody chose:
+            // half its widest side, plus a tile, which leaves the arch its own clearing
+            // and keeps the wood from growing into the doorway. A different portal model
+            // moves this by itself.
+            if (occupied != null && placed > 0)
             {
+                var raised = new Bounds(new Vector3(at.X, ground, at.Y), Vector3.zero);
+                foreach (Transform piece in parent)
+                    if (piece.name.StartsWith("SM_Env_Tree_Portal")
+                        || piece.name.StartsWith("SM_Prop_Portal"))
+                        raised.Encapsulate(ModelScaling.Measure(piece.gameObject));
+
+                int reach = Mathf.CeilToInt(Mathf.Max(raised.size.x, raised.size.z)
+                                            * 0.5f / TileGrid.TileSize) + 1;
+
                 grid.ToCoords(tile, out int x, out int y);
 
-                for (int dy = -1; dy <= 1; dy++)
-                    for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -reach; dy <= reach; dy++)
+                    for (int dx = -reach; dx <= reach; dx++)
                         if (grid.InBounds(x + dx, y + dy))
                             occupied.Add(grid.ToIndex(x + dx, y + dy));
             }
