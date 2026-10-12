@@ -180,6 +180,33 @@ namespace TheVeil.Editor
         /// the maps are made once and only the runs are repeated, halving the range each
         /// time. Six halvings of a range from half to twice put the factor within about a
         /// sixtieth.
+        ///
+        /// <b>This aims at the median of the candidates, and what ships is the one that
+        /// won — which is not the same level.</b> The chosen map had to answer four things
+        /// at once: the fast road hardest, the fast road killing or sparing as the chapter
+        /// needs, no easier than the level before, and nearest its target of whatever was
+        /// left. The map that wins all four is systematically below the median. Measured
+        /// over the shipped maps: every level of the first chapter comes in four to eight
+        /// hundredths under its target, and the first four chapters average five under
+        /// while the sixth and seventh sit on theirs. Inside the tolerance, so nothing is
+        /// ever red, and wrong in one direction for forty levels running.
+        ///
+        /// <b>Fitting the factor again afterwards does not work, and it was tried twice.</b>
+        /// A pass that moved every chosen level onto its target broke four tests at once -
+        /// the climb bent, a level left the tolerance, 2-1's fast road stopped being the
+        /// hardest, and chapter five's fast road went from killing on half its levels to
+        /// eight of ten. All four are Choose's work and Choose measured them at the old
+        /// strength. A second attempt kept a level's new factor only where Hard,
+        /// Treacherous and FastLost all survived it, and walked the chain afterwards to
+        /// protect the climb; that still failed, because the pass judges the chosen map
+        /// and the suite judges the shipped one, and the two differ by a waterfall's shelf
+        /// and a levelled bailey.
+        ///
+        /// The fix is not a pass at the end. It is for Choose to fit a factor per
+        /// candidate while it is choosing, so that every candidate is judged at the
+        /// strength it would actually ship with - which is a rebuild of the search, not an
+        /// addition to it. Left as it is, with the gap measured and written down, because
+        /// an afternoon of trying bought four red tests and nothing else.
         /// </summary>
         internal static float Calibrate(int chapter, int level, float aim, out float typical)
         {
