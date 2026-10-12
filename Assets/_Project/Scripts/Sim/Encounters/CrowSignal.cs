@@ -78,8 +78,20 @@ namespace TheVeil.Sim
         /// their danger is in; read on its own, a count of flocks is a count of nothing,
         /// because the share it was taken at is different on every level.
         /// </summary>
-        public const float ShareLow = 0.3f;
-        public const float ShareHigh = 0.8f;
+        /// <b>The band was moved down, and its width is what has to be kept.</b> It ran
+        /// three tenths to eight tenths, which put eighteen flocks over 1-1: the plan was
+        /// more crow than country, and a signal that covers the thing it points at is not
+        /// a signal. It now runs a twentieth to eleven twentieths - about a third fewer
+        /// birds on an average level, and no level as crowded as the worst one was.
+        ///
+        /// The *width* is half, and stays half, because here it is the width that does the
+        /// work and not the height. FlocksCannotBeCountedIntoGroups asks that the ratio of
+        /// flocks to groups range by more than three tenths across a chapter, so a player
+        /// cannot divide flocks by a constant and read off the order of battle. Narrowing
+        /// the band to cut the count would have bought quiet with the one thing this
+        /// mechanism exists for.
+        public const float ShareLow = 0.05f;
+        public const float ShareHigh = 0.55f;
 
         /// <summary>
         /// Share of flocks standing over nothing. False positives are the point: a

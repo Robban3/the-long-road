@@ -230,7 +230,20 @@ namespace TheVeil.App
         /// is the first thing the eye lands on. Ten draws the bird at two and a half - still
         /// twice the eagle's read for its size, still a mark on the map, and no longer a
         /// crow bigger than the thing it is warning about.
-        public float CrowScale = 10f;
+        ///
+        /// <b>Five, and the paragraph above was arguing from a number that was wrong.</b>
+        /// Every size in it is a bird measured on its own in the pack. Measured instead on
+        /// the plan, as the thing the player is actually looking at, a flock at ten came out
+        /// at twenty metres by fourteen and a half - on a map two hundred and fifty-six
+        /// across, so eighteen of them cover the country in black. The group marker they sit
+        /// beside is six metres. Five puts a flock at ten by seven, half again the size of
+        /// the enemy mark next to it: findable, and no longer the first thing the eye lands
+        /// on.
+        ///
+        /// Measured in the editor the map was open in, not reasoned from the prefab. Three
+        /// settings of this have now been argued from a bird's own size and all three were
+        /// wrong, because what is drawn is the flock and the ring it turns in.
+        public float CrowScale = 5f;
 
         /// <summary>
         /// Marker sizes in metres.
