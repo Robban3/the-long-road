@@ -60,15 +60,35 @@ namespace TheVeil.Editor
                               + $"{box.size.x:0.0} x {box.size.y:0.0} x {box.size.z:0.0} m "
                               + $"at {box.center.x:0}, {box.center.z:0}");
 
-                    // From in front of it, at the height of somebody about to walk through.
-                    // The gate faces the middle of the map, so the camera stands on its
-                    // own forward and turns round - the same arithmetic the fall report
+                    // <b>Framed on the arch, which is measured rather than guessed at.</b>
+                    //
+                    // This aimed a third of the way up the tree from its middle, on the
+                    // reasoning that a thirty-metre tree wants a camera well up. The tree
+                    // is not the subject: the arch is, it stands at the foot, and the
+                    // first set of pictures cut it off at the bottom of the frame - thirty
+                    // metres of trunk and no gate. So the arch is found and measured, the
+                    // camera is put at the height of somebody about to walk through it,
+                    // and the distance comes from the arch's own size.
+                    //
+                    // The gate faces the middle of the map, so the camera stands out along
+                    // its own forward and turns round - the arithmetic the fall report
                     // learned the hard way, where a camera placed by compass bearing spent
-                    // an hour photographing the bank instead of the water.
-                    float away = box.size.y + 18f;
+                    // an hour photographing a bank instead of the water.
+                    var arch = FindArch(root.transform);
+                    var subject = arch != null
+                        ? TheVeil.View.ModelScaling.Measure(arch.gameObject)
+                        : new Bounds(new Vector3(box.center.x,
+                                                 box.center.y - box.size.y * 0.5f + 4f,
+                                                 box.center.z),
+                                     new Vector3(8f, 8f, 8f));
 
-                    Shoot(box.center + gate.forward * away + Vector3.up * (box.size.y * 0.2f),
-                          box.center + Vector3.up * (box.size.y * 0.35f),
+                    if (arch == null)
+                        Debug.Log($"[Gate] {chapter}-{level}: no arch found, framing the foot of the tree");
+
+                    float away = subject.size.magnitude + 14f;
+
+                    Shoot(subject.center + gate.forward * away + Vector3.up * EyeHeight,
+                          subject.center,
                           System.IO.Path.Combine(shots, $"gate-{chapter}-{level}-near.png"));
 
                     // And from where the game is played.
@@ -84,6 +104,34 @@ namespace TheVeil.Editor
 
         /// <summary>The height the game's own camera sits at, in metres.</summary>
         const float PlayHeight = 33f;
+
+        /// <summary>How high the near camera stands above what it is looking at, in metres.</summary>
+        // Two, which is a person. The point of the near shot is to see the gate the way
+        // somebody about to walk through it would, and a camera put at a share of the
+        // subject's height climbs with the subject and stops being anybody's eye.
+        const float EyeHeight = 2f;
+
+        /// <summary>
+        /// The arch at the foot of the tree: the thing a caravan actually passes through,
+        /// and the thing the near shot is of.
+        ///
+        /// Separate from <see cref="Find"/>, which wants the tree - the tree gives the
+        /// facing and the context, and the arch gives the frame.
+        /// </summary>
+        static Transform FindArch(Transform at)
+        {
+            foreach (Transform child in at)
+            {
+                if (child.name.StartsWith("SM_Prop_Portal")
+                    && TheVeil.View.ModelScaling.Measure(child.gameObject).size.y > 0.5f)
+                    return child;
+
+                var found = FindArch(child);
+                if (found != null) return found;
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// The gate's tree, which is the piece with a body.
