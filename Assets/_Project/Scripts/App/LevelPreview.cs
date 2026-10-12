@@ -325,7 +325,6 @@ namespace TheVeil.App
         /// come due in a frame, and searching six thousand props for each of them is a
         /// few thousand walks a frame in the scene that was already the slow one.
         /// </summary>
-        Dictionary<int, List<Transform>> _propsByTile;
 
         /// <summary>
         /// Metres flown, per tile, at the moment the bird is nearest to it — or -1 for
@@ -965,25 +964,20 @@ namespace TheVeil.App
         }
 
         /// <summary>
-        /// Hides the country over every tile the bird did not reach.
+        /// Mutes the ground over every tile the bird did not reach.
         ///
-        /// Two different mechanisms, because the two things are made differently. The
-        /// ground is a mesh this project builds — four vertices per tile, in tile order —
-        /// so its colours can be pushed all the way to luminance and graded back a corner
-        /// at a time. A tree is somebody else's prefab with somebody else's material, and
-        /// darkening it means finding the one property that pack's shader treats as a
-        /// tint: `_BaseColor` in the first pack, `_Color_Tint` in its trees, neither in
-        /// the nature-biomes pack, and nothing at all in the rock — which has a
-        /// `_BaseColor`, took the value, and drew at full daylight colour anyway. So the
-        /// scenery is not drawn at all until the ground under it is clear, which needs no
-        /// pack to cooperate and is what a map with unscouted country on it should show.
+        /// The ground is a mesh this project builds - four vertices per tile, in tile
+        /// order - so its colours can be pushed all the way to luminance and graded back a
+        /// corner at a time. That grading is the fog, and it is the whole of it: the
+        /// scenery standing on the ground is always drawn, and what the fog hides is where
+        /// the enemies are (BuildMarkers). The long note below says why it was ever
+        /// otherwise and why that was the wrong answer.
         /// </summary>
         void ApplyOverlay(Mesh mesh, LevelMap map)
         {
             _lit = null;
             _shown = null;
             _overlay = null;
-            _propsByTile = null;
             _clarity = null;
 
             if (!ShowOverlay || mesh == null) return;
@@ -1008,56 +1002,31 @@ namespace TheVeil.App
                 mesh.SetColors(_shown);
             }
 
-            if (_props == null) return;
-
-            // Filed by tile on the way past, because a reveal has to find the props on
-            // one tile out of four thousand and cannot walk six thousand props to do it.
-            _propsByTile = new Dictionary<int, List<Transform>>();
-
-            foreach (Transform prop in _props)
-            {
-                // The signals keep their colours and are not filed for the reveal.
-                //
-                // A wrecked cart, a bone pile, a banner, a raiders' tent: these are the
-                // whole of what the planning map offers before the bird flies, and they
-                // were painted down to the same flat grey as every tree on the map. The
-                // player was looking at four thousand grey tiles and being asked to pick
-                // a route through them. What they mark is ground somebody else disturbed,
-                // which is knowledge had by looking at the country; what the fog is for
-                // is hiding where the enemies are now.
-                if (prop.GetComponent<Signal>() != null) continue;
-
-                var at = prop.position;
-                int x = Mathf.FloorToInt(at.x / TileGrid.TileSize);
-                int y = Mathf.FloorToInt(at.z / TileGrid.TileSize);
-
-                if (map.Grid.InBounds(x, y))
-                {
-                    int tile = map.Grid.ToIndex(x, y);
-
-                    if (!_propsByTile.TryGetValue(tile, out var standing))
-                        _propsByTile[tile] = standing = new List<Transform>();
-
-                    standing.Add(prop);
-                }
-
-                // <b>Taken off the map rather than darkened on it, and it took a
-                // measurement to see why.</b> A prop went under the fog by multiplying its
-                // colour through a property block, which only reaches a property the
-                // shader has: the trees answer to `_Color_Tint` and went nearly black, the
-                // rock answers to `_BaseColor` — it has one, the block was set on it — and
-                // did not change by a shade, because that pack's graph never reads it. So
-                // a mountain level drew four hundred metres of unscouted stone in full
-                // daylight over ground the map had greyed out, and the player read the
-                // bright half as the half the bird had found. Chasing the right property
-                // name per pack is a bug per pack; a prop that is not drawn is not drawn
-                // in any shader.
-                //
-                // What is left under the fog is the ground's own muted colour, which is
-                // the country as the GDD describes it before the scout goes up
-                // (docs/GDD.md §3.4), and the signals, which are exempt above.
-                prop.gameObject.SetActive(false);
-            }
+            // <b>The scenery stays on the map, and only the enemies are hidden.</b>
+            //
+            // This took every prop off the plan - every tree, rock, ruin and fence - and
+            // put them back one tile at a time behind the scouting bird, with the signals
+            // exempt. The argument was that a prop drawn over greyed ground reads as ground
+            // the bird had found, and it was a real fault: a mountain level drew four
+            // hundred metres of unscouted stone in full daylight because the fog was being
+            // applied by multiplying each prop.s colour through a property block, which
+            // only reaches a property the shader has - the trees answer to `_Color_Tint`,
+            // the rock has a `_BaseColor` and ignores it - so half the scenery went dark
+            // and half did not, and the bright half read as the scouted half.
+            //
+            // But the cure was aimed at the wrong thing. What the player could not see was
+            // the country: four thousand grey tiles with nothing standing on them, and a
+            // route to be drawn through them. A wood, a crag and a fence line are what a
+            // map is for, and they are knowledge had by looking at the land - which is the
+            // very argument this already made for the signals, one paragraph at a time, and
+            // never followed to the end.
+            //
+            // So the scenery is always drawn and the fog is the ground.s own muted colour
+            // (docs/GDD.md 3.4) plus what it has always really been for: hiding where the
+            // enemies are now. Those are marks rather than props and were already gated on
+            // the flight - see BuildMarkers, which places a mark only for an enemy the bird
+            // has actually passed. The half-dark-half-bright fault cannot come back either,
+            // because nothing is being tinted per pack any more: all of it is lit.
         }
 
         /// <summary>
@@ -1198,7 +1167,7 @@ namespace TheVeil.App
             return true;
         }
 
-        /// <summary>Puts one tile's ground and scenery at the clarity its corners have earned.</summary>
+        /// <summary>Puts one tile's ground at the clarity its corners have earned.</summary>
         void Paint(int tile)
         {
             _map.Grid.ToCoords(tile, out int x, out int y);
@@ -1218,28 +1187,7 @@ namespace TheVeil.App
                 Shade(v + 2, c11);
                 Shade(v + 3, c01);
             }
-
-            // One tile's worth for the scenery standing on it. A tree is there or it is
-            // not, however finely the ground under it is graded, so it takes the average
-            // of the four corners rather than picking one of them.
-            float clarity = (c00 + c10 + c11 + c01) * 0.25f;
-
-            if (_propsByTile == null) return;
-            if (!_propsByTile.TryGetValue(tile, out var standing)) return;
-
-            // Half seen is seen. The ground itself is graded smoothly across the corners,
-            // so the edge of the flight still feathers; the scenery on it cannot be half
-            // drawn, and a wood that appears where the bird was closest is the honest
-            // place to put the line.
-            bool shown = clarity >= Showing;
-
-            foreach (var prop in standing)
-                if (prop != null && prop.gameObject.activeSelf != shown)
-                    prop.gameObject.SetActive(shown);
         }
-
-        /// <summary>How clear the ground has to be before what stands on it is drawn.</summary>
-        const float Showing = 0.5f;
 
         /// <summary>One ground corner's clarity, or nought where there is no such corner.</summary>
         float Clarity(int cornerX, int cornerY)
