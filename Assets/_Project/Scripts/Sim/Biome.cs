@@ -199,6 +199,20 @@ namespace TheVeil.Sim
             => chapter < 1 ? 0 : (chapter - 1) / Order.Length;
 
         /// <summary>
+        /// The last landing: the final level of the final chapter, where the road stops
+        /// being a road.
+        ///
+        /// <b>One level in a thousand and the only one that gets the ship.</b> Every coast
+        /// level ends at a jetty with something moored to it, which is what makes the sea
+        /// chapter read as the end of a journey rather than as another country. This is
+        /// where the caravan actually boards: the goal of the goal. Asked here rather than
+        /// written out at the three places that build the world, because "the last level"
+        /// is two numbers multiplied together and all three have to agree about it.
+        /// </summary>
+        public static bool TheLastLanding(int chapter, int level)
+            => chapter >= LastChapter && level == Campaign.LevelsPerChapter;
+
+        /// <summary>
         /// How many times the hundred levels have been sown again.
         ///
         /// Raise it by one and every level in the game is new ground: same countries, same

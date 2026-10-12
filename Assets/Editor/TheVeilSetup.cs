@@ -2050,6 +2050,24 @@ namespace TheVeil.Editor
         /// fifteen effects drawn for this light - fireflies, wisps, sparkles, sunrays,
         /// drifting dust.
         /// </summary>
+        /// <summary>
+        /// The pirate pack, bought the same day as the enchanted wood.
+        ///
+        /// <b>Bought for one thing and useful for a chapter.</b> The road ends at the sea
+        /// and what it ends at is a ship, and no pack owned before this one drew a vessel
+        /// bigger than a rowing boat - so the last landing in the game, the thing the whole
+        /// thousand levels is walking towards, was a five-metre dinghy tied to an alpine
+        /// jetty. This pack ships six hulls up to a warship.
+        ///
+        /// And then the rest of it is a coast: beaches, docks, palms, mangrove, sugar cane,
+        /// seaweed, sea rock and background islands, all drawn for the one country this
+        /// project had been dressing out of a meadow and a mountain.
+        /// </summary>
+        const string PirateDir = "Assets/Synty/PolygonPirates/Prefabs";
+
+        static PropSet Pirate(string group, params string[] names)
+            => new PropSet(false, Load($"{PirateDir}/{group}", names));
+
         const string FaeDir = "Assets/Synty/PolygonNatureBiomes/PNB_Enchanted_Forest/Prefabs";
 
         static PropSet Fae(params string[] names) => new PropSet(false, Load(FaeDir, names));
@@ -4170,11 +4188,27 @@ namespace TheVeil.Editor
                 }));
 
             decor.Birch = Meadow("SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_03");
-            decor.Willows = Synty("Trees", "SM_Tree_Willow_Small_01");
+            // The mangrove where the fresh water meets the salt, which is the one tree
+            // that belongs at a waterline and no pack owned before drew.
+            //
+            // Sunk, and PropSeatingTests named it the first run: a mangrove is a tree
+            // standing on its own roots, which is the whole look of one, and a set of
+            // roots laid on the surface stands on them like legs. The same six hundredths
+            // the enchanted wood buries its roots by and the fen its deadfall.
+            decor.Willows = Sunk(Mixed(
+                Pirate("Environments", "SM_Env_Mangrove_Tree_01", "SM_Env_Mangrove_Tree_02",
+                       "SM_Env_Mangrove_Roots_01").Models,
+                Synty("Trees", "SM_Tree_Willow_Small_01").Models), 0.06f);
 
-            // Dune scrub: the pack's one palm bush, brambles off the dry pack, and the
-            // meadow's own bushes for the sheltered side of a rise.
+            // Dune scrub: palms off the pirate pack, brambles off the dry pack, and the
+            // meadow's own bushes for the sheltered side of a rise. The nature pack's one
+            // palm bush stood for the whole idea of a shore plant until now - the pirate
+            // pack draws six palms, sugar cane and beach grass, all of it for this.
             decor.Bushes = Mixed(
+                Pirate("Environments", "SM_Env_PalmTree_01", "SM_Env_PalmTree_02",
+                       "SM_Env_PalmTree_03", "SM_Env_PalmTree_04",
+                       "SM_Env_PalmBush_03", "SM_Env_SugarCane_01",
+                       "SM_Env_SugarCane_02").Models,
                 Load($"{SyntyNatureDir}/Plants", new[]
                 {
                     "SM_Plant_PalmBush_01", "SM_Plant_Bush_02", "SM_Plant_Bush_01",
@@ -4250,15 +4284,24 @@ namespace TheVeil.Editor
             // a coast made of sand and stone.
             decor.MarshPlants = Synty("Plants", "SM_Plant_Reeds_01", "SM_Plant_Reeds_02");
 
-            // <b>Shingle.</b> The alpine pack's river stone is drawn rounded and wet, which
-            // is what a beach is made of, and nothing else in any pack is.
+            // <b>Shingle, and now the beach it lies on.</b> The alpine pack's river stone
+            // is drawn rounded and wet, which is what a shingle beach is made of, and it
+            // was the whole of the strip because nothing else owned was a beach at all.
+            // The pirate pack draws six of them, with the piles of weed and shell that
+            // collect at a tide line - the one set in this country that is literally
+            // called what it is for.
             decor.Shore = Mixed(
+                Pirate("Environments", "SM_Env_Beach_01", "SM_Env_Beach_02",
+                       "SM_Env_Beach_03", "SM_Env_Beach_04", "SM_Env_Beach_05",
+                       "SM_Env_Beach_06").Models,
+                Pirate("Environments", "SM_Env_Beach_Pile_01", "SM_Env_Beach_Pile_02",
+                       "SM_Env_Beach_Pile_03", "SM_Env_Beach_Piles_01",
+                       "SM_Env_Seaweed_01").Models,
                 Load(AlpineDir, new[]
                 {
                     "SM_Env_Rock_River_01", "SM_Env_Rock_River_02", "SM_Env_Rock_River_03",
                     "SM_Env_Rock_River_04", "SM_Env_Rock_Pebbles_02", "SM_Env_Rock_Pebbles_04"
-                }),
-                Load(MeadowDir, new[] { "SM_Env_Rock_Small_Pile_01", "SM_Env_Rock_Small_Pile_02" }));
+                }));
 
             // Loose stone above the tideline, bleached: the dry pack's small rock at its
             // own size, which is the only way a triplanar piece may be used.
@@ -4276,8 +4319,20 @@ namespace TheVeil.Editor
             // The stacks and the headland rock. The alpine pack's grey, because it carries
             // a plain atlas and the decorator scales these: the dry pack's cliffs are
             // triplanar and come out as plastic the moment they are blown up.
-            decor.Boulders = Alpine("SM_Env_Rock_06", "SM_Env_Rock_07", "SM_Env_Rock_08",
-                                    "SM_Env_Rock_Rough_01", "SM_Env_Rock_Rough_02");
+            //
+            // The pirate pack's sea rock goes in with it - drawn standing in water, worn
+            // round at the foot, which is the one thing a mountain's rock cannot look
+            // like. Its arch and its skull rock are left out on purpose: both are
+            // landmarks and a landmark scattered forty times a level is wallpaper.
+            decor.Boulders = Mixed(
+                Load(AlpineDir, new[]
+                {
+                    "SM_Env_Rock_06", "SM_Env_Rock_07", "SM_Env_Rock_08",
+                    "SM_Env_Rock_Rough_01", "SM_Env_Rock_Rough_02"
+                }),
+                Pirate("Environments", "SM_Env_Rock_01", "SM_Env_Rock_02", "SM_Env_Rock_03",
+                       "SM_Env_Rock_Large_01", "SM_Env_Rock_Large_02",
+                       "SM_Env_Rock_Large_03", "SM_Env_Rocks_01", "SM_Env_Rocks_02").Models);
 
             decor.Cliffs = Alpine("SM_Env_Rock_08", "SM_Env_Rock_09", "SM_Env_Rock_010",
                                   "SM_Env_Rock_Rough_01", "SM_Env_Rock_Rough_02");
@@ -4314,15 +4369,27 @@ namespace TheVeil.Editor
             // above a beach and not a pass between peaks. See BiomeDecor.RockMats.
             decor.RockMats = 0.55f;
 
-            // The landing stage at the end of the road, and what is tied to it.
-            decor.Jetty = AlpineProps("SM_Prop_Jetty_01");
+            // The landing stage at the end of the road, and what is tied to it. The
+            // alpine pack's single jetty stood here because it was the only one owned;
+            // the pirate pack draws a dock, which is what a coast with a ship at it has.
+            decor.Jetty = Pirate("Buildings", "SM_Bld_Dock_01", "SM_Bld_Dock_02",
+                                 "SM_Bld_Dock_03");
 
-            // <b>The line to change when there is a ship.</b> A caravan of three wagons
-            // does not leave on a rowing boat, and a rowing boat is the largest thing
-            // afloat in any pack here. It is in its own slot so that the day a ship is
-            // bought this is all that moves: the jetty is laid to its own length and the
-            // mooring is measured off whatever is in here.
-            decor.Ship = Knights("Props", "SM_Prop_Rowboat_01");
+            // <b>The line that said to change it when there was a ship.</b> It held the
+            // knights' rowboat, the largest thing afloat in any pack owned at the time,
+            // and said in so many words that a caravan of three wagons does not leave on
+            // one. The pirate pack draws six hulls.
+            //
+            // The small ones here: these are the boats at the nine ordinary coast
+            // harbours, where a boat is scenery saying the country lives off the water.
+            decor.Ship = Pirate("Vehicles", "SM_Veh_Boat_Rowing_01_Hull",
+                                "SM_Veh_Boat_Small_01_Hull",
+                                "SM_Veh_Boat_Small_01_Hull_Pirate");
+
+            // And the ship itself, at the last landing in the game: the warship, upsized,
+            // which is the biggest hull in the pack. See BiomeDecor.Flagship and
+            // Biomes.TheLastLanding - one level in a thousand gets this.
+            decor.Flagship = Pirate("Vehicles", "SM_Veh_Boat_Warship_01_Hull_Upsized");
 
             // <b>A fishing village, because the only work on this coast is the sea.</b>
             // Two of the ten levels have a village on them (Settlements.VillageLevels) and

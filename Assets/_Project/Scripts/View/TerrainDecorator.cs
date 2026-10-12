@@ -422,6 +422,18 @@ namespace TheVeil.View
         /// </summary>
         public PropSet Ship = new PropSet();
 
+        /// <summary>
+        /// What is moored at the last landing of all: the ship the caravan leaves on.
+        ///
+        /// <b>Separate from <see cref="Ship"/> because one of the two is an ending.</b>
+        /// Every coast level ends at a jetty with a boat at it, and a boat at a jetty is
+        /// scenery - it says this country lives off the water. The final level of the
+        /// final chapter is the one the whole road has been walking towards, and a dinghy
+        /// there says the journey was not worth taking. See Biomes.TheLastLanding, which
+        /// decides which level that is, and PlaceHarbour, which moors it.
+        /// </summary>
+        public PropSet Flagship = new PropSet();
+
         /// <summary>Tied up where the water is deep enough to tie one up.</summary>
         public PropSet Boats = new PropSet();
 
@@ -1432,7 +1444,12 @@ namespace TheVeil.View
                                    // from Sim.Portals, exactly as `village` is worked out
                                    // from Settlements: the decorator knows there is a start
                                    // and a goal and has never known which chapter it is in.
-                                   int portal = -1)
+                                   int portal = -1,
+
+                                   // Whether this is the final level of the final chapter,
+                                   // which is the one harbour that moors a ship rather than
+                                   // a boat. See Biomes.TheLastLanding.
+                                   bool lastLanding = false)
         {
             // Before the early return below, so a call that decorates nothing still
             // leaves the floor at what this caller asked for rather than at what the
@@ -1487,7 +1504,7 @@ namespace TheVeil.View
             // the last chapter climbs towards a way out, so the coast puts a jetty and a
             // ship at the end of its road instead. See PlaceHarbour.
             placed += PlaceHarbour(parent, grid, Stream(19), decor, occupied, heightScale,
-                                   goalTile);
+                                   goalTile, lastLanding);
 
             if (!decor.Jetty.Any)
                 placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
@@ -4846,6 +4863,30 @@ namespace TheVeil.View
                 if (Scatter(parent, grid, rng, choice, i, heightScale, spread: 0.8f,
                             occupied: occupied, yaw: Seaward(grid, x, y)))
                     placed++;
+
+                // <b>And some of them get a landing stage, because a boat on a beach is
+                // only half of what a shore looks like.</b>
+                //
+                // The harbour pass lays one dock a chapter: it is anchored to the goal
+                // tile, and the goal tile is only handed to the decorator on a tenth
+                // level, because that is where a keep would otherwise stand. So nine of
+                // the ten coast levels had no built thing on the water at all - the whole
+                // country read as a beach nobody worked. Measured by listing what stands
+                // on 100-5: three rowing boats drawn up on the sand and nothing else.
+                //
+                // A dock beside a boat rather than a dock anywhere, so the two read as one
+                // place; and one in three, so a shoreline has a couple and not a row.
+                if (!decor.Jetty.Any || !rng.Chance(LandingChance)) continue;
+
+                int water = SeawardTile(grid, x, y);
+                if (water < 0 || occupied.Contains(water)) continue;
+
+                var landing = new Choice(decor.Jetty, Any(decor.Jetty, rng), JettyLength,
+                                         byWidth: true, low: 1f, high: 1f);
+
+                if (Scatter(parent, grid, rng, landing, water, heightScale, spread: 0f,
+                            occupied: occupied, yaw: Seaward(grid, x, y)))
+                    placed++;
             }
 
             return placed;
@@ -4860,6 +4901,33 @@ namespace TheVeil.View
 
         /// <summary>The chance a tile of beach has one on it.</summary>
         const float BoatChance = 0.35f;
+
+        /// <summary>How often a beached boat has a landing stage beside it.</summary>
+        // One in three, against at most five boats, so a level gets one or two. A dock
+        // every time would be a working harbour on every level, and the harbour is the
+        // thing the last one is for.
+        const float LandingChance = 0.34f;
+
+        /// <summary>
+        /// The water tile beside this one that lies furthest out to sea, or -1 for none.
+        ///
+        /// A landing stage stands in the water with its root on the land, so it is laid on
+        /// the wet tile rather than the dry one: laid on the beach it is a pier across the
+        /// sand. Seaward already works out which way that is for the yaw - this asks the
+        /// same question and keeps the tile instead of the angle.
+        /// </summary>
+        static int SeawardTile(TileGrid grid, int x, int y)
+        {
+            float yaw = Seaward(grid, x, y) * Mathf.Deg2Rad;
+
+            int nx = x + Mathf.RoundToInt(Mathf.Sin(yaw));
+            int ny = y + Mathf.RoundToInt(Mathf.Cos(yaw));
+
+            if (!grid.InBounds(nx, ny)) return -1;
+
+            int tile = grid.ToIndex(nx, ny);
+            return grid[tile] == TerrainType.Water ? tile : -1;
+        }
 
         /// <summary>Which way the water lies from here, in degrees.</summary>
         static float Seaward(TileGrid grid, int x, int y)
@@ -4897,7 +4965,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceHarbour(Transform parent, TileGrid grid, DeterministicRandom rng,
                                 BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                                int goalTile)
+                                int goalTile, bool lastLanding)
         {
             if (!decor.Jetty.Any || goalTile < 0 || goalTile >= grid.TileCount) return 0;
 
@@ -4915,6 +4983,20 @@ namespace TheVeil.View
                 // On the shore of it, not out in the middle: the tile has to have land
                 // beside it or the jetty starts nowhere.
                 if (!NextToLand(grid, x, y)) continue;
+
+                // <b>And where a ship is going to be moored, enough water to moor it
+                // in.</b>
+                //
+                // This took the wet tile nearest the goal, full stop, and on a coast level
+                // the nearest wet tile is as likely to be a pool behind the dunes as it is
+                // to be the sea. A rowing boat does not care. The warship at the last
+                // landing was put in a lagoon four tiles across and overhung the grass on
+                // three sides of it - the ship is thirty metres and the pool was sixteen.
+                //
+                // So the last landing asks for open water as well as for a shoreline, and
+                // the nine ordinary harbours go on taking what is nearest, because what
+                // they moor is four metres long.
+                if (lastLanding && !OpenWater(grid, x, y)) continue;
 
                 float away = (x - gx) * (x - gx) + (y - gy) * (y - gy);
                 if (away >= nearest) continue;
@@ -4937,19 +5019,51 @@ namespace TheVeil.View
                         occupied: null, yaw: yaw))
                 placed++;
 
-            if (!decor.Ship.Any) return placed;
+            // <b>The ship at the last landing, and a boat everywhere else.</b> See
+            // BiomeDecor.Flagship: a boat at a jetty says this country lives off the
+            // water, and the final level of the final chapter is the one thing the road
+            // has been walking towards.
+            var moorings = lastLanding && decor.Flagship.Any ? decor.Flagship : decor.Ship;
+            float length = lastLanding && decor.Flagship.Any ? FlagshipLength : ShipLength;
 
-            // Off the end of the planking, in the water, pointing out to sea.
+            if (!moorings.Any) return placed;
+
+            // Off the end of the planking, in the water, pointing out to sea. The standoff
+            // grows with the vessel, or a thirty-metre hull is moored by its middle and
+            // half of it is up the beach.
             var at = Vec2.FromTile(grid, best);
-            float out_ = JettyLength * 0.5f + ShipStandoff;
+            float out_ = JettyLength * 0.5f + ShipStandoff + length * 0.5f;
 
-            float sx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * out_;
-            float sz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * out_;
+            // <b>And it has to be water, which nothing here ever asked.</b>
+            //
+            // This took the tile a fixed distance out along the seaward bearing and moored
+            // there, and the only thing it checked was that the tile was on the map. A
+            // bearing worked out from the shape of a shoreline is an average, and on a bay
+            // or a narrow inlet it points across the water and out the other side: the
+            // warship at the last landing came back standing on grass, thirty metres of
+            // hull aground in a meadow with the sea behind it. The smoke test passed it,
+            // and rightly - the hull sat squarely on the ground, and the ground was a
+            // field.
+            //
+            // So the way out is walked rather than jumped, and the last wet tile wins. A
+            // short jetty on a narrow channel moors its boat close in; the warship gets
+            // its full standoff where there is sea enough for it. The jetty's own tile is
+            // the floor, and that one is water by construction.
+            int moored = best;
 
-            int moored = Tile(grid, sx, sz);
-            if (moored < 0) moored = best;
+            for (float step = 1f; step <= out_; step += TileGrid.TileSize * 0.5f)
+            {
+                int next = Tile(grid,
+                                at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * step,
+                                at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * step);
 
-            var ship = new Choice(decor.Ship, Any(decor.Ship, rng), ShipLength,
+                if (next < 0) break;
+                if (grid[next] != TerrainType.Water) break;
+
+                moored = next;
+            }
+
+            var ship = new Choice(moorings, Any(moorings, rng), length,
                                   byWidth: true, low: 1f, high: 1f);
 
             if (Scatter(parent, grid, rng, ship, moored, heightScale, spread: 0f,
@@ -4966,9 +5080,47 @@ namespace TheVeil.View
         // The rowboat in the slot today is five metres; a ship will be more, and the
         // standoff is measured from the jetty's end rather than from the vessel, so the
         // only thing that changes when the slot does is this number.
-        const float ShipLength = 5f;
+        const float ShipLength = 7f;
+
+        /// <summary>
+        /// And how long the one at the last landing is.
+        ///
+        /// Thirty metres, which is a ship a caravan of three wagons could believably leave
+        /// on - the jetty beside it is nine. It is set rather than taken from the model
+        /// because every vessel in the pack comes at the size its artist drew it and the
+        /// six hulls are not to one scale; the harbour decides how big its ship is and the
+        /// model is fitted to that, as the jetty already was.
+        /// </summary>
+        const float FlagshipLength = 30f;
 
         const float ShipStandoff = 3f;
+
+        /// <summary>
+        /// Whether there is sea enough here to lie a ship in.
+        ///
+        /// Three tiles out, which is twelve metres, and two thirds of them wet. The hull
+        /// at the last landing is thirty metres long and lies off the end of a nine-metre
+        /// dock, so the water it needs is about that much again in every direction it is
+        /// not moored against. Two thirds rather than all of it, because the tile it is
+        /// measured from is on a shoreline by construction and a shoreline is half land.
+        /// </summary>
+        static bool OpenWater(TileGrid grid, int x, int y)
+        {
+            int wet = 0, looked = 0;
+
+            for (int dy = -OpenWaterReach; dy <= OpenWaterReach; dy++)
+                for (int dx = -OpenWaterReach; dx <= OpenWaterReach; dx++)
+                {
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                    looked++;
+                    if (grid[grid.ToIndex(x + dx, y + dy)] == TerrainType.Water) wet++;
+                }
+
+            return looked > 0 && wet >= looked * 2 / 3;
+        }
+
+        const int OpenWaterReach = 3;
 
         /// <summary>Whether any tile beside this one is dry.</summary>
         static bool NextToLand(TileGrid grid, int x, int y)

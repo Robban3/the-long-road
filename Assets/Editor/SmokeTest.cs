@@ -131,6 +131,26 @@ namespace TheVeil.Editor
         /// changed, and then the tool is reporting on a world nobody plays.
         /// </summary>
         /// <summary>Whether a model is one the country hangs in its sky. See PlaceSky.</summary>
+        /// <summary>
+        /// Whether this is part of a ship's rig, which is above the deck by construction.
+        ///
+        /// <b>Written twice, because the first one listed the parts it had seen.</b> The
+        /// warship at the last landing came back with four sails seven to nine metres
+        /// clear of the ground; they were exempted by name and the next run reported the
+        /// rigging at five. A rig is masts, yards, sails, shrouds and rope, and naming
+        /// them one at a time is a run of the smoke test per noun. The hull is measured
+        /// like anything else and it is the hull that says whether the ship is in the
+        /// water - the same arrangement the meadow pack's branches have, and for the same
+        /// reason.
+        /// </summary>
+        /// <summary>Public because the harbour photos need to know a hull from its rig.</summary>
+        internal static bool IsRigging(string name) => Rigging(name);
+
+        static bool Rigging(string name)
+            => name.Contains("_Sail") || name.Contains("_Mast") || name.Contains("_Rigging")
+               || name.Contains("_Rope") || name.Contains("_Yard") || name.Contains("_Shroud")
+               || name.Contains("_Flag");
+
         static bool Aloft(BiomeDecor decor, string name)
         {
             if (decor == null || decor.Aloft == null || !decor.Aloft.Any) return false;
@@ -215,7 +235,8 @@ namespace TheVeil.Editor
                 // dressings played identically, because this call was handing the decorator
                 // the same one eight times. See LevelCatalogue.Dressing.
                 dressing: LevelCatalogue.DressingShift(chapter, level),
-                portal: Portals.Site(map, chapter, level));
+                portal: Portals.Site(map, chapter, level),
+                lastLanding: Biomes.TheLastLanding(chapter, level));
 
             return root;
         }
@@ -289,8 +310,15 @@ namespace TheVeil.Editor
                 // which is exactly what they are and exactly what they are for. Asked of
                 // the set the decorator put them in rather than of the name, so buying a
                 // pack with its own aurora in it does not quietly turn the check back on.
+                // <b>And a ship's rigging, which is up a mast because that is where sails
+                // go.</b> The warship at the last landing came back with four sails seven
+                // to nine metres clear of the ground, each its own mesh, and every one of
+                // them was exactly where it belongs. The hull is measured like anything
+                // else and it is the hull that says whether the ship is in the water -
+                // the same arrangement the meadow pack's branches have below, and for the
+                // same reason.
                 bool hangs = name.Contains("Banner") || name.Contains("ShopSign")
-                             || Aloft(decor, name);
+                             || Rigging(name) || Aloft(decor, name);
 
                 // A tree's branches, which are their own meshes in the meadow pack and hang
                 // above the ground by construction - that is what a branch does. The trunk

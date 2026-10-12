@@ -1522,6 +1522,7 @@ namespace TheVeil.App
                 // The same gate the run will raise, so the plan shows the way in and out.
                 // See Sim.Portals.
                 portal: Portals.Site(map, Chapter, Level),
+                lastLanding: Biomes.TheLastLanding(Chapter, Level),
                 // The castle only at the end of a chapter, and the caller decides that
                 // because the decorator only knows there is a goal. Standing one on every
                 // level made ten keeps in a chapter and turned the thing the roadmap
