@@ -5012,12 +5012,57 @@ namespace TheVeil.View
 
             int placed = 0;
 
-            var jetty = new Choice(decor.Jetty, Any(decor.Jetty, rng), JettyLength,
-                                   byWidth: true, low: 1f, high: 1f);
+            // <b>A run of planking from the shore out over the water, not one piece
+            // dropped on a wet tile.</b>
+            //
+            // This fitted a single model to nine metres and set it on the water tile
+            // nearest the goal, and the picture showed what that comes to: the pack's dock
+            // is a platform on pilings, three and a half metres across and seven and a
+            // half tall at its own size, so fitting its *width* to nine blew it up to
+            // eighteen metres of tower standing in the sea with nothing joining it to the
+            // land. A jetty is a thing you walk out along.
+            //
+            // So the pack's walkway is laid at its own size, section by section, from the
+            // waterline outward. Life size and not fitted, for the reason the alpine
+            // pack's triplanar rock is never scaled: a four-metre plank blown up to nine
+            // is a four-metre plank with the grain wrong.
+            var at = Vec2.FromTile(grid, best);
+            float head = 0f;
 
-            if (Scatter(parent, grid, rng, jetty, best, heightScale, spread: 0f,
-                        occupied: null, yaw: yaw))
+            for (int section = 0; section < JettySections; section++)
+            {
+                var plank = Object.Instantiate(Any(decor.Jetty, rng), parent);
+
+                // Measured once the piece is in the world, because how long a section is
+                // belongs to the model and not to this file.
+                float along = ModelScaling.Measure(plank.gameObject).size.z;
+                if (along < 0.5f) along = TileGrid.TileSize;
+
+                // <b>Begun a tile inland, so the first section bridges the waterline.</b>
+                // Laid from the wet tile outward the planking started in the sea: the
+                // picture showed a jetty a player would have to swim to. The run roots
+                // itself on the shore behind the water tile and walks out from there.
+                head = Root + (section + 0.5f) * along;
+
+                float px = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * (head - along * 0.5f);
+                float pz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * (head - along * 0.5f);
+
+                plank.transform.position = new Vector3(px, grid.SurfaceElevation(at.X, at.Y) * heightScale,
+                                                       pz);
+                plank.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
                 placed++;
+
+                // The ground it covers is spoken for, or the shore pass grows a bush
+                // through the planking - which is what the first picture showed.
+                int planked = Tile(grid, px, pz);
+                if (planked >= 0 && occupied != null) occupied.Add(planked);
+
+                // Stop at the water's edge rather than marching out to sea: the next
+                // section would have to stand on something.
+                int under = Tile(grid, px + Mathf.Sin(yaw * Mathf.Deg2Rad) * along,
+                                 pz + Mathf.Cos(yaw * Mathf.Deg2Rad) * along);
+                if (under < 0 || grid[under] != TerrainType.Water) break;
+            }
 
             // <b>The ship at the last landing, and a boat everywhere else.</b> See
             // BiomeDecor.Flagship: a boat at a jetty says this country lives off the
@@ -5028,53 +5073,88 @@ namespace TheVeil.View
 
             if (!moorings.Any) return placed;
 
-            // Off the end of the planking, in the water, pointing out to sea. The standoff
-            // grows with the vessel, or a thirty-metre hull is moored by its middle and
-            // half of it is up the beach.
-            var at = Vec2.FromTile(grid, best);
-            float out_ = JettyLength * 0.5f + ShipStandoff + length * 0.5f;
-
-            // <b>And it has to be water, which nothing here ever asked.</b>
+            // <b>Alongside the planking, not off the end of it.</b>
             //
-            // This took the tile a fixed distance out along the seaward bearing and moored
-            // there, and the only thing it checked was that the tile was on the map. A
-            // bearing worked out from the shape of a shoreline is an average, and on a bay
-            // or a narrow inlet it points across the water and out the other side: the
-            // warship at the last landing came back standing on grass, thirty metres of
-            // hull aground in a meadow with the sea behind it. The smoke test passed it,
-            // and rightly - the hull sat squarely on the ground, and the ground was a
-            // field.
+            // The mooring used to be a point a fixed distance straight out to sea from the
+            // jetty tile, and the ship was dropped on whatever tile that landed on. Two
+            // things were wrong with it and both showed in the pictures: the bearing is an
+            // average of a shoreline and on a bay it points across the water and out the
+            // other side, so the warship came back aground in a meadow with the sea behind
+            // it; and even when it floated it lay a boat-length off the end of the
+            // planking with nothing between them, which is not what moored means.
             //
-            // So the way out is walked rather than jumped, and the last wet tile wins. A
-            // short jetty on a narrow channel moors its boat close in; the warship gets
-            // its full standoff where there is sea enough for it. The jetty's own tile is
-            // the floor, and that one is water by construction.
-            int moored = best;
+            // A vessel ties up *beside* a jetty, parallel to it, close enough to step
+            // across. So the mooring is taken from the head of the planking and offset
+            // sideways by half the jetty is wide plus half the hull is broad - both
+            // measured off what was actually built, because a pack that redraws its dock
+            // or its hull moves this by itself.
+            var hull = Object.Instantiate(Any(moorings, rng), parent);
+            var raw = ModelScaling.Measure(hull.gameObject);
 
-            for (float step = 1f; step <= out_; step += TileGrid.TileSize * 0.5f)
+            float scale = raw.size.z > 0.1f ? length / raw.size.z : 1f;
+            hull.transform.localScale *= scale;
+            hull.transform.rotation = Quaternion.Euler(0f, yaw + 90f, 0f);
+
+            float beam = ModelScaling.Measure(hull.gameObject).size.z;
+            float aside = JettyWidth * 0.5f + beam * 0.5f + ShipStandoff;
+
+            // Half a jetty back from its head, so the hull lies along the planking rather
+            // than ending where it does.
+            float down = Mathf.Max(0f, head - length * 0.5f);
+
+            float mx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * down
+                            + Mathf.Cos(yaw * Mathf.Deg2Rad) * aside;
+            float mz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * down
+                            - Mathf.Sin(yaw * Mathf.Deg2Rad) * aside;
+
+            // And it has to float. Where the water runs out before the beam does, the hull
+            // comes back in until it is over water again - a narrow inlet moors its boat
+            // close in and the open sea gives a ship its room.
+            for (float back = 0f; back <= aside; back += TileGrid.TileSize * 0.5f)
             {
-                int next = Tile(grid,
-                                at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * step,
-                                at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * step);
+                float tx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * down
+                                + Mathf.Cos(yaw * Mathf.Deg2Rad) * (aside - back);
+                float tz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * down
+                                - Mathf.Sin(yaw * Mathf.Deg2Rad) * (aside - back);
 
-                if (next < 0) break;
-                if (grid[next] != TerrainType.Water) break;
+                int on = Tile(grid, tx, tz);
+                if (on < 0 || grid[on] != TerrainType.Water) continue;
 
-                moored = next;
+                mx = tx;
+                mz = tz;
+                break;
             }
 
-            var ship = new Choice(moorings, Any(moorings, rng), length,
-                                  byWidth: true, low: 1f, high: 1f);
-
-            if (Scatter(parent, grid, rng, ship, moored, heightScale, spread: 0f,
-                        occupied: null, yaw: yaw + 90f))
-                placed++;
+            hull.transform.position = new Vector3(mx, grid.SurfaceElevation(at.X, at.Y) * heightScale,
+                                                  mz);
+            placed++;
 
             return placed;
         }
 
-        /// <summary>How long the landing stage is, in metres.</summary>
+        /// <summary>
+        /// How long the landing stage is, in metres - and it is no longer used to scale
+        /// anything.
+        ///
+        /// The planking is laid at the pack's own size now, section by section, so what
+        /// decides the length is how many sections reach water. This is kept for the
+        /// ordinary beach landings, which are one piece.
+        /// </summary>
         const float JettyLength = 9f;
+
+        /// <summary>How many sections of planking the harbour lays, at most.</summary>
+        // Five of the pack's four-metre walkways is twenty metres of jetty, which is
+        // about twice the beam of what ties up to it. The run stops early wherever the
+        // next section would have nothing under it.
+        const int JettySections = 5;
+
+        /// <summary>How wide the planking is, in metres. Measured off the pack: 2.2.</summary>
+        const float JettyWidth = 2.2f;
+
+        /// <summary>How far back from the water the planking is rooted, in metres.</summary>
+        // One tile. The harbour is anchored to the wet tile nearest the goal, and a jetty
+        // that begins there begins in the sea.
+        const float Root = -TileGrid.TileSize;
 
         /// <summary>How long what is moored to it is, and how far off the end it lies.</summary>
         // The rowboat in the slot today is five metres; a ship will be more, and the

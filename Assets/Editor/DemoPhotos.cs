@@ -24,8 +24,40 @@ namespace TheVeil.Editor
         /// <summary>Where the pictures are kept.</summary>
         const string Folder = "Assets/_Project/Demo";
 
+        /// <summary>
+        /// Every level of one country, rather than one level of every country:
+        /// .
+        ///
+        /// <b>Because a country is ten places and the sheet above shows one of them.</b>
+        /// Photograph Every Chapter takes the first level of each, which is the right
+        /// picture for comparing countries and the wrong one for judging a country that
+        /// has just been rebuilt - it says what the dressing looks like once, where the
+        /// question is whether it holds up ten times. The smoke test does make a sheet of
+        /// ten, and at a tenth the width each: enough to see that a level is not empty,
+        /// not enough to see what is standing in it.
+        ///
+        /// Which chapter, as a command line argument, because this is for looking at the
+        /// one that was last worked on:
+        /// unity run . -- -executeMethod TheVeil.Editor.DemoPhotos.OneChapter -veilChapter 8
+        /// </summary>
+        [MenuItem("The Veil/Demo/Photograph One Chapter")]
+        public static void OneChapter() => Run(Asked());
+
+        /// <summary>The chapter the command line asked for, or the enchanted wood.</summary>
+        static int Asked()
+        {
+            var args = System.Environment.GetCommandLineArgs();
+
+            for (int i = 0; i + 1 < args.Length; i++)
+                if (args[i] == "-veilChapter" && int.TryParse(args[i + 1], out int one)) return one;
+
+            return Biomes.FirstChapterOf(Biome.Enchanted);
+        }
+
         [MenuItem("The Veil/Demo/Photograph Every Chapter")]
-        public static void Run()
+        public static void Run() => Run(0);
+
+        static void Run(int only)
         {
             if (!System.IO.Directory.Exists(Folder)) System.IO.Directory.CreateDirectory(Folder);
 
@@ -37,11 +69,17 @@ namespace TheVeil.Editor
             // Every chapter that has scenery of its own, from the one place that knows
             // which they are: the run of built ones, the coast at a hundred, and whatever
             // has been dressed out of order since. See DifficultyCurve.Dressed.
-            var wanted = DifficultyCurve.Dressed;
+            var wanted = new System.Collections.Generic.List<(int Chapter, int Level)>();
 
-            foreach (int chapter in wanted)
+            if (only > 0)
+                for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
+                    wanted.Add((only, level));
+            else
+                foreach (int chapter in DifficultyCurve.Dressed) wanted.Add((chapter, 1));
+
+            foreach (var (chapter, level) in wanted)
             {
-                var root = SmokeTest.Build(runner, chapter, 1, out var map);
+                var root = SmokeTest.Build(runner, chapter, level, out var map);
                 var grid = map.Grid;
 
                 // Every model at its nearest detail, and nothing wearing a colour somebody
@@ -93,9 +131,20 @@ namespace TheVeil.Editor
                 shot.Apply();
                 RenderTexture.active = null;
 
-                string path = $"{Folder}/Chapter{chapter}_{Name(chapter)}.png";
+                // <b>A chapter's ten go to the scratch folder, not into the project.</b>
+                // The one-per-country set is content - the demo screen shows it - and ten
+                // more per country at three megabytes apiece is thirty megabytes of
+                // binary in the repository every time somebody looks at a wood.
+                string path = only > 0
+                    ? System.IO.Path.Combine(
+                          System.IO.Path.GetTempPath(), "TheVeilChapter",
+                          $"Chapter{chapter}_{Name(chapter)}_{level:00}.png")
+                    : $"{Folder}/Chapter{chapter}_{Name(chapter)}.png";
+
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+
                 System.IO.File.WriteAllBytes(path, shot.EncodeToPNG());
-                Debug.Log($"[Demo] {chapter}-1 ({Name(chapter)}): {path}");
+                Debug.Log($"[Demo] {chapter}-{level} ({Name(chapter)}): {path}");
 
                 Object.DestroyImmediate(camera.gameObject);
                 if (root != null) Object.DestroyImmediate(root);

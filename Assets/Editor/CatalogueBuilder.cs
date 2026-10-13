@@ -332,6 +332,7 @@ namespace TheVeil.Editor
             public int Attempt;
             public LevelMaps.Judgement Judged;
             public float Cost;
+
         }
 
         /// <summary>
@@ -425,6 +426,25 @@ namespace TheVeil.Editor
                     if (map == null || !map.Accepted) continue;
 
                     // Levelled as LevelMaps.For levels it, so the map judged is the map played.
+                    // <b>The shelf first, then the yard, which is the order LevelMaps.For
+                    // uses - and this had only ever done the second of them.</b>
+                    //
+                    // A waterfall is cut by lowering the ground below a brink, and the
+                    // caravan runs over that ground. So the map the search judged and the
+                    // map the game ships were two maps on every level with a fall in it,
+                    // and the difference went unnoticed for as long as the search's
+                    // numbers were allowed a tenth of slack on either side. Fitting each
+                    // candidate's strength to its target took that slack away and the
+                    // mismatch came straight out: three chapters moved off their marks and
+                    // CampaignRulesTests failed on the climb, the window and 3-10's fast
+                    // road at once.
+                    //
+                    // Two earlier attempts to settle the curve died of the same thing and
+                    // the note on Calibrate blames the right cause for the wrong reason -
+                    // it is not that a pass at the end judges the chosen map, it is that
+                    // nothing in this file ever judged the shipped one.
+                    if (Waterfalls.Cuts(chapter, level)) Waterfalls.Carve(map, chapter);
+
                     Strongholds.Flatten(map, level);
 
                     // <b>And a tenth level has somewhere to put its castle.</b> Strongholds
@@ -622,6 +642,7 @@ namespace TheVeil.Editor
                 }
 
                 var pick = candidates[i][picks[i]];
+
                 var recipe = LevelMaps.Recipe(chapter, level);
                 chosen[(chapter, level)] = TerrainGenerator.Generate(recipe, Biomes.GroundSeed(chapter, level),
                                                                      null, pick.Attempt);

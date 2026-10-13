@@ -4272,13 +4272,36 @@ namespace TheVeil.Editor
                     "SM_Prop_Meadow_Fence_01", "SM_Prop_Meadow_Fence_03"
                 }));
 
-            // Driftwood above the tide line.
+            // <b>What marks a trap on this coast, and it is no longer the forest's.</b>
+            // The sea chapter never set its own: it took the wood's bone piles, which say
+            // an animal died here, in a country where what washes up is wreckage and what
+            // is buried is people. Graves and a skeleton on the sand are the same signal
+            // in the coast's own language - small, life size, and able to stand beside a
+            // lane with the escort walking past, which is what Ruins has to be.
+            decor.Ruins = Pirate("Props", "SM_Prop_Grave_01", "SM_Prop_Grave_02",
+                                 "SM_Prop_Grave_03", "SM_Prop_Grave_04",
+                                 "SM_Prop_Skeleton_Ground_01", "SM_Prop_Skeleton_Ground_02",
+                                 "SM_Prop_Debris_01", "SM_Prop_Debris_02");
+
+            // An anchor and a ship's wheel left above the tideline: the mark a road passes
+            // rather than the warning it steps over.
+            decor.Markers = Pirate("Props", "SM_Prop_Anchor_01", "SM_Prop_ShipWheel_01");
+
+            // The lookout. A coast watches the water, and the pack draws the tower a
+            // fishing village would actually put up - poles and planking, not masonry.
+            decor.Watchtowers = Pirate("Buildings", "SM_Bld_Rickety_Tower_03");
+
+            // Driftwood above the tide line - and the planks and wreckage that come with
+            // it, which is what a sea actually leaves on a beach. The forest's logs stay:
+            // a river brings those down.
             decor.Timber = Mixed(
+                Pirate("Props", "SM_Prop_WoodPlank_01", "SM_Prop_WoodPlank_02",
+                       "SM_Prop_Debris_01", "SM_Prop_Debris_02", "SM_Prop_Debris_03",
+                       "SM_Prop_Barrel_Half_01").Models,
                 Load($"{SyntyNatureDir}/Trees", new[]
                 {
                     "SM_Tree_Log_01", "SM_Tree_Log_02", "SM_Tree_Stump_01", "SM_Tree_Stump_03"
-                }),
-                Load(MeadowDir, new[] { "SM_Prop_Leaves_Pile_01" }));
+                }));
 
             // Reeds where the river comes down to the sea, which is the one soft edge on
             // a coast made of sand and stone.
@@ -4372,8 +4395,20 @@ namespace TheVeil.Editor
             // The landing stage at the end of the road, and what is tied to it. The
             // alpine pack's single jetty stood here because it was the only one owned;
             // the pirate pack draws a dock, which is what a coast with a ship at it has.
-            decor.Jetty = Pirate("Buildings", "SM_Bld_Dock_01", "SM_Bld_Dock_02",
-                                 "SM_Bld_Dock_03");
+            // <b>The walkway, not the platform.</b> Dock_01 to _03 went in here first
+            // because they are the pieces called dock, and they are not jetties: measured
+            // off the pack they are three and a half metres across and seven and a half
+            // tall, platforms on pilings. Fitted to a nine-metre jetty they came out as
+            // eighteen metres of tower standing in the sea with nothing joining it to the
+            // shore. The bridge is the piece you walk out along, four metres a section,
+            // and the harbour lays a run of them from the waterline out.
+            // <b>A fishing jetty on stilts, which is what this coast has.</b> It was the
+            // pack's dock bridge - a four-metre walkway, laid end to end, and a reasonable
+            // thing to walk out on. The rickety dock is the same idea drawn as a working
+            // pier: planks on poles, three of them, and the pack means them to be laid in
+            // a row. Dock_01 to _03 are not jetties at all and the note on them says so.
+            decor.Jetty = Pirate("Buildings", "SM_Bld_Rickety_Dock_01",
+                                 "SM_Bld_Rickety_Dock_02", "SM_Bld_Rickety_Dock_03");
 
             // <b>The line that said to change it when there was a ship.</b> It held the
             // knights' rowboat, the largest thing afloat in any pack owned at the time,
@@ -4399,15 +4434,26 @@ namespace TheVeil.Editor
             // stand of rods, an oar carried up and left lying, and the crates and buckets
             // any yard has. Each is placed at its own size now, which is why an oar is an
             // oar and not a mast.
+            // <b>A working shore, out of the pack drawn for one.</b> Six props stood here
+            // - a fish rack, a rod stand, an oar and three camp crates borrowed off a
+            // mountain and a meadow - because that was everything owned that could pass
+            // for the business of a coast. The pirate pack draws a hundred and fifty, and
+            // what a fishing village has in its yard is most of them: the catch, the
+            // barrels it goes in, the pots it is caught with, the rope and the sacks and
+            // the stacked crates waiting for a boat.
             decor.Yard = Mixed(
-                Load($"{AlpineDir}/Props", new[]
-                {
-                    "SM_Prop_Fish_Rack_01", "SM_Prop_Fishing_Rod_Stand_01", "SM_Prop_Oar_01"
-                }),
-                Load($"{MeadowDir}/Props", new[]
-                {
-                    "SM_Prop_Camp_Crate_01", "SM_Prop_Camp_Bucket_01", "SM_Prop_Camp_Bucket_02"
-                }));
+                Pirate("Props", "SM_Prop_FishRack_01", "SM_Prop_LobsterPot_01",
+                       "SM_Prop_Fishing_Crate_01", "SM_Prop_FishingRod_01",
+                       "SM_Prop_Oar_01", "SM_Prop_Liferaft_01",
+                       "SM_Prop_Liferaft_Stand_01").Models,
+                Pirate("Props", "SM_Prop_Barrel_01", "SM_Prop_Barrel_02",
+                       "SM_Prop_Barrel_03", "SM_Prop_Barrel_Half_01",
+                       "SM_Prop_Crate_01", "SM_Prop_Crate_02", "SM_Prop_Crate_03",
+                       "SM_Prop_Crate_Covered_01").Models,
+                Pirate("Props", "SM_Prop_Sack_01", "SM_Prop_Sack_02", "SM_Prop_Sack_03",
+                       "SM_Prop_Stack_01", "SM_Prop_Stack_02", "SM_Prop_Stack_03",
+                       "SM_Prop_Pot_01", "SM_Prop_Well_01", "SM_Prop_Lantern_01",
+                       "SM_Prop_Cart_01").Models);
 
             // Nothing on the skyline but weather. A coast's horizon is the sea, and a
             // range of hills standing in it is the one thing that would say otherwise.

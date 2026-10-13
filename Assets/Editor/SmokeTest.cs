@@ -508,6 +508,24 @@ namespace TheVeil.Editor
                 if (prop.name.StartsWith("SM_Env_Tree_Portal")
                     || prop.name.StartsWith("SM_Prop_Portal")) continue;
 
+                // <b>And a moored hull, which lies in the water.</b> This check asks
+                // whether a tall thing on the ground has something to walk round, and a
+                // ship is not on the ground: the escort never goes there, and a thirty-
+                // metre disc off the end of the jetty would be a wall across the one
+                // corner of the map the last level ends at. It was solid only because it
+                // used to be scattered like a prop - placing it by hand is what made the
+                // question visible. See TerrainDecorator.PlaceHarbour.
+                if (prop.name.IndexOf("Veh_Boat", System.StringComparison.Ordinal) >= 0) continue;
+
+                // <b>And the planking, which is walked along rather than round.</b> The
+                // harbour used to lay a four-metre walkway that sat below the height this
+                // check asks about, so the question never came up; a fishing jetty stands
+                // on stilts and does. A disc on it would send the escort round its own
+                // landing stage, and the shoreward section stands on the beach where the
+                // road may run - the same reason the castle's gate and the wood's portal
+                // are exempt. See TerrainDecorator.PlaceHarbour.
+                if (prop.name.IndexOf("Dock", System.StringComparison.Ordinal) >= 0) continue;
+
                 var discs = prop.GetComponentsInChildren<Solid>(true);
                 if (discs.Length == 0) { open.Add(prop.name); continue; }
 

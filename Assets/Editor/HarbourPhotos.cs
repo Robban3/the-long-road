@@ -57,14 +57,41 @@ namespace TheVeil.Editor
                           + $"{box.size.x:0.0} x {box.size.y:0.0} x {box.size.z:0.0} m"
                           + (Biomes.TheLastLanding(chapter, level) ? "  - the last landing" : ""));
 
-                // From the beach, looking out at what is tied up: the angle somebody
-                // standing at the end of the road would have. Backed off by the hull's own
-                // length, so the warship and a rowing boat are both framed rather than one
-                // of them filling the picture and the other sitting in the middle of it.
-                float away = Mathf.Max(box.size.x, box.size.z) * 1.4f + 16f;
+                // <b>From the side, so the jetty and what is tied to it are both in
+                // it.</b>
+                //
+                // This stood off the hull on a fixed bearing and photographed the hull.
+                // The planking lies alongside, which means that on half the levels it is
+                // directly behind the ship from wherever the camera happened to be: the
+                // last landing came back looking as though it had no jetty at all, and the
+                // jetty was five sections long and three metres from the hull. The same
+                // mistake the fall report made for an hour, standing on the bank it was
+                // trying to see past.
+                //
+                // So the two are found, the frame holds both, and the camera goes out
+                // along the perpendicular of the line between them - the one bearing from
+                // which neither can hide the other.
+                var pier = FindPier(root.transform);
 
-                Shoot(box.center + new Vector3(away * 0.7f, box.size.y + 6f, -away * 0.7f),
-                      box.center, System.IO.Path.Combine(shots, $"harbour-{level}.png"));
+                var frame = box;
+                var across = Vector3.right;
+
+                if (pier != null)
+                {
+                    var planks = TheVeil.View.ModelScaling.Measure(pier.gameObject);
+                    frame.Encapsulate(planks);
+
+                    var line = planks.center - box.center;
+                    line.y = 0f;
+
+                    if (line.sqrMagnitude > 1f)
+                        across = Vector3.Cross(line.normalized, Vector3.up);
+                }
+
+                float away = Mathf.Max(frame.size.x, frame.size.z) * 1.1f + 18f;
+
+                Shoot(frame.center + across * away + Vector3.up * (frame.size.y * 0.8f + 8f),
+                      frame.center, System.IO.Path.Combine(shots, $"harbour-{level}.png"));
 
                 Object.DestroyImmediate(root);
             }
@@ -110,6 +137,21 @@ namespace TheVeil.Editor
 
             Walk(at);
             return best;
+        }
+
+        /// <summary>The planking, so the picture can hold the jetty as well as the ship.</summary>
+        static Transform FindPier(Transform at)
+        {
+            foreach (Transform child in at)
+            {
+                if (child.name.IndexOf("Dock", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return child;
+
+                var found = FindPier(child);
+                if (found != null) return found;
+            }
+
+            return null;
         }
 
         static void Shoot(Vector3 from, Vector3 at, string path)
