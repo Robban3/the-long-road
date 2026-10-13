@@ -317,8 +317,16 @@ namespace TheVeil.Editor
                 // else and it is the hull that says whether the ship is in the water -
                 // the same arrangement the meadow pack's branches have below, and for the
                 // same reason.
+                // <b>And a hull, because it floats.</b> This check measures everything
+                // against the ground under it, and the ground under a moored ship is the
+                // sea bed: pushed out to where there is water enough for a thirty-metre
+                // hull, the warship came back nine tenths of a metre clear of a bottom it
+                // is not supposed to be resting on. A vessel at a jetty is the one thing
+                // in the dressing that is wrong when it *is* on the ground.
+                bool afloat = name.IndexOf("Veh_Boat", System.StringComparison.Ordinal) >= 0;
+
                 bool hangs = name.Contains("Banner") || name.Contains("ShopSign")
-                             || Rigging(name) || Aloft(decor, name);
+                             || Rigging(name) || afloat || Aloft(decor, name);
 
                 // A tree's branches, which are their own meshes in the meadow pack and hang
                 // above the ground by construction - that is what a branch does. The trunk

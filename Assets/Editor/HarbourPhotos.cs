@@ -71,27 +71,39 @@ namespace TheVeil.Editor
                 // So the two are found, the frame holds both, and the camera goes out
                 // along the perpendicular of the line between them - the one bearing from
                 // which neither can hide the other.
-                var pier = FindPier(root.transform);
+                // <b>The jetty is the subject and the ship is what it holds.</b>
+                //
+                // Two sets of pictures framed the hull and backed the camera off by the
+                // hull's own size, and in both of them the planking was a dark smudge at
+                // the edge or behind the ship entirely. It cannot be otherwise: the hull
+                // is thirty metres and the planking is two across, so a frame that fits
+                // the ship renders the jetty at a few pixels whichever way it faces.
+                //
+                // So the frame is taken from the jetty's head - the section the ship is
+                // tied beside - and the ship is allowed to run out of shot. The camera
+                // stands off along the line from the hull to that head, which is the one
+                // bearing with the planking in front and the hull behind it rather than
+                // the other way round.
+                var pier = FindPier(root.transform, box.center);
 
-                var frame = box;
-                var across = Vector3.right;
+                var subject = box;
+                var from = new Vector3(1f, 0f, -1f).normalized;
 
                 if (pier != null)
                 {
-                    var planks = TheVeil.View.ModelScaling.Measure(pier.gameObject);
-                    frame.Encapsulate(planks);
+                    subject = TheVeil.View.ModelScaling.Measure(pier.gameObject);
 
-                    var line = planks.center - box.center;
+                    var line = subject.center - box.center;
                     line.y = 0f;
 
-                    if (line.sqrMagnitude > 1f)
-                        across = Vector3.Cross(line.normalized, Vector3.up);
+                    if (line.sqrMagnitude > 1f) from = line.normalized;
                 }
 
-                float away = Mathf.Max(frame.size.x, frame.size.z) * 1.1f + 18f;
+                // Close enough that the planking reads, which is what decides the shot.
+                float away = Mathf.Max(subject.size.x, subject.size.z) * 2f + 22f;
 
-                Shoot(frame.center + across * away + Vector3.up * (frame.size.y * 0.8f + 8f),
-                      frame.center, System.IO.Path.Combine(shots, $"harbour-{level}.png"));
+                Shoot(subject.center + from * away + Vector3.up * (away * 0.55f),
+                      subject.center, System.IO.Path.Combine(shots, $"harbour-{level}.png"));
 
                 Object.DestroyImmediate(root);
             }
@@ -139,19 +151,37 @@ namespace TheVeil.Editor
             return best;
         }
 
-        /// <summary>The planking, so the picture can hold the jetty as well as the ship.</summary>
-        static Transform FindPier(Transform at)
+        /// <summary>
+        /// The head of the jetty: the section nearest what is tied up to it.
+        ///
+        /// <b>Nearest, and the first version took whichever came first in the
+        /// hierarchy.</b> The planking is a run of five and the one the hierarchy reaches
+        /// first is the shoreward end, so the line from ship to jetty came out pointing
+        /// along the shore instead of across it - and a camera placed on the perpendicular
+        /// of that line looks straight down the jetty with the hull broadside in front of
+        /// it. Two sets of pictures were composed that way and the jetty is in neither.
+        /// </summary>
+        static Transform FindPier(Transform at, Vector3 near)
         {
-            foreach (Transform child in at)
-            {
-                if (child.name.IndexOf("Dock", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    return child;
+            Transform best = null;
+            float closest = float.MaxValue;
 
-                var found = FindPier(child);
-                if (found != null) return found;
+            void Walk(Transform where)
+            {
+                foreach (Transform child in where)
+                {
+                    if (child.name.IndexOf("Dock", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        float away = (child.position - near).sqrMagnitude;
+                        if (away < closest) { closest = away; best = child; }
+                    }
+
+                    Walk(child);
+                }
             }
 
-            return null;
+            Walk(at);
+            return best;
         }
 
         static void Shoot(Vector3 from, Vector3 at, string path)

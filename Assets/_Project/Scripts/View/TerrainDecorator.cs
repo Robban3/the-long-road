@@ -5093,29 +5093,49 @@ namespace TheVeil.View
 
             float scale = raw.size.z > 0.1f ? length / raw.size.z : 1f;
             hull.transform.localScale *= scale;
-            hull.transform.rotation = Quaternion.Euler(0f, yaw + 90f, 0f);
 
-            float beam = ModelScaling.Measure(hull.gameObject).size.z;
-            float aside = JettyWidth * 0.5f + beam * 0.5f + ShipStandoff;
+            // <b>Turned along the planking, not across it.</b>
+            //
+            // The hull kept the quarter turn it had from when it was moored off the end of
+            // the jetty pointing out to sea. Laid beside the planking it was still turned
+            // across it, so thirty metres of ship lay over a sixteen-metre pier: the
+            // photograph showed the stern standing in the middle of the run with planks
+            // coming out of both sides of it. Alongside means parallel.
+            hull.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
-            // Half a jetty back from its head, so the hull lies along the planking rather
-            // than ending where it does.
-            float down = Mathf.Max(0f, head - length * 0.5f);
+            // <b>The beam measured along the direction it is pushed in, which is the only
+            // measurement that is true at any angle.</b>
+            //
+            // Taken off the world box this mixes the hull's length into its width
+            // wherever the shore does not run square to the grid. Taken off the model's
+            // own X it came to eleven metres where the built hull is fourteen and a half:
+            // the box is not square to the model's axes and the bowsprit and rigging
+            // carry past it. Both were tried and the planking went through the hull both
+            // times. An axis-aligned box's reach along a unit direction is the sum of its
+            // half-extents weighted by that direction, and that is what the hull needs
+            // room for.
+            var side = new Vector3(Mathf.Cos(yaw * Mathf.Deg2Rad), 0f,
+                                   -Mathf.Sin(yaw * Mathf.Deg2Rad));
 
-            float mx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * down
-                            + Mathf.Cos(yaw * Mathf.Deg2Rad) * aside;
-            float mz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * down
-                            - Mathf.Sin(yaw * Mathf.Deg2Rad) * aside;
+            var ext = ModelScaling.Measure(hull.gameObject).extents;
+            float beam = Mathf.Abs(side.x) * ext.x + Mathf.Abs(side.z) * ext.z;
+
+            float aside = JettyWidth * 0.5f + beam + ShipStandoff;
+
+            // Against the middle of the run, so the planking lies along the hull rather
+            // than meeting it at one end.
+            float down = head * 0.5f;
+
+            float mx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * down + side.x * aside;
+            float mz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * down + side.z * aside;
 
             // And it has to float. Where the water runs out before the beam does, the hull
             // comes back in until it is over water again - a narrow inlet moors its boat
             // close in and the open sea gives a ship its room.
             for (float back = 0f; back <= aside; back += TileGrid.TileSize * 0.5f)
             {
-                float tx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * down
-                                + Mathf.Cos(yaw * Mathf.Deg2Rad) * (aside - back);
-                float tz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * down
-                                - Mathf.Sin(yaw * Mathf.Deg2Rad) * (aside - back);
+                float tx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * down + side.x * (aside - back);
+                float tz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * down + side.z * (aside - back);
 
                 int on = Tile(grid, tx, tz);
                 if (on < 0 || grid[on] != TerrainType.Water) continue;
