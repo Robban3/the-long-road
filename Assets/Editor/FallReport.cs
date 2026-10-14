@@ -121,6 +121,9 @@ namespace TheVeil.Editor
                 // is circular: the whole reason for the picture is that the height is the
                 // thing in question, and when the fall stopped being thirty-one metres and
                 // became thirteen the camera walked in with it and photographed a spruce.
+                // The weather, run forward, before anything is framed. See Settle.
+                Settle(root);
+
                 float away = box.size.y + 34f;
 
                 Shoot(box.center + sheet.forward * away + Vector3.up * (box.size.y * 0.25f),
@@ -177,6 +180,40 @@ namespace TheVeil.Editor
 
             return null;
         }
+
+        /// <summary>
+        /// Runs every particle system in the level forward before the shutter opens.
+        ///
+        /// <b>Every judgement anybody has made about these falls has been made from a
+        /// picture with the water missing.</b> A particle system at edit time has emitted
+        /// nothing: this file already knows that about *size* - the note on Find says the
+        /// spray measures nought by nought by nought and that pointing a camera at it
+        /// photographs the sky - and never drew the conclusion for the photograph. The
+        /// foam at the foot, the spray off the rock and the mist in the gorge are all
+        /// particles, so a fall has been photographed as a bare sheet and called a bare
+        /// sheet, three times, by me.
+        ///
+        /// The plan photographs have driven their crows and their eagle by hand since they
+        /// were written (TickCrows, FlyEagle) for exactly this reason. This is that, for
+        /// the one country whose scenery is half weather.
+        ///
+        /// Two seconds, which is past the first burst and into the steady state: a system
+        /// simulated for a frame shows its first few particles at the emitter and nothing
+        /// where they end up.
+        /// </summary>
+        static void Settle(GameObject root)
+        {
+            if (root == null) return;
+
+            foreach (var system in root.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                system.Clear(true);
+                system.Simulate(SprayWarmup, true, true);
+            }
+        }
+
+        /// <summary>How long the spray is run before the picture, in seconds.</summary>
+        const float SprayWarmup = 2f;
 
         static void Shoot(Vector3 from, Vector3 at, string path)
         {
