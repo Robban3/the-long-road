@@ -5253,16 +5253,43 @@ namespace TheVeil.View
 
             for (int way = -1; way <= 1; way += 2)
             {
+                // <b>The walk follows the waterline rather than a bearing.</b>
+                //
+                // It used to take one heading at the jetty and march along it, and a shore
+                // is not straight: the march left the water, the search for a plot - three
+                // tiles in any direction - dragged each house back to whatever waterside
+                // ground it could find, and what came out was the scatter this pass was
+                // written to replace. Photographed, three buildings strung along a
+                // shoreline among trees.
+                //
+                // So the heading is re-read at every house from where the shore actually
+                // went, and the next step is taken from the house just built rather than
+                // from the harbour. A bay bends the street round it, which is what a
+                // street on a bay does.
+                int fromX = hx, fromY = hy;
+                int headX = stepX * way, headY = stepY * way;
+
                 for (int step = 1; step <= WaterfrontReach && built < WaterfrontHouses; step++)
                 {
-                    int x = hx + stepX * step * way * WaterfrontApart;
-                    int y = hy + stepY * step * way * WaterfrontApart;
+                    int x = fromX + headX * WaterfrontApart;
+                    int y = fromY + headY * WaterfrontApart;
 
                     int plot = DryByTheWater(grid, x, y);
                     if (plot < 0 || occupied.Contains(plot)) continue;
                     if (road != null && road.Contains(plot)) continue;
 
                     grid.ToCoords(plot, out int px, out int py);
+
+                    // Where the shore turned out to be, which is the heading for the next
+                    // one. Signs rather than lengths: this is a step on a grid.
+                    if (px != fromX || py != fromY)
+                    {
+                        headX = System.Math.Sign(px - fromX);
+                        headY = System.Math.Sign(py - fromY);
+                    }
+
+                    fromX = px;
+                    fromY = py;
 
                     // Turned to look at the water, which is what a front means.
                     var choice = new Choice(decor.Houses, Any(decor.Houses, rng), 0f,
@@ -5274,6 +5301,15 @@ namespace TheVeil.View
 
                     placed++;
                     built++;
+
+                    // <b>And the ground between the house and the water is spoken for.</b>
+                    //
+                    // A house with three spruces in front of it is not a front. This pass
+                    // runs with the keep, long before anything is scattered, so the quay
+                    // only has to be claimed and nothing will ever be planted on it - which
+                    // is cheaper and surer than sweeping a wood away afterwards, and it is
+                    // how the gate into the enchanted wood keeps its archway clear.
+                    Quay(grid, occupied, px, py);
 
                     // A shed or a yard behind it, a plot back from the water, so the front
                     // has a depth rather than being a row of faces on a beach.
@@ -5307,6 +5343,36 @@ namespace TheVeil.View
         const int WaterfrontHouses = 10;
         const int WaterfrontApart = 3;
         const int WaterfrontReach = 8;
+
+        /// <summary>
+        /// Claims the ground between a waterfront house and the water, so the front has a
+        /// quay in front of it rather than a wood.
+        /// </summary>
+        static void Quay(TileGrid grid, HashSet<int> occupied, int x, int y)
+        {
+            if (occupied == null) return;
+
+            float seaward = Seaward(grid, x, y) * Mathf.Deg2Rad;
+
+            int toX = Mathf.RoundToInt(Mathf.Sin(seaward));
+            int toY = Mathf.RoundToInt(Mathf.Cos(seaward));
+
+            // The tile the house stands on, the two in front of it, and a tile either
+            // side of those - a frontage rather than a path to the water.
+            for (int ahead = 0; ahead <= QuayDepth; ahead++)
+                for (int side = -1; side <= 1; side++)
+                {
+                    int qx = x + toX * ahead - toY * side;
+                    int qy = y + toY * ahead + toX * side;
+
+                    if (grid.InBounds(qx, qy)) occupied.Add(grid.ToIndex(qx, qy));
+                }
+        }
+
+        /// <summary>How far in front of a waterfront house the ground is kept clear, in tiles.</summary>
+        // Two, which is eight metres: enough that a tree cannot stand between a door and
+        // the water, and not so much that the whole shoreline of the level is reserved.
+        const int QuayDepth = 2;
 
         /// <summary>The dry tile nearest this one that has water beside it, or -1.</summary>
         static int DryByTheWater(TileGrid grid, int x, int y)

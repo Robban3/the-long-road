@@ -99,18 +99,41 @@ namespace TheVeil.Editor
                     if (line.sqrMagnitude > 1f) from = line.normalized;
                 }
 
-                // <b>Close enough that the planking reads, wide enough to hold the
-                // street.</b> The frame was taken from the jetty's head alone, which was
-                // right while the jetty was the only thing built on the water. There is a
-                // waterfront along the shore now - ten buildings, three tiles apart, sixty
-                // metres each way from the harbour - and a shot tight on the planking
-                // leaves the whole town out of the picture.
-                subject.Expand(new Vector3(Waterfront, 0f, Waterfront));
-
                 float away = Mathf.Max(subject.size.x, subject.size.z) * 1.1f + 22f;
 
                 Shoot(subject.center + from * away + Vector3.up * (away * 0.55f),
                       subject.center, System.IO.Path.Combine(shots, $"harbour-{level}.png"));
+
+                // <b>And the town, which the harbour shot cannot hold.</b>
+                //
+                // The frame above was widened by sixty metres each way to take in the
+                // waterfront, and the picture that came back was a bay with a ship in it
+                // and one hut among the trees - because a box centred on the jetty and
+                // grown by a fixed amount is not where the street is. The street follows
+                // the shoreline, which bends; it ran out of the right-hand edge of every
+                // shot.
+                //
+                // The report counted thirteen buildings along that water at fifteen
+                // metres apart while the picture showed one of them. So the street is
+                // found the way the report finds it - the buildings themselves - and the
+                // camera is put where a person standing off the harbour in a boat would
+                // be: out on the water, looking back at the front.
+                var town = Street(root.transform);
+
+                if (town.size.x + town.size.z > 1f)
+                {
+                    var seaward = town.center - box.center;
+                    seaward.y = 0f;
+
+                    // Towards the hull, which is the one thing on the level that is
+                    // certainly afloat, and so the one bearing that is certainly the sea.
+                    var stand = seaward.sqrMagnitude > 1f ? -seaward.normalized : from;
+
+                    float back = Mathf.Max(town.size.x, town.size.z) * 0.8f + 40f;
+
+                    Shoot(town.center + stand * back + Vector3.up * (back * 0.5f),
+                          town.center, System.IO.Path.Combine(shots, $"front-{level}.png"));
+                }
 
                 Object.DestroyImmediate(root);
             }
@@ -118,10 +141,36 @@ namespace TheVeil.Editor
             Debug.Log($"[Harbour] pictures in {shots}");
         }
 
-        /// <summary>How far along the shore the waterfront reaches, in metres.</summary>
-        // Ten buildings three tiles apart, counted from the jetty both ways:
-        // TerrainDecorator.PlaceWaterfront owns those two numbers and this follows them.
-        const float Waterfront = 130f;
+        /// <summary>
+        /// The box the waterfront buildings stand in.
+        ///
+        /// By name, as WaterfrontReport counts them: the coast's Houses set is seven
+        /// shanties and three rickety houses, and nothing else on the level is called
+        /// either. Empty where no front was built, which the caller checks.
+        /// </summary>
+        static Bounds Street(Transform at)
+        {
+            var box = new Bounds();
+            bool any = false;
+
+            void Walk(Transform where)
+            {
+                foreach (Transform child in where)
+                {
+                    if (child.name.IndexOf("Shanty", System.StringComparison.OrdinalIgnoreCase) >= 0
+                        || child.name.IndexOf("Rickety_House", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        if (!any) { box = new Bounds(child.position, Vector3.zero); any = true; }
+                        else box.Encapsulate(child.position);
+                    }
+
+                    Walk(child);
+                }
+            }
+
+            Walk(at);
+            return any ? box : new Bounds();
+        }
 
         /// <summary>
         /// The hull, which is the largest thing on the level called a boat.
