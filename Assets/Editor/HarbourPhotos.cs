@@ -99,8 +99,15 @@ namespace TheVeil.Editor
                     if (line.sqrMagnitude > 1f) from = line.normalized;
                 }
 
-                // Close enough that the planking reads, which is what decides the shot.
-                float away = Mathf.Max(subject.size.x, subject.size.z) * 2f + 22f;
+                // <b>Close enough that the planking reads, wide enough to hold the
+                // street.</b> The frame was taken from the jetty's head alone, which was
+                // right while the jetty was the only thing built on the water. There is a
+                // waterfront along the shore now - ten buildings, three tiles apart, sixty
+                // metres each way from the harbour - and a shot tight on the planking
+                // leaves the whole town out of the picture.
+                subject.Expand(new Vector3(Waterfront, 0f, Waterfront));
+
+                float away = Mathf.Max(subject.size.x, subject.size.z) * 1.1f + 22f;
 
                 Shoot(subject.center + from * away + Vector3.up * (away * 0.55f),
                       subject.center, System.IO.Path.Combine(shots, $"harbour-{level}.png"));
@@ -110,6 +117,11 @@ namespace TheVeil.Editor
 
             Debug.Log($"[Harbour] pictures in {shots}");
         }
+
+        /// <summary>How far along the shore the waterfront reaches, in metres.</summary>
+        // Ten buildings three tiles apart, counted from the jetty both ways:
+        // TerrainDecorator.PlaceWaterfront owns those two numbers and this follows them.
+        const float Waterfront = 130f;
 
         /// <summary>
         /// The hull, which is the largest thing on the level called a boat.

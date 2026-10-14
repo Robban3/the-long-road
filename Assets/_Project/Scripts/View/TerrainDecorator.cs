@@ -1504,7 +1504,7 @@ namespace TheVeil.View
             // the last chapter climbs towards a way out, so the coast puts a jetty and a
             // ship at the end of its road instead. See PlaceHarbour.
             placed += PlaceHarbour(parent, grid, Stream(19), decor, occupied, heightScale,
-                                   goalTile, lastLanding);
+                                   goalTile, lastLanding, road);
 
             if (!decor.Jetty.Any)
                 placed += PlaceCastle(parent, grid, Stream(0), decor, occupied, heightScale,
@@ -4981,7 +4981,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceHarbour(Transform parent, TileGrid grid, DeterministicRandom rng,
                                 BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                                int goalTile, bool lastLanding)
+                                int goalTile, bool lastLanding, HashSet<int> road)
         {
             if (!decor.Jetty.Any || goalTile < 0 || goalTile >= grid.TileCount) return 0;
 
@@ -5165,6 +5165,8 @@ namespace TheVeil.View
                                                   mz);
             placed++;
 
+            placed += PlaceWaterfront(parent, grid, rng, decor, occupied, heightScale, best, yaw, road);
+
             return placed;
         }
 
@@ -5210,6 +5212,135 @@ namespace TheVeil.View
         const float FlagshipLength = 30f;
 
         const float ShipStandoff = 3f;
+
+        /// <summary>
+        /// The town along the water: a front of buildings facing the harbour, with the
+        /// jetty at its middle.
+        ///
+        /// <b>Because dressing the scatter is not building a town.</b> The coast was given
+        /// the pack's shanties and rickety houses, and all that did was change what the two
+        /// or three buildings a level already had were made of - Houses is deliberately
+        /// rare and deliberately spread, because anything scattered everywhere teaches the
+        /// eye to skip it. Rare and spread is right for a farmhouse on a moor. It is not a
+        /// harbour.
+        ///
+        /// What makes a harbour town is that the buildings face the water and stand close
+        /// enough together to be a street. So they are walked out along the shoreline from
+        /// the jetty, both ways, each one on the dry tile nearest the water and turned to
+        /// look at it. Nothing here is scattered: the only thing drawn is which building
+        /// goes on which plot.
+        ///
+        /// Off the road, because a town grown across the lane the caravan drives down is a
+        /// town it drives through - and the sweeps would take half of it away afterwards,
+        /// which reads as a street with gaps in it.
+        /// </summary>
+        static int PlaceWaterfront(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                   BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                                   int harbour, float yaw, HashSet<int> road)
+        {
+            if (!decor.Houses.Any) return 0;
+
+            grid.ToCoords(harbour, out int hx, out int hy);
+
+            // Along the shore is across the way out to sea.
+            float along = (yaw + 90f) * Mathf.Deg2Rad;
+            int stepX = Mathf.RoundToInt(Mathf.Sin(along));
+            int stepY = Mathf.RoundToInt(Mathf.Cos(along));
+
+            if (stepX == 0 && stepY == 0) return 0;
+
+            int placed = 0, built = 0;
+
+            for (int way = -1; way <= 1; way += 2)
+            {
+                for (int step = 1; step <= WaterfrontReach && built < WaterfrontHouses; step++)
+                {
+                    int x = hx + stepX * step * way * WaterfrontApart;
+                    int y = hy + stepY * step * way * WaterfrontApart;
+
+                    int plot = DryByTheWater(grid, x, y);
+                    if (plot < 0 || occupied.Contains(plot)) continue;
+                    if (road != null && road.Contains(plot)) continue;
+
+                    grid.ToCoords(plot, out int px, out int py);
+
+                    // Turned to look at the water, which is what a front means.
+                    var choice = new Choice(decor.Houses, Any(decor.Houses, rng), 0f,
+                                            byWidth: false);
+
+                    if (!Scatter(parent, grid, rng, choice, plot, heightScale, spread: 0.4f,
+                                 occupied: occupied, yaw: Seaward(grid, px, py) + 180f))
+                        continue;
+
+                    placed++;
+                    built++;
+
+                    // A shed or a yard behind it, a plot back from the water, so the front
+                    // has a depth rather than being a row of faces on a beach.
+                    int behind = Backland(grid, px, py);
+                    if (behind < 0 || occupied.Contains(behind)) continue;
+
+                    var lean = decor.Sheds.Any && rng.Chance(0.6f) ? decor.Sheds : decor.Yard;
+                    if (!lean.Any) continue;
+
+                    var small = new Choice(lean, Any(lean, rng), 0f, byWidth: false);
+
+                    if (Scatter(parent, grid, rng, small, behind, heightScale, spread: 0.6f,
+                                occupied: occupied, yaw: rng.Range(0f, 360f)))
+                        placed++;
+                }
+            }
+
+            // Said out loud, because a front that quietly builds two houses looks exactly
+            // like the scatter it replaced and there is no other way to tell them apart
+            // from above.
+            Debug.Log($"[The Veil] Waterfront: {built} building(s) along the shore of "
+                      + $"{WaterfrontHouses} asked for.");
+
+            return placed;
+        }
+
+        /// <summary>How many buildings the front holds, how far apart, and how far it reaches.</summary>
+        // Ten is a street and not a hamlet; three tiles apart is twelve metres, about a
+        // building and a gap. The reach is counted in those steps, so the front gives up
+        // rather than walking the whole shoreline looking for a plot.
+        const int WaterfrontHouses = 10;
+        const int WaterfrontApart = 3;
+        const int WaterfrontReach = 8;
+
+        /// <summary>The dry tile nearest this one that has water beside it, or -1.</summary>
+        static int DryByTheWater(TileGrid grid, int x, int y)
+        {
+            for (int reach = 0; reach <= 3; reach++)
+                for (int dy = -reach; dy <= reach; dy++)
+                    for (int dx = -reach; dx <= reach; dx++)
+                    {
+                        if (Mathf.Abs(dx) != reach && Mathf.Abs(dy) != reach) continue;
+                        if (!grid.InBounds(x + dx, y + dy)) continue;
+
+                        int at = grid.ToIndex(x + dx, y + dy);
+                        if (IsWet(grid[at]) || !grid.IsPassable(x + dx, y + dy)) continue;
+                        if (!NextToWater(grid, x + dx, y + dy)) continue;
+
+                        return at;
+                    }
+
+            return -1;
+        }
+
+        /// <summary>One plot back from the water, for what stands behind the front.</summary>
+        static int Backland(TileGrid grid, int x, int y)
+        {
+            float inland = (Seaward(grid, x, y) + 180f) * Mathf.Deg2Rad;
+
+            int bx = x + Mathf.RoundToInt(Mathf.Sin(inland)) * 2;
+            int by = y + Mathf.RoundToInt(Mathf.Cos(inland)) * 2;
+
+            if (!grid.InBounds(bx, by)) return -1;
+
+            int at = grid.ToIndex(bx, by);
+            return IsWet(grid[at]) || !grid.IsPassable(bx, by) ? -1 : at;
+        }
 
         /// <summary>
         /// Whether there is sea enough here to lie a ship in.
