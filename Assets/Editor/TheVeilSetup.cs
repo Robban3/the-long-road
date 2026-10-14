@@ -4291,6 +4291,33 @@ namespace TheVeil.Editor
             // fishing village would actually put up - poles and planking, not masonry.
             decor.Watchtowers = Pirate("Buildings", "SM_Bld_Rickety_Tower_03");
 
+            // <b>A harbour town, where the coast has been building a forest hamlet.</b>
+            //
+            // The sea chapter never set Houses or Sheds, so its two villages
+            // (Settlements.VillageLevels) have been raised out of the forest's cottages -
+            // thatch and daub, inland, a hundred metres from a beach. Nobody noticed
+            // because a cottage is a plausible building anywhere and the eye forgives it.
+            //
+            // The pack draws the thing itself: seven shanty presets and three rickety
+            // houses, which are whole buildings rather than kit, timber on stilts with
+            // their backs to the weather. The shanty is the right idea for this country
+            // twice over - it is what a fishing village is built of, and it is built the
+            // same way the jetty is, by people with planks and no stone.
+            decor.Houses = Pirate("Buildings",
+                                  "SM_Bld_Shanty_Preset_01", "SM_Bld_Shanty_Preset_02",
+                                  "SM_Bld_Shanty_Preset_03", "SM_Bld_Shanty_Preset_04",
+                                  "SM_Bld_Shanty_Preset_05", "SM_Bld_Shanty_Preset_06",
+                                  "SM_Bld_Shanty_Preset_07",
+                                  "SM_Bld_Rickety_House_01", "SM_Bld_Rickety_House_02",
+                                  "SM_Bld_Rickety_House_03");
+
+            // And what leans on them: the single rooms, the shops along the front, and the
+            // bar - which is the one building on a harbour that is not somebody's home.
+            decor.Sheds = Pirate("Buildings",
+                                 "SM_Bld_Shanty_Room_01", "SM_Bld_Shanty_Room_02",
+                                 "SM_Bld_Shanty_Room_03", "SM_Bld_Shanty_Preset_Bar_01",
+                                 "SM_Bld_Shop_01", "SM_Bld_Shop_02", "SM_Bld_Shop_03");
+
             // Driftwood above the tide line - and the planks and wreckage that come with
             // it, which is what a sea actually leaves on a beach. The forest's logs stay:
             // a river brings those down.

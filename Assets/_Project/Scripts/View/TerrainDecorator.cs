@@ -2585,9 +2585,25 @@ namespace TheVeil.View
         {
             grid.ToCoords(tile, out int x, out int y);
 
-            // Across the flow: if the water runs down the rows, the channel runs along them.
-            int stepX = alongY != 0 ? 1 : 0;
-            int stepY = alongX != 0 ? 1 : 0;
+            // <b>Across the flow, which is the perpendicular and not the other axis.</b>
+            //
+            // This read "if the water runs down the rows the channel runs along them",
+            // which is true of a river going straight and false of one that meanders. A
+            // step of (1,1) - and most steps are, because rivers wander - set both of
+            // these to one and walked the *other diagonal*: the first tile it looked at
+            // was out of the water, so the channel came back one tile wide.
+            //
+            // What that cost: a fall is laid as strands across the channel, so a channel
+            // measured at one tile gets one strand. Measured on the built levels, 6-4 and
+            // 6-7 had a single four-metre sheet hanging in a river twelve metres across,
+            // with open water either side of it going over the edge and nothing happening.
+            // That is the whole of why the falls have read as a sheet of paper in a gorge
+            // rather than as a river coming off a shelf.
+            //
+            // The perpendicular of (dx, dy) is (-dy, dx), and the signs are what matter
+            // here rather than the lengths.
+            int stepX = -System.Math.Sign(alongY);
+            int stepY = System.Math.Sign(alongX);
 
             int wide = 1;
 
