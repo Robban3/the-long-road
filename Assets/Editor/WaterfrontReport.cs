@@ -181,7 +181,9 @@ namespace TheVeil.Editor
             {
                 string name = child.name;
 
-                if (Has(name, "Shanty") || Has(name, "Rickety_House")) houses.Add(child);
+                if (Has(name, "Shanty") || Has(name, "Rickety_House")
+                    || name.StartsWith(TheVeil.View.TerrainDecorator.Front,
+                                       System.StringComparison.Ordinal)) houses.Add(child);
                 else if (Has(name, "Dock")) planks.Add(child);
                 else if (Has(name, "Tree") || Has(name, "Bush") || Has(name, "Plant")
                          || Has(name, "Palm") || Has(name, "Mangrove")) green.Add(child);

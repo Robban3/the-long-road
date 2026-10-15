@@ -130,6 +130,23 @@ namespace TheVeil.Editor
         /// build with its own arguments would drift from the first the day either one is
         /// changed, and then the tool is reporting on a world nobody plays.
         /// </summary>
+        /// <summary>
+        /// Whether this piece belongs to something standing on the quay.
+        ///
+        /// Asked of the whole line of parents rather than of the piece. The tag goes on
+        /// what the decorator instantiates, and a chest is a prefab of three meshes with
+        /// their own names - so the chest was exempt and its lid and its gold were
+        /// reported hanging a metre over a sea bed they are nowhere near.
+        /// </summary>
+        static bool Landed(Transform piece)
+        {
+            for (var up = piece; up != null; up = up.parent)
+                if (up.name.StartsWith(TerrainDecorator.Landed, System.StringComparison.Ordinal))
+                    return true;
+
+            return false;
+        }
+
         /// <summary>Whether a model is one the country hangs in its sky. See PlaceSky.</summary>
         /// <summary>
         /// Whether this is part of a ship's rig, which is above the deck by construction.
@@ -332,8 +349,7 @@ namespace TheVeil.Editor
                 // guessed at: see TerrainDecorator.Landed. Without it the choice is a
                 // check that cries about a crate on a wharf or a wharf with nothing on
                 // it, and an empty wharf is why this was built.
-                bool onTheQuay = name.StartsWith(TerrainDecorator.Landed,
-                                                 System.StringComparison.Ordinal);
+                bool onTheQuay = Landed(renderer.transform);
 
                 bool hangs = name.Contains("Banner") || name.Contains("ShopSign")
                              || Rigging(name) || afloat || onTheQuay || Aloft(decor, name);

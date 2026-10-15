@@ -134,6 +134,18 @@ namespace TheVeil.Editor
                     Shoot(town.center + stand * back + Vector3.up * (back * 0.5f),
                           town.center, System.IO.Path.Combine(shots, $"front-{level}.png"));
 
+                    // <b>And close enough to see what the buildings are.</b> The shot
+                    // above stands off the whole street, which is two hundred metres
+                    // long: a building in it is forty pixels and the question of whether
+                    // the town is built of huts or of houses cannot be answered from it.
+                    // This one frames the middle third.
+                    var middle = new Bounds(town.center, town.size / 3f);
+
+                    float close = Mathf.Max(middle.size.x, middle.size.z) * 0.9f + 30f;
+
+                    Shoot(middle.center + stand * close + Vector3.up * (close * 0.4f),
+                          middle.center, System.IO.Path.Combine(shots, $"street-{level}.png"));
+
                     // And straight down, which is the one view that answers how the town
                     // is laid out rather than how it looks. From the water a street is a
                     // row of roofs with trees in front of it and the question of whether

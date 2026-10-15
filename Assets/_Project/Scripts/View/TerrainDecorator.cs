@@ -453,6 +453,38 @@ namespace TheVeil.View
         public PropSet Quay = new PropSet();
 
         /// <summary>
+        /// The colonial town the harbour is: walls, roofs and a bell tower.
+        ///
+        /// <b>A fishing village and a port are not the same place.</b> The front was
+        /// built out of the pack's shanties - timber on stilts, which is right for the
+        /// huts along an open beach - and the pack's own picture of this country is a
+        /// town of rendered stone with tiled roofs, arcades and a campanile over it. The
+        /// difference is not a detail; it is what the place is.
+        ///
+        /// Four sets rather than one because the pieces come in two widths and a roof
+        /// belongs on a wall of its own width: a four-metre roof on an eight-metre room
+        /// is a hat. Rooms stack - they are flat-topped by design, which is what makes
+        /// them a kit - so a house is one or two of them with its roof on.
+        /// </summary>
+        public PropSet TownRooms = new PropSet();
+
+        /// <summary>The wide ones, eight metres across.</summary>
+        public PropSet TownHalls = new PropSet();
+
+        /// <summary>The roofs that go on TownRooms, and the ones that go on TownHalls.</summary>
+        public PropSet TownRoofs = new PropSet();
+        public PropSet TownHallRoofs = new PropSet();
+
+        /// <summary>
+        /// The bell tower, which is what a town on a coast is found by.
+        ///
+        /// One a town. Every skyline in the pack's artwork has exactly one, and the
+        /// reason is the reason a landmark is a landmark: two of them is a pattern and
+        /// the eye stops reading it.
+        /// </summary>
+        public PropSet TownTower = new PropSet();
+
+        /// <summary>
         /// Ships that did not make it: hulks lying where the sea put them.
         ///
         /// <b>Not <see cref="Wreckage"/>, which is a crate and a wheel.</b> That set is
@@ -5282,6 +5314,21 @@ namespace TheVeil.View
 
                 plank.transform.position = new Vector3(px, deckY, pz);
                 plank.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+
+                // <b>Sunk until the deck is just clear of the water, not stood on the
+                // bed.</b>
+                //
+                // The piece is eight and a half metres tall and almost all of that is
+                // piling. Set with its base at the harbour tile's own elevation - which
+                // is the bed, and the water stands about a third of a metre over it -
+                // the whole frame was out of the sea and the quay read as a walkway on
+                // sticks three storeys up. What the pack's own picture of this harbour
+                // shows is a low timber deck with the water against its posts.
+                var sunk = ModelScaling.Measure(plank.gameObject);
+                plank.transform.position += Vector3.up
+                                            * (deckY + Freeboard - sunk.max.y);
+
+                slab = ModelScaling.Measure(plank.gameObject);
                 placed++;
 
                 // <b>One wide piece, where two narrow ones were laid side by side.</b>
@@ -5497,6 +5544,12 @@ namespace TheVeil.View
         /// </summary>
         const float JettyLength = 9f;
 
+        /// <summary>How far the quay's deck stands over the water, in metres.</summary>
+        // Three quarters of a metre. The sheet sits about a third of a metre above the
+        // bed the deck is measured from, so this leaves about half a metre of freeboard
+        // - a step up from a boat, which is what a working deck is.
+        const float Freeboard = 0.75f;
+
         /// <summary>How far a deck must clear the ground before anything is set on it.</summary>
         // Half a metre, which is the height at which a crate standing on it would show.
         const float Standing = 0.5f;
@@ -5599,6 +5652,80 @@ namespace TheVeil.View
         const float ShipStandoff = 0.5f;
 
         /// <summary>
+        /// One building of the colonial town: a wall or two with its own roof on top.
+        ///
+        /// <b>Stacked rather than drawn, because the pack does not draw a house.</b> It
+        /// draws a flat-topped room three and a third metres high and a roof to put on
+        /// one, in two widths that must not be mixed. A storey is a room; a second
+        /// storey is another one on top of it; the roof closes whichever it is. That is
+        /// the whole assembly, and it is why the front can be a street of buildings that
+        /// are all different without a single whole-building model in the pack.
+        ///
+        /// Returns null where the country carries no town kit, which is every country
+        /// but the coast.
+        /// </summary>
+        static GameObject Townhouse(Transform parent, BiomeDecor decor, DeterministicRandom rng,
+                                    out int storeys)
+        {
+            storeys = 1;
+            if (!decor.TownRooms.Any || !decor.TownRoofs.Any) return null;
+
+            storeys = rng.Chance(TwoStorey) ? 2 : 1;
+
+            // <b>An upper storey goes on a wide frontage, never on a narrow one.</b>
+            //
+            // The narrow room is four metres across and three and a third high, which is
+            // a building; two of them on each other is four metres across and seven and
+            // four fifths high, which is a chimney. The first street built this way came
+            // back as a row of brick towers standing on a beach - photographed, about
+            // one to three, where the pack's own picture of this town is a line of
+            // fronts rather wider than they are tall.
+            //
+            // The pack has a wide room and a wide roof for exactly this. So height comes
+            // with width, and a narrow building stays one storey.
+            bool haveHalls = decor.TownHalls.Any && decor.TownHallRoofs.Any;
+            bool wide = haveHalls && (storeys == 2 || rng.Chance(TownHallShare));
+
+            if (!wide) storeys = 1;
+
+            var walls = wide ? decor.TownHalls : decor.TownRooms;
+            var crowns = wide ? decor.TownHallRoofs : decor.TownRoofs;
+
+            var host = new GameObject("Townhouse");
+            host.transform.SetParent(parent, false);
+
+            float top = 0f;
+
+            for (int floor = 0; floor < storeys; floor++)
+                top = Course(host.transform, Any(walls, rng), top);
+
+            Course(host.transform, Any(crowns, rng), top);
+
+            return host;
+        }
+
+        /// <summary>Puts a piece on top of what is there and says where the new top is.</summary>
+        // Measured after it is in the world rather than taken from the model, for the
+        // reason the jetty measures its own planking: how tall a course is belongs to
+        // the piece and not to this file.
+        static float Course(Transform host, GameObject piece, float top)
+        {
+            var made = Object.Instantiate(piece, host);
+            var box = ModelScaling.Measure(made);
+
+            made.transform.position += Vector3.up * (top - box.min.y);
+
+            return top + box.size.y;
+        }
+
+        /// <summary>How often a town building is a wide one, and how often it has two floors.</summary>
+        // A third of the frontages are warehouses and half the buildings have an upper
+        // storey, which is what the pack's own picture of this town shows: a line of
+        // two-storey fronts with lower sheds between them.
+        const float TownHallShare = 0.3f;
+        const float TwoStorey = 0.5f;
+
+        /// <summary>
         /// The town along the water: a front of buildings facing the harbour, with the
         /// jetty at its middle.
         ///
@@ -5639,6 +5766,53 @@ namespace TheVeil.View
             // Why a step built nothing, because "nine of ten" does not say whether the
             // shore ran out or the ground did, and the two want opposite answers.
             int noPlot = 0, noRoom = 0, filled = 0;
+
+            // <b>One call for "put a building on this plot", because there are three
+            // places that do it</b> - the walk, the back row and the gap filling - and a
+            // town where one of the three is still raising fishermen's huts is a town
+            // with huts in it.
+            bool Put(int plot, float facing, bool front)
+            {
+                var town = Townhouse(parent, decor, rng, out int storeys);
+
+                if (town != null)
+                {
+                    town.name = Front + town.name;
+
+                    // <b>Turned the other way from a hut.</b> The shanty's drawn face is
+                    // its back in Unity's axes and the scatter has always turned it
+                    // about; the kit's rooms face the way they are drawn. Built with the
+                    // hut's facing, every front on the street showed the water its blank
+                    // rear wall - which is also why the first photograph of them came
+                    // back dark, the arcades and the windows all pointing inland.
+                    facing += 180f;
+
+                    // Not a landmark and not resized. The scale exists so a lone
+                    // building can be found from map height, and a street of them blown
+                    // up by it is a street of towers; and a kit is drawn to one size on
+                    // purpose, so fitting the stack to a number undoes the only thing
+                    // that makes its pieces belong together. A storey is three and a
+                    // third metres against a wagon's three, which is a street a person
+                    // could walk down. See Raise.
+                    if (Raise(grid, plot, rng, town, Storeys(HouseHeight, storeys > 1),
+                              heightScale, occupied, road, yaw: facing, landmark: false,
+                              resize: false))
+                        return true;
+
+                    Object.DestroyImmediate(town);
+                    return false;
+                }
+
+                var set = front || !decor.Sheds.Any ? decor.Houses : decor.Sheds;
+                if (!set.Any) return false;
+
+                var choice = new Choice(set, Any(set, rng),
+                                        front ? HouseHeight : HouseHeight * ShedShare,
+                                        byWidth: false);
+
+                return Scatter(parent, grid, rng, choice, plot, heightScale,
+                               spread: 0.4f, occupied: occupied, yaw: facing, tag: Front);
+            }
 
             // <b>Named, because nothing else can tell it apart.</b> The front and the
             // country's villages are built out of the same ten models, so every
@@ -5719,23 +5893,7 @@ namespace TheVeil.View
                     fromY = py;
 
                     // Turned to look at the water, which is what a front means.
-                    // <b>HouseHeight, and the nothing that was there before it was a
-                    // building scaled to nothing at all.</b>
-                    //
-                    // A Choice handed a size of zero is fitted to a height of zero:
-                    // Scatter multiplies the model's own height by target over measured
-                    // and the multiplier is nought. Twelve buildings were raised on this
-                    // shoreline and every one of them had no size, which is why the
-                    // report could count them standing four metres from the water in a
-                    // line a hundred and twenty metres long while every photograph of
-                    // that shoreline showed sand. Three commits were spent reframing
-                    // cameras at an empty beach, and the cameras were right every time.
-                    var choice = new Choice(decor.Houses, Any(decor.Houses, rng),
-                                            HouseHeight, byWidth: false);
-
-                    if (!Scatter(parent, grid, rng, choice, plot, heightScale,
-                                 spread: 0.4f, occupied: occupied,
-                                 yaw: Seaward(grid, px, py) + 180f, tag: Front))
+                    if (!Put(plot, Seaward(grid, px, py) + 180f, front: true))
                     { noRoom++; continue; }
 
                     placed++;
@@ -5759,24 +5917,9 @@ namespace TheVeil.View
                     int behind = Backland(grid, px, py);
                     if (behind < 0 || occupied.Contains(behind)) continue;
 
-                    var lean = decor.Sheds.Any && rng.Chance(0.7f) ? decor.Sheds
-                             : decor.Houses.Any && rng.Chance(0.6f) ? decor.Houses
-                             : decor.Yard;
-                    if (!lean.Any) continue;
-
                     // Turned to face the front rather than the sea - the back of a town
-                    // looks at the town. A yard is furniture and keeps its dice.
-                    float facing = lean == decor.Yard ? rng.Range(0f, 360f)
-                                                      : Seaward(grid, px, py);
-
-                    var small = new Choice(lean, Any(lean, rng),
-                                           lean == decor.Houses ? HouseHeight
-                                                                : HouseHeight * ShedShare,
-                                           byWidth: false);
-
-                    if (Scatter(parent, grid, rng, small, behind, heightScale,
-                                spread: 0.6f, occupied: occupied, yaw: facing, tag: Front))
-                        placed++;
+                    // looks at the town.
+                    if (Put(behind, Seaward(grid, px, py), front: false)) placed++;
                 }
             }
 
@@ -5809,13 +5952,7 @@ namespace TheVeil.View
 
                     grid.ToCoords(plot, out int px, out int py);
 
-                    var filling = new Choice(decor.Houses, Any(decor.Houses, rng),
-                                             HouseHeight, byWidth: false);
-
-                    if (!Scatter(parent, grid, rng, filling, plot, heightScale, spread: 0.4f,
-                                 occupied: occupied, yaw: Seaward(grid, px, py) + 180f,
-                                 tag: Front))
-                        continue;
+                    if (!Put(plot, Seaward(grid, px, py) + 180f, front: true)) continue;
 
                     placed++;
                     built++;
@@ -5825,6 +5962,29 @@ namespace TheVeil.View
                     laid.Insert(i, plot);
                     i++;
                 }
+
+            // <b>And the bell tower over it.</b> One, a plot behind the middle of the
+            // front, which is where a town puts the thing it is found by: back from the
+            // working quay and high enough to be the first of the place a ship sees.
+            if (decor.TownTower.Any && laid.Count > 0)
+            {
+                grid.ToCoords(laid[laid.Count / 2], out int tx, out int ty);
+
+                int rise = Backland(grid, tx, ty);
+
+                if (rise >= 0 && !occupied.Contains(rise)
+                    && (road == null || !road.Contains(rise)))
+                {
+                    var belfry = new GameObject(Front + "Belltower");
+                    belfry.transform.SetParent(parent, false);
+                    Course(belfry.transform, Any(decor.TownTower, rng), 0f);
+
+                    if (Raise(grid, rise, rng, belfry, TowerOverTheTown, heightScale,
+                              occupied, road, yaw: Seaward(grid, tx, ty), landmark: false))
+                        placed++;
+                    else Object.DestroyImmediate(belfry);
+                }
+            }
 
             if (street != null) street.AddRange(laid);
 
@@ -5838,6 +5998,11 @@ namespace TheVeil.View
 
             return placed;
         }
+
+        /// <summary>How tall the bell tower stands, in metres.</summary>
+        // Sixteen, against a two-storey front at about ten. The model is drawn at 18.8
+        // and is the one piece in the kit that is a whole building on its own.
+        const float TowerOverTheTown = 16f;
 
         /// <summary>How many times the street is walked looking for holes to fill.</summary>
         // Three. Each round halves what the last one left, and two rounds took a

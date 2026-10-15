@@ -4166,28 +4166,34 @@ namespace TheVeil.Editor
         {
             var decor = LoadForestDecor();
 
-            // Pine on the points, which is the silhouette the reference is built on: dark
-            // verticals against pale water. Sparse, because they grow where there is
-            // shelter and a headland has none.
-            decor.Pines = Mixed(
-                Load($"{SyntyNatureDir}/Trees", new[]
-                {
-                    "SM_Tree_PolyPine_01", "SM_Tree_PolyPine_02", "SM_Tree_PolyPine_Sparse_01",
-                    "SM_Tree_PolyPine_Sparse_02", "SM_Tree_Pine_01"
-                }),
-                Load(AlpineDir, new[] { "SM_Env_Pine_02", "SM_Env_Pine_03", "SM_Env_Pine_05" }));
+            // <b>Palm on the points, where the pine was.</b>
+            //
+            // The country inherits the forest's trees and was given spruce on its
+            // headlands, on the argument that dark verticals read against pale water.
+            // They do - and they are the wrong dark verticals. This is the warm sea the
+            // road has been walking towards for ten chapters, built out of a pack whose
+            // own picture of it is palms over a terracotta town, and a stand of Norway
+            // spruce behind a colonial harbour says the caravan took a wrong turn.
+            //
+            // The tall palms stand in for the pines, which is what they are for: six to
+            // twelve metres of bare trunk with a head on it.
+            decor.Pines = Pirate("Environments",
+                                 "SM_Env_PalmTree_Tall_01", "SM_Env_PalmTree_Tall_02",
+                                 "SM_Env_PalmTree_01", "SM_Env_PalmTree_04");
 
-            decor.Trees = Mixed(
-                Load(MeadowDir, new[]
-                {
-                    "SM_Env_Tree_Meadow_01", "SM_Env_Tree_Meadow_02", "SM_Env_Tree_Birch_02"
-                }),
-                Load($"{SyntyNatureDir}/Trees", new[]
-                {
-                    "SM_Tree_PolyPine_Sparse_02", "SM_Tree_Round_01"
-                }));
+            // And broadleaf among them for the sheltered ground: the pack's own canopy
+            // trees and the ones it hangs vines on, which is the second half of what its
+            // artwork shows.
+            decor.Trees = Pirate("Environments",
+                                 "SM_Env_Tree_Large_01", "SM_Env_Tree_Large_02",
+                                 "SM_Env_Tree_Vines_01", "SM_Env_Tree_Vines_02",
+                                 "SM_Env_Tree_Vines_04", "SM_Env_PalmTree_02",
+                                 "SM_Env_PalmTree_03");
 
-            decor.Birch = Meadow("SM_Env_Tree_Birch_01", "SM_Env_Tree_Birch_03");
+            // The slender ones that stood in for birch. Not the pack's dead tree: a bare
+            // trunk among palms reads as a stick, and the shore already has its driftwood.
+            decor.Birch = Pirate("Environments", "SM_Env_PalmTree_Tall_02",
+                                 "SM_Env_PalmTree_03");
             // The mangrove where the fresh water meets the salt, which is the one tree
             // that belongs at a waterline and no pack owned before drew.
             //
@@ -4342,6 +4348,36 @@ namespace TheVeil.Editor
             // than beside it.
             decor.Hulks = Pirate("Props", "SM_Prop_Shipwreck_01", "SM_Prop_Shipwreck_02",
                                  "SM_Prop_Shipwreck_03");
+
+            // <b>The town itself, which is a colonial port and not a fishing camp.</b>
+            //
+            // The pack draws two settlements and the coast was dressed out of the wrong
+            // one. The shanties are huts on stilts and belong on the open beach, which
+            // is where they stay; the harbour town in the pack's own artwork is rendered
+            // stone with terracotta roofs, arcades, balconies and a bell tower standing
+            // over it. See BiomeDecor.TownRooms.
+            //
+            // Rooms are flat-topped on purpose - they are a kit, meant to be stacked and
+            // capped - so they are kept apart from the roofs, and the two widths are
+            // kept apart from each other.
+            decor.TownRooms = Pirate("Buildings",
+                                     "SM_Bld_Cuba_Room_01", "SM_Bld_Cuba_Room_02",
+                                     "SM_Bld_Cuba_Room_03", "SM_Bld_Cuba_Room_04",
+                                     "SM_Bld_Cuba_Room_05", "SM_Bld_Cuba_Room_06",
+                                     "SM_Bld_Cuba_Room_07");
+
+            decor.TownHalls = Pirate("Buildings",
+                                     "SM_Bld_Cuba_Room_Long_01", "SM_Bld_Cuba_Room_Long_02",
+                                     "SM_Bld_Cuba_Room_Long_03", "SM_Bld_Cuba_Room_Long_04",
+                                     "SM_Bld_Cuba_Room_Long_05");
+
+            decor.TownRoofs = Pirate("Buildings", "SM_Bld_Cuba_Roof_01",
+                                     "SM_Bld_Cuba_Roof_04", "SM_Bld_Cuba_Roof_Square_01");
+
+            decor.TownHallRoofs = Pirate("Buildings", "SM_Bld_Cuba_Roof_02");
+
+            // Eighteen and a half metres of it, drawn with a belfry and a dome.
+            decor.TownTower = Pirate("Buildings", "SM_Bld_Cuba_Hall_Tower_01");
 
             // What came out of them, strewn up the sand. The chests among them are the
             // reason the set is not just the barrels: a broken crate is litter and a
