@@ -146,6 +146,51 @@ namespace TheVeil.View
         }
 
         /// <summary>
+        /// <b>Why the sea is not level, and why that is the ground's fault and not
+        /// this.</b>
+        ///
+        /// Asked for and attempted. The complaint is real and was measured first: on
+        /// 100-10 the water beside the quay stands at 4.5 and the same sea eighty-five
+        /// metres away stands at 5.7. A metre and a fifth of slope is not something a
+        /// player works out, but a camera low over the water looks *through* sea
+        /// standing higher than the shore behind it and everything beyond goes blue -
+        /// which is what three sets of harbour photographs showed, and which was blamed
+        /// on the quay twice before anybody measured the water.
+        ///
+        /// Three things were tried.
+        ///
+        ///   * <b>One height for the whole sea.</b> The wet body that reaches the edge
+        ///     of the map, flood-filled, levelled at one surface with every corner
+        ///     clamped up to it. It put the sea at 9.5 - three metres over the quay -
+        ///     because the fill runs up the rivers that empty into it and a stream
+        ///     climbing inland decided where the sea stood.
+        ///   * <b>The same, with the fill stopped at the river mouths</b> by breadth,
+        ///     since a river here is one tile across and every tile of it is one step
+        ///     from a bank. The mask came out right and the level did not move: 9.5.
+        ///   * <b>Levelling the sea over a far wider window</b> - twenty-four tiles
+        ///     instead of eight - on the reasoning that a sheet averaged over thirty-two
+        ///     metres follows a bed that moves over a hundred. No effect at all: the
+        ///     window is the water's own breadth and the corners that matter are on the
+        ///     shore, where the breadth is one or two and the cap never binds.
+        ///
+        /// The second attempt is what explains the first and the third. <b>The bed under
+        /// this sea runs from 0.9 m to 11.1 m</b> - measured over 1172 tiles on 100-10 -
+        /// <b>and the land meets it all the way up that range</b>. There is no one
+        /// height for it. A level at the median drowns every shore below it; a level at
+        /// the top leaves the bottom showing at the ones above. Levelling the open water
+        /// and leaving the waterline alone puts a step a metre and a half high at the
+        /// beach, which is worse than the slope.
+        ///
+        /// So the sheet is right to drape. What is wrong is that the ground was never
+        /// built around a sea level: the generator carves a bed and this covers it.
+        /// Giving the coast a true sea means carving the sea flat in the terrain and
+        /// lifting what little land falls below it - a change to the maps themselves,
+        /// not to the water, and one that wants the margin report run over it.
+        /// </summary>
+        // Left as a comment rather than a ticket because the next person to look at a
+        // blue photograph will start here.
+
+        /// <summary>
         /// The height the water stands at here: the bed, levelled.
         ///
         /// <b>This is what gives the river a depth at all.</b> The surface used to be the
