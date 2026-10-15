@@ -4376,6 +4376,10 @@ namespace TheVeil.Editor
 
             decor.TownHallRoofs = Pirate("Buildings", "SM_Bld_Cuba_Roof_02");
 
+            // The masonry the town stands on. Five metres a block, drawn with a coping
+            // along its top and a face meant to be seen from the water.
+            decor.QuayWall = Pirate("Buildings", "SM_Bld_Stone_Wall_Large_01");
+
             // Eighteen and a half metres of it, drawn with a belfry and a dome.
             decor.TownTower = Pirate("Buildings", "SM_Bld_Cuba_Hall_Tower_01");
 

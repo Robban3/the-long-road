@@ -58,6 +58,25 @@ namespace TheVeil.Editor
                 // plain name search counts the parts as well.
                 int wrecks = Count(root.transform, "Shipwreck");
 
+                if (level == Campaign.LevelsPerChapter && planks.Count > 0)
+                {
+                    var deck = TheVeil.View.ModelScaling.Measure(planks[0].gameObject);
+                    var sheet = Sheet(root.transform, deck.center);
+
+                    // And the sea further out, because a picture taken from over the
+                    // water looked through a sheet standing higher than the one in the
+                    // harbour.
+                    var open = Sheet(root.transform,
+                                     deck.center + new Vector3(60f, 0f, 60f));
+                    var far = Sheet(root.transform,
+                                    deck.center + new Vector3(-60f, 0f, -60f));
+
+                    note.AppendLine($"[Waterfront]   deck top {deck.max.y:0.0}, "
+                                    + $"water beside it {(sheet == null ? "?" : sheet.Value.ToString("0.0"))}"
+                                    + $", 85 m out {(open == null ? "?" : open.Value.ToString("0.0"))}"
+                                    + $" / {(far == null ? "?" : far.Value.ToString("0.0"))}");
+                }
+
                 if (planks.Count > 0)
                     note.AppendLine($"[Waterfront]   {level}: {planks.Count} section(s) of "
                                     + $"{planks[0].name}");
@@ -208,6 +227,47 @@ namespace TheVeil.Editor
 
             Walk(at);
             return found;
+        }
+
+        /// <summary>
+        /// How high the water stands beside this point.
+        ///
+        /// The sheet's own box is no use: it covers the rivers as well, which run uphill
+        /// away from the sea, so its top is the head of a stream somewhere inland. The
+        /// vertex nearest the point is the water at the point.
+        /// </summary>
+        static float? Sheet(Transform at, Vector3 near)
+        {
+            foreach (Transform child in at)
+            {
+                var filter = child.GetComponent<MeshFilter>();
+
+                if (child.name == "Water" && filter != null && filter.sharedMesh != null)
+                {
+                    float closest = float.MaxValue;
+                    float found = 0f;
+
+                    foreach (var corner in filter.sharedMesh.vertices)
+                    {
+                        var world = child.TransformPoint(corner);
+
+                        float away = (world.x - near.x) * (world.x - near.x)
+                                     + (world.z - near.z) * (world.z - near.z);
+
+                        if (away >= closest) continue;
+
+                        closest = away;
+                        found = world.y;
+                    }
+
+                    return closest < float.MaxValue ? found : (float?)null;
+                }
+
+                var deeper = Sheet(child, near);
+                if (deeper != null) return deeper;
+            }
+
+            return null;
         }
 
         static bool Has(string name, string part)

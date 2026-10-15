@@ -476,6 +476,21 @@ namespace TheVeil.View
         public PropSet TownHallRoofs = new PropSet();
 
         /// <summary>
+        /// The stone wall that holds the water out of the town.
+        ///
+        /// <b>What makes a harbour a harbour rather than a beach with a jetty on it.</b>
+        /// The pack's own picture of this port is a run of masonry along the whole
+        /// waterline with the basin inside it and the timber decking in the basin: the
+        /// town stands on a quay, not on sand. Without it the colonial fronts are a
+        /// street that happens to end at the sea.
+        ///
+        /// Laid along the shoreline the street was built on, with a gap left where the
+        /// decking comes ashore - a wall with no way through it is a wall round a town
+        /// that cannot use its own harbour.
+        /// </summary>
+        public PropSet QuayWall = new PropSet();
+
+        /// <summary>
         /// The bell tower, which is what a town on a coast is found by.
         ///
         /// One a town. Every skyline in the pack's artwork has exactly one, and the
@@ -5235,7 +5250,7 @@ namespace TheVeil.View
             placed += PlaceWaterfront(parent, grid, rng, decor, occupied, heightScale, best,
                                       yaw, road, street);
 
-            int berth = TheMiddleOfTheStreet(grid, street, lastLanding);
+            int berth = TheMiddleOfTheStreet(grid, street, lastLanding, street);
 
             if (berth >= 0)
             {
@@ -5315,31 +5330,58 @@ namespace TheVeil.View
                 plank.transform.position = new Vector3(px, deckY, pz);
                 plank.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
-                // <b>Sunk until the deck is just clear of the water, not stood on the
-                // bed.</b>
+                // <b>Level with the shore it comes off, which is where the water
+                // is.</b>
                 //
-                // The piece is eight and a half metres tall and almost all of that is
-                // piling. Set with its base at the harbour tile's own elevation - which
-                // is the bed, and the water stands about a third of a metre over it -
-                // the whole frame was out of the sea and the quay read as a walkway on
-                // sticks three storeys up. What the pack's own picture of this harbour
-                // shows is a low timber deck with the water against its posts.
+                // The piece is eight and a half metres tall and almost all of it is
+                // piling, so stood on the harbour tile's own elevation the whole frame
+                // was out of the sea and the quay read as a walkway three storeys up.
+                // Dropped to that elevation plus a freeboard instead, it went under:
+                // the harbour tile is a water tile and its elevation is the *bed* of a
+                // basin, which can be metres below the surface. Both pictures were
+                // taken; the second showed two decks on the bottom with their cargo
+                // floating over them.
+                //
+                // The water's own surface is worked out by the mesh builder from a
+                // window of beds and is not a number this can ask for. What is to hand
+                // is the shore the planking is rooted on, a tile inland - and a beach
+                // meets the sea at the sea's level, which is the whole of what a beach
+                // is. A hand's height over that is a deck you step down to a boat from.
+                float shoreY = grid.SurfaceElevation(
+                    at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * Root,
+                    at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * Root) * heightScale;
+
                 var sunk = ModelScaling.Measure(plank.gameObject);
                 plank.transform.position += Vector3.up
-                                            * (deckY + Freeboard - sunk.max.y);
+                                            * (shoreY + Freeboard - sunk.max.y);
 
                 slab = ModelScaling.Measure(plank.gameObject);
                 placed++;
 
-                // <b>One wide piece, where two narrow ones were laid side by side.</b>
+                // <b>Two runs side by side at the last landing, touching.</b>
                 //
-                // The run was doubled to make a wharf out of a walkway, and the offset
-                // was the measured box - which is the piling frame and reaches past the
-                // planking - so the two decks did not meet. The picture showed two
-                // jetties with a gap down the middle. The pack draws a platform 6.5 m
-                // across in one piece; see BiomeDecor.Quay.
+                // The pack's picture of this harbour has a pair of them coming off the
+                // quay wall with no water between, which is what a port with more than
+                // one thing to unload builds. It was tried once as two runs offset by
+                // the measured box - the box is the piling frame and reaches past the
+                // deck, so what came out was two jetties with a gap down the middle.
+                // Offset by what the decks actually need, they are one wharf with a
+                // seam.
                 var across = new Vector3(Mathf.Cos(yaw * Mathf.Deg2Rad), 0f,
                                          -Mathf.Sin(yaw * Mathf.Deg2Rad));
+
+                if (lastLanding)
+                {
+                    float wide = (Mathf.Abs(across.x) * slab.size.x
+                                  + Mathf.Abs(across.z) * slab.size.z) * PierPair;
+
+                    var twin = Object.Instantiate(board, parent);
+
+                    twin.transform.position = plank.transform.position
+                                              - new Vector3(across.x * wide, 0f, across.z * wide);
+                    twin.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+                    placed++;
+                }
 
                 int planked = Tile(grid, px, pz);
 
@@ -5478,8 +5520,107 @@ namespace TheVeil.View
                                                   mz);
             placed++;
 
+            placed += PlaceQuayWall(parent, grid, rng, decor, occupied, heightScale, street,
+                                    best);
+
             return placed;
         }
+
+        /// <summary>
+        /// The masonry the town stands on, run along its own waterline.
+        ///
+        /// <b>A harbour is a wall with water inside it.</b> Everything built here so far
+        /// stands on a beach: the fronts, the decking, the ship. The pack's picture of
+        /// this port is a line of stone along the whole waterline with the basin behind
+        /// it, and that one thing is the difference between a town that has a harbour
+        /// and a town the sea happens to reach.
+        ///
+        /// Laid from the street itself rather than from a bearing. The frontage is a run
+        /// of plots along the shore and the shore bends; each block is set on the
+        /// waterline in front of a point on that run and turned to face the water there,
+        /// so the wall follows the town instead of cutting across it.
+        ///
+        /// Sunk until its coping stands a little over the water, which is what a quay
+        /// wall is. What is below is below, and nobody has ever seen the bottom of one.
+        /// </summary>
+        static int PlaceQuayWall(Transform parent, TileGrid grid, DeterministicRandom rng,
+                                 BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                                 List<int> street, int berth)
+        {
+            if (!decor.QuayWall.Any || street == null || street.Count < 2) return 0;
+
+            var mouth = Vec2.FromTile(grid, berth);
+            int placed = 0;
+
+            for (int i = 1; i < street.Count; i++)
+            {
+                var from = Vec2.FromTile(grid, street[i - 1]);
+                var to = Vec2.FromTile(grid, street[i]);
+
+                float run = Mathf.Sqrt((to.X - from.X) * (to.X - from.X)
+                                       + (to.Y - from.Y) * (to.Y - from.Y));
+
+                if (run < 0.5f) continue;
+
+                // A block every WallBlock metres along the line between two plots, so
+                // the wall is continuous whether the plots are two tiles apart or five.
+                int blocks = Mathf.Max(1, Mathf.RoundToInt(run / WallBlock));
+
+                for (int step = 0; step < blocks; step++)
+                {
+                    float along = (step + 0.5f) / blocks;
+
+                    float ax = Mathf.Lerp(from.X, to.X, along);
+                    float ay = Mathf.Lerp(from.Y, to.Y, along);
+
+                    int on = Tile(grid, ax, ay);
+                    if (on < 0) continue;
+
+                    grid.ToCoords(on, out int tx, out int ty);
+                    if (IsWet(grid[on]) || !NextToWater(grid, tx, ty)) continue;
+
+                    // The way out to the harbour. The decking comes ashore here and a
+                    // wall across it is a wall between a town and its own quay.
+                    if ((ax - mouth.X) * (ax - mouth.X) + (ay - mouth.Y) * (ay - mouth.Y)
+                        < WallGate * WallGate) continue;
+
+                    float out_ = Seaward(grid, tx, ty) * Mathf.Deg2Rad;
+
+                    // Half a tile out, so the block sits on the line between the ground
+                    // and the water rather than on the grass behind it.
+                    var block = Object.Instantiate(Any(decor.QuayWall, rng), parent);
+
+                    block.transform.position =
+                        new Vector3(ax + Mathf.Sin(out_) * TileGrid.TileSize * 0.5f,
+                                    grid.SurfaceElevation(ax, ay) * heightScale,
+                                    ay + Mathf.Cos(out_) * TileGrid.TileSize * 0.5f);
+
+                    block.transform.rotation = Quaternion.Euler(0f, Seaward(grid, tx, ty), 0f);
+
+                    var box = ModelScaling.Measure(block.gameObject);
+
+                    block.transform.position += Vector3.up
+                        * (grid.SurfaceElevation(ax, ay) * heightScale + WallCoping - box.max.y);
+
+                    block.name = Landed + block.name;
+                    if (occupied != null) occupied.Add(on);
+
+                    placed++;
+                }
+            }
+
+            Debug.Log($"[The Veil] Quay wall: {placed} block(s) along the front.");
+            return placed;
+        }
+
+        /// <summary>How long a block of the quay wall is, how high it stands, and the gap.</summary>
+        // Five metres a block, measured off the pack. The coping stands a metre and a
+        // half over the ground the town is on, which is a wall a person leans on rather
+        // than one they cannot see over. Fourteen metres of gap at the harbour mouth is
+        // two blocks: enough for the decking and the way down to it.
+        const float WallBlock = 5f;
+        const float WallCoping = 1.5f;
+        const float WallGate = 14f;
 
         /// <summary>
         /// The water in front of the middle of a street, or -1 where there is no street.
@@ -5494,7 +5635,8 @@ namespace TheVeil.View
         /// one fits. Nothing found means the harbour stays where it was, which is the
         /// shoreline nearest the goal.
         /// </summary>
-        static int TheMiddleOfTheStreet(TileGrid grid, List<int> street, bool lastLanding)
+        static int TheMiddleOfTheStreet(TileGrid grid, List<int> street, bool lastLanding,
+                                        List<int> fronts)
         {
             if (street == null || street.Count < 2) return -1;
 
@@ -5518,6 +5660,15 @@ namespace TheVeil.View
                         if (!NextToLand(grid, mx + dx, my + dy)) continue;
                         if (lastLanding && !OpenWater(grid, mx + dx, my + dy)) continue;
 
+                        // <b>And nothing built across the way ashore.</b> The berth is
+                        // chosen between the two middle houses, but the water tile
+                        // nearest that point can as easily be the one in front of one of
+                        // them - and the planking is rooted a tile inland of the water,
+                        // so the quay came ashore through somebody's front wall. The
+                        // tile the run roots on, and the two beside it, have to be
+                        // ground nobody has built on.
+                        if (!WayAshore(grid, fronts, mx + dx, my + dy)) continue;
+
                         float away = dx * dx + dy * dy;
                         if (away >= nearest) continue;
 
@@ -5526,6 +5677,31 @@ namespace TheVeil.View
                     }
 
             return best;
+        }
+
+        /// <summary>Whether the ground behind this water tile is clear to come ashore on.</summary>
+        // The root tile and a tile either side of it, which is the width of the
+        // planking. A building on any of the three is a building the quay runs into.
+        static bool WayAshore(TileGrid grid, List<int> fronts, int x, int y)
+        {
+            if (fronts == null || fronts.Count == 0) return true;
+
+            float inland = (Seaward(grid, x, y) + 180f) * Mathf.Deg2Rad;
+
+            int toX = Mathf.RoundToInt(Mathf.Sin(inland));
+            int toY = Mathf.RoundToInt(Mathf.Cos(inland));
+
+            for (int step = 1; step <= 2; step++)
+                for (int side = -1; side <= 1; side++)
+                {
+                    int ax = x + toX * step - toY * side;
+                    int ay = y + toY * step + toX * side;
+
+                    if (!grid.InBounds(ax, ay)) continue;
+                    if (fronts.Contains(grid.ToIndex(ax, ay))) return false;
+                }
+
+            return true;
         }
 
         /// <summary>How far from the middle of the street a mooring is looked for, in tiles.</summary>
@@ -5544,11 +5720,28 @@ namespace TheVeil.View
         /// </summary>
         const float JettyLength = 9f;
 
+        /// <summary>How much of a pier's width the next pier is set over by.</summary>
+        // Seven tenths, because the offset is taken from the measured box and the box
+        // is the piling frame: at nine tenths the two decks had a metre and a half of
+        // water between them and read as two jetties, which is the fault this was
+        // already fixed for once. Measured off the piece that is laid, so a pack that
+        // redraws its platform moves this by itself.
+        const float PierPair = 0.7f;
+
         /// <summary>How far the quay's deck stands over the water, in metres.</summary>
-        // Three quarters of a metre. The sheet sits about a third of a metre above the
-        // bed the deck is measured from, so this leaves about half a metre of freeboard
-        // - a step up from a boat, which is what a working deck is.
-        const float Freeboard = 0.75f;
+        // Two metres over the shore the run is rooted on, which is a quay a boat ties
+        // up under rather than a raft.
+        //
+        // Three quarters was tried and the photographs came back with the decking under
+        // the sea. Measured: the deck stood at 5.5 and the water beside it at 4.5, so it
+        // was a metre clear and the picture was still blue - because the sheet is not
+        // level. Eighty-five metres out the same sea stands at 5.7. A camera out on the
+        // water looking back at the harbour therefore looks *through* water standing
+        // higher than the deck it is looking at, and everything behind goes blue.
+        //
+        // The slope is the water mesh's business and not this pass's; what this can do
+        // is build a quay high enough to be a quay. Two metres clears it.
+        const float Freeboard = 2f;
 
         /// <summary>How far a deck must clear the ground before anything is set on it.</summary>
         // Half a metre, which is the height at which a crate standing on it would show.
@@ -5797,7 +5990,7 @@ namespace TheVeil.View
                     if (Raise(grid, plot, rng, town, Storeys(HouseHeight, storeys > 1),
                               heightScale, occupied, road, yaw: facing, landmark: false,
                               resize: false))
-                        return true;
+                    { Yard(grid, occupied, plot); return true; }
 
                     Object.DestroyImmediate(town);
                     return false;
@@ -5810,8 +6003,12 @@ namespace TheVeil.View
                                         front ? HouseHeight : HouseHeight * ShedShare,
                                         byWidth: false);
 
-                return Scatter(parent, grid, rng, choice, plot, heightScale,
-                               spread: 0.4f, occupied: occupied, yaw: facing, tag: Front);
+                if (!Scatter(parent, grid, rng, choice, plot, heightScale,
+                             spread: 0.4f, occupied: occupied, yaw: facing, tag: Front))
+                    return false;
+
+                Yard(grid, occupied, plot);
+                return true;
             }
 
             // <b>Named, because nothing else can tell it apart.</b> The front and the
@@ -5909,17 +6106,36 @@ namespace TheVeil.View
                     // how the gate into the enchanted wood keeps its archway clear.
                     Quay(grid, occupied, px, py);
 
-                    // <b>A back row, not an occasional shed.</b> One building in a plot
-                    // behind the front, two thirds of the time, gave the street a depth
-                    // of about one and a half buildings - which from above is a row of
-                    // roofs with grass behind it. A harbour town is two rows and a lane:
-                    // the front faces the water and the back faces the front.
-                    int behind = Backland(grid, px, py);
-                    if (behind < 0 || occupied.Contains(behind)) continue;
+                    // <b>And the rows behind it, because a town is not a row of
+                    // houses.</b>
+                    //
+                    // The front was one line of buildings with one back row behind it,
+                    // strung along two hundred and thirty metres of shore, and from
+                    // above that is a fence of roofs rather than a place. What the
+                    // pack's own picture of this harbour shows is a block: a short
+                    // frontage with the town stacked three or four deep behind it, lanes
+                    // between the rows, the whole of it small enough to see at once.
+                    //
+                    // So the frontage is shorter and the depth is real. Each column
+                    // walks inland from its own house on the water, which keeps the
+                    // block square to the shore wherever the shore turns.
+                    int deepX = px, deepY = py;
 
-                    // Turned to face the front rather than the sea - the back of a town
-                    // looks at the town.
-                    if (Put(behind, Seaward(grid, px, py), front: false)) placed++;
+                    for (int row = 1; row < TownRows; row++)
+                    {
+                        int behind = Inland(grid, deepX, deepY, TownStep);
+                        if (behind < 0) break;
+
+                        grid.ToCoords(behind, out deepX, out deepY);
+
+                        if (occupied.Contains(behind)) continue;
+                        if (road != null && road.Contains(behind)) continue;
+
+                        // Facing the water, the same as the front: a town on a bay looks
+                        // at the bay over the roofs in front of it.
+                        if (Put(behind, Seaward(grid, px, py) + 180f, front: row > 1))
+                            placed++;
+                    }
                 }
             }
 
@@ -6030,15 +6246,37 @@ namespace TheVeil.View
         const float ShedShare = 0.66f;
 
         /// <summary>How many buildings the front holds, how far apart, and how far it reaches.</summary>
-        // Twenty-four with a back row behind them is a town; ten was a row of houses with
-        // sky between them, which is what the photograph from above showed. Three tiles
-        // apart is twelve metres, about a building and a gap - closer than that and the
-        // buildings are refused for standing on each other, which was measured.
-        // The reach is counted in those steps, so the front gives up rather than walking
-        // the whole shoreline looking for a plot.
-        const int WaterfrontHouses = 24;
-        const int WaterfrontApart = 3;
-        const int WaterfrontReach = 12;
+        // <b>A short frontage, close together, with the town behind it.</b> Sixteen
+        // buildings three tiles apart over two hundred and thirty metres of shore is a
+        // fence of roofs; the same number in six columns of four is a town. Two tiles is
+        // eight metres, which is a frontage and the gap between two of them, and six
+        // steps either way is about a hundred metres of harbour front.
+        //
+        // The count is what the whole block may hold, frontage and rows together, which
+        // is why it is nearly twice what the single line was allowed.
+        const int WaterfrontHouses = 44;
+        const int WaterfrontApart = 2;
+        const int WaterfrontReach = 6;
+
+        /// <summary>
+        /// Claims the tile a town building stands on and the ring round it.
+        ///
+        /// <b>A town with trees growing in its lanes is a wood with houses in it.</b>
+        /// The quay clears the ground in front of the frontage, which was the whole of
+        /// the town while the town was one row deep. Behind it the rows are eight metres
+        /// apart and nothing was keeping a spruce out of the gap: measured, fourteen of
+        /// twenty-nine buildings had something growing between them and the water.
+        /// </summary>
+        static void Yard(TileGrid grid, HashSet<int> occupied, int tile)
+        {
+            if (occupied == null) return;
+
+            grid.ToCoords(tile, out int x, out int y);
+
+            for (int ox = -1; ox <= 1; ox++)
+                for (int oy = -1; oy <= 1; oy++)
+                    if (grid.InBounds(x + ox, y + oy)) occupied.Add(grid.ToIndex(x + ox, y + oy));
+        }
 
         /// <summary>
         /// Claims the ground between a waterfront house and the water, so the front has a
@@ -6109,6 +6347,30 @@ namespace TheVeil.View
 
             return -1;
         }
+
+        /// <summary>The plot this many tiles inland of here, or -1 where there is none.</summary>
+        // Inland is the opposite of seaward, and seaward is worked out from the water
+        // round the tile - so a column walking back from the shore follows the shore's
+        // own line rather than a bearing taken once at the harbour.
+        static int Inland(TileGrid grid, int x, int y, int tiles)
+        {
+            float back = (Seaward(grid, x, y) + 180f) * Mathf.Deg2Rad;
+
+            int bx = x + Mathf.RoundToInt(Mathf.Sin(back)) * tiles;
+            int by = y + Mathf.RoundToInt(Mathf.Cos(back)) * tiles;
+
+            if (!grid.InBounds(bx, by)) return -1;
+
+            int at = grid.ToIndex(bx, by);
+            return IsWet(grid[at]) || !grid.IsPassable(bx, by) ? -1 : at;
+        }
+
+        /// <summary>How deep the town stands behind its own waterfront, and in what step.</summary>
+        // Four rows two tiles apart: a frontage, two streets of houses behind it and a
+        // back lane, twenty-four metres from the water to the last roof. Two tiles is
+        // eight metres, which is a building and a path.
+        const int TownRows = 4;
+        const int TownStep = 2;
 
         /// <summary>One plot back from the water, for what stands behind the front.</summary>
         static int Backland(TileGrid grid, int x, int y)
