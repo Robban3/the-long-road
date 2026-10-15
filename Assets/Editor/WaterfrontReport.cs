@@ -31,12 +31,6 @@ namespace TheVeil.Editor
         // is standing between a door and the sea.
         const float Frontage = 8f;
 
-        /// <summary>How near the water a building has to be to be part of the front.</summary>
-        // Four tiles. The front is built on the dry tile nearest the water; the coast's
-        // village is thirty-two metres inland, so there is no argument about which is
-        // which.
-        const float Shoreline = 16f;
-
         [MenuItem("The Veil/Waterfront Report")]
         public static void Run()
         {
@@ -47,7 +41,7 @@ namespace TheVeil.Editor
             if (runner == null) { Debug.LogError("[Waterfront] PlayLevel has no LevelRunner."); return; }
 
             var note = new StringBuilder();
-            note.AppendLine("[Waterfront] level  wrecks  front  gap worst  gap mean  in the way");
+            note.AppendLine("[Waterfront] level  wrecks  front  gap worst  gap mean  from water  in the way");
 
             int chapter = Biomes.LastChapter;
 
@@ -64,14 +58,21 @@ namespace TheVeil.Editor
                 // plain name search counts the parts as well.
                 int wrecks = Count(root.transform, "Shipwreck");
 
-                // <b>The front is the houses that stand on the water.</b> A coast level
-                // also has its village, inland, and counting those in would hide a front
-                // of three among a hamlet of ten. Sixteen metres is four tiles: the front
-                // is built on the dry tile nearest the water and the village was measured
-                // at thirty-two.
+                // <b>The front is what the front pass built, and nothing else.</b>
+                //
+                // This took every building within four tiles of water, on the reasoning
+                // that the village is inland and the front is not. It is not sound: the
+                // coast's village is built out of the same ten models and lands wherever
+                // the settlement site is, which can be a beach. A sheet that reported
+                // twelve buildings fifteen metres apart was describing a village, two
+                // sheds and a front of nine all at once, and the photograph that showed
+                // an empty shoreline was right.
+                //
+                // The pass parents its own work under a node now, so this can ask.
+                var quarter = Node(root.transform, "Waterfront");
+
                 var front = new List<Transform>();
-                foreach (var house in houses)
-                    if (ToTheWater(map, house.position) <= Shoreline) front.Add(house);
+                if (quarter != null) Sort(quarter, front, new List<Transform>(), new List<Transform>());
 
                 if (front.Count == 0)
                 {
@@ -99,10 +100,12 @@ namespace TheVeil.Editor
                 // ground the quay reserves, measured without knowing how the quay decides
                 // it.
                 int blocked = 0;
+                float inland = 0f;
 
                 foreach (var house in front)
                 {
                     float wet = ToTheWater(map, house.position);
+                    if (wet > inland) inland = wet;
 
                     foreach (var plant in green)
                     {
@@ -114,9 +117,23 @@ namespace TheVeil.Editor
                     }
                 }
 
+                // <b>And how tall each of them is, which is the column that was
+                // missing.</b> The front was built with a Choice whose size was zero,
+                // and a Choice of size zero is fitted to a height of zero: twelve
+                // buildings stood in a line along the water and every one of them had no
+                // size. Three sets of photographs of an empty beach were taken before
+                // anybody asked the sheet how big the buildings were, because the sheet
+                // could not say.
+                if (level == Campaign.LevelsPerChapter)
+                    foreach (var house in walk)
+                        note.AppendLine($"[Waterfront]   {house.name} at "
+                                        + $"{house.position.x:0}, {house.position.z:0}, "
+                                        + $"{ToTheWater(map, house.position):0.0} m from water, "
+                                        + $"{TheVeil.View.ModelScaling.Measure(house.gameObject).size.y:0.0} m tall");
+
                 note.AppendLine($"[Waterfront] {level,5}  {wrecks,6}  {front.Count,5}  {worst,9:0.0}  "
                                 + $"{(walk.Count > 1 ? total / (walk.Count - 1) : 0f),8:0.0}  "
-                                + $"{blocked,4} of {front.Count}");
+                                + $"{inland,10:0.0}  {blocked,4} of {front.Count}");
 
                 Object.DestroyImmediate(root);
             }
@@ -160,6 +177,20 @@ namespace TheVeil.Editor
 
             Walk(at);
             return found;
+        }
+
+        /// <summary>The child by that name, anywhere under here.</summary>
+        static Transform Node(Transform at, string called)
+        {
+            foreach (Transform child in at)
+            {
+                if (child.name == called) return child;
+
+                var found = Node(child, called);
+                if (found != null) return found;
+            }
+
+            return null;
         }
 
         static bool Has(string name, string part)

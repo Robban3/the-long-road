@@ -4287,6 +4287,14 @@ namespace TheVeil.Editor
             // rather than the warning it steps over.
             decor.Markers = Pirate("Props", "SM_Prop_Anchor_01", "SM_Prop_ShipWheel_01");
 
+            // <b>And the town's own quay, which is a different thing from a landing
+            // stage.</b> The pack draws both: the rickety dock above is two metres of
+            // planking on poles, and this is nearly four, built, with the pilings a hull
+            // can lie against. The harbour takes this one and the beaches keep the other
+            // - see BiomeDecor.Quay.
+            decor.Quay = Pirate("Buildings", "SM_Bld_Dock_01", "SM_Bld_Dock_02",
+                                "SM_Bld_Dock_03");
+
             // The lookout. A coast watches the water, and the pack draws the tower a
             // fishing village would actually put up - poles and planking, not masonry.
             decor.Watchtowers = Pirate("Buildings", "SM_Bld_Rickety_Tower_03");

@@ -133,6 +133,18 @@ namespace TheVeil.Editor
 
                     Shoot(town.center + stand * back + Vector3.up * (back * 0.5f),
                           town.center, System.IO.Path.Combine(shots, $"front-{level}.png"));
+
+                    // And straight down, which is the one view that answers how the town
+                    // is laid out rather than how it looks. From the water a street is a
+                    // row of roofs with trees in front of it and the question of whether
+                    // the ship lies in the middle of it cannot be read off at all.
+                    var whole = new Bounds(town.center, town.size);
+                    whole.Encapsulate(box.center);
+
+                    float up = Mathf.Max(whole.size.x, whole.size.z) * 1.3f + 40f;
+
+                    Shoot(whole.center + Vector3.up * up, whole.center,
+                          System.IO.Path.Combine(shots, $"above-{level}.png"));
                 }
 
                 Wreck(root.transform, shots, level);
@@ -146,32 +158,40 @@ namespace TheVeil.Editor
         /// <summary>
         /// The box the waterfront buildings stand in.
         ///
-        /// By name, as WaterfrontReport counts them: the coast's Houses set is seven
-        /// shanties and three rickety houses, and nothing else on the level is called
-        /// either. Empty where no front was built, which the caller checks.
+        /// Taken off the node the pass builds under, not off the models' names: the
+        /// country's village is built out of the same ten houses, and a frame that took
+        /// those in as well was a frame round half the level. Empty where no front was
+        /// built, which the caller checks.
         /// </summary>
         static Bounds Street(Transform at)
         {
+            var quarter = Node(at, "Waterfront");
+            if (quarter == null) return new Bounds();
+
             var box = new Bounds();
             bool any = false;
 
-            void Walk(Transform where)
+            foreach (Transform child in quarter)
             {
-                foreach (Transform child in where)
-                {
-                    if (child.name.IndexOf("Shanty", System.StringComparison.OrdinalIgnoreCase) >= 0
-                        || child.name.IndexOf("Rickety_House", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        if (!any) { box = new Bounds(child.position, Vector3.zero); any = true; }
-                        else box.Encapsulate(child.position);
-                    }
-
-                    Walk(child);
-                }
+                if (!any) { box = new Bounds(child.position, Vector3.zero); any = true; }
+                else box.Encapsulate(child.position);
             }
 
-            Walk(at);
             return any ? box : new Bounds();
+        }
+
+        /// <summary>The child by that name, anywhere under here.</summary>
+        static Transform Node(Transform at, string called)
+        {
+            foreach (Transform child in at)
+            {
+                if (child.name == called) return child;
+
+                var found = Node(child, called);
+                if (found != null) return found;
+            }
+
+            return null;
         }
 
         /// <summary>

@@ -438,6 +438,21 @@ namespace TheVeil.View
         public PropSet Boats = new PropSet();
 
         /// <summary>
+        /// The town's own quay, as against the landing stages on the open beach.
+        ///
+        /// <b>Two kinds of dock, because they are two kinds of place.</b> The pack draws
+        /// a rickety dock - a plank run on poles, two metres across - and a built one,
+        /// nearly four. The rickety one is right where a boat is drawn up on a beach and
+        /// somebody has put down something to walk out on; it is not what a town with a
+        /// warship in it ties up against, and photographed from above a two-metre run of
+        /// planking beside a thirty-metre hull is a line of sticks.
+        ///
+        /// Empty falls back to <see cref="Jetty"/>, which is what every country that has
+        /// no town on its water wants.
+        /// </summary>
+        public PropSet Quay = new PropSet();
+
+        /// <summary>
         /// Ships that did not make it: hulks lying where the sea put them.
         ///
         /// <b>Not <see cref="Wreckage"/>, which is a crate and a wheel.</b> That set is
@@ -5124,6 +5139,9 @@ namespace TheVeil.View
         {
             if (!decor.Jetty.Any || goalTile < 0 || goalTile >= grid.TileCount) return 0;
 
+            // The built dock where the country has one; the plank run everywhere else.
+            var planking = decor.Quay.Any ? decor.Quay : decor.Jetty;
+
             grid.ToCoords(goalTile, out int gx, out int gy);
 
             int best = -1;
@@ -5211,20 +5229,51 @@ namespace TheVeil.View
             var at = Vec2.FromTile(grid, best);
             float head = 0f;
 
-            for (int section = 0; section < JettySections; section++)
+            // How far the planking reaches out to either side of its own centre line,
+            // measured off what was built rather than taken from a constant. A dock that
+            // is twice as wide as the one the number was written for moors its ship two
+            // metres inside the planking, and the number in question had no way of
+            // knowing which dock it was describing.
+            var deck = new Vector3(JettyWidth * 0.5f, 0f, JettyWidth * 0.5f);
+
+            // <b>A longer run where a longer ship lies against it.</b> Five sections is
+            // twenty metres, which is right beside a seven-metre boat and is two thirds
+            // of the warship at the last landing. The run stops at the water's edge
+            // whatever this says, so asking for nine only means the quay goes as far as
+            // the water will carry it.
+            int sections = lastLanding ? LongJettySections : JettySections;
+
+            // <b>One model for the whole run.</b> Drawn fresh for each section, the run
+            // was three lengths of dock mixed together - the pack's three are 3.6, 4.1
+            // and 4.1 metres - and the spacing is one number. A quay built of pieces
+            // that are not the same length is a quay with a step in it.
+            var board = Any(planking, rng);
+
+            for (int section = 0; section < sections; section++)
             {
-                var plank = Object.Instantiate(Any(decor.Jetty, rng), parent);
+                var plank = Object.Instantiate(board, parent);
 
                 // Measured once the piece is in the world, because how long a section is
                 // belongs to the model and not to this file.
-                float along = ModelScaling.Measure(plank.gameObject).size.z;
+                var slab = ModelScaling.Measure(plank.gameObject);
+
+                float along = slab.size.z;
                 if (along < 0.5f) along = TileGrid.TileSize;
+
+                deck = slab.extents;
+
+                // <b>And laid overlapping, because a section's box is longer than its
+                // deck.</b> The piling frame carries past the planking at both ends, so
+                // a run spaced at the measured length comes out as a line of platforms
+                // with a metre and a half of water between each - which is what the
+                // photograph showed and what a box cannot tell you.
+                along *= DeckRun;
 
                 // <b>Begun a tile inland, so the first section bridges the waterline.</b>
                 // Laid from the wet tile outward the planking started in the sea: the
                 // picture showed a jetty a player would have to swim to. The run roots
                 // itself on the shore behind the water tile and walks out from there.
-                head = Root + (section + 0.5f) * along;
+                head = Root + (section + 1) * along;
 
                 float px = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * (head - along * 0.5f);
                 float pz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * (head - along * 0.5f);
@@ -5299,14 +5348,24 @@ namespace TheVeil.View
             var side = new Vector3(Mathf.Cos(yaw * Mathf.Deg2Rad), 0f,
                                    -Mathf.Sin(yaw * Mathf.Deg2Rad));
 
-            var ext = ModelScaling.Measure(hull.gameObject).extents;
+            var ext = Hull(hull).extents;
             float beam = Mathf.Abs(side.x) * ext.x + Mathf.Abs(side.z) * ext.z;
 
-            float aside = JettyWidth * 0.5f + beam + ShipStandoff;
+            float aside = Mathf.Abs(side.x) * deck.x + Mathf.Abs(side.z) * deck.z
+                          + beam + ShipStandoff;
 
-            // Against the middle of the run, so the planking lies along the hull rather
-            // than meeting it at one end.
-            float down = head * 0.5f;
+            // <b>Against the middle of the run, and never with its bow in the town.</b>
+            //
+            // The middle of the planking is the right place for a boat the length of the
+            // jetty and the wrong one for a ship twice its length: half of thirty metres
+            // reaches back from a point eight metres off the shore, so seven metres of
+            // warship stood among the houses. Photographed from the water it is the
+            // first thing the eye finds.
+            //
+            // So the hull is pushed out until its landward end is at the waterline the
+            // planking is rooted on, and only a hull short enough not to need it keeps
+            // the middle of the run.
+            float down = Mathf.Max(head * 0.5f, length * 0.5f + Root);
 
             float mx = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * down + side.x * aside;
             float mz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * down + side.z * aside;
@@ -5397,6 +5456,16 @@ namespace TheVeil.View
         /// </summary>
         const float JettyLength = 9f;
 
+        /// <summary>How much of a dock section's measured length is deck, not frame.</summary>
+        // Seven tenths, read off a photograph of the run: the gaps were about a metre
+        // and a half in a section measured at four. There is no honest way to get this
+        // off the model - the piece is one mesh and its box is its frame - so it is a
+        // number taken from the thing it is meant to describe and nothing else.
+        const float DeckRun = 0.7f;
+
+        /// <summary>And how many where the last landing's ship lies against it.</summary>
+        const int LongJettySections = 9;
+
         /// <summary>How many sections of planking the harbour lays, at most.</summary>
         // Five of the pack's four-metre walkways is twenty metres of jetty, which is
         // about twice the beam of what ties up to it. The run stops early wherever the
@@ -5428,7 +5497,57 @@ namespace TheVeil.View
         /// </summary>
         const float FlagshipLength = 30f;
 
-        const float ShipStandoff = 3f;
+        /// <summary>
+        /// The box round a vessel's hull, with its rigging left out.
+        ///
+        /// <b>A warship is fourteen metres across and its hull is eight.</b> The rest is
+        /// yards and sails, which reach out over the water on both sides and are the
+        /// reason a ship measured whole and laid half its width off a dock sits five
+        /// metres clear of it. A vessel ties up on its planking; what overhangs the quay
+        /// overhangs it, which is what the yards of a moored ship do.
+        ///
+        /// The same names the smoke test skips when it asks what is standing on the
+        /// ground, and for the same reason: a sail is not part of the shape of the thing.
+        /// </summary>
+        static Bounds Hull(GameObject vessel)
+        {
+            var box = new Bounds();
+            bool any = false;
+
+            foreach (var part in vessel.GetComponentsInChildren<Renderer>())
+            {
+                if (IsRigging(part.name)) continue;
+
+                if (!any) { box = part.bounds; any = true; }
+                else box.Encapsulate(part.bounds);
+            }
+
+            return any ? box : ModelScaling.Measure(vessel);
+        }
+
+        /// <summary>Whether a piece of a vessel is rigging rather than hull.</summary>
+        // The list the smoke test keeps, repeated here rather than reached for: the
+        // decorator does not know about the editor assembly and must not learn.
+        static bool IsRigging(string name)
+        {
+            foreach (var part in RiggingParts)
+                if (name.IndexOf(part, System.StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+            return false;
+        }
+
+        static readonly string[] RiggingParts =
+        {
+            "_Sail", "_Mast", "_Rigging", "_Rope", "_Yard", "_Shroud", "_Flag", "Bowsprit"
+        };
+
+        /// <summary>How much water is left between the hull and the planking, in metres.</summary>
+        // Half a metre, which is moored. This was three, measured from the middle of the
+        // planking with a constant for its width, and what it came to was a ship lying a
+        // dock's width off the dock with open water between the two - alongside to the
+        // eye only from straight above. A vessel ties up close enough to step across, and
+        // its yards overhang the quay; that is what a working harbour looks like.
+        const float ShipStandoff = 0.5f;
 
         /// <summary>
         /// The town along the water: a front of buildings facing the harbour, with the
@@ -5467,6 +5586,14 @@ namespace TheVeil.View
             if (stepX == 0 && stepY == 0) return 0;
 
             int placed = 0, built = 0;
+
+            // <b>Under a node of its own, because nothing else can tell it apart.</b>
+            // The front and the country's villages are built out of the same ten models,
+            // so every instrument that has looked at this - the report, the photographs -
+            // has been counting and framing both and calling the answer the front. The
+            // pass knows which buildings are its own; this is it saying so.
+            var quarter = new GameObject("Waterfront");
+            quarter.transform.SetParent(parent, false);
 
             // One list per direction, joined afterwards with the first reversed, so what
             // comes back is the street read from one end to the other rather than two
@@ -5518,11 +5645,23 @@ namespace TheVeil.View
                     fromY = py;
 
                     // Turned to look at the water, which is what a front means.
-                    var choice = new Choice(decor.Houses, Any(decor.Houses, rng), 0f,
-                                            byWidth: false);
+                    // <b>HouseHeight, and the nothing that was there before it was a
+                    // building scaled to nothing at all.</b>
+                    //
+                    // A Choice handed a size of zero is fitted to a height of zero:
+                    // Scatter multiplies the model's own height by target over measured
+                    // and the multiplier is nought. Twelve buildings were raised on this
+                    // shoreline and every one of them had no size, which is why the
+                    // report could count them standing four metres from the water in a
+                    // line a hundred and twenty metres long while every photograph of
+                    // that shoreline showed sand. Three commits were spent reframing
+                    // cameras at an empty beach, and the cameras were right every time.
+                    var choice = new Choice(decor.Houses, Any(decor.Houses, rng),
+                                            HouseHeight, byWidth: false);
 
-                    if (!Scatter(parent, grid, rng, choice, plot, heightScale, spread: 0.4f,
-                                 occupied: occupied, yaw: Seaward(grid, px, py) + 180f))
+                    if (!Scatter(quarter.transform, grid, rng, choice, plot, heightScale,
+                                 spread: 0.4f, occupied: occupied,
+                                 yaw: Seaward(grid, px, py) + 180f))
                         continue;
 
                     placed++;
@@ -5546,10 +5685,11 @@ namespace TheVeil.View
                     var lean = decor.Sheds.Any && rng.Chance(0.6f) ? decor.Sheds : decor.Yard;
                     if (!lean.Any) continue;
 
-                    var small = new Choice(lean, Any(lean, rng), 0f, byWidth: false);
+                    var small = new Choice(lean, Any(lean, rng), HouseHeight * ShedShare,
+                                           byWidth: false);
 
-                    if (Scatter(parent, grid, rng, small, behind, heightScale, spread: 0.6f,
-                                occupied: occupied, yaw: rng.Range(0f, 360f)))
+                    if (Scatter(quarter.transform, grid, rng, small, behind, heightScale,
+                                spread: 0.6f, occupied: occupied, yaw: rng.Range(0f, 360f)))
                         placed++;
                 }
             }
@@ -5568,6 +5708,12 @@ namespace TheVeil.View
 
             return placed;
         }
+
+        /// <summary>How tall what leans on a house is, as a share of the house.</summary>
+        // Two thirds. A shed, a single room or a shopfront is lower than the house it
+        // stands behind, and a row where everything is one height is a row of the same
+        // building.
+        const float ShedShare = 0.66f;
 
         /// <summary>How many buildings the front holds, how far apart, and how far it reaches.</summary>
         // Ten is a street and not a hamlet; three tiles apart is twelve metres, about a
