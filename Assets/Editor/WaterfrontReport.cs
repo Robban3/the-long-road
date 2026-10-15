@@ -41,7 +41,7 @@ namespace TheVeil.Editor
             if (runner == null) { Debug.LogError("[Waterfront] PlayLevel has no LevelRunner."); return; }
 
             var note = new StringBuilder();
-            note.AppendLine("[Waterfront] level  wrecks  front  gap worst  gap mean  from water  in the way");
+            note.AppendLine("[Waterfront] level  wrecks  front  loneliest  nearest  from water  in the way");
 
             int chapter = Biomes.LastChapter;
 
@@ -89,18 +89,39 @@ namespace TheVeil.Editor
                     continue;
                 }
 
-                // Walked from one end, nearest to nearest, because the order they were
-                // built in is not recorded and a street is a street whichever way it is
-                // read along.
+                // <b>How far each building is from its nearest neighbour, not from the
+                // next one along a walk.</b>
+                //
+                // The buildings were chained end to end and the step between them
+                // called the gap, which reads a town of two rows as one line that keeps
+                // doubling back: a shed in the back row behind the last house came out
+                // as a thirty-seven metre gap in a street whose widest real gap was
+                // sixteen. The pass was then sent looking for a hole that was not
+                // there.
+                //
+                // Nearest neighbour says what the eye asks - is this building standing
+                // with the others or on its own - and does not depend on an order
+                // nobody recorded.
                 var walk = Chain(front);
 
                 float worst = 0f, total = 0f;
 
-                for (int i = 1; i < walk.Count; i++)
+                foreach (var house in front)
                 {
-                    float gap = Flat(walk[i].position - walk[i - 1].position);
-                    total += gap;
-                    if (gap > worst) worst = gap;
+                    float near = float.MaxValue;
+
+                    foreach (var other in front)
+                    {
+                        if (other == house) continue;
+
+                        float apart = Flat(other.position - house.position);
+                        if (apart < near) near = apart;
+                    }
+
+                    if (near == float.MaxValue) continue;
+
+                    total += near;
+                    if (near > worst) worst = near;
                 }
 
                 // <b>And what is standing between a door and the sea.</b> Within a house
@@ -140,7 +161,7 @@ namespace TheVeil.Editor
                                         + $"{TheVeil.View.ModelScaling.Measure(house.gameObject).size.y:0.0} m tall");
 
                 note.AppendLine($"[Waterfront] {level,5}  {wrecks,6}  {front.Count,5}  {worst,9:0.0}  "
-                                + $"{(walk.Count > 1 ? total / (walk.Count - 1) : 0f),8:0.0}  "
+                                + $"{(front.Count > 0 ? total / front.Count : 0f),8:0.0}  "
                                 + $"{inland,10:0.0}  {blocked,4} of {front.Count}");
 
                 Object.DestroyImmediate(root);

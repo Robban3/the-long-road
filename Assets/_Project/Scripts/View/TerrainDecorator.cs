@@ -5284,32 +5284,15 @@ namespace TheVeil.View
                 plank.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
                 placed++;
 
-                // <b>Two abreast where the ship is, because one is a walkway.</b>
+                // <b>One wide piece, where two narrow ones were laid side by side.</b>
                 //
-                // Four metres of planking read beside a boat and vanished beside a
-                // thirty-metre hull: in the picture from above the quay was a grey line
-                // against grey water and the question "where is the new dock" answered
-                // itself. A wharf is eight metres across, which is a thing you unload
-                // onto rather than walk along.
+                // The run was doubled to make a wharf out of a walkway, and the offset
+                // was the measured box - which is the piling frame and reaches past the
+                // planking - so the two decks did not meet. The picture showed two
+                // jetties with a gap down the middle. The pack draws a platform 6.5 m
+                // across in one piece; see BiomeDecor.Quay.
                 var across = new Vector3(Mathf.Cos(yaw * Mathf.Deg2Rad), 0f,
                                          -Mathf.Sin(yaw * Mathf.Deg2Rad));
-
-                float wide = Mathf.Abs(across.x) * slab.size.x + Mathf.Abs(across.z) * slab.size.z;
-
-                if (lastLanding)
-                {
-                    var beside = Object.Instantiate(board, parent);
-
-                    beside.transform.position = new Vector3(px - across.x * wide, deckY,
-                                                            pz - across.z * wide);
-                    beside.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
-                    placed++;
-
-                    // The quay is half the width wider on the ship's side than it was,
-                    // so the mooring measures from the new edge.
-                    deck = new Vector3(deck.x + Mathf.Abs(across.x) * wide * 0.5f, deck.y,
-                                       deck.z + Mathf.Abs(across.z) * wide * 0.5f);
-                }
 
                 int planked = Tile(grid, px, pz);
 
@@ -5655,7 +5638,7 @@ namespace TheVeil.View
 
             // Why a step built nothing, because "nine of ten" does not say whether the
             // shore ran out or the ground did, and the two want opposite answers.
-            int noPlot = 0, noRoom = 0;
+            int noPlot = 0, noRoom = 0, filled = 0;
 
             // <b>Named, because nothing else can tell it apart.</b> The front and the
             // country's villages are built out of the same ten models, so every
@@ -5797,21 +5780,70 @@ namespace TheVeil.View
                 }
             }
 
-            if (street != null)
-            {
-                for (int i = back.Count - 1; i >= 0; i--) street.Add(back[i]);
-                street.AddRange(on);
-            }
+            var laid = new List<int>();
+            for (int i = back.Count - 1; i >= 0; i--) laid.Add(back[i]);
+            laid.AddRange(on);
+
+            // <b>And then the holes in it.</b>
+            //
+            // The walk takes a fixed step and skips whatever it cannot build on, so a
+            // rock or a river mouth in the middle of the shore comes out as a gap - one
+            // street was measured with forty-nine metres of nothing in it, which from
+            // the water is two towns. The walk cannot help that: it is going somewhere
+            // and a step it spends looking sideways is a step it does not take.
+            //
+            // So the gaps are filled afterwards, when the street is known. Each pair of
+            // neighbours further apart than two plots is offered the ground between
+            // them, twice over - the second round fills what the first round halved.
+            for (int round = 0; round < FillRounds; round++)
+                for (int i = 1; i < laid.Count && built < WaterfrontHouses; i++)
+                {
+                    grid.ToCoords(laid[i - 1], out int ax, out int ay);
+                    grid.ToCoords(laid[i], out int bx, out int by);
+
+                    int apart = Mathf.Max(Mathf.Abs(bx - ax), Mathf.Abs(by - ay));
+                    if (apart <= WaterfrontApart + 1) continue;
+
+                    int plot = DryByTheWater(grid, (ax + bx) / 2, (ay + by) / 2, occupied);
+                    if (plot < 0 || (road != null && road.Contains(plot))) continue;
+
+                    grid.ToCoords(plot, out int px, out int py);
+
+                    var filling = new Choice(decor.Houses, Any(decor.Houses, rng),
+                                             HouseHeight, byWidth: false);
+
+                    if (!Scatter(parent, grid, rng, filling, plot, heightScale, spread: 0.4f,
+                                 occupied: occupied, yaw: Seaward(grid, px, py) + 180f,
+                                 tag: Front))
+                        continue;
+
+                    placed++;
+                    built++;
+                    filled++;
+
+                    Quay(grid, occupied, px, py);
+                    laid.Insert(i, plot);
+                    i++;
+                }
+
+            if (street != null) street.AddRange(laid);
 
             // Said out loud, because a front that quietly builds two houses looks exactly
             // like the scatter it replaced and there is no other way to tell them apart
             // from above.
             Debug.Log($"[The Veil] Waterfront: {built} building(s) along the shore of "
                       + $"{WaterfrontHouses} asked for, {back.Count} one way and {on.Count} the "
-                      + $"other; {noPlot} step(s) found no plot and {noRoom} found no room.");
+                      + $"other; {noPlot} step(s) found no plot and {noRoom} found no room, "
+                      + $"{filled} gap(s) filled afterwards.");
 
             return placed;
         }
+
+        /// <summary>How many times the street is walked looking for holes to fill.</summary>
+        // Three. Each round halves what the last one left, and two rounds took a
+        // forty-nine metre hole to thirty-seven - the cap on the whole front was
+        // reached before the gaps were, which is why there are twenty-four of them now.
+        const int FillRounds = 3;
 
         /// <summary>What the front's own buildings are called, so they can be found.</summary>
         public const string Front = "Waterfront ";
@@ -5833,13 +5865,13 @@ namespace TheVeil.View
         const float ShedShare = 0.66f;
 
         /// <summary>How many buildings the front holds, how far apart, and how far it reaches.</summary>
-        // Sixteen with a back row behind them is a town; ten was a row of houses with
+        // Twenty-four with a back row behind them is a town; ten was a row of houses with
         // sky between them, which is what the photograph from above showed. Three tiles
         // apart is twelve metres, about a building and a gap - closer than that and the
         // buildings are refused for standing on each other, which was measured.
         // The reach is counted in those steps, so the front gives up rather than walking
         // the whole shoreline looking for a plot.
-        const int WaterfrontHouses = 16;
+        const int WaterfrontHouses = 24;
         const int WaterfrontApart = 3;
         const int WaterfrontReach = 12;
 

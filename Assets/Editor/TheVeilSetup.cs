@@ -4292,8 +4292,17 @@ namespace TheVeil.Editor
             // planking on poles, and this is nearly four, built, with the pilings a hull
             // can lie against. The harbour takes this one and the beaches keep the other
             // - see BiomeDecor.Quay.
-            decor.Quay = Pirate("Buildings", "SM_Bld_Dock_01", "SM_Bld_Dock_02",
-                                "SM_Bld_Dock_03");
+            // <b>And it is the platform, not the walkway.</b> The built dock is 3.8 m
+            // across against the rickety 2.0, and measured side by side on a photograph
+            // the two are the same thing: a plank deck on poles, because that is what a
+            // harbour in this pack is made of. Laid two abreast it came out as two
+            // jetties with a gap down the middle.
+            //
+            // The platform is one piece 6.5 m across - half as wide again as the two
+            // runs managed between them, with no seam - and it is drawn as a thing to
+            // stand cargo on rather than a thing to walk along. That is the difference
+            // the eye reads.
+            decor.Quay = Pirate("Buildings", "SM_Bld_Rickety_Dock_Platform_02");
 
             // The lookout. A coast watches the water, and the pack draws the tower a
             // fishing village would actually put up - poles and planking, not masonry.
