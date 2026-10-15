@@ -100,7 +100,12 @@ namespace TheVeil.Editor
             // and so does an average.
             var tally = new Dictionary<string, List<Outcome>>();
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            // <b>Every chapter that has scenery, not the first seven.</b> This counted to
+            // BuiltChapters, which is the list DifficultyCurve.Dressed exists to replace -
+            // so the three chapters dressed since, the enchanted wood, the dead land and
+            // the coast, have never been in a margin report. It mattered the day the
+            // coast had its ground carved: there was no before to compare against.
+            foreach (int chapter in DifficultyCurve.Dressed)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
@@ -188,7 +193,7 @@ namespace TheVeil.Editor
                 said.AppendLine("[Margin]  ch  runs  lost   escort left   load left   pace"
                                 + "   judged   target");
 
-                for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+                foreach (int chapter in DifficultyCurve.Dressed)
                 {
                     var runs = new List<Outcome>();
                     for (int l = 1; l <= Campaign.LevelsPerChapter; l++)
@@ -244,7 +249,7 @@ namespace TheVeil.Editor
             said.AppendLine($"[Margin] == every level, {Players[0].Name} ==");
             said.AppendLine("[Margin]  level  runs  lost   escort left   judged   target   off");
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {

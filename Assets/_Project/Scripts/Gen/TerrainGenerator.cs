@@ -515,6 +515,11 @@ namespace TheVeil.Gen
             bool north = rng.Range(0, 2) == 0;
             float deep = Math.Max(2f, recipe.SeaShare * h);
 
+            // What was flooded, so the sea can be given a level afterwards. The rock
+            // stacks are skipped below and are not in it: they stand out of the water
+            // and keep the height the noise gave them.
+            var salt = new List<int>();
+
             // The shore's own noise: one line, wandered by up to a third of the sea's own
             // depth either way, which is a bay you could lose a caravan in and a headland
             // you have to go round.
@@ -541,9 +546,154 @@ namespace TheVeil.Gen
                     if (grid[tile] == TerrainType.Cliff && step > ShoreStacksFrom) continue;
 
                     grid[tile] = TerrainType.Water;
+                    salt.Add(tile);
                 }
             }
+
+            LevelTheSea(grid, salt, recipe.Relief <= 0f ? 1f : recipe.Relief);
         }
+
+        /// <summary>
+        /// Gives the coast a sea level, and a beach that meets it.
+        ///
+        /// <b>Until this ran, the sea was not a sea.</b> Water tiles kept whatever height
+        /// the noise field gave them and the sheet was laid on top, so the surface
+        /// followed the bottom: measured on 100-10, the water beside the harbour stood at
+        /// 4.5 and the same sea eighty-five metres away at 5.7. It is not a thing a
+        /// player works out, but a camera low over the water looks through sea standing
+        /// higher than the shore behind it and everything beyond turns blue - which three
+        /// sets of harbour photographs showed and which was blamed on the quay twice.
+        ///
+        /// It cannot be fixed in the sheet. The land met the water anywhere between 3.2
+        /// and 12.2 m on the same level, so one height for the water drowns a third of
+        /// the shoreline and leaves another third standing nine metres over it. A sea
+        /// level is something the ground has to be built around, and this is the ground.
+        ///
+        /// Three things happen here:
+        ///
+        ///   * The height the land meets the water at is taken as the sea's level - the
+        ///     middle of the shoreline, so the cutting and the filling are about equal.
+        ///   * The land within a few tiles of the water is brought to that level, fading
+        ///     out inland, which is a beach. Nothing further in is touched: the country
+        ///     keeps its hills, it just stops running into the sea at nine metres.
+        ///   * The bed is cut away from the shore, so the water still has a depth for the
+        ///     shader to colour by. The surface comes out flat because the sheet levels
+        ///     over a window of beds and the beds near a shore are all the same now.
+        ///
+        /// Elevation is read by nothing that decides a route or a cost - the corridors,
+        /// the budget and the catalogue all work on tiles - so this moves no road and no
+        /// encounter. Measured before and after with the margin report.
+        /// </summary>
+        static void LevelTheSea(TileGrid grid, List<int> salt, float relief)
+        {
+            if (salt.Count == 0) return;
+
+            // Where the land meets the water now, which is what the level has to be.
+            var edge = new List<float>();
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] == TerrainType.Water) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+                if (!Beside(grid, x, y, TerrainType.Water)) continue;
+
+                edge.Add(grid.Elevation(i));
+            }
+
+            if (edge.Count == 0) return;
+
+            edge.Sort();
+            float shore = edge[edge.Count / 2];
+
+            // How far every tile is from the water, in tiles, so the beach can fade and
+            // the bed can fall away.
+            var toWater = Spread(grid, salt);
+
+            foreach (int tile in salt)
+            {
+                // Away from the shore the bottom drops, which is the whole of what the
+                // water colour is made of: the sheet carries its own depth on the vertex,
+                // and flat water over a flat floor is one colour everywhere.
+                float deep = Math.Min(toWater[tile], SeaFloorAt) / (float)SeaFloorAt;
+                grid.SetElevation(tile, shore - deep * SeaFloor * relief);
+            }
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] == TerrainType.Water) continue;
+
+                int away = toWater[i];
+                if (away <= 0 || away > BeachReach) continue;
+
+                // Smooth rather than straight, or the apron ends in a step the length of
+                // the coast - which is the fault this is fixing, moved inland.
+                float t = 1f - (away - 1) / (float)BeachReach;
+                t = t * t * (3f - 2f * t);
+
+                grid.SetElevation(i, grid.Elevation(i) + (shore - grid.Elevation(i)) * t);
+            }
+        }
+
+        /// <summary>How far each tile is from the nearest of the given ones, in tiles.</summary>
+        static int[] Spread(TileGrid grid, List<int> from)
+        {
+            var away = new int[grid.TileCount];
+            for (int i = 0; i < away.Length; i++) away[i] = int.MaxValue;
+
+            var queue = new Queue<int>();
+
+            foreach (int tile in from) { away[tile] = 0; queue.Enqueue(tile); }
+
+            int[] dx = { 1, -1, 0, 0 };
+            int[] dy = { 0, 0, 1, -1 };
+
+            while (queue.Count > 0)
+            {
+                int at = queue.Dequeue();
+                grid.ToCoords(at, out int x, out int y);
+
+                for (int d = 0; d < 4; d++)
+                {
+                    int nx = x + dx[d], ny = y + dy[d];
+                    if (!grid.InBounds(nx, ny)) continue;
+
+                    int next = grid.ToIndex(nx, ny);
+                    if (away[next] <= away[at] + 1) continue;
+
+                    away[next] = away[at] + 1;
+                    queue.Enqueue(next);
+                }
+            }
+
+            return away;
+        }
+
+        /// <summary>Whether any of the eight tiles round this one is of that kind.</summary>
+        static bool Beside(TileGrid grid, int x, int y, TerrainType kind)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (!grid.InBounds(x + dx, y + dy)) continue;
+                    if (grid[grid.ToIndex(x + dx, y + dy)] == kind) return true;
+                }
+
+            return false;
+        }
+
+        /// <summary>How far inland the beach is brought to the sea level, in tiles.</summary>
+        // Six, which is twenty-four metres. Far enough that a nine-metre bank becomes a
+        // slope a person could walk up and not so far that the country loses its hills.
+        const int BeachReach = 6;
+
+        /// <summary>How deep the sea gets, as a share of the relief, and how far out.</summary>
+        // A third of the country relief over eight tiles - about four and a half metres
+        // on a coast level, deepening over thirty. It is for the water colour and for a
+        // hull to sit in, not for anything to walk on.
+        const float SeaFloor = 0.33f;
+        const int SeaFloorAt = 8;
 
         /// <summary>How far the shoreline wanders, as a share of the sea's own depth.</summary>
         const float ShoreWander = 0.45f;

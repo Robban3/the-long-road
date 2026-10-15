@@ -58,6 +58,8 @@ namespace TheVeil.Editor
                 // plain name search counts the parts as well.
                 int wrecks = Count(root.transform, "Shipwreck");
 
+                Shoreline(map, runner.HeightScale, level, note);
+
                 if (level == Campaign.LevelsPerChapter && planks.Count > 0)
                 {
                     var deck = TheVeil.View.ModelScaling.Measure(planks[0].gameObject);
@@ -268,6 +270,47 @@ namespace TheVeil.Editor
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// How high the land stands where it meets the sea.
+        ///
+        /// <b>The number that decides whether a flat sea is possible.</b> A sheet at one
+        /// height drowns every shore below it, so the question is not how deep the sea is
+        /// - it is how much the land varies at the waterline. A metre or two is a sea
+        /// level; ten metres is a country that has to be carved before it can have one.
+        /// </summary>
+        static void Shoreline(LevelMap map, float heightScale, int level,
+                              System.Text.StringBuilder note)
+        {
+            var grid = map.Grid;
+            var edge = new List<float>();
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (grid[i] == TerrainType.Water) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+
+                bool wet = false;
+
+                for (int dy = -1; dy <= 1 && !wet; dy++)
+                    for (int dx = -1; dx <= 1 && !wet; dx++)
+                        if (grid.InBounds(x + dx, y + dy)
+                            && grid[grid.ToIndex(x + dx, y + dy)] == TerrainType.Water) wet = true;
+
+                if (wet) edge.Add(grid.Elevation(i) * heightScale);
+            }
+
+            if (edge.Count == 0) { note.AppendLine($"[Waterfront]   {level}: no shoreline"); return; }
+
+            edge.Sort();
+
+            note.AppendLine($"[Waterfront]   {level}: shoreline {edge.Count} tiles, "
+                            + $"low {edge[0]:0.0}, quarter {edge[edge.Count / 4]:0.0}, "
+                            + $"half {edge[edge.Count / 2]:0.0}, "
+                            + $"three quarters {edge[edge.Count * 3 / 4]:0.0}, "
+                            + $"high {edge[edge.Count - 1]:0.0}");
         }
 
         static bool Has(string name, string part)

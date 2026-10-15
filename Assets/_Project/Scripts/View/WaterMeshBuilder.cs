@@ -146,49 +146,141 @@ namespace TheVeil.View
         }
 
         /// <summary>
-        /// <b>Why the sea is not level, and why that is the ground's fault and not
-        /// this.</b>
+        /// <b>Why the sea is level, and where that was actually fixed.</b>
         ///
-        /// Asked for and attempted. The complaint is real and was measured first: on
-        /// 100-10 the water beside the quay stands at 4.5 and the same sea eighty-five
-        /// metres away stands at 5.7. A metre and a fifth of slope is not something a
-        /// player works out, but a camera low over the water looks *through* sea
-        /// standing higher than the shore behind it and everything beyond goes blue -
-        /// which is what three sets of harbour photographs showed, and which was blamed
-        /// on the quay twice before anybody measured the water.
+        /// The complaint was measured first: on 100-10 the water beside the quay stood
+        /// at 4.5 and the same sea eighty-five metres away at 5.7. A camera low over the
+        /// water then looks through sea standing higher than the shore behind it and
+        /// everything beyond goes blue, which three sets of harbour photographs showed
+        /// and which was blamed on the quay twice before anybody measured the water.
         ///
-        /// Three things were tried.
+        /// Three fixes were tried in this file and all three failed:
         ///
-        ///   * <b>One height for the whole sea.</b> The wet body that reaches the edge
-        ///     of the map, flood-filled, levelled at one surface with every corner
-        ///     clamped up to it. It put the sea at 9.5 - three metres over the quay -
-        ///     because the fill runs up the rivers that empty into it and a stream
-        ///     climbing inland decided where the sea stood.
-        ///   * <b>The same, with the fill stopped at the river mouths</b> by breadth,
-        ///     since a river here is one tile across and every tile of it is one step
-        ///     from a bank. The mask came out right and the level did not move: 9.5.
-        ///   * <b>Levelling the sea over a far wider window</b> - twenty-four tiles
-        ///     instead of eight - on the reasoning that a sheet averaged over thirty-two
-        ///     metres follows a bed that moves over a hundred. No effect at all: the
-        ///     window is the water's own breadth and the corners that matter are on the
-        ///     shore, where the breadth is one or two and the cap never binds.
+        ///   * One height for the whole sea, flood-filled from the map edge: it came out
+        ///     three metres over the quay, because the fill runs up the rivers that empty
+        ///     into the sea and a stream climbing inland decided where the sea stood.
+        ///   * The same with the fill stopped at the river mouths by breadth. The mask
+        ///     came out right and the level did not move.
+        ///   * Levelling over twenty-four tiles instead of eight. No effect: the window
+        ///     is the water's own breadth and the corners that matter are on the shore,
+        ///     where the breadth is one or two and the cap never binds.
         ///
-        /// The second attempt is what explains the first and the third. <b>The bed under
-        /// this sea runs from 0.9 m to 11.1 m</b> - measured over 1172 tiles on 100-10 -
-        /// <b>and the land meets it all the way up that range</b>. There is no one
-        /// height for it. A level at the median drowns every shore below it; a level at
-        /// the top leaves the bottom showing at the ones above. Levelling the open water
-        /// and leaving the waterline alone puts a step a metre and a half high at the
-        /// beach, which is worse than the slope.
+        /// The second failure explained the other two. The land met the water anywhere
+        /// between 3.2 and 12.2 m on one level, so no single height exists that does not
+        /// either drown a third of the shoreline or leave another third standing nine
+        /// metres over the water. <b>A sea level is something the ground has to be built
+        /// around</b>, and the ground was not.
         ///
-        /// So the sheet is right to drape. What is wrong is that the ground was never
-        /// built around a sea level: the generator carves a bed and this covers it.
-        /// Giving the coast a true sea means carving the sea flat in the terrain and
-        /// lifting what little land falls below it - a change to the maps themselves,
-        /// not to the water, and one that wants the margin report run over it.
+        /// So it was fixed in the ground - TerrainGenerator.LevelTheSea, which takes the
+        /// middle of the shoreline as the sea's level, brings the land within six tiles
+        /// of the water to it, and cuts the bed away offshore so the water keeps a depth
+        /// to be coloured by. What is left here is the one line that reads it: every
+        /// corner the sea reaches stands at the sea's own height, which is now a height
+        /// the shoreline agrees with.
         /// </summary>
-        // Left as a comment rather than a ticket because the next person to look at a
-        // blue photograph will start here.
+
+        /// <summary>
+        /// Which tiles belong to the sea: the wet body that reaches the edge of the map.
+        ///
+        /// Grown from the border rather than named by terrain type, because nothing in
+        /// the grid says sea - a coast level's water and a forest level's river are the
+        /// same tile. What a sea has and a lake has not is that it runs off the side of
+        /// the world.
+        ///
+        /// <b>And it stops at a river mouth rather than running up the valley.</b> A
+        /// plain flood fill marks the whole river system as one body, and the level is
+        /// taken from the shallowest of its beds - so a stream climbing inland put the
+        /// sea three metres over the harbour. What tells the two apart is width: breadth
+        /// is already counted for the levelling, and a river here is one tile across, so
+        /// every tile of it is one step from a bank. Open water is not.
+        /// </summary>
+        static bool[] SeaBody(TileGrid grid, bool[] wet, int[] breadth)
+        {
+            var salt = new bool[wet.Length];
+            var queue = new Queue<int>();
+
+            bool Open(int x, int y)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (grid.InBounds(x + dx, y + dy)
+                            && breadth[grid.ToIndex(x + dx, y + dy)] >= Broader) return true;
+
+                return false;
+            }
+
+            void Reach(int x, int y)
+            {
+                if (!grid.InBounds(x, y)) return;
+
+                int at = grid.ToIndex(x, y);
+                if (!wet[at] || salt[at] || !Open(x, y)) return;
+
+                salt[at] = true;
+                queue.Enqueue(at);
+            }
+
+            for (int x = 0; x < grid.Width; x++) { Reach(x, 0); Reach(x, grid.Height - 1); }
+            for (int y = 0; y < grid.Height; y++) { Reach(0, y); Reach(grid.Width - 1, y); }
+
+            while (queue.Count > 0)
+            {
+                grid.ToCoords(queue.Dequeue(), out int x, out int y);
+
+                Reach(x + 1, y);
+                Reach(x - 1, y);
+                Reach(x, y + 1);
+                Reach(x, y - 1);
+            }
+
+            return salt;
+        }
+
+        /// <summary>How far from a bank water has to be before it counts as open.</summary>
+        // Two tiles, which is eight metres. A river in this game is one tile across and
+        // every tile of it is one step from its bank; anything two steps out is wider
+        // than a river.
+        const int Broader = 2;
+
+        /// <summary>
+        /// The one height the sea stands at: its shallowest water, covered.
+        ///
+        /// The shallowest rather than the mean, and with the ground carved to a sea level
+        /// the two are nearly the same thing - every bed within a tile of the shore was
+        /// cut to that level, so the top of the spread *is* the shoreline. Taken a little
+        /// below the very top so one bar or spit cannot lift the whole sea; anything left
+        /// above it keeps the film the corner floors itself with.
+        /// </summary>
+        static float SeaSurface(TileGrid grid, bool[] salt, float tileSize, float heightScale,
+                                float depth)
+        {
+            var beds = new List<float>();
+
+            for (int i = 0; i < salt.Length; i++)
+            {
+                if (!salt[i]) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+                beds.Add(grid.SurfaceElevation((x + 0.5f) * tileSize, (y + 0.5f) * tileSize)
+                         * heightScale);
+            }
+
+            if (beds.Count == 0) return float.NegativeInfinity;
+
+            beds.Sort();
+
+            int at = Mathf.Clamp(Mathf.RoundToInt((beds.Count - 1) * SeaShare), 0, beds.Count - 1);
+            return beds[at] + depth;
+        }
+
+        /// <summary>How far up the spread of sea beds the surface is taken.</summary>
+        const float SeaShare = 0.95f;
+
+        /// <summary>The sea of the sheet being built, and the height it stands at.</summary>
+        // Set once in Build and read in Corner, which is called five times from three
+        // places and is long enough already. Cleared when the sheet is finished.
+        static bool[] _seaBody;
+        static float _seaSurface = float.NegativeInfinity;
 
         /// <summary>
         /// The height the water stands at here: the bed, levelled.
@@ -468,6 +560,12 @@ namespace TheVeil.View
             // a channel from open water.
             var breadth = Breadth(grid, wet);
 
+            // And once per sheet, the sea's own level - see the note above Bedding.
+            _seaBody = sea ? SeaBody(grid, wet, breadth) : null;
+            _seaSurface = _seaBody == null
+                ? float.NegativeInfinity
+                : SeaSurface(grid, _seaBody, tileSize, heightScale, depth);
+
             // One vertex per shared corner, made on demand. The key is the corner's grid
             // coordinate, which is what makes neighbouring tiles agree.
             var corners = new Dictionary<int, int>();
@@ -493,6 +591,9 @@ namespace TheVeil.View
             if (sea)
                 Seaward(grid, wet, breadth, corners, vertices, uvs, depths, triangles,
                         tileSize, heightScale, depth, shelve, stride);
+
+            _seaBody = null;
+            _seaSurface = float.NegativeInfinity;
 
             if (triangles.Count == 0) return null;
 
@@ -627,6 +728,9 @@ namespace TheVeil.View
             float towardX = 0f, towardZ = 0f;
             int wet = 0;
 
+            // Whether the sea reaches this corner.
+            bool salt = false;
+
             for (int dy = -1; dy <= 0; dy++)
             {
                 for (int dx = -1; dx <= 0; dx++)
@@ -639,6 +743,8 @@ namespace TheVeil.View
                               * heightScale;
 
                     if (bed < lowest) lowest = bed;
+
+                    if (_seaBody != null && _seaBody[grid.ToIndex(tx, ty)]) salt = true;
 
                     towardX += dx + 0.5f;
                     towardZ += dy + 0.5f;
@@ -661,6 +767,9 @@ namespace TheVeil.View
                 ? Mathf.Max(Bedding(grid, wetMask, breadth, x, y, tileSize, heightScale) + depth,
                             lowest + Film)
                 : TerrainMeshBuilder.CornerHeight(grid, x, y, heightScale) + depth;
+
+            // <b>And a sea is one height.</b> See the note above Bedding.
+            if (salt && surface < _seaSurface) surface = _seaSurface;
 
             float px = x * tileSize, pz = y * tileSize;
 
