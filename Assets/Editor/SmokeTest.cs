@@ -325,8 +325,18 @@ namespace TheVeil.Editor
                 // in the dressing that is wrong when it *is* on the ground.
                 bool afloat = name.IndexOf("Veh_Boat", System.StringComparison.Ordinal) >= 0;
 
+                // <b>And what is standing on the quay, for the same reason as the hull
+                // beside it.</b> A barrel on a dock is half a metre clear of the ground,
+                // because the ground under a dock is the sea bed and the dock is on
+                // stilts over it. Taken from the name the decorator gives it rather than
+                // guessed at: see TerrainDecorator.Landed. Without it the choice is a
+                // check that cries about a crate on a wharf or a wharf with nothing on
+                // it, and an empty wharf is why this was built.
+                bool onTheQuay = name.StartsWith(TerrainDecorator.Landed,
+                                                 System.StringComparison.Ordinal);
+
                 bool hangs = name.Contains("Banner") || name.Contains("ShopSign")
-                             || Rigging(name) || afloat || Aloft(decor, name);
+                             || Rigging(name) || afloat || onTheQuay || Aloft(decor, name);
 
                 // A tree's branches, which are their own meshes in the meadow pack and hang
                 // above the ground by construction - that is what a branch does. The trunk
@@ -533,6 +543,12 @@ namespace TheVeil.Editor
                 // road may run - the same reason the castle's gate and the wood's portal
                 // are exempt. See TerrainDecorator.PlaceHarbour.
                 if (prop.name.IndexOf("Dock", System.StringComparison.Ordinal) >= 0) continue;
+
+                // And what is stacked on it. A crate on a wharf is out over the water on
+                // a deck the escort never walks on, and a disc on it would be a bollard
+                // in the sea. Same tag, same reason as the hanging check above.
+                if (prop.name.StartsWith(TerrainDecorator.Landed,
+                                         System.StringComparison.Ordinal)) continue;
 
                 var discs = prop.GetComponentsInChildren<Solid>(true);
                 if (discs.Length == 0) { open.Add(prop.name); continue; }

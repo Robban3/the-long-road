@@ -58,6 +58,10 @@ namespace TheVeil.Editor
                 // plain name search counts the parts as well.
                 int wrecks = Count(root.transform, "Shipwreck");
 
+                if (planks.Count > 0)
+                    note.AppendLine($"[Waterfront]   {level}: {planks.Count} section(s) of "
+                                    + $"{planks[0].name}");
+
                 // <b>The front is what the front pass built, and nothing else.</b>
                 //
                 // This took every building within four tiles of water, on the reasoning
@@ -68,11 +72,15 @@ namespace TheVeil.Editor
                 // sheds and a front of nine all at once, and the photograph that showed
                 // an empty shoreline was right.
                 //
-                // The pass parents its own work under a node now, so this can ask.
-                var quarter = Node(root.transform, "Waterfront");
-
+                // The pass names its own work now, so this can ask. A node was tried
+                // first and three of the decorator's sweeps measure a direct child of
+                // the prop root as one object: the bridge sweep found the box round a
+                // hundred and twenty metres of street and destroyed the lot in one call.
                 var front = new List<Transform>();
-                if (quarter != null) Sort(quarter, front, new List<Transform>(), new List<Transform>());
+                foreach (var house in houses)
+                    if (house.name.StartsWith(TheVeil.View.TerrainDecorator.Front,
+                                              System.StringComparison.Ordinal))
+                        front.Add(house);
 
                 if (front.Count == 0)
                 {
@@ -177,20 +185,6 @@ namespace TheVeil.Editor
 
             Walk(at);
             return found;
-        }
-
-        /// <summary>The child by that name, anywhere under here.</summary>
-        static Transform Node(Transform at, string called)
-        {
-            foreach (Transform child in at)
-            {
-                if (child.name == called) return child;
-
-                var found = Node(child, called);
-                if (found != null) return found;
-            }
-
-            return null;
         }
 
         static bool Has(string name, string part)

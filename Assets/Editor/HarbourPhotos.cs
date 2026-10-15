@@ -158,40 +158,33 @@ namespace TheVeil.Editor
         /// <summary>
         /// The box the waterfront buildings stand in.
         ///
-        /// Taken off the node the pass builds under, not off the models' names: the
-        /// country's village is built out of the same ten houses, and a frame that took
-        /// those in as well was a frame round half the level. Empty where no front was
-        /// built, which the caller checks.
+        /// Taken off the name the pass gives its own buildings, not off the models':
+        /// the country's village is built out of the same ten houses, and a frame that
+        /// took those in as well was a frame round half the level. Empty where no front
+        /// was built, which the caller checks.
         /// </summary>
         static Bounds Street(Transform at)
         {
-            var quarter = Node(at, "Waterfront");
-            if (quarter == null) return new Bounds();
-
             var box = new Bounds();
             bool any = false;
 
-            foreach (Transform child in quarter)
+            void Walk(Transform where)
             {
-                if (!any) { box = new Bounds(child.position, Vector3.zero); any = true; }
-                else box.Encapsulate(child.position);
+                foreach (Transform child in where)
+                {
+                    if (child.name.StartsWith(TheVeil.View.TerrainDecorator.Front,
+                                              System.StringComparison.Ordinal))
+                    {
+                        if (!any) { box = new Bounds(child.position, Vector3.zero); any = true; }
+                        else box.Encapsulate(child.position);
+                    }
+
+                    Walk(child);
+                }
             }
 
+            Walk(at);
             return any ? box : new Bounds();
-        }
-
-        /// <summary>The child by that name, anywhere under here.</summary>
-        static Transform Node(Transform at, string called)
-        {
-            foreach (Transform child in at)
-            {
-                if (child.name == called) return child;
-
-                var found = Node(child, called);
-                if (found != null) return found;
-            }
-
-            return null;
         }
 
         /// <summary>

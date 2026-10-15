@@ -5278,14 +5278,72 @@ namespace TheVeil.View
                 float px = at.X + Mathf.Sin(yaw * Mathf.Deg2Rad) * (head - along * 0.5f);
                 float pz = at.Y + Mathf.Cos(yaw * Mathf.Deg2Rad) * (head - along * 0.5f);
 
-                plank.transform.position = new Vector3(px, grid.SurfaceElevation(at.X, at.Y) * heightScale,
-                                                       pz);
+                float deckY = grid.SurfaceElevation(at.X, at.Y) * heightScale;
+
+                plank.transform.position = new Vector3(px, deckY, pz);
                 plank.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
                 placed++;
 
+                // <b>Two abreast where the ship is, because one is a walkway.</b>
+                //
+                // Four metres of planking read beside a boat and vanished beside a
+                // thirty-metre hull: in the picture from above the quay was a grey line
+                // against grey water and the question "where is the new dock" answered
+                // itself. A wharf is eight metres across, which is a thing you unload
+                // onto rather than walk along.
+                var across = new Vector3(Mathf.Cos(yaw * Mathf.Deg2Rad), 0f,
+                                         -Mathf.Sin(yaw * Mathf.Deg2Rad));
+
+                float wide = Mathf.Abs(across.x) * slab.size.x + Mathf.Abs(across.z) * slab.size.z;
+
+                if (lastLanding)
+                {
+                    var beside = Object.Instantiate(board, parent);
+
+                    beside.transform.position = new Vector3(px - across.x * wide, deckY,
+                                                            pz - across.z * wide);
+                    beside.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+                    placed++;
+
+                    // The quay is half the width wider on the ship's side than it was,
+                    // so the mooring measures from the new edge.
+                    deck = new Vector3(deck.x + Mathf.Abs(across.x) * wide * 0.5f, deck.y,
+                                       deck.z + Mathf.Abs(across.z) * wide * 0.5f);
+                }
+
+                int planked = Tile(grid, px, pz);
+
+                // <b>And something standing on it, where it is standing over water.</b>
+                //
+                // An empty deck is a shape; a barrel and two crates on it is a working
+                // quay, and from two hundred metres up they are the only things that say
+                // the grey strip is a dock. The deck is laid at the height of the
+                // harbour's water tile, and the shore end of the run is rooted a tile
+                // inland where the beach is higher than that - a crate set on the deck
+                // there is a crate under the sand, which is what the smoke test found.
+                // Over water is not enough: the whole run is laid at the height of the
+                // harbour's water tile, which is its bed, and the ground beside a water
+                // tile rises to meet the beach. Two pieces came back buried out of sight
+                // on a section whose tile was wet and whose deck was under the sand. So
+                // the deck is asked whether it is clear of the ground it is over.
+                if (decor.Cargo.Any && planked >= 0 && grid[planked] == TerrainType.Water
+                    && slab.max.y > grid.SurfaceElevation(px, pz) * heightScale + Standing
+                    && rng.Chance(QuayGoods))
+                {
+                    var goods = Object.Instantiate(Any(decor.Cargo, rng), parent);
+                    goods.name = Landed + goods.name;
+
+                    ModelScaling.FitToFootprint(goods, CargoWidth, slab.max.y);
+
+                    goods.transform.position = new Vector3(px + across.x * rng.Range(-1f, 0.2f),
+                                                           goods.transform.position.y,
+                                                           pz + across.z * rng.Range(-1f, 0.2f));
+                    goods.transform.rotation = Quaternion.Euler(0f, rng.Range(0f, 360f), 0f);
+                    placed++;
+                }
+
                 // The ground it covers is spoken for, or the shore pass grows a bush
                 // through the planking - which is what the first picture showed.
-                int planked = Tile(grid, px, pz);
                 if (planked >= 0 && occupied != null) occupied.Add(planked);
 
                 // Stop at the water's edge rather than marching out to sea: the next
@@ -5456,6 +5514,14 @@ namespace TheVeil.View
         /// </summary>
         const float JettyLength = 9f;
 
+        /// <summary>How far a deck must clear the ground before anything is set on it.</summary>
+        // Half a metre, which is the height at which a crate standing on it would show.
+        const float Standing = 0.5f;
+
+        /// <summary>How often a section of quay has something standing on it.</summary>
+        // Two in three. All of them is a warehouse floor and none of them is a jetty.
+        const float QuayGoods = 0.66f;
+
         /// <summary>How much of a dock section's measured length is deck, not frame.</summary>
         // Seven tenths, read off a photograph of the run: the gaps were about a metre
         // and a half in a section measured at four. There is no honest way to get this
@@ -5587,13 +5653,16 @@ namespace TheVeil.View
 
             int placed = 0, built = 0;
 
-            // <b>Under a node of its own, because nothing else can tell it apart.</b>
-            // The front and the country's villages are built out of the same ten models,
-            // so every instrument that has looked at this - the report, the photographs -
-            // has been counting and framing both and calling the answer the front. The
-            // pass knows which buildings are its own; this is it saying so.
-            var quarter = new GameObject("Waterfront");
-            quarter.transform.SetParent(parent, false);
+            // Why a step built nothing, because "nine of ten" does not say whether the
+            // shore ran out or the ground did, and the two want opposite answers.
+            int noPlot = 0, noRoom = 0;
+
+            // <b>Named, because nothing else can tell it apart.</b> The front and the
+            // country's villages are built out of the same ten models, so every
+            // instrument that has looked at this - the report, the photographs - was
+            // counting and framing both and calling the answer the front. The pass knows
+            // which buildings are its own; Waterfront is it saying so. See Scatter's tag
+            // for why this is a prefix and not a node.
 
             // One list per direction, joined afterwards with the first reversed, so what
             // comes back is the street read from one end to the other rather than two
@@ -5627,9 +5696,31 @@ namespace TheVeil.View
                     int x = fromX + headX * WaterfrontApart;
                     int y = fromY + headY * WaterfrontApart;
 
-                    int plot = DryByTheWater(grid, x, y);
-                    if (plot < 0 || occupied.Contains(plot)) continue;
-                    if (road != null && road.Contains(plot)) continue;
+                    int plot = DryByTheWater(grid, x, y, occupied);
+
+                    // <b>A gap in a street is still a street, and the walk has to get
+                    // past it.</b> A step that found nothing left the walk where it was,
+                    // so the next step aimed at the same tile and failed the same way:
+                    // once the shore handed back a rock or a river mouth, every
+                    // remaining step of that side was spent standing still. Eleven of
+                    // twenty-four steps were going nowhere. The walk moves on and only
+                    // the building is skipped.
+                    // <b>A gap in a street is still a street, and the walk has to get
+                    // past it.</b> A step that found nothing left the walk where it was,
+                    // so the next step aimed at the same tile and failed the same way:
+                    // once the shore handed back a rock or a river mouth, every
+                    // remaining step of that side was spent standing still.
+                    //
+                    // Reaching further along the same heading instead was tried and is
+                    // worse - a miss then doubles the stride, and the street came back
+                    // with a ninety-four metre hole where it had a forty-nine. The walk
+                    // takes its ordinary step and only the building is skipped.
+                    if (plot < 0 || (road != null && road.Contains(plot)))
+                    {
+                        noPlot++;
+                        if (grid.InBounds(x, y)) { fromX = x; fromY = y; }
+                        continue;
+                    }
 
                     grid.ToCoords(plot, out int px, out int py);
 
@@ -5659,10 +5750,10 @@ namespace TheVeil.View
                     var choice = new Choice(decor.Houses, Any(decor.Houses, rng),
                                             HouseHeight, byWidth: false);
 
-                    if (!Scatter(quarter.transform, grid, rng, choice, plot, heightScale,
+                    if (!Scatter(parent, grid, rng, choice, plot, heightScale,
                                  spread: 0.4f, occupied: occupied,
-                                 yaw: Seaward(grid, px, py) + 180f))
-                        continue;
+                                 yaw: Seaward(grid, px, py) + 180f, tag: Front))
+                    { noRoom++; continue; }
 
                     placed++;
                     built++;
@@ -5677,19 +5768,31 @@ namespace TheVeil.View
                     // how the gate into the enchanted wood keeps its archway clear.
                     Quay(grid, occupied, px, py);
 
-                    // A shed or a yard behind it, a plot back from the water, so the front
-                    // has a depth rather than being a row of faces on a beach.
+                    // <b>A back row, not an occasional shed.</b> One building in a plot
+                    // behind the front, two thirds of the time, gave the street a depth
+                    // of about one and a half buildings - which from above is a row of
+                    // roofs with grass behind it. A harbour town is two rows and a lane:
+                    // the front faces the water and the back faces the front.
                     int behind = Backland(grid, px, py);
                     if (behind < 0 || occupied.Contains(behind)) continue;
 
-                    var lean = decor.Sheds.Any && rng.Chance(0.6f) ? decor.Sheds : decor.Yard;
+                    var lean = decor.Sheds.Any && rng.Chance(0.7f) ? decor.Sheds
+                             : decor.Houses.Any && rng.Chance(0.6f) ? decor.Houses
+                             : decor.Yard;
                     if (!lean.Any) continue;
 
-                    var small = new Choice(lean, Any(lean, rng), HouseHeight * ShedShare,
+                    // Turned to face the front rather than the sea - the back of a town
+                    // looks at the town. A yard is furniture and keeps its dice.
+                    float facing = lean == decor.Yard ? rng.Range(0f, 360f)
+                                                      : Seaward(grid, px, py);
+
+                    var small = new Choice(lean, Any(lean, rng),
+                                           lean == decor.Houses ? HouseHeight
+                                                                : HouseHeight * ShedShare,
                                            byWidth: false);
 
-                    if (Scatter(quarter.transform, grid, rng, small, behind, heightScale,
-                                spread: 0.6f, occupied: occupied, yaw: rng.Range(0f, 360f)))
+                    if (Scatter(parent, grid, rng, small, behind, heightScale,
+                                spread: 0.6f, occupied: occupied, yaw: facing, tag: Front))
                         placed++;
                 }
             }
@@ -5704,10 +5807,24 @@ namespace TheVeil.View
             // like the scatter it replaced and there is no other way to tell them apart
             // from above.
             Debug.Log($"[The Veil] Waterfront: {built} building(s) along the shore of "
-                      + $"{WaterfrontHouses} asked for, {back.Count} one way and {on.Count} the other.");
+                      + $"{WaterfrontHouses} asked for, {back.Count} one way and {on.Count} the "
+                      + $"other; {noPlot} step(s) found no plot and {noRoom} found no room.");
 
             return placed;
         }
+
+        /// <summary>What the front's own buildings are called, so they can be found.</summary>
+        public const string Front = "Waterfront ";
+
+        /// <summary>
+        /// What is standing on the planking rather than on the ground.
+        ///
+        /// The smoke test measures every prop against the ground under it, and the
+        /// ground under a crate on a quay is the sea bed. The same arrangement the
+        /// moored hull has: the decorator says what it put where, and the check believes
+        /// it rather than guessing from a model's name.
+        /// </summary>
+        public const string Landed = "Quay ";
 
         /// <summary>How tall what leans on a house is, as a share of the house.</summary>
         // Two thirds. A shed, a single room or a shopfront is lower than the house it
@@ -5716,12 +5833,15 @@ namespace TheVeil.View
         const float ShedShare = 0.66f;
 
         /// <summary>How many buildings the front holds, how far apart, and how far it reaches.</summary>
-        // Ten is a street and not a hamlet; three tiles apart is twelve metres, about a
-        // building and a gap. The reach is counted in those steps, so the front gives up
-        // rather than walking the whole shoreline looking for a plot.
-        const int WaterfrontHouses = 10;
+        // Sixteen with a back row behind them is a town; ten was a row of houses with
+        // sky between them, which is what the photograph from above showed. Three tiles
+        // apart is twelve metres, about a building and a gap - closer than that and the
+        // buildings are refused for standing on each other, which was measured.
+        // The reach is counted in those steps, so the front gives up rather than walking
+        // the whole shoreline looking for a plot.
+        const int WaterfrontHouses = 16;
         const int WaterfrontApart = 3;
-        const int WaterfrontReach = 8;
+        const int WaterfrontReach = 12;
 
         /// <summary>
         /// Claims the ground between a waterfront house and the water, so the front has a
@@ -5762,8 +5882,18 @@ namespace TheVeil.View
         // the water, and not so much that the whole shoreline of the level is reserved.
         const int QuayDepth = 2;
 
-        /// <summary>The dry tile nearest this one that has water beside it, or -1.</summary>
-        static int DryByTheWater(TileGrid grid, int x, int y)
+        /// <summary>
+        /// The dry tile nearest this one that has water beside it and nothing on it.
+        ///
+        /// <b>Nothing on it, which this did not ask.</b> It returned the nearest tile by
+        /// the water and the caller threw the answer away if the ground was spoken for -
+        /// and the ground beside a waterfront house is always spoken for, because the
+        /// house reserves a yard round itself. Measured: of sixteen steps along one
+        /// shoreline, seven found no plot and one found no room, so the street was
+        /// losing seven buildings to tiles it had reserved itself one step earlier
+        /// rather than to a shore that had run out.
+        /// </summary>
+        static int DryByTheWater(TileGrid grid, int x, int y, HashSet<int> occupied)
         {
             for (int reach = 0; reach <= 3; reach++)
                 for (int dy = -reach; dy <= reach; dy++)
@@ -5774,6 +5904,7 @@ namespace TheVeil.View
 
                         int at = grid.ToIndex(x + dx, y + dy);
                         if (IsWet(grid[at]) || !grid.IsPassable(x + dx, y + dy)) continue;
+                        if (occupied != null && occupied.Contains(at)) continue;
                         if (!NextToWater(grid, x + dx, y + dy)) continue;
 
                         return at;
@@ -6253,7 +6384,7 @@ namespace TheVeil.View
                             Choice choice, int tile, float heightScale, float spread,
                             HashSet<int> occupied = null, float lift = 0f, float? yaw = null,
                             float maxWidth = 0f, bool signal = false, bool solid = false,
-                            Vec2? standing = null)
+                            Vec2? standing = null, string tag = null)
         {
             // <b>Where it was asked for, when it was asked for somewhere.</b> Everything
             // here is scattered on a tile and a tile is the right unit for a tree - but a
@@ -6275,6 +6406,22 @@ namespace TheVeil.View
 
             var instance = Object.Instantiate(choice.Prefab, parent);
             instance.transform.position = new Vector3(x, groundY, z);
+
+            // <b>A name a pass can find its own work by, and not a node to put it
+            // under.</b>
+            //
+            // The waterfront was parented under a GameObject of its own so the report
+            // and the camera could tell its buildings from the country's village. Three
+            // of the sweeps walk the direct children of the prop root and measure each
+            // one whole, and a group measures as the box round everything in it: the
+            // bridge sweep found a hundred and twenty metres of street overlapping an
+            // approach and destroyed the town in one call. Silently, and the next report
+            // said the front did not exist.
+            //
+            // A prefix costs nothing and cannot be swept: every instrument that matches
+            // on a model's name goes on working, because the model's name is still in
+            // there.
+            if (tag != null) instance.name = tag + instance.name;
 
             // Stand it up before measuring. Fitting to height only means anything once
             // the model's height is actually along Y.
