@@ -135,6 +135,8 @@ namespace TheVeil.Editor
                           town.center, System.IO.Path.Combine(shots, $"front-{level}.png"));
                 }
 
+                Wreck(root.transform, shots, level);
+
                 Object.DestroyImmediate(root);
             }
 
@@ -243,6 +245,49 @@ namespace TheVeil.Editor
 
             Walk(at);
             return best;
+        }
+
+        /// <summary>
+        /// The hulk on the beach, photographed low and from the water.
+        ///
+        /// A wreck is meant to be lying across the waterline with the sea around the near
+        /// side of it, and the only way that reads is from a camera at about the height
+        /// of its own deck looking back at the shore. From above it is a brown shape on
+        /// sand, which is what every shot of it would be if this used the same framing as
+        /// the harbour.
+        /// </summary>
+        static void Wreck(Transform at, string shots, int level)
+        {
+            Transform found = null;
+
+            void Walk(Transform where)
+            {
+                foreach (Transform child in where)
+                {
+                    if (found == null
+                        && child.name.IndexOf("Shipwreck", System.StringComparison.OrdinalIgnoreCase) >= 0
+                        && child.name.IndexOf("(Clone)", System.StringComparison.Ordinal) >= 0)
+                        found = child;
+
+                    Walk(child);
+                }
+            }
+
+            Walk(at);
+            if (found == null) { Debug.Log($"[Harbour] {level}: no wreck"); return; }
+
+            var box = TheVeil.View.ModelScaling.Measure(found.gameObject);
+
+            // Broadside, which is across the hull - the wreck is laid along the shore, so
+            // its own sideways is out to sea.
+            var side = found.right;
+            side.y = 0f;
+            if (side.sqrMagnitude < 0.01f) side = Vector3.right;
+
+            float away = Mathf.Max(box.size.x, box.size.z) * 1.3f + 14f;
+
+            Shoot(box.center + side.normalized * away + Vector3.up * (away * 0.35f),
+                  box.center, System.IO.Path.Combine(shots, $"wreck-{level}.png"));
         }
 
         static void Shoot(Vector3 from, Vector3 at, string path)

@@ -438,6 +438,25 @@ namespace TheVeil.View
         public PropSet Boats = new PropSet();
 
         /// <summary>
+        /// Ships that did not make it: hulks lying where the sea put them.
+        ///
+        /// <b>Not <see cref="Wreckage"/>, which is a crate and a wheel.</b> That set is
+        /// fitted to 1.3 m and dealt out by the handful as the litter of a place; this is
+        /// one broken ship, fourteen metres of it, lying across a waterline. The two are
+        /// the same word and nothing else.
+        ///
+        /// A coast with nothing on it but boats drawn up neatly reads as a country where
+        /// the sea is a road. A wreck is the sea saying otherwise, which is what the last
+        /// chapter of this road is about.
+        /// </summary>
+        public PropSet Hulks = new PropSet();
+
+        /// <summary>What washed out of them: crates, barrels, chests on the sand.</summary>
+        // Strewn round a hulk rather than scattered over the country. A barrel on a beach
+        // is a story only while there is something for it to have come out of.
+        public PropSet Cargo = new PropSet();
+
+        /// <summary>
         /// Whether the passes of this country are walled with rock.
         ///
         /// <b>Cliff tiles only ever happen in a town.</b> The generator draws a town's
@@ -1632,6 +1651,11 @@ namespace TheVeil.View
             placed += PlaceShoals(parent, grid, Stream(23), decor, heightScale);
             placed += PlaceLight(parent, grid, Stream(21), decor, heightScale, road);
             placed += PlaceBoats(parent, grid, Stream(20), decor, occupied, heightScale, road);
+
+            // And what the sea left, which the boats are the other half of. Before the
+            // shoreline pass, so the sand and the weed go on around a wreck rather than
+            // the wreck being refused the ground they took.
+            placed += PlaceWrecks(parent, grid, Stream(25), decor, occupied, heightScale, road);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
                                      densityScale, road);
 
@@ -4908,6 +4932,121 @@ namespace TheVeil.View
             return placed;
         }
 
+        /// <summary>
+        /// A ship that did not make it, lying across the waterline.
+        ///
+        /// <b>Every coast level, which is the point of it.</b> The one built thing on the
+        /// water used to be the harbour, and the harbour stands on the goal of a chapter's
+        /// last level because that is where a keep would otherwise be - so nine of the ten
+        /// beaches had three rowing boats on them and nothing else. A beach with a broken
+        /// ship on it is a beach with a history.
+        ///
+        /// Laid on the sand at the water's edge and pushed out into it, broadside, which
+        /// is how a hull ends up on a shore: driven in sideways and left. The dry tile
+        /// takes the weight - a wreck set on the bed of a water tile is a wreck under the
+        /// sheet of water that goes on last, and what the eye reads then is nothing at
+        /// all.
+        ///
+        /// And its cargo round it, because a hull on its own is a model and a hull with
+        /// barrels out of it is a wreck.
+        /// </summary>
+        static int PlaceWrecks(Transform parent, TileGrid grid, DeterministicRandom rng,
+                               BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                               HashSet<int> road)
+        {
+            if (!decor.Hulks.Any) return 0;
+
+            var lying = new List<int>();
+            int placed = 0;
+
+            for (int i = 0; i < grid.TileCount && lying.Count < MostWrecks; i++)
+            {
+                if (IsWet(grid[i])) continue;
+                if (occupied.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+                if (!NextToWater(grid, x, y)) continue;
+                if (!rng.Chance(WreckChance)) continue;
+                if (!Apart(grid, i, lying, WrecksApart)) continue;
+
+                // Pushed out towards the water by half a tile, so the hull straddles the
+                // line rather than standing beside it. Further than that and it is afloat
+                // and the water covers it; less and it is a ship parked on a beach.
+                float seaward = Seaward(grid, x, y) * Mathf.Deg2Rad;
+                var at = Vec2.FromTile(grid, i);
+
+                var standing = new Vec2(at.X + Mathf.Sin(seaward) * WreckWade,
+                                        at.Y + Mathf.Cos(seaward) * WreckWade);
+
+                // Broadside: the length of the hull along the shore, not pointing out of
+                // it. A wreck aimed at the sea reads as a ship about to leave.
+                var hulk = new Choice(decor.Hulks, Any(decor.Hulks, rng), WreckLength,
+                                      byWidth: true, low: 0.85f, high: 1.15f);
+
+                // <b>The slot is spent on a wreck, not on an attempt at one.</b> A hulk
+                // is fourteen metres and wants a footprint to match, and a shoreline
+                // refuses most of what is asked of it; counting the tile as used before
+                // knowing whether anything stood on it left three of the ten beaches with
+                // nothing, because both of their two tries had failed.
+                if (!Scatter(parent, grid, rng, hulk, i, heightScale, spread: 0f,
+                             occupied: occupied, yaw: Seaward(grid, x, y) + 90f,
+                             standing: standing))
+                    continue;
+
+                lying.Add(i);
+                placed++;
+
+                // What came out of it, up the beach. On dry ground and off the road, the
+                // same as everything else that stands on a tile.
+                if (!decor.Cargo.Any) continue;
+
+                int strewn = rng.Range(CargoLeast, CargoMost + 1);
+
+                for (int piece = 0; piece < strewn; piece++)
+                {
+                    int cx = x + rng.Range(-CargoReach, CargoReach + 1);
+                    int cy = y + rng.Range(-CargoReach, CargoReach + 1);
+
+                    if (!grid.InBounds(cx, cy)) continue;
+
+                    int on = grid.ToIndex(cx, cy);
+                    if (IsWet(grid[on]) || occupied.Contains(on)) continue;
+                    if (road != null && road.Contains(on)) continue;
+
+                    var washed = new Choice(decor.Cargo, Any(decor.Cargo, rng), CargoWidth,
+                                            byWidth: true);
+
+                    if (Scatter(parent, grid, rng, washed, on, heightScale, spread: 1.2f,
+                                occupied: occupied))
+                        placed++;
+                }
+            }
+
+            return placed;
+        }
+
+        /// <summary>How many wrecks a beach carries, how far apart, and how often.</summary>
+        // Two. A shoreline with one wreck on it is unlucky and a shoreline with six is a
+        // reef; the chance is what keeps a level that has no good ground for them from
+        // being given them anyway.
+        const int MostWrecks = 2;
+        const int WrecksApart = 14;
+        const float WreckChance = 0.06f;
+
+        /// <summary>How long a hulk is, in metres, and how far into the water it lies.</summary>
+        // Fourteen is half the warship at the last landing, which is the size the eye has
+        // for a ship in this country. Two metres out is half a tile: enough that the sea
+        // is around the near side of it.
+        const float WreckLength = 14f;
+        const float WreckWade = 2f;
+
+        /// <summary>How much of its cargo is on the sand, how far up it, and how big.</summary>
+        const int CargoLeast = 3;
+        const int CargoMost = 6;
+        const int CargoReach = 2;
+        const float CargoWidth = 1.3f;
+
         /// <summary>How many boats lie on one level's beach, and how far apart, in tiles.</summary>
         // Five. A beach with a dozen boats on it is a harbour, and the harbour is at the
         // end of the road rather than all along it.
@@ -5027,6 +5166,33 @@ namespace TheVeil.View
             float yaw = Seaward(grid, hx, hy);
 
             int placed = 0;
+
+            // <b>The town first, and then the jetty in the middle of it.</b>
+            //
+            // The planking went down on the wet tile nearest the goal and the street was
+            // walked out from there, both ways - and both ways is not both halves. One
+            // side runs into a headland or the road at the second plot and gives up while
+            // the other builds nine, so the ship ends up moored at the end of the town
+            // with a wood on one side of it. Photographed from the water, that is what it
+            // looks like: thirteen buildings up the shore and the warship past the last
+            // of them.
+            //
+            // Nothing can predict which way the shoreline will allow, so nothing tries.
+            // The front is built first, the middle of what was actually built is found,
+            // and the harbour goes there. The ship lies in the town because the town is
+            // what decided where the town is.
+            var street = new List<int>();
+            placed += PlaceWaterfront(parent, grid, rng, decor, occupied, heightScale, best,
+                                      yaw, road, street);
+
+            int berth = TheMiddleOfTheStreet(grid, street, lastLanding);
+
+            if (berth >= 0)
+            {
+                best = berth;
+                grid.ToCoords(best, out hx, out hy);
+                yaw = Seaward(grid, hx, hy);
+            }
 
             // <b>A run of planking from the shore out over the water, not one piece
             // dropped on a wet tile.</b>
@@ -5165,10 +5331,61 @@ namespace TheVeil.View
                                                   mz);
             placed++;
 
-            placed += PlaceWaterfront(parent, grid, rng, decor, occupied, heightScale, best, yaw, road);
-
             return placed;
         }
+
+        /// <summary>
+        /// The water in front of the middle of a street, or -1 where there is no street.
+        ///
+        /// The plots come in the order they were walked, which is one end of the front to
+        /// the other, so the middle of the list is the middle of the town. The harbour
+        /// wants the gap between the two middle houses rather than either of them - a
+        /// jetty rooted a tile inland of a house is rooted in the house.
+        ///
+        /// Where the last landing asks for it, the water has to be open as well: the
+        /// warship is thirty metres and the middle of a town is not automatically a place
+        /// one fits. Nothing found means the harbour stays where it was, which is the
+        /// shoreline nearest the goal.
+        /// </summary>
+        static int TheMiddleOfTheStreet(TileGrid grid, List<int> street, bool lastLanding)
+        {
+            if (street == null || street.Count < 2) return -1;
+
+            grid.ToCoords(street[street.Count / 2 - 1], out int ax, out int ay);
+            grid.ToCoords(street[street.Count / 2], out int bx, out int by);
+
+            int mx = (ax + bx) / 2, my = (ay + by) / 2;
+
+            int best = -1;
+            float nearest = float.MaxValue;
+
+            for (int reach = 0; reach <= MooringReach; reach++)
+                for (int dy = -reach; dy <= reach; dy++)
+                    for (int dx = -reach; dx <= reach; dx++)
+                    {
+                        if (Mathf.Abs(dx) != reach && Mathf.Abs(dy) != reach) continue;
+                        if (!grid.InBounds(mx + dx, my + dy)) continue;
+
+                        int at = grid.ToIndex(mx + dx, my + dy);
+                        if (grid[at] != TerrainType.Water) continue;
+                        if (!NextToLand(grid, mx + dx, my + dy)) continue;
+                        if (lastLanding && !OpenWater(grid, mx + dx, my + dy)) continue;
+
+                        float away = dx * dx + dy * dy;
+                        if (away >= nearest) continue;
+
+                        nearest = away;
+                        best = at;
+                    }
+
+            return best;
+        }
+
+        /// <summary>How far from the middle of the street a mooring is looked for, in tiles.</summary>
+        // Six. The front is built on the tile nearest the water, so the water is one tile
+        // away on a straight shore; six allows for a street that has had to stand back
+        // from a rock or a river mouth, and stops short of wandering off to another bay.
+        const int MooringReach = 6;
 
         /// <summary>
         /// How long the landing stage is, in metres - and it is no longer used to scale
@@ -5236,7 +5453,7 @@ namespace TheVeil.View
         /// </summary>
         static int PlaceWaterfront(Transform parent, TileGrid grid, DeterministicRandom rng,
                                    BiomeDecor decor, HashSet<int> occupied, float heightScale,
-                                   int harbour, float yaw, HashSet<int> road)
+                                   int harbour, float yaw, HashSet<int> road, List<int> street)
         {
             if (!decor.Houses.Any) return 0;
 
@@ -5251,8 +5468,17 @@ namespace TheVeil.View
 
             int placed = 0, built = 0;
 
+            // One list per direction, joined afterwards with the first reversed, so what
+            // comes back is the street read from one end to the other rather than two
+            // half-streets both starting in the middle. TheMiddleOfTheStreet depends on
+            // that order and on nothing else.
+            var back = new List<int>();
+            var on = new List<int>();
+
             for (int way = -1; way <= 1; way += 2)
             {
+                var side = way < 0 ? back : on;
+
                 // <b>The walk follows the waterline rather than a bearing.</b>
                 //
                 // It used to take one heading at the jetty and march along it, and a shore
@@ -5301,6 +5527,7 @@ namespace TheVeil.View
 
                     placed++;
                     built++;
+                    side.Add(plot);
 
                     // <b>And the ground between the house and the water is spoken for.</b>
                     //
@@ -5327,11 +5554,17 @@ namespace TheVeil.View
                 }
             }
 
+            if (street != null)
+            {
+                for (int i = back.Count - 1; i >= 0; i--) street.Add(back[i]);
+                street.AddRange(on);
+            }
+
             // Said out loud, because a front that quietly builds two houses looks exactly
             // like the scatter it replaced and there is no other way to tell them apart
             // from above.
             Debug.Log($"[The Veil] Waterfront: {built} building(s) along the shore of "
-                      + $"{WaterfrontHouses} asked for.");
+                      + $"{WaterfrontHouses} asked for, {back.Count} one way and {on.Count} the other.");
 
             return placed;
         }
@@ -5356,6 +5589,15 @@ namespace TheVeil.View
 
             int toX = Mathf.RoundToInt(Mathf.Sin(seaward));
             int toY = Mathf.RoundToInt(Mathf.Cos(seaward));
+
+            // <b>And the ground the house itself stands on, all the way round.</b> The
+            // frontage alone left the spruces against the gable and behind the door,
+            // which from the water is a house in a wood with a clear patch in front of
+            // it. A building in a street has a yard, and the yard is the thing that makes
+            // the street read as cleared ground rather than as a gap in the trees.
+            for (int ox = -1; ox <= 1; ox++)
+                for (int oy = -1; oy <= 1; oy++)
+                    if (grid.InBounds(x + ox, y + oy)) occupied.Add(grid.ToIndex(x + ox, y + oy));
 
             // The tile the house stands on, the two in front of it, and a tile either
             // side of those - a frontage rather than a path to the water.

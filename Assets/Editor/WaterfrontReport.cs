@@ -47,7 +47,7 @@ namespace TheVeil.Editor
             if (runner == null) { Debug.LogError("[Waterfront] PlayLevel has no LevelRunner."); return; }
 
             var note = new StringBuilder();
-            note.AppendLine("[Waterfront] level  front  gap worst  gap mean  in the way");
+            note.AppendLine("[Waterfront] level  wrecks  front  gap worst  gap mean  in the way");
 
             int chapter = Biomes.LastChapter;
 
@@ -60,6 +60,10 @@ namespace TheVeil.Editor
                 var planks = new List<Transform>();
                 Sort(root.transform, houses, green, planks);
 
+                // The instances only: the pack's hulk is a prefab of named parts and a
+                // plain name search counts the parts as well.
+                int wrecks = Count(root.transform, "Shipwreck");
+
                 // <b>The front is the houses that stand on the water.</b> A coast level
                 // also has its village, inland, and counting those in would hide a front
                 // of three among a hamlet of ten. Sixteen metres is four tiles: the front
@@ -71,7 +75,7 @@ namespace TheVeil.Editor
 
                 if (front.Count == 0)
                 {
-                    note.AppendLine($"[Waterfront] {level,5}  none");
+                    note.AppendLine($"[Waterfront] {level,5}  {wrecks,6}  none");
                     Object.DestroyImmediate(root);
                     continue;
                 }
@@ -110,7 +114,7 @@ namespace TheVeil.Editor
                     }
                 }
 
-                note.AppendLine($"[Waterfront] {level,5}  {front.Count,5}  {worst,9:0.0}  "
+                note.AppendLine($"[Waterfront] {level,5}  {wrecks,6}  {front.Count,5}  {worst,9:0.0}  "
                                 + $"{(walk.Count > 1 ? total / (walk.Count - 1) : 0f),8:0.0}  "
                                 + $"{blocked,4} of {front.Count}");
 
@@ -138,6 +142,24 @@ namespace TheVeil.Editor
 
                 Sort(child, houses, green, planks);
             }
+        }
+
+        /// <summary>How many pieces on the level are called this.</summary>
+        static int Count(Transform at, string part)
+        {
+            int found = 0;
+
+            void Walk(Transform where)
+            {
+                foreach (Transform child in where)
+                {
+                    if (Has(child.name, part) && Has(child.name, "(Clone)")) found++;
+                    Walk(child);
+                }
+            }
+
+            Walk(at);
+            return found;
         }
 
         static bool Has(string name, string part)

@@ -4318,6 +4318,25 @@ namespace TheVeil.Editor
                                  "SM_Bld_Shanty_Room_03", "SM_Bld_Shanty_Preset_Bar_01",
                                  "SM_Bld_Shop_01", "SM_Bld_Shop_02", "SM_Bld_Shop_03");
 
+            // <b>And the ships that did not make it.</b> The pack draws three of them,
+            // broken open and half on their side, and they are the one thing in it that
+            // says what the sea does when it is not being a road. Every coast level gets
+            // up to two - see PlaceWrecks, which lays them across the waterline rather
+            // than beside it.
+            decor.Hulks = Pirate("Props", "SM_Prop_Shipwreck_01", "SM_Prop_Shipwreck_02",
+                                 "SM_Prop_Shipwreck_03");
+
+            // What came out of them, strewn up the sand. The chests among them are the
+            // reason the set is not just the barrels: a broken crate is litter and a
+            // chest on a beach is somebody's bad day.
+            decor.Cargo = Pirate("Props",
+                                 "SM_Prop_Barrel_01", "SM_Prop_Barrel_03",
+                                 "SM_Prop_Barrel_05", "SM_Prop_Barrel_Half_01",
+                                 "SM_Prop_Crate_01", "SM_Prop_Crate_03", "SM_Prop_Crate_05",
+                                 "SM_Prop_Crate_Covered_01", "SM_Prop_Chest_01",
+                                 "SM_Prop_Chest_02", "SM_Prop_CannonBalls_02",
+                                 "SM_Prop_Debris_02");
+
             // Driftwood above the tide line - and the planks and wreckage that come with
             // it, which is what a sea actually leaves on a beach. The forest's logs stay:
             // a river brings those down.
