@@ -986,43 +986,29 @@ namespace TheVeil.View
         /// </summary>
         public const float WaterLift = 0.12f;
 
-        /// <summary>How wide a crossing is laid across a ford, in metres.</summary>
-        /// <summary>How wide a bridge's deck is, and how far it reaches.</summary>
-        // Five metres of deck: a wagon is two and a half and the escort walks beside it,
-        // so anything narrower is a plank the caravan straddles. Twelve of span, which is
-        // the ford tile plus a bank at each end — a bridge that stops at the waterline is
-        // a jetty. See ModelScaling.FitToCrossing for why both numbers are needed.
         /// <summary>
-        /// How wide the roadway has to be, in metres.
+        /// How wide the roadway over a ford is, in metres.
         ///
-        /// <b>Five, and the span no longer follows it.</b> This was cut to 3.5 because
-        /// the width was stretching the bridge — FitToCrossing scales uniformly and takes
-        /// the larger demand, so a five-metre deck dragged a twelve-metre crossing out to
-        /// a twenty-one-metre bridge, which the log said plainly: "span asked 12,0 m and
-        /// got 21,0 m". But 3.5 is a wagon and half a metre either side, and a column
-        /// crossing on it has its flanks over the water.
+        /// <b>Eleven, because nine was not wide enough for the road that is on it.</b>
+        /// The bridge answers to its river and not to the lane - it has to, or the
+        /// planning map shows a different bridge from the one the caravan drives over -
+        /// so where the lane meets the water at a slant the column crabs across the deck.
+        /// That was written down as the lesser fault and left at that for want of a
+        /// number.
         ///
-        /// The two are separated now: the model is fitted by the span alone and then
-        /// widened on its own axis (see ModelScaling.Widen), so the deck may be as wide as
-        /// a wagon needs without the bridge growing into a viaduct. Five metres is two
-        /// wagons abreast, which is what the crossing has to look like it could carry.
+        /// The number, measured over 297 crossings: twenty-eight of them put the route a
+        /// tile or more off the deck's own line, and half a nine-metre deck less half a
+        /// wagon is about three metres. Twenty of those twenty-eight are exactly one tile
+        /// out - four metres - so they were over the edge by a metre, and two more metres
+        /// of timber carries all twenty.
+        ///
+        /// Not more. The eight that are left are two tiles out and would want eighteen
+        /// metres, which is a viaduct built to carry three crossings in a hundred; those
+        /// are roads that come down a bank and turn onto the ford at a right angle, and
+        /// what they need is a different road, not a bigger bridge. See
+        /// Crossings.Approach, which has no bank to lay a run-up on at those.
         /// </summary>
-        /// <b>Nine, and the last metre of it is measured rather than judged.</b>
-        ///
-        /// BridgeReport walks every corridor of thirty levels and reads how far across the
-        /// deck the column drifts while it is on the timber. The answer is not a small
-        /// angle: eighty-nine of a hundred and sixteen crossings drift under a metre, and
-        /// the other twenty-seven step a whole tile sideways — four metres — with nothing
-        /// in between. It is a road that either holds the ford's row or does not.
-        ///
-        /// Carrying the four-metre step needs eleven metres of deck, and these bridges are
-        /// fourteen metres long. Fourteen by eleven is a raft. So this covers the
-        /// eighty-nine with a metre to spare either side and leaves the twenty-seven
-        /// crabbing, which is the honest trade: the alternative was straightening the road
-        /// at the crossings, and that moves it past what the player drew round — measured,
-        /// it cost chapter one's tenth level both of its winnable roads even when the road
-        /// was forbidden to grow by a single tile.
-        public const float FordDeck = 9f;
+        public const float FordDeck = 11f;
         /// <summary>
         /// The shortest a bridge is ever built, in metres.
         ///
@@ -5990,7 +5976,11 @@ namespace TheVeil.View
                     if (Raise(grid, plot, rng, town, Storeys(HouseHeight, storeys > 1),
                               heightScale, occupied, road, yaw: facing, landmark: false,
                               resize: false))
-                    { Yard(grid, occupied, plot); return true; }
+                    {
+                    Yard(grid, occupied, plot);
+                    Quay(grid, occupied, plot);
+                    return true;
+                }
 
                     Object.DestroyImmediate(town);
                     return false;
@@ -6008,6 +5998,7 @@ namespace TheVeil.View
                     return false;
 
                 Yard(grid, occupied, plot);
+                Quay(grid, occupied, plot);
                 return true;
             }
 
@@ -6078,6 +6069,19 @@ namespace TheVeil.View
 
                     grid.ToCoords(plot, out int px, out int py);
 
+                    // <b>And the town ends where the shore jumps.</b>
+                    //
+                    // The plot search reaches three tiles in any direction, so when the
+                    // walk steps across the mouth of a bay the nearest waterside ground
+                    // can be a long way from the last house. One street came back with a
+                    // building thirty-seven metres from anything else, on the far side of
+                    // the water - which is not a town, it is a hut somebody built out
+                    // there. A side that has already built something and then has to
+                    // reach that far has run out of town.
+                    if (side.Count > 0
+                        && Mathf.Max(Mathf.Abs(px - fromX), Mathf.Abs(py - fromY)) > TownBreak)
+                        break;
+
                     // Where the shore turned out to be, which is the heading for the next
                     // one. Signs rather than lengths: this is a step on a grid.
                     if (px != fromX || py != fromY)
@@ -6104,7 +6108,6 @@ namespace TheVeil.View
                     // only has to be claimed and nothing will ever be planted on it - which
                     // is cheaper and surer than sweeping a wood away afterwards, and it is
                     // how the gate into the enchanted wood keeps its archway clear.
-                    Quay(grid, occupied, px, py);
 
                     // <b>And the rows behind it, because a town is not a row of
                     // houses.</b>
@@ -6174,7 +6177,6 @@ namespace TheVeil.View
                     built++;
                     filled++;
 
-                    Quay(grid, occupied, px, py);
                     laid.Insert(i, plot);
                     i++;
                 }
@@ -6279,12 +6281,21 @@ namespace TheVeil.View
         }
 
         /// <summary>
-        /// Claims the ground between a waterfront house and the water, so the front has a
-        /// quay in front of it rather than a wood.
+        /// Claims the ground between a town building and the water, so it has a view of
+        /// the harbour rather than a wood.
+        ///
+        /// <b>Every building, not only the frontage.</b> It was the front row's alone,
+        /// which was the whole town while the town was one row deep. Four rows in, the
+        /// rows behind kept whatever the scatter had put between them and the water:
+        /// measured, three of twenty-eight. It costs nothing to claim the same two tiles
+        /// for all of them - the ground between two rows of a town is a lane, and a lane
+        /// with a spruce in it is not one.
         /// </summary>
-        static void Quay(TileGrid grid, HashSet<int> occupied, int x, int y)
+        static void Quay(TileGrid grid, HashSet<int> occupied, int tile)
         {
             if (occupied == null) return;
+
+            grid.ToCoords(tile, out int x, out int y);
 
             float seaward = Seaward(grid, x, y) * Mathf.Deg2Rad;
 
@@ -6364,6 +6375,12 @@ namespace TheVeil.View
             int at = grid.ToIndex(bx, by);
             return IsWet(grid[at]) || !grid.IsPassable(bx, by) ? -1 : at;
         }
+
+        /// <summary>How far the shore may jump before the town is held to have ended.</summary>
+        // Four tiles, which is sixteen metres - the ordinary step of two plus the two the
+        // search may wander looking for ground. Past that the walk is not following a
+        // shoreline any more, it is crossing something.
+        const int TownBreak = 4;
 
         /// <summary>How deep the town stands behind its own waterfront, and in what step.</summary>
         // Four rows two tiles apart: a frontage, two streets of houses behind it and a

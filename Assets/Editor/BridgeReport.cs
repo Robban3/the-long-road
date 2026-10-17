@@ -65,6 +65,7 @@ namespace TheVeil.Editor
             float drawnEntry = 0f, squaredEntry = 0f;
             float drawnStray = 0f, squaredStray = 0f;
             float drift = 0f, worstDrift = 0f;
+            int offTheTimber = 0;
             var spread = new int[Bands.Length + 1];
             int crossings = 0, crooked = 0, torn = 0, relaid = 0;
 
@@ -124,6 +125,21 @@ namespace TheVeil.Editor
 
                             if (after[i].Entry > Square || after[i].Stray > 1f) crooked++;
 
+                            if (after[i].Drift
+                                > TheVeil.View.TerrainDecorator.FordDeck * 0.5f - Wagon * 0.5f)
+                                offTheTimber++;
+
+                            // <b>And where the drift is, for the ones that have any.</b>
+                            // An average and a worst case say a fault exists; they do not
+                            // say whether the route leaves the line on the water, where
+                            // nothing can move it, or on the bank, where the approach is
+                            // laid and could have been laid better. Two different faults
+                            // with two different fixes, and the sheet could not tell them
+                            // apart.
+                            if (after[i].Drift > Bands[Bands.Length - 2])
+                                sheet.AppendLine($"[Bridge] {chapter}-{level} {corridor.Kind}: "
+                                                 + Where(map.Grid, squared, after[i]));
+
                             sheet.AppendLine(
                                 $"[Bridge] {chapter}-{level,-2} {corridor.Kind,-5} "
                                 + $"{(before[i].OnTheBridge ? "  bridge" : "       ")}  "
@@ -154,6 +170,17 @@ namespace TheVeil.Editor
             // that line, not how far the very worst one is. Building to the worst case is
             // how a seven-metre deck becomes a viaduct to carry four crossings in a
             // hundred.
+            // <b>And the line itself, said out loud.</b> The bands are a metre each and
+            // the reader was left to do the subtraction: half the deck, less half a
+            // wagon, is what the column may drift. Nobody did it. Thirty-six crossings
+            // sat in this sheet for weeks and twenty of them had a wheel off the timber,
+            // which is a thing a sheet should say rather than imply.
+            float margin = TheVeil.View.TerrainDecorator.FordDeck * 0.5f - Wagon * 0.5f;
+
+            sheet.AppendLine($"[Bridge] {offTheTimber} of {crossings} put a wheel off the "
+                             + $"timber: a {TheVeil.View.TerrainDecorator.FordDeck:0.0} m deck "
+                             + $"carrying a {Wagon:0.0} m wagon allows {margin:0.0} m of drift");
+
             sheet.Append("[Bridge] drift:");
             for (int band = 0; band < Bands.Length; band++)
                 sheet.Append($"  under {Bands[band]:0.0} m: {spread[band]}");
@@ -262,6 +289,17 @@ namespace TheVeil.Editor
             Object.DestroyImmediate(tex);
         }
 
+        /// <summary>
+        /// How wide a wagon is, in metres, for working out what a deck carries.
+        ///
+        /// Two and a half. The wagons are drawn 3.2 m tall (VisualLibrary.WagonHeight)
+        /// and are narrower than they are high, as a cart is; it is kept here rather than
+        /// taken from a model because what this number is for is the question "would a
+        /// wheel be off", and that wants the track of the wheels and not the width of a
+        /// load with a tarpaulin over it.
+        /// </summary>
+        const float Wagon = 2.5f;
+
         /// <summary>The bands the drift is counted into, in metres.</summary>
         static readonly float[] Bands = { 1f, 2f, 3f, 4f };
 
@@ -273,6 +311,10 @@ namespace TheVeil.Editor
             public float Entry;
             public float Stray;
             public float Drift;
+
+            /// <summary>The wet run this crossing is, so the sheet can walk it again.</summary>
+            public int From;
+            public int To;
             public bool OnTheBridge;
         }
 
@@ -307,7 +349,9 @@ namespace TheVeil.Editor
                 {
                     Entry = Between(Heading(grid, route, from - 1, from), axis),
                     Stray = Stray(grid, route, from, fy),
-                    Drift = Drift(grid, route, from, to, fy),
+                    Drift = Drift(grid, route, from, to),
+                    From = from,
+                    To = to,
                     OnTheBridge = Touches(grid, route, from, to, bridged)
                 };
 
@@ -354,13 +398,80 @@ namespace TheVeil.Editor
         ///
         /// Half-widths, since the drift is either side of the middle: a deck has to be
         /// twice this plus a wagon to keep the wheels on it.
+        ///
+        /// <b>Measured across the deck, which is not the same as across a row.</b> This
+        /// took the ford's row and counted how far the route left it, and that is only
+        /// the deck's line where the ford runs east and west. The rivers meander, so a
+        /// ford is cut across whatever bearing its river happens to have there, and
+        /// TerrainDecorator.Bridge lays its deck along that bearing — "square to its
+        /// river, along the ford's own run", in its own words.
+        ///
+        /// So a crossing cut on the diagonal, with the route running straight along it
+        /// and the deck square under it, was reported as eight metres of drift on a
+        /// nine-metre deck: the route had left the row because the deck had left the row,
+        /// and the two were together the whole way. Thirty-six of two hundred and
+        /// ninety-seven crossings were counted as faults on that basis and written up as
+        /// a fault in the road.
+        ///
+        /// The line is the one the deck is on: from the first wet tile of the run to the
+        /// last. What is measured is the distance out to the side of it.
         /// </summary>
-        static float Drift(TileGrid grid, IReadOnlyList<int> route, int from, int to, int row)
+        /// <summary>Tile by tile across the deck: how far out, and what it is standing on.</summary>
+        static string Where(TileGrid grid, IReadOnlyList<int> route, Meeting meeting)
+        {
+            int landing = Mathf.CeilToInt(TheVeil.View.TerrainDecorator.BridgeLanding
+                                          / TileGrid.TileSize);
+
+            int from = meeting.From, to = meeting.To;
+
+            grid.ToCoords(route[from], out int fx, out int fy);
+            grid.ToCoords(route[to], out int tx, out int ty);
+
+            float dx = tx - fx, dy = ty - fy;
+            float length = Mathf.Sqrt(dx * dx + dy * dy);
+
+            if (length < 0.001f) return "one tile, no axis";
+
+            dx /= length;
+            dy /= length;
+
+            var said = new StringBuilder();
+
+            for (int at = from - landing; at <= to + landing; at++)
+            {
+                if (at < 0 || at >= route.Count) continue;
+
+                grid.ToCoords(route[at], out int x, out int y);
+
+                float aside = Mathf.Abs((x - fx) * dy - (y - fy) * dx) * TileGrid.TileSize;
+
+                said.Append($" {grid[route[at]].ToString().Substring(0, 2)}{aside:0.0}");
+            }
+
+            return said.ToString();
+        }
+
+        static float Drift(TileGrid grid, IReadOnlyList<int> route, int from, int to)
         {
             // The deck reaches a landing past the water at each end. See
             // TerrainDecorator.BridgeLanding, which is in metres.
             int landing = Mathf.CeilToInt(TheVeil.View.TerrainDecorator.BridgeLanding
                                           / TileGrid.TileSize);
+
+            grid.ToCoords(route[from], out int fx, out int fy);
+            grid.ToCoords(route[to], out int tx, out int ty);
+
+            // A run of one tile has no axis of its own; the step onto it is the crossing
+            // direction, which is what the decorator falls back to as well.
+            if (from == to && from > 0) grid.ToCoords(route[from - 1], out fx, out fy);
+
+            float dx = tx - fx, dy = ty - fy;
+            float length = Mathf.Sqrt(dx * dx + dy * dy);
+
+            if (length < 0.001f) return 0f;
+
+            dx /= length;
+            dy /= length;
 
             float worst = 0f;
 
@@ -368,8 +479,13 @@ namespace TheVeil.Editor
             {
                 if (at < 0 || at >= route.Count) continue;
 
-                grid.ToCoords(route[at], out _, out int y);
-                worst = Mathf.Max(worst, Mathf.Abs(y - row) * TileGrid.TileSize);
+                grid.ToCoords(route[at], out int x, out int y);
+
+                // The side of the line, which is the cross product of the step out to the
+                // tile with the line's own direction.
+                float aside = Mathf.Abs((x - fx) * dy - (y - fy) * dx);
+
+                worst = Mathf.Max(worst, aside * TileGrid.TileSize);
             }
 
             return worst;

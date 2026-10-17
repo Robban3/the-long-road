@@ -381,6 +381,22 @@ namespace TheVeil.Sim
         }
 
         /// <summary>The shortest run-up worth laying, in tiles.</summary>
+        // Three, and two was tried and reverted. The measurement was right about the
+        // geometry - every crossing that drifts has its ford tiles exactly on the line
+        // and the whole of its drift in the two bank tiles the deck covers, so a shorter
+        // run-up does reach the part that shows, and it took the crossings with a wheel
+        // off the timber from nine to eight.
+        //
+        // <b>And it moved the difficulty of the campaign to do it.</b> Squaring a
+        // crossing relays the road, so a route that is allowed a shorter run-up is a
+        // different route, over different ground, with different encounters on it:
+        // nineteen routes changed length where eighteen had, 2-1 came out easier than
+        // 1-10, and 4-7 went to 45% against a target of 30%. CampaignRulesTests failed on
+        // both. The catalogue is calibrated against the roads as they are laid.
+        //
+        // One crossing in two hundred and ninety-seven is not worth the curve. Widening
+        // the deck buys twenty of the twenty-eight and cannot move a difficulty at all,
+        // because a deck is a model - see TerrainDecorator.FordDeck.
         public const int LeastRunUp = 3;
 
         /// <summary>How far behind the run the route may be picked up, in tiles.</summary>
