@@ -262,7 +262,12 @@ namespace TheVeil.Gen
                 "terrain=" + Landscape()
             };
 
-            for (int chapter = 1; chapter <= Chapters; chapter++)
+            // <b>Every chapter the table has answers for, which now includes the
+            // coast.</b> This counted to Chapters, ten, and the coast is a hundred - so
+            // the one country whose recipe the catalogue is tuned against was the one
+            // country missing from the signature it is judged by. Change the sea's enemy
+            // budget and the table would have gone on being trusted.
+            foreach (int chapter in Tabled)
             {
                 var recipe = ChapterRecipe.For(chapter).ForLevel(Campaign.LevelsPerChapter);
 
@@ -364,5 +369,24 @@ namespace TheVeil.Gen
         /// and that search is worth keeping too.
         /// </summary>
         public const int Chapters = 10;
+
+        /// <summary>
+        /// Every chapter the table carries a row for: the first tour, and the dressed
+        /// countries past it.
+        ///
+        /// The first ten are there because the game can be asked for any of them. The
+        /// coast is chapter one hundred and is dressed, played and held to the curve, and
+        /// it was in neither list.
+        /// </summary>
+        public static IEnumerable<int> Tabled
+        {
+            get
+            {
+                for (int chapter = 1; chapter <= Chapters; chapter++) yield return chapter;
+
+                foreach (int dressed in DifficultyCurve.Dressed)
+                    if (dressed > Chapters) yield return dressed;
+            }
+        }
     }
 }

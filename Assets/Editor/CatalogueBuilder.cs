@@ -28,16 +28,38 @@ namespace TheVeil.Editor
         const string Path = "Assets/_Project/Resources/LevelCatalogue.txt";
 
         /// <summary>
-        /// The chapters that exist, and are searched against the whole of LevelMaps.Gate.
+        /// Whether this chapter is held to the curve, or only asked for a road.
         ///
-        /// The rest of the table is still written - the game can be asked for any level -
-        /// but those chapters are searched against the roads the escort gets down and no
-        /// more. The difficulty curve and the prepared player cost dozens of simulated
-        /// runs per candidate, which over seventy levels nobody can play is hours for
-        /// nothing; and their recipes have not been tuned, so holding them to a curve
-        /// would only fill the table with compromises. Raise this as a chapter is built.
+        /// <b>Every chapter that has scenery, which is not the same as the first
+        /// seven.</b> This was a count - BuiltChapters - and the rest of the table was
+        /// written with an attempt number and nothing else: no strength factor, no
+        /// dressing. The reasoning was sound when it was written, that a chapter nobody
+        /// can play is hours of simulated runs for nothing.
+        ///
+        /// Three chapters have been dressed since and nobody moved the line. The margin
+        /// report, extended to walk them for the first time, says what that came to:
+        ///
+        ///     ch  judged  target
+        ///      8    0,39    0,38
+        ///      9    0,45    0,39
+        ///    100    0,51    0,70
+        ///
+        /// Chapters eight and nine are not a curve, they are noise - 8-10 sits sixteen
+        /// points over its mark and 8-3 nineteen under. And a hundred is the last
+        /// chapter of the game, the one the whole road walks towards, nineteen points
+        /// short of what it promises. None of that is a fault in the recipes. It is what
+        /// an untuned chapter looks like.
+        ///
+        /// So the test is whether the chapter is dressed. A country with scenery is a
+        /// country somebody plays.
         /// </summary>
-        const int BuiltChapters = DifficultyCurve.BuiltChapters;
+        static bool Tuned(int chapter)
+        {
+            foreach (int dressed in DifficultyCurve.Dressed)
+                if (dressed == chapter) return true;
+
+            return false;
+        }
 
         [MenuItem("The Veil/Build Level Catalogue")]
         public static void Run()
@@ -73,14 +95,14 @@ namespace TheVeil.Editor
             LevelCatalogue.ClearTuning();
             var chosen = Choose(sheet);
 
-            for (int chapter = 1; chapter <= LevelCatalogue.Chapters; chapter++)
+            foreach (int chapter in LevelCatalogue.Tabled)
             {
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     // From nothing, every time. Reading the old catalogue here would let a
                     // stale answer copy itself into the new one, which is the one way a
                     // table like this goes wrong and stays wrong.
-                    LevelMap map = chapter <= BuiltChapters && chosen.TryGetValue((chapter, level), out var pick)
+                    LevelMap map = Tuned(chapter) && chosen.TryGetValue((chapter, level), out var pick)
                         ? pick
                         : Fresh(chapter, level, 0f);
 
@@ -119,7 +141,7 @@ namespace TheVeil.Editor
                         stuck++;
                     }
 
-                    if (chapter <= BuiltChapters)
+                    if (Tuned(chapter))
                         table.AppendLine($"{chapter} {level} {attempt} "
                                          + LevelCatalogue.Factor(chapter, level)
                                              .ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)
@@ -390,7 +412,7 @@ namespace TheVeil.Editor
         static System.Collections.Generic.Dictionary<(int, int), LevelMap> Choose(StringBuilder sheet)
         {
             var levels = new System.Collections.Generic.List<(int Chapter, int Level)>();
-            for (int chapter = 1; chapter <= BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                     levels.Add((chapter, level));
 
@@ -474,8 +496,47 @@ namespace TheVeil.Editor
                     // twenty-two by 5-10, because nothing ever brought it back down. Held
                     // to the window, it cannot drift: the window itself rises faster than
                     // the step each level owes.
+                    // <b>Even either way, and narrowing it above the line was tried
+                    // twice and reverted twice.</b>
+                    //
+                    // Every level must beat the one before, so a chapter that drifts to
+                    // the top of its band leaves the next chapter nothing to climb into:
+                    // built over ten chapters for the first time, chapter five climbed
+                    // 32,6 to 38,7 against a target of 33 - every level of it inside this
+                    // window - and 6-1 could not follow. Both obvious cures were tried
+                    // over a full rebuild each, and the measurements are in this file
+                    // where each was made:
+                    //
+                    //   * Charging three times as much above the line as below it. The
+                    //     chain settled a long way under the curve instead: mean distance
+                    //     from target 0,026 to 0,042 on the margin report, chapter two
+                    //     from 0,20 to 0,14 against 0,22. The climb broke anyway at 6-10.
+                    //   * Halving the window above the line. The chain hugged the targets
+                    //     again, and the climb broke anyway at 7-7.
+                    //
+                    // Three settings, three chains, exactly one break in each, in three
+                    // different places. Breaking the climb costs fifty and a level costs
+                    // a fraction of one, so a choice that pays it is a choice with no
+                    // unbroken chain to take - the climb and the per-chapter kill budget
+                    // cannot both be satisfied over a hundred levels with these candidate
+                    // pools. That is a question about the rule, not about this window,
+                    // and it is not answered here.
                     if (Math.Abs(judged.Difficulty - target) > DifficultyCurve.Tolerance) continue;
 
+                    // <b>Even-handed, and pricing it otherwise was tried and
+                    // reverted.</b>
+                    //
+                    // Charging three times as much above the line as below it does settle
+                    // the ratchet - and it settles the whole chain a long way under the
+                    // curve with it, because the cheapest level is then always the easier
+                    // one. Measured with the margin report over ten chapters: the mean
+                    // distance from target went from 0,026 to 0,042, chapter two from
+                    // 0,20 to 0,14 against a target of 0,22 and chapter seven from 0,35
+                    // to 0,30. Only the coast improved. The climb broke anyway, one level
+                    // further on.
+                    //
+                    // The ratchet is not something the choice prefers, and pricing it
+                    // as though it were is what went wrong - see the acceptance above.
                     float cost = Math.Abs(judged.Difficulty - target);
                     if (!judged.Treacherous) cost += 10f;
 
@@ -675,6 +736,10 @@ namespace TheVeil.Editor
         /// </summary>
         const float Dip = 50f;
 
+
+
+
+
         /// <summary>How much harder than the level before each level must be: a fifth of a point.</summary>
         public const float MinimumStep = 0.002f;
 
@@ -733,7 +798,7 @@ namespace TheVeil.Editor
         {
             var recipe = LevelMaps.Recipe(chapter, level);
 
-            if (chapter > BuiltChapters)
+            if (!Tuned(chapter))
             {
                 // <b>Twelve attempts, and the day the wheel turned twelve was not enough.</b>
                 //
