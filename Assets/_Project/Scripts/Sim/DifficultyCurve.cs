@@ -107,10 +107,24 @@ namespace TheVeil.Sim
         /// <summary>
         /// How far a level may sit from its target and still be kept.
         ///
-        /// A tenth either way: tighter and the search runs out of maps before it finds
-        /// one, looser and two neighbouring levels can swap places.
+        /// <b>A twentieth either way, and it was a tenth.</b> The note that went with the
+        /// tenth had the tension exactly right - tighter and the search runs out of maps,
+        /// looser and two neighbouring levels can swap places - and it was written when
+        /// the search gave up after twelve attempts. It makes a hundred and sixty now.
+        ///
+        /// What the looser half cost, measured: two neighbouring levels do not merely
+        /// swap, whole chapters do. The step between one level's target and the next is
+        /// about half a point; a tenth either way is twenty times that. So a chapter can
+        /// sit six points above its targets and the next four below, every level of both
+        /// inside the window and EveryLevelSitsNearItsPlaceOnTheCurve content - and the
+        /// game gets easier for ten levels running. Built three ways over ten chapters,
+        /// every chain did it: ten levels softer than the level ten before them in two of
+        /// them, four in the third, and a climb that broke once in each.
+        ///
+        /// The curve is what the game promises. A window twenty times the promise means
+        /// the promise does not bind, and no rule written on top of it can make it.
         /// </summary>
-        public const float Tolerance = 0.10f;
+        public const float Tolerance = 0.05f;
 
         /// <summary>The target for a level, by its place in the whole campaign.</summary>
         public static float Target(int chapter, int level) => At(Index(chapter, level));
