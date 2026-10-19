@@ -345,6 +345,31 @@ namespace TheVeil.Editor
         /// </summary>
         const int WantedNear = 20;
 
+        /// <summary>
+        /// <b>Searching one level harder was tried on 9-1 and does nothing.</b>
+        ///
+        /// The chain cannot be laid unbroken, and worked out over the candidate lists
+        /// this sheet prints it dies in one place by one tenth of a point: it can only
+        /// arrive at 8-10 holding 43,2 - a single value, and still a single value with
+        /// the kill budget removed entirely, so it is the climb doing it - while 9-1
+        /// needs 43,4 and its best map is 43,3. Its window reaches 44, so six tenths of
+        /// a point was all that was wanted.
+        ///
+        /// It was already looking. A level under WantedCandidates keeps searching to
+        /// MostAttempts anyway, and 9-1 has forty-four, so it had four hundred and
+        /// eighty attempts before anybody thought to give it more - its chosen map is
+        /// attempt 168, which the sheet had been printing all along. Raising its floor
+        /// returned a pool identical to the digit. That strip is empty.
+        ///
+        /// <b>And the shape of the fault is not one level.</b> The chain takes the lowest
+        /// map it may at every step and still arrives eight points over the curve by
+        /// 8-10: eighty levels rising thirty-six points while their targets rise
+        /// twenty-eight. The lowest map above the last one is, on average, a tenth higher
+        /// than the fifth of a point the rule asks for, and eighty of those tenths is the
+        /// drift. What would close it is denser pools over the whole campaign - seventy
+        /// of the hundred levels stop at WantedCandidates rather than for want of maps -
+        /// and that is hours of searching, not a rule and not one level.
+        /// </summary>
         /// <summary>How far under its target a map still counts as near.</summary>
         const float Near = DifficultyCurve.Tolerance / 2f;
 
