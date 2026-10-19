@@ -622,6 +622,29 @@ namespace TheVeil.Editor
 
                             if (carried >= float.MaxValue) continue;
 
+                            // <b>Priced, and forbidding it outright was tried twice and
+                            // is impossible.</b>
+                            //
+                            // Fifty points against a level that costs a fraction of one,
+                            // and every chain built over ten chapters still broke the
+                            // climb exactly once - four selection rules, four chains,
+                            // four single broken steps in four places. A price cannot
+                            // tell "there is no such chain" from "I have mispriced the
+                            // alternatives", so the step was made a hard rule and the
+                            // search asked directly. Twice:
+                            //
+                            //   * climb hard, four to six killing fast roads a chapter:
+                            //     no chain at all. Every level reported no candidate that
+                            //     kept every hard rule and nothing was written.
+                            //   * climb hard, three to seven: the same.
+                            //
+                            // Widening the kill budget by a third either way does not
+                            // reach it, so the kill budget is not what binds. Somewhere a
+                            // level's whole candidate pool is easier than the level before
+                            // it, and no rule written here can conjure a map that was
+                            // never generated. The climb stays priced, the campaign
+                            // carries one broken step, and CampaignRulesTests is red about
+                            // it on purpose.
                             float need = previous[p].Judged.Difficulty + MinimumStep;
                             float step = list[c].Judged.Difficulty >= need - 0.0001f
                                 ? 0f
@@ -746,7 +769,15 @@ namespace TheVeil.Editor
         /// <summary>The fewest fast roads that may kill in a chapter.</summary>
         const int FewestKills = 4;
 
-        /// <summary>And the most.</summary>
+        /// <summary>
+        /// And the most.
+        ///
+        /// <b>Six, and widening it to seven was tried against the climb and does not
+        /// reach.</b> With the climb forbidden outright rather than priced, this range at
+        /// four to six yields no chain at all - and at three to seven, no chain either.
+        /// A third either way does not move it, so the kill budget is not what makes the
+        /// climb impossible. See the transition in Choose, which carries the rest.
+        /// </summary>
         const int MostKills = 6;
 
         /// <summary>The cheapest way any choice of the level before ended, over every count.</summary>
