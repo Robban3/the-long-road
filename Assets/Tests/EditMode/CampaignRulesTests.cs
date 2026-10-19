@@ -19,6 +19,17 @@ namespace TheVeil.Tests
     ///
     /// The catalogue builder aims for all of this; these say whether it got there, on the
     /// maps a player is actually given (LevelMaps.For), not on maps generated here.
+    ///
+    /// <b>On every dressed chapter, which for a long time was not what happened.</b> Each
+    /// of these walked to DifficultyCurve.BuiltChapters - seven - and three countries have
+    /// been dressed since nobody moved it: the enchanted wood, the dead land and the
+    /// coast. Thirty levels of the hundred stood outside every rule in this list, and the
+    /// coast is the last chapter of the game.
+    ///
+    /// It was not a harmless gap. The catalogue was extended to hold those chapters to the
+    /// curve on 2026-10-18 and the one broken step left in the campaign - 7-10 to 8-1 -
+    /// sat exactly in the blind spot, so the suite came back green by not looking at it.
+    /// A test that stops before the last chapter is not a test of the campaign.
     /// </summary>
     public class CampaignRulesTests
     {
@@ -32,7 +43,7 @@ namespace TheVeil.Tests
             if (LevelCatalogue.Shipped(1, 1) < 0) LevelCatalogueLoader.Load();
 
             _judged = new Dictionary<(int, int), LevelMaps.Judgement>();
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var map = LevelMaps.For(chapter, level);
@@ -52,7 +63,7 @@ namespace TheVeil.Tests
 
             Assert.IsNull(LevelCatalogue.Refused, LevelCatalogue.Refused);
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                     Assert.GreaterOrEqual(LevelCatalogue.Shipped(chapter, level), 0,
                                           $"{chapter}-{level} has no map in the catalogue");
@@ -68,7 +79,7 @@ namespace TheVeil.Tests
             var climb = new System.Text.StringBuilder();
             foreach (var pair in judged) climb.Append($" {pair.Key.Item1}-{pair.Key.Item2}:{pair.Value.Difficulty:P1}");
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     float difficulty = judged[(chapter, level)].Difficulty;
@@ -89,7 +100,7 @@ namespace TheVeil.Tests
         {
             var judged = Judged();
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     float target = DifficultyCurve.Target(chapter, level);
@@ -103,7 +114,7 @@ namespace TheVeil.Tests
         {
             var judged = Judged();
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                     Assert.IsTrue(judged[(chapter, level)].Treacherous,
                                   $"{chapter}-{level}: the fast road is kinder than another road");
@@ -114,7 +125,7 @@ namespace TheVeil.Tests
         {
             var judged = Judged();
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
             {
                 int kills = 0;
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
@@ -131,7 +142,7 @@ namespace TheVeil.Tests
         {
             var judged = Judged();
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
                 for (int level = 1; level <= Campaign.LevelsPerChapter; level++)
                 {
                     var j = judged[(chapter, level)];
@@ -148,7 +159,7 @@ namespace TheVeil.Tests
             // at an empty goal and nothing said so.
             if (LevelCatalogue.Shipped(1, 1) < 0) LevelCatalogueLoader.Load();
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
             {
                 var map = LevelMaps.For(chapter, Campaign.LevelsPerChapter);
                 var travelled = new HashSet<int>();
@@ -177,7 +188,7 @@ namespace TheVeil.Tests
             // without. Asked the decorator's way, the site has to be level ground.
             if (LevelCatalogue.Shipped(1, 1) < 0) LevelCatalogueLoader.Load();
 
-            for (int chapter = 1; chapter <= DifficultyCurve.BuiltChapters; chapter++)
+            foreach (int chapter in DifficultyCurve.Dressed)
             {
                 var map = LevelMaps.For(chapter, Campaign.LevelsPerChapter);
                 var travelled = new HashSet<int>();
