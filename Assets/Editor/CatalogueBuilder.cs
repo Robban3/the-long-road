@@ -325,11 +325,68 @@ namespace TheVeil.Editor
         /// won is no candidate at all. With so few, the climb had nothing to step onto: 4-10
         /// came out at 45 per cent against a curve at 31, and the choice bought its way out
         /// with 3-9 easier than 3-8. So a level keeps being tried until it has enough maps,
-        /// and enough of them near its target, or three times the usual number of attempts.
+        /// and enough of them near its target, or nine times the usual number of attempts.
+        ///
+        /// <b>Three, and nine was tried over a build of three and three quarter hours.
+        /// Searching harder does not close the climb, and it cannot.</b>
+        ///
+        /// The campaign cannot be laid as an unbroken climb. The chain takes the lowest
+        /// map it may at every step and still arrives eight points over the curve by
+        /// 8-10, because the lowest map above the last one sits about a tenth higher than
+        /// the fifth of a point MinimumStep asks for - eighty of those tenths is the
+        /// drift, and that average is a property of how closely the maps are spaced. So
+        /// the attempts were trebled to pack them closer. Predicted beforehand: three
+        /// times the maps, forty-three becoming a hundred and thirty, gaps a third as
+        /// wide, drift two or three points instead of eight.
+        ///
+        /// What came back:
+        ///
+        ///   maps a level      43 -> 58       a third more, not threefold
+        ///   gap between them  0,29 -> 0,23   a fifth narrower
+        ///   9-1               44 -> 60 maps, highest 43,3 either way
+        ///
+        /// <b>That is the answer, and it is not the one the prediction asked for.</b>
+        /// Trebling the attempts buys a third more maps, so the search was already taking
+        /// nearly everything the generator makes inside the window - what refuses a
+        /// candidate is survivable roads and a fast road that is hardest, not a shortage
+        /// of tries. There is no amount of looking that packs these pools appreciably
+        /// closer, and 9-1 gained sixteen maps without gaining a tenth of a point.
+        ///
+        /// It was also worse where it counts: the chain broke at 7-5 instead of 8-1, and
+        /// a level came back with a road the caravan bolts down and gets nowhere on -
+        /// CampaignRulesTests went from one failure to two.
+        ///
+        /// So the red step is a fact about the rules and not about the search. A fifth of
+        /// a point every level, compounded over a hundred, is more climb than maps of
+        /// this kind can carry. Closing it means changing MinimumStep, the climb rule, or
+        /// what the generator makes - not how long it is asked for.
         /// </summary>
         const int MostAttempts = 480;
 
-        /// <summary>Maps a level should have to choose from before the search stops.</summary>
+        /// <summary>
+        /// Maps a level should have to choose from before the search stops.
+        ///
+        /// <b>Sixty, and raising it to a hundred and sixty was tried against the climb
+        /// and tests nothing.</b>
+        ///
+        /// The reasoning was sound and the arithmetic was not. The chain takes the lowest
+        /// map it may at every step and still arrives eight points over the curve by
+        /// 8-10, because the lowest map above the last one sits about a tenth higher than
+        /// the fifth of a point MinimumStep asks for - a property of how closely the maps
+        /// are spaced. Three times the maps, three times as close together, and the drift
+        /// should fall to two or three points. That was written down before the build.
+        ///
+        /// It came back with the pools up a fifth, not threefold: sixty-odd levels
+        /// average forty-three candidates, which is *under* this number as it stood, so
+        /// they were already searching to MostAttempts and raising what they wanted
+        /// changed nothing for them. <b>What limits a pool is MostAttempts, not this.</b>
+        /// The chain arrived at 8-10 holding 43,2 and 9-1 topped out at 43,3, both to the
+        /// digit as before.
+        ///
+        /// So the spacing is still untested, and testing it means four hundred and eighty
+        /// attempts becoming fourteen hundred - six hours of searching for an answer that
+        /// may be no.
+        /// </summary>
         const int WantedCandidates = 60;
 
         /// <summary>
