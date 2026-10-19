@@ -639,12 +639,31 @@ namespace TheVeil.Editor
                             //   * climb hard, three to seven: the same.
                             //
                             // Widening the kill budget by a third either way does not
-                            // reach it, so the kill budget is not what binds. Somewhere a
-                            // level's whole candidate pool is easier than the level before
-                            // it, and no rule written here can conjure a map that was
-                            // never generated. The climb stays priced, the campaign
-                            // carries one broken step, and CampaignRulesTests is red about
-                            // it on purpose.
+                            // reach it, so the kill budget is not what binds.
+                            //
+                            // <b>What binds is MinimumStep, and the chain dies at 9-1.</b>
+                            // Worked out afterwards from the candidate lists this sheet
+                            // already prints - every level's kept candidates, with the
+                            // ones whose fast road kills marked - by walking them as a
+                            // reachability problem outside Unity. It takes seconds and it
+                            // answers what two rebuilds at an hour and three quarters
+                            // each could only say "no" to:
+                            //
+                            //   step 0,1 pp   chain dies at 9-4
+                            //   step 0,2 pp   chain dies at 9-1   <- the rule as written
+                            //   step 0,3 pp   chain dies at 6-8
+                            //   step 0,5 pp   chain dies at 4-9
+                            //
+                            // No single level's pool is too easy on its own: ask only
+                            // that each level beat the last by any margin at all and a
+                            // chain runs the whole hundred. It is the fifth of a point
+                            // that cannot be paid every time, and 9-1 is where the
+                            // campaign first cannot pay it.
+                            //
+                            // So the climb stays priced, the campaign carries one broken
+                            // step, and CampaignRulesTests is red about it on purpose.
+                            // What would close it is more candidates at 9-1 and the
+                            // levels either side of it - patience, not a rule.
                             float need = previous[p].Judged.Difficulty + MinimumStep;
                             float step = list[c].Judged.Difficulty >= need - 0.0001f
                                 ? 0f
