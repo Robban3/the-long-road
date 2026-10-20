@@ -864,8 +864,34 @@ namespace TheVeil.Editor
 
 
 
-        /// <summary>How much harder than the level before each level must be: a fifth of a point.</summary>
-        public const float MinimumStep = 0.002f;
+        /// <summary>
+        /// How much harder than the level before each level must be: a twentieth of a
+        /// point.
+        ///
+        /// <b>It was a fifth, and a fifth is not a guard, it is a third of the
+        /// campaign.</b> This exists so that two levels cannot come out the same and be
+        /// called a climb. Ninety-nine steps at a fifth of a point is 0,198 of forced
+        /// rise, and the whole curve spans 0,60 from the first level to the thousandth -
+        /// so a third of everything the player climbs was this constant rather than the
+        /// difficulty the curve asks for.
+        ///
+        /// It is also what made the climb impossible. Walked over the candidate lists the
+        /// build sheet prints:
+        ///
+        ///   step 0,2 pp   chain dies at 9-1   <- as it was
+        ///   step 0,1 pp   chain runs the hundred
+        ///   step 0 pp     chain runs the hundred
+        ///
+        /// The chain takes the lowest map it may at every step and still arrived eight
+        /// points over the curve by 8-10, because a fifth of a point compounds. At a
+        /// twentieth the ninety-nine steps come to 0,05 - a twelfth of the span, which is
+        /// a guard against a tie and nothing more.
+        ///
+        /// Ten rebuilds went looking for this in the search before it was looked for in
+        /// the rules: see MostAttempts, which records that no amount of attempts packs
+        /// the maps closer.
+        /// </summary>
+        public const float MinimumStep = 0.0005f;
 
         /// <summary>The fewest fast roads that may kill in a chapter.</summary>
         const int FewestKills = 4;

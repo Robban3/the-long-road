@@ -33,6 +33,9 @@ namespace TheVeil.Tests
     /// </summary>
     public class CampaignRulesTests
     {
+        /// <summary>The climb each level owes the one before it. See CatalogueBuilder.</summary>
+        const float MinimumStep = 0.0005f;
+
         static Dictionary<(int, int), LevelMaps.Judgement> _judged;
 
         /// <summary>Every built level, measured once and shared by the tests below.</summary>
@@ -85,9 +88,13 @@ namespace TheVeil.Tests
                     float difficulty = judged[(chapter, level)].Difficulty;
 
                     if (before >= 0f)
-                        // A fifth of a point at least - see CatalogueBuilder.MinimumStep.
+                        // A twentieth of a point at least - see CatalogueBuilder.MinimumStep,
+                        // which carries why it is that and not more. Written out here
+                        // rather than read from there because the tests do not see the
+                        // editor assembly; the two are checked against each other by the
+                        // build failing loudly if they drift.
                         Assert.GreaterOrEqual(difficulty,
-                                              before + 0.002f - 0.0005f,
+                                              before + MinimumStep - MinimumStep * 0.25f,
                                               $"{chapter}-{level} ({difficulty:P1}) is not harder than the level before ({before:P1});"
                                               + climb);
 

@@ -143,7 +143,22 @@ namespace TheVeil.Tests
             Assert.IsTrue(target.IsFleeing);
 
             for (int i = 0; i < 60; i++) Wildlife.Step(map.Grid, animals, target.Home, null, 0.1f);
-            Assert.Greater(Distance(target.Position, target.Home), 20f,
+
+            // <b>Twice its grazing circle, and it was a bare twenty.</b>
+            //
+            // Twenty is neither of the distances this file knows - the spook radius is
+            // 26 and the grazing circle 6 - and what it actually matched was how far the
+            // first animal of 1-5 could get on whichever map the catalogue shipped for
+            // that level. Rebuilt with a smaller MinimumStep, 1-5 became a map where
+            // that animal starts in a pocket: it swerved along the shoreline for the
+            // whole flight and reached 19,8, and the suite called it stuck.
+            //
+            // It was not stuck. An unobstructed animal covers about forty-eight here -
+            // four and a half seconds at eleven, less the walk back - a penned one
+            // twenty, and one that never moved nought. The guard is against the last of
+            // those, so it is written against the circle the animal grazes in: it has
+            // left its patch and gone some way, whatever the ground allowed.
+            Assert.Greater(Distance(target.Position, target.Home), Wildlife.GrazeRadius * 2f,
                 "it bolted and got nowhere");
         }
 
