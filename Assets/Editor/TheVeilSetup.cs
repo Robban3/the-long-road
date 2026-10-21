@@ -4376,6 +4376,15 @@ namespace TheVeil.Editor
 
             decor.TownHallRoofs = Pirate("Buildings", "SM_Bld_Cuba_Roof_02");
 
+            // <b>The one grand house of the port.</b> The front is shanties and
+            // townhouses - who works the water - and a harbour town with no house bigger
+            // than its warehouses is a town with nobody in charge of it. The wall piece
+            // is a gable at one end and an open joint at the other, so two of them back
+            // to back is a whole house. See BiomeDecor.Mansion.
+            decor.Mansion = Pirate("Buildings", "SM_Bld_Mansion_End_01",
+                                   "SM_Bld_Mansion_End_02");
+            decor.MansionRoof = Pirate("Buildings", "SM_Bld_Mansion_Roof_End_01");
+
             // <b>And the fort on the headland.</b> Fourteen metres across and twenty
             // tall in one piece - the one building in this pack that reads from the far
             // side of a bay, and the only thing on the coast that says anybody ever

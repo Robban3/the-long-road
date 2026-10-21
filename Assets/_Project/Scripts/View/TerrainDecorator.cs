@@ -476,6 +476,22 @@ namespace TheVeil.View
         public PropSet TownHallRoofs = new PropSet();
 
         /// <summary>
+        /// The one grand house of the town, and the roof that goes on it.
+        ///
+        /// <b>A port has somebody who does well out of it.</b> The front is shanties and
+        /// townhouses, which is who works the water; the pack also draws a colonial
+        /// mansion, and a harbour town with no house bigger than its warehouses is a town
+        /// with nobody in charge of it.
+        ///
+        /// Two sets because the kit is two courses: walls at ground level and a roof
+        /// whose underside sits at their height. The wall piece is a gable at one end and
+        /// an open joint at the other, so two of them back to back is a whole house -
+        /// twelve metres by eleven, which is four plots of the town's own grid.
+        /// </summary>
+        public PropSet Mansion = new PropSet();
+        public PropSet MansionRoof = new PropSet();
+
+        /// <summary>
         /// The fort on the headland: twenty metres of masonry watching the bay.
         ///
         /// <b>What a coast with a harbour in it is missing.</b> The country has a timber
@@ -5968,6 +5984,47 @@ namespace TheVeil.View
             return host;
         }
 
+        /// <summary>Whether this tile and the ring of that reach round it are free.</summary>
+        static bool Clear(TileGrid grid, HashSet<int> occupied, HashSet<int> road, int tile,
+                          int reach)
+        {
+            grid.ToCoords(tile, out int x, out int y);
+
+            for (int dy = -reach; dy <= reach; dy++)
+                for (int dx = -reach; dx <= reach; dx++)
+                {
+                    if (!grid.InBounds(x + dx, y + dy)) return false;
+
+                    int at = grid.ToIndex(x + dx, y + dy);
+
+                    if (IsWet(grid[at]) || !grid.IsPassable(x + dx, y + dy)) return false;
+                    if (occupied.Contains(at)) return false;
+                    if (road != null && road.Contains(at)) return false;
+                }
+
+            return true;
+        }
+
+        /// <summary>How much ground the mansion wants either way, in tiles.</summary>
+        // Twelve metres by eleven is three plots across and three deep once the piece is
+        // centred, so a clear ring of one is the least that holds it.
+        const int MansionPlot = 1;
+
+        /// <summary>The same piece again, turned about and set at the far end.</summary>
+        // The kit's wall is a gable at one end and an open joint at the other. Laid once
+        // it is half a house; laid twice, the second turned about and pushed along by the
+        // first one's width, the two open joints meet in the middle.
+        static void Mirror(Transform host, GameObject piece, float wide)
+        {
+            var made = Object.Instantiate(piece, host);
+
+            made.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            made.transform.localPosition = new Vector3(wide, 0f, 0f);
+
+            var box = ModelScaling.Measure(made);
+            made.transform.position += Vector3.up * -box.min.y;
+        }
+
         /// <summary>Puts a piece on top of what is there and says where the new top is.</summary>
         // Measured after it is in the world rather than taken from the model, for the
         // reason the jetty measures its own planking: how tall a course is belongs to
@@ -6286,6 +6343,51 @@ namespace TheVeil.View
                               occupied, road, yaw: Seaward(grid, tx, ty), landmark: false))
                         placed++;
                     else Object.DestroyImmediate(belfry);
+                }
+            }
+
+            // <b>And the one house that is somebody's rather than everybody's.</b> Set
+            // back from the water on the lane behind the front, where there is room for
+            // twelve metres of frontage and where it looks over the roofs at its own
+            // harbour.
+            if (decor.Mansion.Any && decor.MansionRoof.Any && laid.Count > 2)
+            {
+                for (int i = laid.Count / 2; i < laid.Count && i < laid.Count / 2 + 4; i++)
+                {
+                    grid.ToCoords(laid[i], out int mx, out int my);
+
+                    int plot = Inland(grid, mx, my, TownStep * 2);
+                    if (plot < 0 || !Clear(grid, occupied, road, plot, MansionPlot)) continue;
+
+                    var great = new GameObject(Front + "Mansion");
+                    great.transform.SetParent(parent, false);
+
+                    Course(great.transform, Any(decor.Mansion, rng), 0f);
+
+                    // How far along to set the other half: the width of what is there,
+                    // measured rather than named, so a pack that redraws its mansion
+                    // moves this by itself. Taken before the house is turned, while its
+                    // own axes and the world's still agree.
+                    float wide = ModelScaling.Measure(great).size.x;
+
+                    Course(great.transform, Any(decor.MansionRoof, rng), 0f);
+
+                    // The other half, turned to meet it: the piece is a gable at one end
+                    // and an open joint at the other, so a second one facing back closes
+                    // the house rather than making a longer shed.
+                    Mirror(great.transform, Any(decor.Mansion, rng), wide);
+                    Mirror(great.transform, Any(decor.MansionRoof, rng), wide);
+
+                    if (Raise(grid, plot, rng, great, 0f, heightScale, occupied, road,
+                              yaw: Seaward(grid, mx, my) + 180f, landmark: false,
+                              resize: false))
+                    {
+                        placed++;
+                        Yard(grid, occupied, plot);
+                    }
+                    else Object.DestroyImmediate(great);
+
+                    break;
                 }
             }
 
