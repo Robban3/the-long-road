@@ -6350,13 +6350,29 @@ namespace TheVeil.View
             // back from the water on the lane behind the front, where there is room for
             // twelve metres of frontage and where it looks over the roofs at its own
             // harbour.
-            if (decor.Mansion.Any && decor.MansionRoof.Any && laid.Count > 2)
-            {
-                for (int i = laid.Count / 2; i < laid.Count && i < laid.Count / 2 + 4; i++)
-                {
-                    grid.ToCoords(laid[i], out int mx, out int my);
+            // <b>Every plot of the street and every depth behind it, because four tries
+            // found nothing.</b> The first version walked out from the middle of the
+            // street for four plots at one depth, and by the time it ran the town had
+            // claimed a yard round each of its own buildings - so a clear three-by-three
+            // was never there and the mansion was quietly never built. Counted: nought
+            // on every level, while the sheet said nothing because it was counting the
+            // name of a prefab part and a host GameObject has none.
+            bool raised = false;
 
-                    int plot = Inland(grid, mx, my, TownStep * 2);
+            for (int i = 0; i < laid.Count && !raised; i++)
+            {
+                // Out from the middle, since that is where a town's own big house goes,
+                // but all the way to both ends rather than giving up at four.
+                int at = laid.Count / 2 + (i % 2 == 0 ? i / 2 : -(i / 2 + 1));
+                if (at < 0 || at >= laid.Count) continue;
+
+                grid.ToCoords(laid[at], out int mx, out int my);
+
+                for (int deep = 2; deep <= TownRows && !raised; deep++)
+                {
+                    if (!decor.Mansion.Any || !decor.MansionRoof.Any) break;
+
+                    int plot = Inland(grid, mx, my, TownStep * deep);
                     if (plot < 0 || !Clear(grid, occupied, road, plot, MansionPlot)) continue;
 
                     var great = new GameObject(Front + "Mansion");
@@ -6383,13 +6399,14 @@ namespace TheVeil.View
                               resize: false))
                     {
                         placed++;
+                        raised = true;
                         Yard(grid, occupied, plot);
                     }
                     else Object.DestroyImmediate(great);
-
-                    break;
                 }
             }
+
+            Debug.Log($"[The Veil] Mansion: {(raised ? "raised" : "no plot wide enough")}.");
 
             if (street != null) street.AddRange(laid);
 

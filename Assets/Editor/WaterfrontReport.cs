@@ -58,6 +58,19 @@ namespace TheVeil.Editor
                 // plain name search counts the parts as well.
                 int wrecks = Count(root.transform, "Shipwreck");
 
+                // The town's own landmarks, counted rather than looked for in a
+                // photograph: one bell tower and one mansion a town, and a fort only
+                // where a headland earns one.
+                // Hosts, not the pieces they are made of: a mansion is four prefabs
+                // under one GameObject and counting the name alone called it five.
+                int belfry = Hosts(root.transform, TheVeil.View.TerrainDecorator.Front + "Belltower");
+                int great = Hosts(root.transform, TheVeil.View.TerrainDecorator.Front + "Mansion");
+                int keep = Hosts(root.transform, "Fort");
+
+                if (belfry + great + keep > 0)
+                    note.AppendLine($"[Waterfront]   {level}: {belfry} belltower, "
+                                    + $"{great} mansion, {keep} fort");
+
                 Shoreline(map, runner.HeightScale, level, note);
 
                 if (level == Campaign.LevelsPerChapter && planks.Count > 0)
@@ -220,6 +233,24 @@ namespace TheVeil.Editor
             }
         }
 
+        /// <summary>How many things on the level carry exactly this name.</summary>
+        static int Hosts(Transform at, string called)
+        {
+            int found = 0;
+
+            void Walk(Transform where)
+            {
+                foreach (Transform child in where)
+                {
+                    if (child.name == called) found++;
+                    Walk(child);
+                }
+            }
+
+            Walk(at);
+            return found;
+        }
+
         /// <summary>How many pieces on the level are called this.</summary>
         static int Count(Transform at, string part)
         {
@@ -229,7 +260,16 @@ namespace TheVeil.Editor
             {
                 foreach (Transform child in where)
                 {
-                    if (Has(child.name, part) && Has(child.name, "(Clone)")) found++;
+                    // <b>An instance, or a host the decorator named itself.</b> The
+                    // Clone test alone was right for the wrecks - it separates a hulk
+                    // from the parts it is made of - and wrong for everything the
+                    // decorator builds under a GameObject of its own, which has no such
+                    // suffix. It reported nought bell towers on a level whose census
+                    // listed one sixteen metres tall.
+                    if (Has(child.name, part)
+                        && (Has(child.name, "(Clone)") || child.name.StartsWith(
+                                TheVeil.View.TerrainDecorator.Front,
+                                System.StringComparison.Ordinal))) found++;
                     Walk(child);
                 }
             }
