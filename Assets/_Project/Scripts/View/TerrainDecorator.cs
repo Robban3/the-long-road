@@ -476,6 +476,24 @@ namespace TheVeil.View
         public PropSet TownHallRoofs = new PropSet();
 
         /// <summary>
+        /// The fort on the headland: twenty metres of masonry watching the bay.
+        ///
+        /// <b>What a coast with a harbour in it is missing.</b> The country has a timber
+        /// lookout - poles and planking, what a fishing village puts up - and nothing
+        /// that says anybody ever defended this water. The pack draws a fort tower
+        /// fourteen metres across and twenty tall in one piece, which is the one building
+        /// in it that reads from the other side of a bay.
+        ///
+        /// Where there is a headland to put one on, and nowhere else: the best point on
+        /// the level, and only if a third of what it looks at is water. That comes to
+        /// three of the ten coast levels, which is the right answer rather than a
+        /// shortfall - a fort is built where it can see, and a coast of open beaches has
+        /// nowhere for one. Counted, because the first version of this note claimed one
+        /// a level and the code never did that.
+        /// </summary>
+        public PropSet Fort = new PropSet();
+
+        /// <summary>
         /// The stone wall that holds the water out of the town.
         ///
         /// <b>What makes a harbour a harbour rather than a beach with a jetty on it.</b>
@@ -1704,6 +1722,9 @@ namespace TheVeil.View
             // shoreline pass, so the sand and the weed go on around a wreck rather than
             // the wreck being refused the ground they took.
             placed += PlaceWrecks(parent, grid, Stream(25), decor, occupied, heightScale, road);
+
+            // And the one thing on the coast that was ever built to last. See Fort.
+            placed += PlaceFort(parent, grid, Stream(26), decor, occupied, heightScale, road);
             placed += PlaceShoreline(parent, grid, Stream(6), decor, occupied, heightScale,
                                      densityScale, road);
 
@@ -5073,6 +5094,70 @@ namespace TheVeil.View
 
             return placed;
         }
+
+        /// <summary>
+        /// The fort, on the point with the most water round it.
+        ///
+        /// Scored rather than searched for: every dry tile is asked how much sea lies
+        /// within a few tiles of it, and the best one wins. A headland scores highly by
+        /// construction - it is land with water on three sides - and a beach in the
+        /// middle of a bay does not, which is the difference between a fort and a shed.
+        ///
+        /// Off the road and off ground anything else has claimed, and laid at the size
+        /// the pack drew it: twenty metres of masonry is not a thing to scale to a
+        /// number. See Raise, which is handed resize false for the same reason the
+        /// alpine rock is never stretched.
+        /// </summary>
+        static int PlaceFort(Transform parent, TileGrid grid, DeterministicRandom rng,
+                             BiomeDecor decor, HashSet<int> occupied, float heightScale,
+                             HashSet<int> road)
+        {
+            if (!decor.Fort.Any) return 0;
+
+            int best = -1, most = 0;
+
+            for (int i = 0; i < grid.TileCount; i++)
+            {
+                if (IsWet(grid[i]) || occupied.Contains(i)) continue;
+                if (road != null && road.Contains(i)) continue;
+                if (!grid.IsPassable(i % grid.Width, i / grid.Width)) continue;
+
+                grid.ToCoords(i, out int x, out int y);
+
+                int sea = 0;
+
+                for (int dy = -FortLookout; dy <= FortLookout; dy++)
+                    for (int dx = -FortLookout; dx <= FortLookout; dx++)
+                        if (grid.InBounds(x + dx, y + dy)
+                            && grid[grid.ToIndex(x + dx, y + dy)] == TerrainType.Water) sea++;
+
+                if (sea <= most) continue;
+
+                most = sea;
+                best = i;
+            }
+
+            if (best < 0 || most < FortLeastSea) return 0;
+
+            var keep = new GameObject("Fort");
+            keep.transform.SetParent(parent, false);
+            Course(keep.transform, Any(decor.Fort, rng), 0f);
+
+            grid.ToCoords(best, out int fx, out int fy);
+
+            if (Raise(grid, best, rng, keep, 0f, heightScale, occupied, road,
+                      yaw: Seaward(grid, fx, fy), landmark: false, resize: false))
+                return 1;
+
+            Object.DestroyImmediate(keep);
+            return 0;
+        }
+
+        /// <summary>How far round a tile the fort counts sea, and how much it wants.</summary>
+        // Four tiles is sixteen metres either way, which is a headland rather than a
+        // puddle; a third of what it looks at being water is a point of land.
+        const int FortLookout = 4;
+        const int FortLeastSea = 27;
 
         /// <summary>How many wrecks a beach carries, how far apart, and how often.</summary>
         // Two. A shoreline with one wreck on it is unlucky and a shoreline with six is a

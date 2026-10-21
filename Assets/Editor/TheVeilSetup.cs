@@ -4376,6 +4376,12 @@ namespace TheVeil.Editor
 
             decor.TownHallRoofs = Pirate("Buildings", "SM_Bld_Cuba_Roof_02");
 
+            // <b>And the fort on the headland.</b> Fourteen metres across and twenty
+            // tall in one piece - the one building in this pack that reads from the far
+            // side of a bay, and the only thing on the coast that says anybody ever
+            // defended this water. See BiomeDecor.Fort.
+            decor.Fort = Pirate("Buildings", "SM_Bld_Fort_Tower_01");
+
             // The masonry the town stands on. Five metres a block, drawn with a coping
             // along its top and a face meant to be seen from the water.
             decor.QuayWall = Pirate("Buildings", "SM_Bld_Stone_Wall_Large_01");

@@ -160,6 +160,7 @@ namespace TheVeil.Editor
                 }
 
                 Wreck(root.transform, shots, level);
+                Keep(root.transform, shots, level);
 
                 Object.DestroyImmediate(root);
             }
@@ -313,6 +314,56 @@ namespace TheVeil.Editor
 
             Shoot(box.center + side.normalized * away + Vector3.up * (away * 0.35f),
                   box.center, System.IO.Path.Combine(shots, $"wreck-{level}.png"));
+        }
+
+        /// <summary>
+        /// The fort on the headland, from the water it watches.
+        ///
+        /// Twenty metres of masonry is the tallest thing this country builds, and the
+        /// whole of its point is being seen from a distance - so the camera stands off
+        /// in the bay rather than at its foot. Where no headland scored high enough the
+        /// level has none, and the sheet says so rather than leaving a gap.
+        /// </summary>
+        static void Keep(Transform at, string shots, int level)
+        {
+            Transform found = null;
+
+            void Walk(Transform where)
+            {
+                foreach (Transform child in where)
+                {
+                    if (found == null && child.name == "Fort") found = child;
+                    Walk(child);
+                }
+            }
+
+            Walk(at);
+            if (found == null) { Debug.Log($"[Harbour] {level}: no fort"); return; }
+
+            var box = TheVeil.View.ModelScaling.Measure(found.gameObject);
+
+            Debug.Log($"[Harbour] {level} fort: {box.size.x:0.0} x {box.size.y:0.0} x "
+                      + $"{box.size.z:0.0} m, foot at {box.min.y:0.0}, scale "
+                      + $"{found.localScale.x:0.00}");
+
+            // Out to sea from it: the fort faces the water, so its own facing is the
+            // bearing to stand off on.
+            var out_ = found.forward;
+            out_.y = 0f;
+            if (out_.sqrMagnitude < 0.01f) out_ = Vector3.forward;
+
+            // Far enough back that the headland is in it too. A tower photographed at
+            // its own height fills the frame with masonry and says nothing about where
+            // it stands, which is the whole point of a fort.
+            float away = Mathf.Max(box.size.x, box.size.z) * 6f + 60f;
+
+            Shoot(box.center + out_.normalized * away + Vector3.up * (away * 0.3f),
+                  box.center, System.IO.Path.Combine(shots, $"fort-{level}.png"));
+
+            float up = Mathf.Max(box.size.x, box.size.z) * 5f + 80f;
+
+            Shoot(box.center + Vector3.up * up, box.center,
+                  System.IO.Path.Combine(shots, $"fort-above-{level}.png"));
         }
 
         static void Shoot(Vector3 from, Vector3 at, string path)
