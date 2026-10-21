@@ -163,6 +163,14 @@ namespace TheVeil.Editor
                         if (ToTheWater(map, plant.position) >= wet) continue;
 
                         blocked++;
+
+                        if (level == Campaign.LevelsPerChapter)
+                            note.AppendLine($"[Waterfront]   in the way of {house.name}: "
+                                            + $"{plant.name} at "
+                                            + $"{Flat(plant.position - house.position):0.0} m, "
+                                            + $"{ToTheWater(map, plant.position):0.0} m from water "
+                                            + $"against the house at {wet:0.0}");
+
                         break;
                     }
                 }
@@ -206,8 +214,7 @@ namespace TheVeil.Editor
                     || name.StartsWith(TheVeil.View.TerrainDecorator.Front,
                                        System.StringComparison.Ordinal)) houses.Add(child);
                 else if (Has(name, "Dock")) planks.Add(child);
-                else if (Has(name, "Tree") || Has(name, "Bush") || Has(name, "Plant")
-                         || Has(name, "Palm") || Has(name, "Mangrove")) green.Add(child);
+                else if (Growing(name) && Tall(child)) green.Add(child);
 
                 Sort(child, houses, green, planks);
             }
@@ -312,6 +319,32 @@ namespace TheVeil.Editor
                             + $"three quarters {edge[edge.Count * 3 / 4]:0.0}, "
                             + $"high {edge[edge.Count - 1]:0.0}");
         }
+
+        /// <summary>Whether this is a growing thing at all.</summary>
+        static bool Growing(string name)
+            => Has(name, "Tree") || Has(name, "Bush") || Has(name, "Plant")
+               || Has(name, "Palm") || Has(name, "Mangrove");
+
+        /// <summary>
+        /// Whether it is tall enough to be in the way.
+        ///
+        /// <b>The name says what kind of thing it is and the height says whether it
+        /// matters, and the sheet needs both.</b> It asked the name alone, so the one
+        /// thing reported as standing between a house and its harbour was
+        /// SM_Plant_Grass_03 - a tuft of grass seven metres off, which is ground cover.
+        /// Asking the height alone was worse: every building on the street and the quay
+        /// wall itself came back as blocking the view, which is what a street and a quay
+        /// are made of.
+        ///
+        /// Chest height is the line between what you walk through and what you walk
+        /// round. Measured rather than listed, so a pack that ships a new shrub is
+        /// judged like everything else.
+        /// </summary>
+        static bool Tall(Transform thing)
+            => TheVeil.View.ModelScaling.Measure(thing.gameObject).size.y >= Chest;
+
+        /// <summary>How tall something has to be before it is in the way, in metres.</summary>
+        const float Chest = 1.4f;
 
         static bool Has(string name, string part)
             => name.IndexOf(part, System.StringComparison.OrdinalIgnoreCase) >= 0;
