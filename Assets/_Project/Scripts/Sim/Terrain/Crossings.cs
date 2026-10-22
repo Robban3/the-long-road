@@ -71,7 +71,20 @@ namespace TheVeil.Sim
         /// is theirs, and the only part of it being argued with is the part that would
         /// have put a wheel off the deck.
         /// </summary>
-        public static IReadOnlyList<int> Square(TileGrid grid, IReadOnlyList<int> route)
+        /// <param name="why">
+        /// Optional, and only the reports pass it: each bank that refuses to lay a
+        /// run-up adds the reason it refused.
+        ///
+        /// <b>Because nine crossings in two hundred and ninety-seven still put a wheel
+        /// off the timber and nobody knew which of four refusals did it.</b> A bank can
+        /// turn this down because the route ends there, because its wet tile is off the
+        /// row, because there is no telling which way the bank lies, because the run is
+        /// too short, or because the walk back onto the route cannot be spliced - five
+        /// different faults with five different fixes, reported as one silence. Guessing
+        /// between them costs a catalogue rebuild each time, which is two hours.
+        /// </param>
+        public static IReadOnlyList<int> Square(TileGrid grid, IReadOnlyList<int> route,
+                                                List<string> why = null)
         {
             if (grid == null || route == null || route.Count < 3) return route;
 
@@ -123,8 +136,8 @@ namespace TheVeil.Sim
                 // the ford can never move one step without tearing the road, so almost
                 // every move was refused: over a hundred and sixteen crossings it took the
                 // wander off the ford's row from 4.48 tiles to 4.37.
-                changed |= Approach(grid, straight, ref from, ref to, row, true);
-                changed |= Approach(grid, straight, ref from, ref to, row, false);
+                changed |= Approach(grid, straight, ref from, ref to, row, true, why);
+                changed |= Approach(grid, straight, ref from, ref to, row, false, why);
 
                 // Forward only. The near bank's splice can shorten the route, which walks
                 // the wet run back down the list — resuming at its new index puts the scan
@@ -162,20 +175,22 @@ namespace TheVeil.Sim
         /// route that steps through a cliff to avoid one is a bug.
         /// </summary>
         static bool Approach(TileGrid grid, List<int> route, ref int from, ref int to,
-                             int row, bool back)
+                             int row, bool back, List<string> why = null)
         {
+            void Refused(string reason) => why?.Add(reason);
+
             int edge = back ? from : to;
             int outward = back ? -1 : 1;
 
             int beside = edge + outward;
-            if (beside < 0 || beside >= route.Count) return false;
+            if (beside < 0 || beside >= route.Count) { Refused("the route ends at the water"); return false; }
 
             grid.ToCoords(route[edge], out int ex, out int ey);
             grid.ToCoords(route[beside], out int bx, out _);
 
             // The wet tile this bank runs up to has to be on the row, or the run is laid
             // along a line the water is not on and the last step before the deck is a jump.
-            if (ey != row) return false;
+            if (ey != row) { Refused("the wet tile is off the row"); return false; }
 
             int dir = bx > ex ? 1 : (bx < ex ? -1 : 0);
 
@@ -185,7 +200,7 @@ namespace TheVeil.Sim
             // a right angle, on the bridge itself on 2-6, 2-8 and 3-2. Which side the bank is
             // on is the way the route goes over the water, not the step it came in by.
             if (dir == 0) dir = Across(grid, route, from, to, ex, row, back);
-            if (dir == 0) return false;
+            if (dir == 0) { Refused("no telling which way the bank lies"); return false; }
 
             var run = new List<int>();
 
@@ -200,7 +215,7 @@ namespace TheVeil.Sim
                 run.Add(tile);
             }
 
-            if (run.Count < LeastRunUp) return false;
+            if (run.Count < LeastRunUp) { Refused("no straight ground to run up on"); return false; }
 
             // Where the route is picked up, costed rather than assumed: how far it has
             // wandered by any given tile is whatever it did, so a fixed pick-up gives a
@@ -224,13 +239,13 @@ namespace TheVeil.Sim
                 anchor = at;
             }
 
-            if (anchor < 0 || route[anchor] == head) return false;
+            if (anchor < 0 || route[anchor] == head) { Refused("nowhere to pick the route up again"); return false; }
 
             // The straight walk first, because it is what the road would look like drawn by
             // hand; a search around what blocks it where it cannot be had. A single rock on
             // the diagonal used to cost the whole run-up, and the crossing stayed crooked.
             var walk = Walk(grid, route[anchor], head) ?? Around(grid, route[anchor], head);
-            if (walk == null) return false;
+            if (walk == null) { Refused("no way back onto the route"); return false; }
 
             // Laid in the order they are driven, which is opposite on the two banks — and
             // that is true of the walk as well as the run. Appended unreversed on the far
@@ -248,7 +263,7 @@ namespace TheVeil.Sim
             int last = back ? edge - 1 : anchor - 1;
             int removed = last - first + 1;
 
-            if (removed < 0) return false;
+            if (removed < 0) { Refused("the splice would tear the road"); return false; }
 
             route.RemoveRange(first, removed);
             route.InsertRange(first, laid);
@@ -339,6 +354,12 @@ namespace TheVeil.Sim
             grid.ToCoords(a, out int ax, out int ay);
             grid.ToCoords(b, out int bx, out int by);
 
+            // Four, and ten was tried: it takes the banks that cannot be spliced from
+            // nine to eight and the average drift from 0,6 to 0,4 m, and saves not one
+            // of the nine crossings that put a wheel off the timber. Widening the search
+            // relays roads, which costs a catalogue rebuild, and that is a great deal of
+            // machine time for a fifth of a metre. See BridgeReport, which counts why a
+            // bank refuses.
             const int Margin = 4;
             int minX = System.Math.Min(ax, bx) - Margin, maxX = System.Math.Max(ax, bx) + Margin;
             int minY = System.Math.Min(ay, by) - Margin, maxY = System.Math.Max(ay, by) + Margin;

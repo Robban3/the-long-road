@@ -66,6 +66,12 @@ namespace TheVeil.Editor
             float drawnStray = 0f, squaredStray = 0f;
             float drift = 0f, worstDrift = 0f;
             int offTheTimber = 0;
+
+            // <b>Why a bank refuses to be straightened.</b> Nine crossings still put a
+            // wheel off the timber and the five refusals inside Crossings.Approach were
+            // one silence between them. Counted, they say which fix is worth a catalogue
+            // rebuild and which is not.
+            var refusals = new System.Collections.Generic.Dictionary<string, int>();
             var spread = new int[Bands.Length + 1];
             int crossings = 0, crooked = 0, torn = 0, relaid = 0;
 
@@ -83,7 +89,11 @@ namespace TheVeil.Editor
                     foreach (var corridor in map.Corridors)
                     {
                         var drawn = corridor.Tiles;
-                        var squared = Crossings.Square(map.Grid, drawn);
+                        var why = new System.Collections.Generic.List<string>();
+                        var squared = Crossings.Square(map.Grid, drawn, why);
+
+                        foreach (string reason in why)
+                            refusals[reason] = refusals.TryGetValue(reason, out int n) ? n + 1 : 1;
 
                         // <b>The gate, before any of the numbers below mean anything.</b>
                         //
@@ -180,6 +190,9 @@ namespace TheVeil.Editor
             sheet.AppendLine($"[Bridge] {offTheTimber} of {crossings} put a wheel off the "
                              + $"timber: a {TheVeil.View.TerrainDecorator.FordDeck:0.0} m deck "
                              + $"carrying a {Wagon:0.0} m wagon allows {margin:0.0} m of drift");
+
+            foreach (var pair in refusals)
+                sheet.AppendLine($"[Bridge] a bank refused {pair.Value} time(s): {pair.Key}");
 
             sheet.Append("[Bridge] drift:");
             for (int band = 0; band < Bands.Length; band++)
