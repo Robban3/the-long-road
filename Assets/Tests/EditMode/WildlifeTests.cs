@@ -136,30 +136,48 @@ namespace TheVeil.Tests
         public void TheCaravanScattersThem()
         {
             var map = Level(1, 5);
-            var animals = Wildlife.Populate(map);
-            var target = animals[0];
 
-            Wildlife.Step(map.Grid, animals, target.Home, null, 0.1f);
-            Assert.IsTrue(target.IsFleeing);
-
-            for (int i = 0; i < 60; i++) Wildlife.Step(map.Grid, animals, target.Home, null, 0.1f);
-
-            // <b>Twice its grazing circle, and it was a bare twenty.</b>
+            // <b>Every animal, not the first one, because the first one is a lottery.</b>
             //
-            // Twenty is neither of the distances this file knows - the spook radius is
-            // 26 and the grazing circle 6 - and what it actually matched was how far the
-            // first animal of 1-5 could get on whichever map the catalogue shipped for
-            // that level. Rebuilt with a smaller MinimumStep, 1-5 became a map where
-            // that animal starts in a pocket: it swerved along the shoreline for the
-            // whole flight and reached 19,8, and the suite called it stuck.
+            // This startled animals[0] and asked for twenty metres. Twenty is neither of
+            // the distances the simulation knows - the caravan startles at twenty-six, an
+            // animal grazes within six - it was how far that one animal got on whichever
+            // map the catalogue shipped for 1-5, and a rebuilt table moved it to 19,8.
             //
-            // It was not stuck. An unobstructed animal covers about forty-eight here -
-            // four and a half seconds at eleven, less the walk back - a penned one
-            // twenty, and one that never moved nought. The guard is against the last of
-            // those, so it is written against the circle the animal grazes in: it has
-            // left its patch and gone some way, whatever the ground allowed.
-            Assert.Greater(Distance(target.Position, target.Home), Wildlife.GrazeRadius * 2f,
-                "it bolted and got nowhere");
+            // Measured over every animal of every dressed level - The Veil > Wildlife
+            // Report - the simulation is fine and the sample was not: of 3786 animals,
+            // sixteen end up under twenty metres, which is four in a thousand penned
+            // against a shoreline. 1-5 holds one of them and it is first in the list. The
+            // median animal there runs 40,2 m and the median level's median is 49,2, a
+            // clear run.
+            //
+            // So the middle of the field is asked instead. It cannot draw badly, and it
+            // still fails loudly for the thing this guards: animals that stop fleeing at
+            // all take the median to nothing with them.
+            var ran = new List<float>();
+
+            foreach (var each in Wildlife.Populate(map))
+            {
+                var animals = Wildlife.Populate(map);
+                var target = animals[ran.Count];
+                var home = target.Home;
+
+                Wildlife.Step(map.Grid, animals, home, null, 0.1f);
+                Assert.IsTrue(target.IsFleeing, "the caravan did not startle it");
+
+                for (int i = 0; i < 60; i++) Wildlife.Step(map.Grid, animals, home, null, 0.1f);
+
+                ran.Add(Distance(target.Position, home));
+            }
+
+            ran.Sort();
+
+            // Half a clear run, derived rather than remembered: four and a half seconds
+            // at eleven metres a second is what an animal with ground ahead of it covers,
+            // and the middle of the field managing half of that is a herd that scatters.
+            Assert.Greater(ran[ran.Count / 2],
+                Wildlife.FleeSeconds * Wildlife.FleeSpeed * 0.5f,
+                "the herd bolted and got nowhere");
         }
 
         [Test]
