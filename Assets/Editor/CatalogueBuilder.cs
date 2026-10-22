@@ -791,6 +791,21 @@ namespace TheVeil.Editor
                     sheet.AppendLine($"[Catalogue] no chain keeps {FewestKills} to {MostKills} "
                                      + "killing fast roads in every chapter - nothing was written");
 
+                // <b>What the chain cost, so it can be held against what one could.</b>
+                //
+                // The candidate lists above are enough to work the same choice out
+                // again outside Unity - difficulty, kills, chapter boundaries - and done
+                // that way the campaign comes to about 1,2 points of distance from the
+                // curve a level where the shipped table measures 2,2. Either this search
+                // is leaving half of its accuracy behind or that model is missing a rule
+                // this one keeps, and the two want opposite work. One number settles it:
+                // the cost of the chain actually taken, in the same units.
+                else
+                    sheet.AppendLine($"[Catalogue] the chain cost {cheapest:0.0} "
+                                     + $"over {levels.Count} levels, {cheapest / levels.Count:0.00} "
+                                     + "a level - distance from the curve, plus ten for every "
+                                     + "level whose fast road is not treacherous");
+
                 for (int i = end; i >= 0 && at >= 0; i--)
                 {
                     picks[i] = at;
