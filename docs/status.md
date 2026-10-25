@@ -16,12 +16,18 @@ The simulation is complete and tested: terrain generation, route drawing, carava
 movement, detection, traps, combat, silver and upgrades, all deterministic from a seed
 and all covered by tests. The route is the player's now — they draw it through the
 country rather than picking one of three the generator drew, and threat is placed
-across the whole crossable band to suit. The presentation has just
-been through a full pass — the ground is lit and textured, the scenery is textured,
-the cast stands on the ground at the right size, and the planning map is a top-down
-render of the real world rather than a grid of coloured squares. What is missing is
-everything between levels: no camp, no shop, no UI beyond a debug readout, and no
-build for either phone.
+across the whole crossable band to suit. The presentation has been through a full pass —
+the ground is lit and textured, the scenery is textured, the cast stands on the ground at
+the right size, and the planning map is a top-down render of the real world rather than a
+grid of coloured squares. The screens between levels exist: main menu, planning, shop,
+troops, achievements, settings. The campaign is a hundred levels in ten chapters, built
+against a difficulty curve that climbs unbroken, and the last of them has been played and
+judged.
+
+**What is missing is the phone.** Nothing has ever been built as a player — there is no
+build pipeline in the project at all — and the performance budget that §1 of the technical
+design calls a design requirement was never measured once. It has been now, and four of
+its five measurable lines are burst. That is §4, and it is the next piece of work.
 
 ---
 
@@ -221,7 +227,54 @@ gives them. The country is right, the dressing is a sketch. See
 
 ## 4. Known problems, worst first
 
-**The suite is green: 194 tests, none failing.** The four that had been red for weeks are
+**The performance budget is burst on four of its five measurable lines, and the worst is
+thirty times over.** §1 of the technical design sets seven numbers and says in its first
+sentence that a thousand levels means the generator may never produce something that
+bursts them. Nothing had ever asked it for the count. `The Veil > Budget Report` does,
+over every dressed level, through the shipped camera's own frustum with the LOD groups
+resolved the way the engine resolves them:
+
+| | measured | wanted | |
+|---|---|---|---|
+| visible triangles | **7 503 276** (5-2) | 250 000 | over 30× |
+| draw calls, fully instanced | 228 (4-10) | 150 | over 1,5× |
+| draw calls, a material each | 50 (4-3) | 150 | within |
+| memory | 777 MB (4-10) | 700 MB | over 1,1× |
+| level load | 2,52 s (9-3) | 2,0 s | over 1,3× |
+| skinned meshes | not measurable here | 40 | the cast needs a run |
+| frame rate, package size | never measured | 60 fps, 150 MB | needs a phone, needs a build |
+
+**And the cause is not what it looks like.** Three wildflower patch meshes are 177 258,
+134 050 and 209 214 faces each and stand in thousands of copies — 60 % of every triangle
+the game would stand up if every prop were in the player's face at once. They are not in
+the worst frame at all. Their LOD0 reaches 40 m and they are culled past 409 m, so in
+practice they are cheap, and a morning spent decimating them would have bought nothing.
+
+What is in the worst frame is **trees at distance, and rocks with no LOD chain at all**:
+
+    SM_Env_Tree_Meadow_01_LOD2   1487,2k   19,8%     ~245 trees at 6 070 faces each
+    SM_Env_Tree_Fruit_01_LOD1    1028,2k   13,7%
+    SM_Env_Tree_Meadow_02_LOD2    660,1k    8,8%
+    SM_Env_Tree_Meadow_01_LOD1    607,8k    8,1%
+    SM_Env_Rock_Pile_01           570,8k    7,6%     no LODGroup in the prefab
+    SM_Env_Tree_Birch_02_LOD2     543,6k    7,2%
+    SM_Env_Rock_Pile_03           268,4k    3,6%     no LODGroup in the prefab
+
+Two things, and neither is a count of props. **The far end of the LOD chains is not
+cheap, and it covers the whole map.** `SM_Env_Tree_Meadow_01` is 17,9 m across with
+transitions at 0,371 / 0,138 / 0,039 / 0,01, which at a 50° lens puts LOD0 inside 52 m,
+LOD1 inside 139 m and LOD2 out to 489 m. A level is 64 tiles — 256 m — so every meadow
+tree on the map is always at LOD2 or nearer and nothing is ever dropped by distance. LOD2
+is 6 070 triangles. These are a desktop pack's LODs on a phone's budget, and
+`m_LastLODIsBillboard` is 0 throughout. **And the rock piles have no chain**, so they draw
+their full mesh from any range: 11 % of the worst frame from two meshes.
+
+The fix is therefore asset work on the far levels — a cheap LOD2/LOD3 or a billboard, and
+a chain on the rocks — and not a thinner country. Thinning was the obvious guess and the
+frame breakdown is what refuted it; see §6 on constants tuned as products for the same
+shape of mistake.
+
+**The suite is green: 382 tests, none failing.** The four that had been red for weeks are
 resolved below, and none of the four was an implementation bug — three were design calls
 waiting to be made and one was a test measuring the wrong thing.
 
@@ -420,30 +473,38 @@ in §8 is meant to end.
 
 ## 5. What to do next, in order
 
-1. **The planning screen.** Everything under it is built: `RoutePlanner` solves the
-   route, `RouteResult` carries the readout, and placement no longer assumes corridors.
-   What is missing is the screen — tap to place a waypoint, one ribbon instead of three,
-   travel time and terrain shares, markers on the fords, and a start button locked until
-   the route is valid. Until it exists the game's central decision is implemented and
-   unreachable.
-2. **Swap the asset packs**, and measure before wiring — see §8. It settles the
-   untextured landforms, the missing buildings and the character roster in one move,
-   and it decides what is left of the wagon problem.
-3. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
+The first four items of the old list — the planning screen, the pack swap, the scouting
+overlay and the camp — are built. What replaced them is the budget, because a game that
+cannot be drawn on a phone is not finished however much of it is implemented.
+
+1. **The far LODs.** A cheap LOD2 and LOD3, or a billboard, on the meadow, fruit and
+   birch trees, and an LOD chain on the rock piles, which have none. §4 has the
+   measurement and the shares. This is where the thirty-fold burst is, and
+   `MeshDecimator` and `The Veil > Budget Report` are both already here, so each attempt
+   is measurable in one run.
+2. **The LOD transition heights.** Even cheap far levels do nothing while LOD2 reaches
+   489 m on a map 256 m across. The chain has to do its switching inside the country
+   rather than past the edge of it.
+3. **Android build support**, and the APK measured against the 150 MB line. There is no
+   build pipeline in the project at all. The Unity install this project uses already has
+   the Android module, the SDK and NDK tools and OpenJDK, and the three scenes are in
+   `EditorBuildSettings`, so this is a method and not a toolchain.
+4. **A build on a real device, and the frame rate.** The one line no instrument here can
+   reach. Everything above it is what decides whether the device has a chance.
+5. **The skinned mesh count**, which needs a run rather than a build — the scenery uses
+   none of the allowance of forty, so the whole of it belongs to the cast and nothing has
+   counted what the cast spends.
+6. **Memory and load**, the two small bursts — 777 MB against 700 and 2,52 s against 2.
+   Both are editor-platform figures: mobile texture compression is not applied in a
+   desktop import, so these are worth re-measuring on an Android build before anything is
+   changed for them.
+7. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
    heavier cart for war, a box or merchant wagon for treasure — and retire
    `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
-4. **Roads.** The budget objection is settled: threat is spread over a band by how fast
-   the ground is, so a road makes its own tiles more dangerous instead of concentrating
-   a corridor's whole share onto a shorter line. Lay them and re-measure.
-5. **The planning map's frame** — border, compass, title. Cheap, and it is much of
+8. **The planning map's frame** — border, compass, title. Cheap, and it is much of
    what makes a picture read as a map.
-6. **The scouting overlay in Unity.** The flight itself is built and measured; what is
-   missing is the map under a grey layer that lifts along the trail, the markers on what
-   the bird found, and the gold that pays for it. `Tools/render_screens.py --eagle` draws
-   exactly what it should look like.
-7. **The camp between levels**, so silver and upgrades have somewhere to happen.
-8. **Android and iOS build support**, and a build on a real device. The frame rate
-   target has never been measured on hardware.
+9. **iOS.** The module builds an Xcode project here; compiling and signing needs a Mac or
+   a cloud builder. Not needed until the phone numbers above are in.
 
 ---
 
