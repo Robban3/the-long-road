@@ -169,17 +169,30 @@ namespace TheVeil.Editor
         /// </summary>
         static long Weighs(Texture2D map)
         {
-            int bits = Bits(map.format, out int block);
+            long bytes = Weighs(map.width, map.height, map.format,
+                                Mathf.Max(1, map.mipmapCount));
 
-            if (bits <= 0) return Profiler.GetRuntimeMemorySizeLong(map);
+            return bytes > 0 ? bytes : Profiler.GetRuntimeMemorySizeLong(map);
+        }
+
+        /// <summary>
+        /// The same arithmetic for a size a texture does not have yet, which is what
+        /// <see cref="TextureCeiling"/> needs to price a smaller one. Zero when the format
+        /// is not one this knows.
+        /// </summary>
+        internal static long Weighs(int wide0, int high0, TextureFormat format, int levels)
+        {
+            int bits = Bits(format, out int block);
+
+            if (bits <= 0) return 0;
 
             long bytes = 0;
-            int levels = Mathf.Max(1, map.mipmapCount);
+            levels = Mathf.Max(1, levels);
 
             for (int level = 0; level < levels; level++)
             {
-                int wide = Mathf.Max(1, map.width >> level);
-                int high = Mathf.Max(1, map.height >> level);
+                int wide = Mathf.Max(1, wide0 >> level);
+                int high = Mathf.Max(1, high0 >> level);
 
                 if (block > 1)
                 {
