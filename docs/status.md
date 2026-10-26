@@ -24,10 +24,13 @@ troops, achievements, settings. The campaign is a hundred levels in ten chapters
 against a difficulty curve that climbs unbroken, and the last of them has been played and
 judged.
 
-**What is missing is the phone.** Nothing has ever been built as a player — there is no
-build pipeline in the project at all — and the performance budget that §1 of the technical
-design calls a design requirement was never measured once. It has been now, and four of
-its five measurable lines are burst. That is §4, and it is the next piece of work.
+**What is missing is the phone.** The performance budget that §1 of the technical design
+calls a design requirement had never been measured once. Five of its seven lines have
+numbers now, the package among them, which took a build pipeline the project did not have.
+Three are burst — visible triangles 12,4× over, draw calls 1,5×, the package 2,2× — and
+two of those three have had a pass of work spent on them and are burst still. Two lines
+are within. Of the rest, the load figure is noise, the skinned count needs a run, and the
+frame rate needs a device. That is §4, and the device is the next piece of work.
 
 ---
 
@@ -242,7 +245,8 @@ resolved the way the engine resolves them:
 | memory | 777 MB | **566 MB** (8-10) | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | 2,0 s | not measurable here |
 | skinned meshes | not measurable here | — | 40 | the cast needs a run |
-| frame rate, package size | never measured | — | 60 fps, 150 MB | needs a phone, needs a build |
+| package size | 386,7 MB | **325,1 MB** (texture ceilings) | 150 MB | over 2,2× |
+| frame rate | never measured | — | 60 fps | needs a phone |
 
 **The load line is not a measurement and should not be read as one.** Repeated runs over
 the same code put the worst level anywhere from 2,03 s to 4,05 s, on a different level
@@ -323,6 +327,49 @@ the one that says whether 3,09M is a problem at all.
 
 Thinning the country was the obvious guess at the start of all this and the frame
 breakdown refuted it; see §6 on constants tuned as products for the same shape of mistake.
+
+**The package is 2,2× over its line, and the arithmetic says it cannot reach it by taking
+things out.** The first build was 386,7 MB and three quarters of it was texture.
+`The Veil > Texture Report` counts what the build itself packs — the 230 textures
+reachable from the three scenes in the build settings — and found 772 MB of them, with
+**not one Android override in the project**: 34 at 4096 square and 99 at 2048, desktop
+atlases imported for a desktop.
+
+`The Veil > Texture Plan` decides the ceilings by measuring rather than by a rule. Halving
+an image costs exactly what its four pixels disagree by, and those step errors add exactly
+and not roughly — within a block the parent is the mean of its children, so the deviations
+sum to zero and the cross terms between steps vanish — so one pass down each chain prices
+every candidate size at once. Then it is an allocation: the cheapest halving in the whole
+project by error per megabyte, over and over, until the budget is met. A flat mask falls to
+64 before a painted wood grain gives up its first halving, because that is what the pixels
+say. What it buys, in levels of 0–255 against what the textures come to:
+
+| worst error | textures | | worst error | textures |
+|---|---|---|---|---|
+| 1,0 | 655,5 MB | | 6,0 | **335,3 MB** |
+| 2,0 | 586,9 MB | | 8,0 | 217,5 MB |
+| 3,0 | 557,9 MB | | 12,0 | 129,4 MB |
+| 4,0 | 481,6 MB | | 16,0 | 99,9 MB |
+
+Six is set, which is where the curve stops being cheap. `The Veil > Fit Textures to the
+Phone` wrote it: 423 halvings over 230 textures, packed texture 756,2 MB → 349,1, against
+a prediction of 335,3. **And the package went 386,7 MB → 325,1.**
+
+Which is the finding, and it was not the expected one. **401 MB of packed assets came out
+and the package shrank by 62.** A megabyte of packed total buys about a sixth of a megabyte
+of package, and the first ones bought least: a big smooth texture is exactly what the
+package's own compressor was already folding down, and a small one is not. The assets
+compressed to 0,357 of their packed size before and 0,49 after. Opened up, the package is
+260,9 MB of asset splits, 25,8 MB of native code and 16,4 of resources, of which texture is
+about 171 MB. **Removing every texture in the game — every surface flat grey — would leave
+about 154 MB.** The 150 MB line does not come off the textures, and the same question hangs
+over it as over the triangle line: it was written for a phone nobody has measured.
+
+Two things this did *not* settle, both measurable and neither done: 68 texture files lie in
+the project as identical copies — the same grass normal in five biomes, 95,8 MB of
+duplication on disk — and nothing yet says how much of that actually ships. And the formats
+have not been touched at all; every texture is at the importer's own choice, and ASTC over
+ETC2 is worth something that has not been counted.
 
 **The suite is green: 382 tests, none failing.** The four that had been red for weeks are
 resolved below, and none of the four was an implementation bug — three were design calls
@@ -527,30 +574,40 @@ The first four items of the old list — the planning screen, the pack swap, the
 overlay and the camp — are built. What replaced them is the budget, because a game that
 cannot be drawn on a phone is not finished however much of it is implemented.
 
-The first two items here were the far LODs and their transition heights. Both are done —
-§4 has what they bought and what they did not.
+The first two items here were the far LODs and their transition heights. Then Android build
+support, and then the texture ceilings. All four are done — §4 has what they bought and
+what they did not.
 
-1. **Android build support**, and the APK measured against the 150 MB line. There is no
-   build pipeline in the project at all. The Unity install this project uses already has
-   the Android module, the SDK and NDK tools and OpenJDK, and the three scenes are in
-   `EditorBuildSettings`, so this is a method and not a toolchain.
-2. **A build on a real device, and the frame rate.** The one line no instrument here can
+1. **A build on a real device, and the frame rate.** The one line no instrument here can
    reach, and the one that says whether 3,09M visible triangles is a problem at all.
    Everything else waits on it, because the alternative is cutting the game's geometry
-   further against a ceiling nobody has ever validated.
-3. **The skinned mesh count**, which needs a run rather than a build — the scenery uses
+   further against a ceiling nobody has ever validated — and two of the seven lines now
+   say the same thing about their own ceilings. The package is at
+   `Build/Android/thelongroad.apk`; `adb install -r` it, and the frame rate, the worst
+   frame of the last second and the worst since start read out in the corner.
+2. **The skinned mesh count**, which needs a run rather than a build — the scenery uses
    none of the allowance of forty, so the whole of it belongs to the cast and nothing has
    counted what the cast spends.
-4. **Load time**, which this cannot measure — repeated runs over the same code put the
+3. **Load time**, which this cannot measure — repeated runs over the same code put the
    worst level anywhere from 2,0 s to 4,1 s, on a different level each time. Memory is
-   within its line now at 566 MB, but that figure is a desktop import: mobile texture
-   compression is not applied here, so the real number is the build's.
-5. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
+   within its line now at 566 MB, and that figure has since become a phone's figure rather
+   than a desktop's: the active build target is Android now, so the editor holds the
+   textures at Android compression and at the ceilings §4 set. Worth re-running the budget
+   report for a number that is both honest and current.
+4. **The duplicate textures.** 68 files lie in the project as identical copies — the same
+   grass normal in five biomes — 95,8 MB of duplication on disk. Whether the shipped set
+   contains them is a question for `TextureReport`, which already walks exactly that set
+   and need only group it by content hash. If they do ship, each copy is packed separately.
+5. **The texture formats**, which have not been touched at all. Every one is at the
+   importer's own choice; ASTC over ETC2 is 3,56 bits a pixel against 8 on the 81 textures
+   that carry alpha. `TextureCeiling` deliberately moved resolution only, because it can
+   measure what resolution costs and has no instrument for what a codec costs.
+6. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
    heavier cart for war, a box or merchant wagon for treasure — and retire
    `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
-6. **The planning map's frame** — border, compass, title. Cheap, and it is much of
+7. **The planning map's frame** — border, compass, title. Cheap, and it is much of
    what makes a picture read as a map.
-7. **iOS.** The module builds an Xcode project here; compiling and signing needs a Mac or
+8. **iOS.** The module builds an Xcode project here; compiling and signing needs a Mac or
    a cloud builder. Not needed until the phone numbers above are in.
 
 ---
