@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3851618626263850924}
   - component: {fileID: 7079546548964075602}
   - component: {fileID: 7860536414351073097}
+  - component: {fileID: 4324175970249019285}
   m_Layer: 0
   m_Name: SM_Rock_Cluster_Large_02_Snow
   m_TagString: Untagged
@@ -113,3 +114,34 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: ef3bfd4968e2e144382b0da5f22c3082, type: 3}
+--- !u!205 &4324175970249019285
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4695509285340921252}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0, y: 1.5155482, z: 0}
+  m_Size: 28.639399
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.25
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 7079546548964075602}
+  - screenRelativeHeight: 0.09
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  - screenRelativeHeight: 0.035
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  - screenRelativeHeight: 0
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  m_Enabled: 1

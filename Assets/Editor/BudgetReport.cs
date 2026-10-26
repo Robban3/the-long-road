@@ -125,7 +125,7 @@ namespace TheVeil.Editor
                     float load = clock.ElapsedMilliseconds / 1000f;
 
                     var standing = Pieces(root);
-                    long bytes = Resident(standing.Pieces);
+                    long bytes = Resident(root);
                     var seen = Peak(standing, map, runner.HeightScale, fov, out var frame);
 
                     if (frame != null && seen.Triangles > heaviest)
@@ -306,6 +306,12 @@ namespace TheVeil.Editor
 
             foreach (var renderer in root.GetComponentsInChildren<Renderer>(false))
             {
+                // The flag on that call is about the GameObject, not about the component,
+                // so a renderer switched off on a live object comes back through it. The
+                // far-LOD pass switches off the pack levels it replaces, and without this
+                // they would all still be counted.
+                if (!renderer.enabled) continue;
+
                 Mesh shape = null;
 
                 if (renderer is SkinnedMeshRenderer skin) shape = skin.sharedMesh;
@@ -373,25 +379,50 @@ namespace TheVeil.Editor
         /// memory, and the budget line is about the device's memory and not about the
         /// frame. Counted per asset, because four hundred instances of one tree are one
         /// mesh - which is the whole reason the number is survivable at all.
+        ///
+        /// <b>And asked of the whole level, not of the pieces that draw.</b> This took the
+        /// drawing list, and the moment the far-LOD pass began switching off the pack
+        /// levels it replaces, the memory line fell from 777 MB to 546 and read as fixed.
+        /// It was not fixed. A switched-off renderer still holds its MeshFilter, the
+        /// MeshFilter still holds the mesh, and the mesh still loads with the prefab - so
+        /// those megabytes are exactly where they were and the only thing that had changed
+        /// was that this had stopped counting them. **A budget line that improves because
+        /// the instrument looked away is worse than one that is simply over.**
+        ///
+        /// Inactive objects and disabled renderers are therefore included. Making the
+        /// saving real means taking the replaced meshes out of the prefabs, which is a
+        /// different job from switching them off.
         /// </summary>
-        static long Resident(List<Piece> pieces)
+        static long Resident(GameObject root)
         {
             var meshes = new HashSet<Mesh>();
             var textures = new HashSet<Texture>();
             long bytes = 0;
 
-            foreach (var piece in pieces)
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
             {
-                if (piece.Shape != null && meshes.Add(piece.Shape))
-                    bytes += Profiler.GetRuntimeMemorySizeLong(piece.Shape);
+                Mesh shape = null;
 
-                if (piece.Paint == null) continue;
-
-                foreach (string slot in piece.Paint.GetTexturePropertyNames())
+                if (renderer is SkinnedMeshRenderer skin) shape = skin.sharedMesh;
+                else
                 {
-                    var map = piece.Paint.GetTexture(slot);
-                    if (map != null && textures.Add(map))
-                        bytes += Profiler.GetRuntimeMemorySizeLong(map);
+                    var filter = renderer.GetComponent<MeshFilter>();
+                    if (filter != null) shape = filter.sharedMesh;
+                }
+
+                if (shape != null && meshes.Add(shape))
+                    bytes += Profiler.GetRuntimeMemorySizeLong(shape);
+
+                foreach (var paint in renderer.sharedMaterials)
+                {
+                    if (paint == null) continue;
+
+                    foreach (string slot in paint.GetTexturePropertyNames())
+                    {
+                        var map = paint.GetTexture(slot);
+                        if (map != null && textures.Add(map))
+                            bytes += Profiler.GetRuntimeMemorySizeLong(map);
+                    }
                 }
             }
 

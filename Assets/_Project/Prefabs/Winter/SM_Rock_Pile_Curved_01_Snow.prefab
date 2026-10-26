@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 1998763169039356390}
   - component: {fileID: 3541138329006709120}
   - component: {fileID: 1981017647678974245}
+  - component: {fileID: 6292543398208677123}
   m_Layer: 0
   m_Name: SM_Rock_Pile_Curved_01_Snow
   m_TagString: Untagged
@@ -113,3 +114,34 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 29b42e009815cd142a070498cc5cb6ab, type: 3}
+--- !u!205 &6292543398208677123
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3034283422359897391}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: -0.00044870377, y: -0.006192982, z: -0.00432086}
+  m_Size: 5.339695
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.25
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 3541138329006709120}
+  - screenRelativeHeight: 0.09
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  - screenRelativeHeight: 0.035
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  - screenRelativeHeight: 0
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  m_Enabled: 1

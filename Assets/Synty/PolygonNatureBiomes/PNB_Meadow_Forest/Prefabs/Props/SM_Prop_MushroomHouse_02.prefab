@@ -5,6 +5,7 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
+    serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 20b920787bb3eaf488ef6e03a8a629a3, type: 3}
@@ -52,7 +53,7 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 20b920787bb3eaf488ef6e03a8a629a3, type: 3}
-      propertyPath: m_Materials.Array.data[0]
+      propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: c6030e4939d206544a563fc12dc8518f, type: 2}
     - target: {fileID: 919132149155446097, guid: 20b920787bb3eaf488ef6e03a8a629a3, type: 3}
@@ -64,4 +65,51 @@ PrefabInstance:
       value: 4294967295
       objectReference: {fileID: 0}
     m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 20b920787bb3eaf488ef6e03a8a629a3, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7978349229290211856}
   m_SourcePrefab: {fileID: 100100000, guid: 20b920787bb3eaf488ef6e03a8a629a3, type: 3}
+--- !u!1 &2685573796670497807 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 20b920787bb3eaf488ef6e03a8a629a3, type: 3}
+  m_PrefabInstance: {fileID: 2991651233567693150}
+  m_PrefabAsset: {fileID: 0}
+--- !u!205 &7978349229290211856
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2685573796670497807}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0.008339584, y: 0.20887291, z: 0}
+  m_Size: 0.4798171
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.25
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 4487255746157463002}
+  - screenRelativeHeight: 0.09
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  - screenRelativeHeight: 0.035
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  - screenRelativeHeight: 0
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  m_Enabled: 1
+--- !u!23 &4487255746157463002 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -7511558181221131132, guid: 20b920787bb3eaf488ef6e03a8a629a3, type: 3}
+  m_PrefabInstance: {fileID: 2991651233567693150}
+  m_PrefabAsset: {fileID: 0}

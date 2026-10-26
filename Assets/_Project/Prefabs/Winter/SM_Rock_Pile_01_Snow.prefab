@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3911244018603782676}
   - component: {fileID: 3646882162347414530}
   - component: {fileID: 4187608294490842507}
+  - component: {fileID: 6727504361624300372}
   m_Layer: 0
   m_Name: SM_Rock_Pile_01_Snow
   m_TagString: Untagged
@@ -113,3 +114,34 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 231d256a707395b4e9e862217ff74bc1, type: 3}
+--- !u!205 &6727504361624300372
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4757566117139243905}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0.4169221, y: -0.23973095, z: 0.094218254}
+  m_Size: 6.615552
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.25
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 3646882162347414530}
+  - screenRelativeHeight: 0.09
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  - screenRelativeHeight: 0.035
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  - screenRelativeHeight: 0
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 0}
+  m_Enabled: 1

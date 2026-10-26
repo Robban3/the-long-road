@@ -234,15 +234,21 @@ bursts them. Nothing had ever asked it for the count. `The Veil > Budget Report`
 over every dressed level, through the shipped camera's own frustum with the LOD groups
 resolved the way the engine resolves them:
 
-| | measured | wanted | |
-|---|---|---|---|
-| visible triangles | **7 503 276** (5-2) | 250 000 | over 30× |
-| draw calls, fully instanced | 228 (4-10) | 150 | over 1,5× |
-| draw calls, a material each | 50 (4-3) | 150 | within |
-| memory | 777 MB (4-10) | 700 MB | over 1,1× |
-| level load | 2,52 s (9-3) | 2,0 s | over 1,3× |
-| skinned meshes | not measurable here | 40 | the cast needs a run |
-| frame rate, package size | never measured | 60 fps, 150 MB | needs a phone, needs a build |
+| | first measured | after the far-LOD pass | wanted | |
+|---|---|---|---|---|
+| visible triangles | 7 503 276 | **3 088 726** (4-10) | 250 000 | still over 12,4× |
+| draw calls, fully instanced | 228 | 229 (4-10) | 150 | over 1,5× |
+| draw calls, a material each | 54 | 39 (100-3) | 150 | within |
+| memory | 777 MB | **566 MB** (8-10) | 700 MB | within |
+| level load | 2,52 s | noisy, 2,0–4,1 s | 2,0 s | not measurable here |
+| skinned meshes | not measurable here | — | 40 | the cast needs a run |
+| frame rate, package size | never measured | — | 60 fps, 150 MB | needs a phone, needs a build |
+
+**The load line is not a measurement and should not be read as one.** Repeated runs over
+the same code put the worst level anywhere from 2,03 s to 4,05 s, on a different level
+each time. What it times is the editor instantiating prefabs one at a time under whatever
+state the disk cache and the collector happen to be in, which is not what a player build
+does. It needs the build.
 
 **And the cause is not what it looks like.** Three wildflower patch meshes are 177 258,
 134 050 and 209 214 faces each and stand in thousands of copies — 60 % of every triangle
@@ -269,10 +275,54 @@ is 6 070 triangles. These are a desktop pack's LODs on a phone's budget, and
 `m_LastLODIsBillboard` is 0 throughout. **And the rock piles have no chain**, so they draw
 their full mesh from any range: 11 % of the worst frame from two meshes.
 
-The fix is therefore asset work on the far levels — a cheap LOD2/LOD3 or a billboard, and
-a chain on the rocks — and not a thinner country. Thinning was the obvious guess and the
-frame breakdown is what refuted it; see §6 on constants tuned as products for the same
-shape of mistake.
+**That work is done.** `The Veil > Far LOD Survey` read the sets off the scene — 904
+distinct models, every one of them a prefab, so every one of them could be given a chain.
+It found 301 over 600 faces with **no chain at all** (the warship hull at 48 740 faces,
+three shipwrecks at 37 044 / 26 413 / 11 929) and 69 whose chain ends beyond the map: the
+giant tree's last level reaches **9 157 m** on a country 256 m wide.
+
+`The Veil > Build Far LODs` then rebuilt 398 of them, refusing none. The rule is a share
+of the screen and not a distance, deliberately: a tree and a mountain range both want
+their detail while they are large in frame and they are large at wildly different
+distances, so a rule in metres either strips the mountain or spares the tree. Nothing
+below 5,5 % of screen height keeps a hand-made level. Under that, this tool's own levels
+take over at 250 faces and then 80, and a model that arrived with no chain gets a 900-face
+rung above those so it does not fall from everything to nine hundred in one step.
+**Nothing is culled** — the last level's share is nought, so a tree is drawn at eighty
+faces to the horizon rather than vanishing, which on a 256 m map with the camera 120 m
+back would be seen. **LOD0 is untouched everywhere.** The budget is split between a
+model's renderers in proportion to what they already cost, so a tree spends it on its
+trunk and a little on its branches rather than halving both.
+
+Result: 7,50M visible triangles down to 3,09M, and memory from 777 MB to 566 — under its
+line for the first time. The 1 101 generated meshes cost 47 MB on their own; what pays for
+them is that the replaced pack levels are **removed from the prefabs** rather than
+switched off. Switching them off is what the first attempt did, and the memory line
+promptly fell to 546 MB and read as fixed: a disabled renderer keeps its MeshFilter, the
+MeshFilter keeps the mesh, and the mesh loads with the prefab whatever the active flag
+says. Nothing had been freed; the report had stopped counting it.
+
+**What is left is LOD0 and LOD1, which are the pack's own and were left alone on purpose.**
+
+    SM_Env_Tree_Meadow_01_LOD1   1075,3k   34,8%   ~92 trees at 11 688 faces
+    SM_Env_Tree_Meadow_02_LOD1    285,9k    9,3%
+    SM_Env_Tree_Meadow_01_LOD0    221,6k    7,2%   ~10 trees at 22 162 faces
+
+And the arithmetic says cutting those will not close it either. Cap every LOD1 at 1 200
+faces and every LOD0 at 4 000 and the frame lands somewhere around 600–900k — still two to
+four times over. **The worst frame holds 6 196 visible pieces. Two hundred and fifty
+thousand triangles across them is forty triangles a piece**, which is not a number
+recognisable scenery comes in, however good the chains are.
+
+So one of two things has to give, and it is worth saying which this evidence does *not*
+settle: whether the budget line is right. 250 000 triangles and 150 draw calls are a
+low-end phone of some years ago, and nobody has ever held them against hardware. Cutting
+more geometry to reach a number that has never been validated would make the game plainer
+on a guess. The next measurement is the Android build and a real device — §5 — and that is
+the one that says whether 3,09M is a problem at all.
+
+Thinning the country was the obvious guess at the start of all this and the frame
+breakdown refuted it; see §6 on constants tuned as products for the same shape of mistake.
 
 **The suite is green: 382 tests, none failing.** The four that had been red for weeks are
 resolved below, and none of the four was an implementation bug — three were design calls
@@ -477,33 +527,30 @@ The first four items of the old list — the planning screen, the pack swap, the
 overlay and the camp — are built. What replaced them is the budget, because a game that
 cannot be drawn on a phone is not finished however much of it is implemented.
 
-1. **The far LODs.** A cheap LOD2 and LOD3, or a billboard, on the meadow, fruit and
-   birch trees, and an LOD chain on the rock piles, which have none. §4 has the
-   measurement and the shares. This is where the thirty-fold burst is, and
-   `MeshDecimator` and `The Veil > Budget Report` are both already here, so each attempt
-   is measurable in one run.
-2. **The LOD transition heights.** Even cheap far levels do nothing while LOD2 reaches
-   489 m on a map 256 m across. The chain has to do its switching inside the country
-   rather than past the edge of it.
-3. **Android build support**, and the APK measured against the 150 MB line. There is no
+The first two items here were the far LODs and their transition heights. Both are done —
+§4 has what they bought and what they did not.
+
+1. **Android build support**, and the APK measured against the 150 MB line. There is no
    build pipeline in the project at all. The Unity install this project uses already has
    the Android module, the SDK and NDK tools and OpenJDK, and the three scenes are in
    `EditorBuildSettings`, so this is a method and not a toolchain.
-4. **A build on a real device, and the frame rate.** The one line no instrument here can
-   reach. Everything above it is what decides whether the device has a chance.
-5. **The skinned mesh count**, which needs a run rather than a build — the scenery uses
+2. **A build on a real device, and the frame rate.** The one line no instrument here can
+   reach, and the one that says whether 3,09M visible triangles is a problem at all.
+   Everything else waits on it, because the alternative is cutting the game's geometry
+   further against a ceiling nobody has ever validated.
+3. **The skinned mesh count**, which needs a run rather than a build — the scenery uses
    none of the allowance of forty, so the whole of it belongs to the cast and nothing has
    counted what the cast spends.
-6. **Memory and load**, the two small bursts — 777 MB against 700 and 2,52 s against 2.
-   Both are editor-platform figures: mobile texture compression is not applied in a
-   desktop import, so these are worth re-measuring on an Android build before anything is
-   changed for them.
-7. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
+4. **Load time**, which this cannot measure — repeated runs over the same code put the
+   worst level anywhere from 2,0 s to 4,1 s, on a different level each time. Memory is
+   within its line now at 566 MB, but that figure is a desktop import: mobile texture
+   compression is not applied here, so the real number is the build's.
+5. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
    heavier cart for war, a box or merchant wagon for treasure — and retire
    `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
-8. **The planning map's frame** — border, compass, title. Cheap, and it is much of
+6. **The planning map's frame** — border, compass, title. Cheap, and it is much of
    what makes a picture read as a map.
-9. **iOS.** The module builds an Xcode project here; compiling and signing needs a Mac or
+7. **iOS.** The module builds an Xcode project here; compiling and signing needs a Mac or
    a cloud builder. Not needed until the phone numbers above are in.
 
 ---
