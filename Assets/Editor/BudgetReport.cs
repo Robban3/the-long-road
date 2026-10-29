@@ -60,7 +60,7 @@ namespace TheVeil.Editor
         // floor, and one that bursts the target is already the finding.
         const int WantedCalls = 150;
         const int WantedTriangles = 250000;
-        const int WantedSkinned = 40;
+        internal const int WantedSkinned = 40;
         const int WantedMegabytes = 700;
         const float WantedLoad = 2f;
 
@@ -75,8 +75,8 @@ namespace TheVeil.Editor
         const int Stops = 9;
 
         /// <summary>A phone's two shapes, as aspect ratios. Portrait is the default.</summary>
-        const float Portrait = 1080f / 2400f;
-        const float Landscape = 2400f / 1080f;
+        internal const float Portrait = 1080f / 2400f;
+        internal const float Landscape = 2400f / 1080f;
 
         [MenuItem("The Veil/Budget Report")]
         public static void Run()
@@ -151,7 +151,7 @@ namespace TheVeil.Editor
             }
 
             worst.Write(sheet);
-            Frame(sheet, worstFrame, worstFrameAt, heaviest);
+            Frame("Budget", sheet, worstFrame, worstFrameAt, heaviest);
             census.Write(sheet);
             Debug.Log(sheet.ToString());
 
@@ -167,14 +167,15 @@ namespace TheVeil.Editor
         /// right depends on whether the triangles belong to a handful of heavy models or
         /// to the whole country evenly.
         /// </summary>
-        static void Frame(StringBuilder sheet, Dictionary<Mesh, long> frame, string where, int all)
+        internal static void Frame(string tag, StringBuilder sheet, Dictionary<Mesh, long> frame,
+                                   string where, int all)
         {
             if (frame == null || all <= 0) return;
 
             var rows = new List<KeyValuePair<Mesh, long>>(frame);
             rows.Sort((a, b) => b.Value.CompareTo(a.Value));
 
-            sheet.AppendLine($"[Budget] the heaviest frame in the game is on {where}, "
+            sheet.AppendLine($"[{tag}] the heaviest frame in the game is on {where}, "
                              + $"{all / 1000000f:0.00}M triangles over {rows.Count} models:");
 
             long running = 0;
@@ -185,14 +186,14 @@ namespace TheVeil.Editor
 
                 string name = rows[i].Key != null ? rows[i].Key.name : "(no mesh)";
 
-                sheet.AppendLine($"[Budget]   {name,-42} {rows[i].Value / 1000f,8:0.0}k  "
+                sheet.AppendLine($"[{tag}]   {name,-42} {rows[i].Value / 1000f,8:0.0}k  "
                                  + $"{100f * rows[i].Value / all,5:0.0}%  "
                                  + $"running {100f * running / all,5:0.0}%");
             }
         }
 
         /// <summary>One renderer of a built level, reduced to what the budget asks about.</summary>
-        struct Piece
+        internal struct Piece
         {
             public Bounds Where;
             public int Triangles;
@@ -210,7 +211,7 @@ namespace TheVeil.Editor
         /// <summary>
         /// One LOD group of a built level: where it is, how big, and when it drops a level.
         /// </summary>
-        struct Steps
+        internal struct Steps
         {
             public Vector3 At;
             public float Size;
@@ -225,10 +226,45 @@ namespace TheVeil.Editor
         }
 
         /// <summary>A built level, as this report needs to read it.</summary>
-        struct Standing
+        internal struct Standing
         {
             public List<Piece> Pieces;
             public List<Steps> Groups;
+        }
+
+        /// <summary>
+        /// Two readings of two separate roots, as one frame.
+        ///
+        /// <b>Because the country and the cast are stood up by different calls and have
+        /// to be counted through one camera.</b> The scenery is built once a level and
+        /// never moves; the column, the animals and the birds are rebuilt and re-read as
+        /// they walk. Counting them apart and adding the totals would be wrong twice over
+        /// - a material a wagon shares with a fence would be charged as two draw calls,
+        /// and the instanced floor would be the sum of two floors rather than the floor
+        /// of the sum.
+        ///
+        /// The second reading's LOD groups keep their own numbering by being pushed up
+        /// past the first's, so a piece still points at the group that owns it.
+        /// </summary>
+        internal static Standing Join(Standing first, Standing second)
+        {
+            var pieces = new List<Piece>(first.Pieces.Count + second.Pieces.Count);
+            pieces.AddRange(first.Pieces);
+
+            int shift = first.Groups.Count;
+
+            foreach (var piece in second.Pieces)
+            {
+                var moved = piece;
+                if (moved.Group >= 0) moved.Group += shift;
+                pieces.Add(moved);
+            }
+
+            var groups = new List<Steps>(first.Groups.Count + second.Groups.Count);
+            groups.AddRange(first.Groups);
+            groups.AddRange(second.Groups);
+
+            return new Standing { Pieces = pieces, Groups = groups };
         }
 
         /// <summary>
@@ -258,7 +294,7 @@ namespace TheVeil.Editor
         /// keeps it - because a landmark can carry a group on its root and its own parts
         /// can carry theirs, and the inner one is the one that decides.
         /// </summary>
-        static Standing Pieces(GameObject root)
+        internal static Standing Pieces(GameObject root)
         {
             var pieces = new List<Piece>();
             var groups = new List<Steps>();
@@ -430,7 +466,7 @@ namespace TheVeil.Editor
         }
 
         /// <summary>What one camera position sees.</summary>
-        struct Seen
+        internal struct Seen
         {
             public int Materials;
             public int Instanced;
@@ -534,7 +570,7 @@ namespace TheVeil.Editor
         }
 
         /// <summary>A tile's middle, standing on the ground the run builds.</summary>
-        static Vector3 Ground(LevelMap map, int tile, float heightScale)
+        internal static Vector3 Ground(LevelMap map, int tile, float heightScale)
         {
             float x = (tile % map.Grid.Width + 0.5f) * TileGrid.TileSize;
             float z = (tile / map.Grid.Width + 0.5f) * TileGrid.TileSize;
@@ -550,7 +586,7 @@ namespace TheVeil.Editor
         /// needs a matrix. Yaw is nought - the camera's own resting yaw - so what is
         /// measured is the view the player is given rather than one they have swung.
         /// </summary>
-        static Plane[] View(Vector3 look, Vector3 ahead, float range, float pitch,
+        internal static Plane[] View(Vector3 look, Vector3 ahead, float range, float pitch,
                             float fov, float aspect)
         {
             // Three metres up, which is the column's own height and what the camera is
@@ -586,7 +622,7 @@ namespace TheVeil.Editor
         /// needs this point and so does the LOD choice - and a second copy of it would
         /// drift from the first the day the camera's resting place moves.
         /// </summary>
-        static Vector3 Eye(Vector3 look, Vector3 ahead, float range, float pitch)
+        internal static Vector3 Eye(Vector3 look, Vector3 ahead, float range, float pitch)
         {
             float heading = Mathf.Atan2(ahead.x, ahead.z);
             float angle = heading + Mathf.PI;
@@ -613,7 +649,7 @@ namespace TheVeil.Editor
         /// one when the game runs at two would report the far tree where the near one is
         /// drawn.
         /// </summary>
-        static void Choose(List<Steps> groups, int[] showing, Vector3 from, float fov)
+        internal static void Choose(List<Steps> groups, int[] showing, Vector3 from, float fov)
         {
             float lens = 2f * Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
             float bias = QualitySettings.lodBias;
@@ -645,7 +681,7 @@ namespace TheVeil.Editor
         /// because it runs only when a view beats the level's best and the counting walk
         /// runs thirty-six times a level.
         /// </summary>
-        static Dictionary<Mesh, long> Breakdown(List<Piece> pieces, int[] showing, Plane[] view)
+        internal static Dictionary<Mesh, long> Breakdown(List<Piece> pieces, int[] showing, Plane[] view)
         {
             var owned = new Dictionary<Mesh, long>();
 
@@ -662,7 +698,7 @@ namespace TheVeil.Editor
         }
 
         /// <summary>What a frustum holds, counted the way the budget asks for it.</summary>
-        static Seen Through(List<Piece> pieces, int[] showing, Plane[] view)
+        internal static Seen Through(List<Piece> pieces, int[] showing, Plane[] view)
         {
             var paints = new HashSet<Material>();
             var batches = new HashSet<string>();

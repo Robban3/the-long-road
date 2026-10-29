@@ -25,12 +25,12 @@ against a difficulty curve that climbs unbroken, and the last of them has been p
 judged.
 
 **What is missing is the phone.** The performance budget that §1 of the technical design
-calls a design requirement had never been measured once. Five of its seven lines have
-numbers now, the package among them, which took a build pipeline the project did not have.
-Three are burst — visible triangles 12,4× over, draw calls 1,5×, the package 2,2× — and
-two of those three have had a pass of work spent on them and are burst still. Two lines
-are within. Of the rest, the load figure is noise, the skinned count needs a run, and the
-frame rate needs a device. That is §4, and the device is the next piece of work.
+calls a design requirement had never been measured once. Six of its seven lines have
+numbers now — the package, which took a build pipeline the project did not have, and the
+skinned-mesh count, which took a report that puts the cast in the frame and not just the
+country. Four are burst: visible triangles 14,7× over, skinned meshes 4,0×, the package
+2,2×, draw calls 2,0×. Two are within. Of the rest, the load figure is noise and the frame
+rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
 
@@ -230,23 +230,62 @@ gives them. The country is right, the dressing is a sketch. See
 
 ## 4. Known problems, worst first
 
-**The performance budget is burst on four of its five measurable lines, and the worst is
-thirty times over.** §1 of the technical design sets seven numbers and says in its first
+**The performance budget is burst on four of its five measured lines, and the worst is
+fourteen times over.** §1 of the technical design sets seven numbers and says in its first
 sentence that a thousand levels means the generator may never produce something that
 bursts them. Nothing had ever asked it for the count. `The Veil > Budget Report` does,
 over every dressed level, through the shipped camera's own frustum with the LOD groups
-resolved the way the engine resolves them:
+resolved the way the engine resolves them - and `The Veil > Cast Report` does it again
+with the column, the squad, the enemies, the animals and the crows standing in the frame,
+because the first of those two builds the country and nothing that walks on it:
 
-| | first measured | after the far-LOD pass | wanted | |
-|---|---|---|---|---|
-| visible triangles | 7 503 276 | **3 088 726** (4-10) | 250 000 | still over 12,4× |
-| draw calls, fully instanced | 228 | 229 (4-10) | 150 | over 1,5× |
-| draw calls, a material each | 54 | 39 (100-3) | 150 | within |
-| memory | 777 MB | **566 MB** (8-10) | 700 MB | within |
-| level load | 2,52 s | noisy, 2,0–4,1 s | 2,0 s | not measurable here |
-| skinned meshes | not measurable here | — | 40 | the cast needs a run |
-| package size | 386,7 MB | **325,1 MB** (texture ceilings) | 150 MB | over 2,2× |
-| frame rate | never measured | — | 60 fps | needs a phone |
+| | first measured | scenery, after the far LODs | with the cast in frame | wanted | |
+|---|---|---|---|---|---|
+| visible triangles | 7 503 276 | 3 088 726 (4-10) | **3 668 215** (4-10-Odd) | 250 000 | over 14,7× |
+| draw calls, fully instanced | 228 | 229 (4-10) | **296** (4-10-Fast) | 150 | over 2,0× |
+| draw calls, a material each | 54 | 39 (100-3) | 54 (4-10-Fast) | 150 | within |
+| memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
+| level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
+| skinned meshes | not measurable | 0, scenery has none | **160 in frame, 189 standing** | 40 | over 4,0× |
+| package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
+| frame rate | never measured | — | — | 60 fps | needs a phone |
+
+The skinned figures are off 9-5-Fast and 9-10-Fast; the rest of the right-hand column is
+named in place. A dash means the cast does not change that line - the package and the
+memory are properties of what is on disk, and the load figure is noise either way.
+
+**The three counted lines above were scenery-only figures until 2026-10-29, and the
+skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a
+level up with `SmokeTest.Build`, which is the ground and the props — and the column, the
+escort, the enemies, the thirty-one animals and the crows are not props. They are built by
+`RunVisuals` from a run, and a run is what that report does not have. Its sheet said so in
+those words, "skinned meshes, scenery only", and the figure was nought.
+
+`The Veil > Cast Report` is the run that fills the hole. It walks every dressed chapter at
+levels 1, 5 and 10, down all three roads, reads the frame every four seconds of run from
+where the player's own camera sits behind the column, and counts scenery and cast **through
+one camera** — joined before they are counted, because draw calls do not add: a material a
+wagon shares with a fence is one call and not two. The cast is 300–750k triangles of every
+frame, and on the coast it is close to half of one.
+
+**And the skinned line nearly went into this document at 9,9× over.** The first version of
+the count asked the hierarchy for every enabled `SkinnedMeshRenderer`, which is 397 of
+them. An LOD group leaves all of its levels enabled and picks one when it draws, so every
+animal with a three-rung chain was counted three times. The engine skins what it draws.
+With the chains resolved the figure is 189 standing and 160 in frame — still four times
+over, and a different kind of problem from ten times over. Reported as a pair for the same
+reason the draw calls are: what is in frame is what a frustum cull leaves, and what is
+standing is what is behind the camera as well.
+
+**The cast has never had the far-LOD pass, because the pass cannot see it.** `FarLods`
+gathers its models by walking the `PropSet` fields of every `BiomeDecor` — the scenery
+sets. The cast's models hang off `VisualLibrary` instead, so all 398 rebuilt chains were
+scenery and not one of them was a deer, a wolf, a wagon or a knight. That is the obvious
+next pass and it is **not** a matter of pointing the existing tool at a second list:
+`MeshDecimator` carries no bone weights and no bindposes, so thinning a skinned character
+with it would strip the rig. What it can safely thin is the cast's unskinned half — the
+wagons, the caches, the trap markers, the weapons — and the skinned half needs either a
+decimator that carries weights or chains bought from the packs.
 
 **The load line is not a measurement and should not be read as one.** Repeated runs over
 the same code put the worst level anywhere from 2,03 s to 4,05 s, on a different level
@@ -587,19 +626,35 @@ overlay and the camp — are built. What replaced them is the budget, because a 
 cannot be drawn on a phone is not finished however much of it is implemented.
 
 The first two items here were the far LODs and their transition heights. Then Android build
-support, and then the texture ceilings. All four are done — §4 has what they bought and
-what they did not.
+support, then the texture ceilings, and then the cast in the frame — which closed the
+skinned-mesh line that used to stand at number two on this list. All five are done; §4 has
+what they bought and what they did not.
 
 1. **A build on a real device, and the frame rate.** The one line no instrument here can
-   reach, and the one that says whether 3,09M visible triangles is a problem at all.
-   Everything else waits on it, because the alternative is cutting the game's geometry
-   further against a ceiling nobody has ever validated — and two of the seven lines now
-   say the same thing about their own ceilings. The package is at
+   reach, and the one that says whether 3,67M visible triangles is a problem at all.
+   **There is no Android device to hand**, so nothing below waits on it any longer — but
+   it stays at the top because it is still the measurement that would tell four burst
+   lines whether their ceilings were ever right. The package is at
    `Build/Android/thelongroad.apk`; `adb install -r` it, and the frame rate, the worst
-   frame of the last second and the worst since start read out in the corner.
-2. **The skinned mesh count**, which needs a run rather than a build — the scenery uses
-   none of the allowance of forty, so the whole of it belongs to the cast and nothing has
-   counted what the cast spends.
+   frame of the last second and the worst since start read out in the corner. An emulator
+   is not a substitute: a phone GPU draws in tiles and a desktop one draws straight
+   through, so a figure off an emulator is a figure about the host. Nor is a Windows
+   player build — switching the active build target reimports every texture in the
+   project, hours each way, and a Windows build would not even carry the Android ceilings
+   §4 set, so it would be a load time for different content.
+2. **The far-LOD pass over the cast**, which the first pass could not see. `FarLods`
+   gathers models from the `PropSet` fields of every `BiomeDecor`; the cast hangs off
+   `VisualLibrary`, so none of the 398 rebuilt chains is a deer, a wolf, a wagon or a
+   knight, and the cast is 300–750k triangles of every frame. **This is not a matter of
+   pointing the tool at a second list.** `MeshDecimator` carries no bone weights and no
+   bindposes, so it would strip the rig off anything skinned — which is most of the cast.
+   The pass splits in two: let `FarLods` gather `VisualLibrary` and refuse, out loud, any
+   model carrying a `SkinnedMeshRenderer`, which safely covers the wagons, the caches, the
+   trap markers and the weapons; and then either teach the decimator to carry weights or
+   find out whether the character packs ship chains nobody wired up. Survey first — the
+   per-model face counts of the cast have never been printed, and the 82,9k against
+   `Deer_low_Female_LOD2` in §4's worst frame is the sum over every deer in that frame and
+   not one deer.
 3. **Load time**, which this cannot measure — repeated runs over the same code put the
    worst level anywhere from 2,0 s to 4,1 s, on a different level each time. Memory is
    within its line now at 566 MB, and that figure has since become a phone's figure rather
@@ -613,12 +668,13 @@ what they did not.
    bits and takes it to about 144. **At the measured rate of one package megabyte per six
    packed, that is 13 MB off the package, or 32 MB at the aggressive setting** — 325 MB
    becomes 312 or 293, and the line is 150. The reason to do it is memory and sampling
-   bandwidth on the device, not size, and that makes it a frame-rate question, which is
-   item 1. `TextureCeiling` moved resolution only and said so: it can measure what
-   resolution costs and has no instrument for what a codec costs. Building one is the same
-   trick as the rest of this — `EditorUtility.CompressTexture` in memory, read back, square
-   the difference — and it is about an hour, after the device has been measured and not
-   before.
+   bandwidth on the device, not size. That used to put it behind item 1 — and with no
+   device to hand it comes forward instead, because **the memory line is measurable
+   here**: 566 MB against 700 is not much room, and ASTC 8x8 would take the 335,3 MB of
+   texture to about 144. `TextureCeiling` moved resolution only and said so: it can
+   measure what resolution costs and has no instrument for what a codec costs. Building
+   one is the same trick as the rest of this — `EditorUtility.CompressTexture` in memory,
+   read back, square the difference — and it is about an hour.
 5. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
    heavier cart for war, a box or merchant wagon for treasure — and retire
    `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
