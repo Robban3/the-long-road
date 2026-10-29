@@ -606,10 +606,19 @@ what they did not.
    than a desktop's: the active build target is Android now, so the editor holds the
    textures at Android compression and at the ceilings §4 set. Worth re-running the budget
    report for a number that is both honest and current.
-4. **The texture formats**, which have not been touched at all. Every one is at the
-   importer's own choice; ASTC over ETC2 is 3,56 bits a pixel against 8 on the 81 textures
-   that carry alpha. `TextureCeiling` deliberately moved resolution only, because it can
-   measure what resolution costs and has no instrument for what a codec costs.
+4. **The texture formats**, which have not been touched at all — but not for the package,
+   because the arithmetic says they will not close it either. Every texture is at the
+   importer's own choice, which is 4 bits a pixel on the 140 without alpha and 8 on the 81
+   with. ASTC 6x6 is 3,56 throughout, which takes the 335,3 MB to about 257; ASTC 8x8 is 2
+   bits and takes it to about 144. **At the measured rate of one package megabyte per six
+   packed, that is 13 MB off the package, or 32 MB at the aggressive setting** — 325 MB
+   becomes 312 or 293, and the line is 150. The reason to do it is memory and sampling
+   bandwidth on the device, not size, and that makes it a frame-rate question, which is
+   item 1. `TextureCeiling` moved resolution only and said so: it can measure what
+   resolution costs and has no instrument for what a codec costs. Building one is the same
+   trick as the rest of this — `EditorUtility.CompressTexture` in memory, read back, square
+   the difference — and it is about an hour, after the device has been measured and not
+   before.
 5. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
    heavier cart for war, a box or merchant wagon for treasure — and retire
    `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
