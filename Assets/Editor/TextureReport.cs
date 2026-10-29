@@ -131,6 +131,8 @@ namespace TheVeil.Editor
                                  + $"{line.Value.Many,5} textures  "
                                  + $"{100f * line.Value.Bytes / all,5:0.0}%");
 
+            Twice(sheet, rows, all);
+
             sheet.AppendLine($"[Texture] heaviest {Rows}:");
 
             long head = 0;
@@ -271,6 +273,110 @@ namespace TheVeil.Editor
             }
 
             return 0;
+        }
+
+        /// <summary>
+        /// Textures that ship more than once because the same picture sits in the project
+        /// under more than one name.
+        ///
+        /// <b>Because the packs overlap and Unity does not notice.</b> 68 texture files in
+        /// this project are byte-for-byte copies of another - the same grass normal in five
+        /// biome folders, the same FX circle in seven places - 95,8 MB of duplication on
+        /// disk. On disk it costs nothing anyone sees. In a build it costs once per copy
+        /// that something references, because an asset is identified by its path and its
+        /// GUID and not by what is in it, so two identical files are two assets and both
+        /// get packed.
+        ///
+        /// Matched on the bytes of the source file rather than on the imported pixels: two
+        /// files that are the same picture at different import settings are not
+        /// interchangeable, and claiming they are would be a saving that breaks something.
+        /// </summary>
+        static void Twice(StringBuilder sheet, List<Row> rows, long all)
+        {
+            var byContent = new Dictionary<string, List<Row>>();
+
+            foreach (var row in rows)
+            {
+                string mark = Same(row.Path);
+                if (mark == null) continue;
+
+                if (!byContent.TryGetValue(mark, out var group))
+                {
+                    group = new List<Row>();
+                    byContent[mark] = group;
+                }
+
+                group.Add(row);
+            }
+
+            var doubled = new List<List<Row>>();
+            long wasted = 0;
+
+            foreach (var group in byContent.Values)
+            {
+                if (group.Count < 2) continue;
+
+                doubled.Add(group);
+
+                // The first copy is the one the game needs. The rest is weight.
+                for (int i = 1; i < group.Count; i++) wasted += group[i].Bytes;
+            }
+
+            if (doubled.Count == 0)
+            {
+                sheet.AppendLine("[Texture] no texture ships twice: every one of them is a "
+                                 + "different picture.");
+                return;
+            }
+
+            doubled.Sort((a, b) => (b.Count * b[0].Bytes).CompareTo(a.Count * a[0].Bytes));
+
+            sheet.AppendLine($"[Texture] {doubled.Count} pictures ship under more than one "
+                             + $"name, which costs {wasted / 1048576f:0.0} MB "
+                             + $"({100f * wasted / all:0.0}% of all texture):");
+
+            for (int i = 0; i < doubled.Count && i < 12; i++)
+            {
+                var group = doubled[i];
+
+                sheet.AppendLine($"[Texture]   {group.Count} copies  "
+                                 + $"{group[0].Wide}x{group[0].High,-5} "
+                                 + $"{(group.Count - 1) * group[0].Bytes / 1048576f,6:0.0} MB "
+                                 + $"wasted   {Short(group[0].Path)}");
+
+                for (int c = 1; c < group.Count && c < 4; c++)
+                    sheet.AppendLine($"[Texture]            also  {Short(group[c].Path)}");
+
+                if (group.Count > 4)
+                    sheet.AppendLine($"[Texture]            and {group.Count - 4} more");
+            }
+
+            if (doubled.Count > 12)
+                sheet.AppendLine($"[Texture]   and {doubled.Count - 12} further pictures "
+                                 + "that ship more than once");
+        }
+
+        /// <summary>
+        /// A mark for a file's contents: its length and a hash of its bytes. Null when the
+        /// file cannot be read, which keeps an unreadable one out of every group rather
+        /// than putting them all in one.
+        /// </summary>
+        static string Same(string path)
+        {
+            try
+            {
+                byte[] raw = System.IO.File.ReadAllBytes(path);
+
+                using (var hash = System.Security.Cryptography.MD5.Create())
+                    return raw.Length + ":" + System.Convert.ToBase64String(
+                        hash.ComputeHash(raw));
+            }
+            catch (System.Exception bad)
+            {
+                Debug.LogWarning($"[Texture] {path} could not be read for comparison: "
+                                 + bad.Message);
+                return null;
+            }
         }
 
         struct Row

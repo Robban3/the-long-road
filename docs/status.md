@@ -365,11 +365,23 @@ about 171 MB. **Removing every texture in the game — every surface flat grey �
 about 154 MB.** The 150 MB line does not come off the textures, and the same question hangs
 over it as over the triangle line: it was written for a phone nobody has measured.
 
-Two things this did *not* settle, both measurable and neither done: 68 texture files lie in
-the project as identical copies — the same grass normal in five biomes, 95,8 MB of
-duplication on disk — and nothing yet says how much of that actually ships. And the formats
-have not been touched at all; every texture is at the importer's own choice, and ASTC over
-ETC2 is worth something that has not been counted.
+**The duplicated textures were a false lead, and that is worth writing down so nobody
+follows it twice.** 68 texture files lie in the project as byte-for-byte copies of another
+— the same grass normal in five biome folders, the same FX circle in seven places — 95,8 MB
+of duplication on disk, and an asset is identified by its path and GUID and not by its
+contents, so two identical files that are both referenced are both packed. `TextureReport`
+now groups the shipped set by a hash of the source bytes, and the answer is **14 pictures
+under more than one name, costing 4,3 MB: 1,3% of the texture weight.** Nearly all of the
+duplication on disk is in packs and demo scenes this game never stands up. Not worth an
+afternoon.
+
+What has not been touched at all is the formats; every texture is at the importer's own
+choice, and ASTC over ETC2 is worth something that has not been counted.
+
+One caution on reading the numbers above. `TextureReport` now says 335,3 MB, which is
+exactly what `TextureCeiling` predicted, and that agreement proves nothing — both run the
+same arithmetic over the same sizes. The independent check is the build's own manifest,
+which said 349,1 MB packed against the prediction's 335,3.
 
 **The suite is green: 382 tests, none failing.** The four that had been red for weeks are
 resolved below, and none of the four was an implementation bug — three were design calls
@@ -594,20 +606,16 @@ what they did not.
    than a desktop's: the active build target is Android now, so the editor holds the
    textures at Android compression and at the ceilings §4 set. Worth re-running the budget
    report for a number that is both honest and current.
-4. **The duplicate textures.** 68 files lie in the project as identical copies — the same
-   grass normal in five biomes — 95,8 MB of duplication on disk. Whether the shipped set
-   contains them is a question for `TextureReport`, which already walks exactly that set
-   and need only group it by content hash. If they do ship, each copy is packed separately.
-5. **The texture formats**, which have not been touched at all. Every one is at the
+4. **The texture formats**, which have not been touched at all. Every one is at the
    importer's own choice; ASTC over ETC2 is 3,56 bits a pixel against 8 on the 81 textures
    that carry alpha. `TextureCeiling` deliberately moved resolution only, because it can
    measure what resolution costs and has no instrument for what a codec costs.
-6. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
+5. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
    heavier cart for war, a box or merchant wagon for treasure — and retire
    `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
-7. **The planning map's frame** — border, compass, title. Cheap, and it is much of
+6. **The planning map's frame** — border, compass, title. Cheap, and it is much of
    what makes a picture read as a map.
-8. **iOS.** The module builds an Xcode project here; compiling and signing needs a Mac or
+7. **iOS.** The module builds an Xcode project here; compiling and signing needs a Mac or
    a cloud builder. Not needed until the phone numbers above are in.
 
 ---
