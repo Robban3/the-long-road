@@ -33,6 +33,21 @@ namespace TheVeil.Editor
     /// an afternoon goes missing, so the survey is a separate menu item and it writes
     /// nothing.
     ///
+    /// <b>It missed the cast for a fortnight.</b> The first version gathered models from
+    /// the PropSet fields of every BiomeDecor and nothing else, so it rebuilt 398 chains
+    /// of which not one was a deer, a wolf, a wagon or a knight: the column, the escort,
+    /// the enemies, the animals and the crows hang off <see cref="VisualLibrary"/>
+    /// instead. <see cref="CastReport"/> then counted them in the frame and they are
+    /// 300-750k triangles of it. The library is gathered now too.
+    ///
+    /// <b>And most of what that adds, this tool must refuse.</b> MeshDecimator carries no
+    /// bone weights and no bindposes, so a skinned character run through it comes back
+    /// with the right silhouette and no skeleton - which does not fail loudly, it ships.
+    /// So anything carrying a SkinnedMeshRenderer is refused out loud and the survey
+    /// counts it apart. What the library adds that this can work on is the unskinned half:
+    /// the wagons, the caches, the trap markers, the weapons. The skinned half needs
+    /// either a decimator that carries weights or chains the packs already ship.
+    ///
     /// Headless: unity run . -- -executeMethod TheVeil.Editor.FarLods.Survey
     ///           unity run . -- -executeMethod TheVeil.Editor.FarLods.Build
     /// </summary>
@@ -57,8 +72,10 @@ namespace TheVeil.Editor
             sheet.AppendLine($"[Lod] {props.Count} distinct models stand in the scene's sets");
 
             int prefabs = 0, models = 0, other = 0, chained = 0, bare = 0;
-            long bareFaces = 0;
+            int rigged = 0, riggedChained = 0;
+            long bareFaces = 0, riggedFaces = 0;
             var worst = new List<string>();
+            var cast = new List<string>();
 
             foreach (var prop in props)
             {
@@ -71,6 +88,40 @@ namespace TheVeil.Editor
 
                 var group = prop.GetComponent<LODGroup>();
                 int near = Near(prop, group);
+
+                // Counted apart, because this tool cannot touch them and a number it
+                // cannot act on mixed in with one it can is how a sheet lies by addition.
+                // See Rigged.
+                if (Rigged(prop))
+                {
+                    rigged++;
+                    riggedFaces += near;
+
+                    int rungs = group != null ? group.GetLODs().Length : 0;
+                    if (rungs > 1) riggedChained++;
+
+                    // <b>And how far the chain reaches, which is the number that decides
+                    // whether it does anything.</b> The scenery listing has carried this
+                    // from the start and the cast listing did not, which made a fox with
+                    // three levels read as a fox that is handled. A chain whose last rung
+                    // reaches past the map never switches in play, and lowering the
+                    // transition heights of one that does is free - it moves no vertex and
+                    // touches no rig, so it is the one lever this tool has over the cast.
+                    string chain = "NO CHAIN";
+
+                    if (rungs > 1)
+                    {
+                        var levels = group.GetLODs();
+                        float last = levels[rungs - 1].screenRelativeTransitionHeight;
+                        float reach = last > 0.0001f ? World(prop, group) / (last * Lens) : 9999f;
+
+                        chain = $"{rungs} levels, last reaches {reach,6:0} m"
+                                + (reach > MapWidth ? " <-- PAST THE MAP" : "");
+                    }
+
+                    if (near > Worthwhile)
+                        cast.Add($"[Lod]   {prop.name,-38} {near,7} faces near, {chain} ({kind})");
+                }
 
                 if (group != null && group.GetLODs().Length > 1)
                 {
@@ -109,6 +160,17 @@ namespace TheVeil.Editor
 
             sheet.AppendLine($"[Lod] {worst.Count} models worth working on "
                              + $"(over {Worthwhile} faces near)");
+
+            sheet.AppendLine($"[Lod] and {rigged} of the models are skinned - the cast - "
+                             + $"{riggedFaces / 1000f:0.0}k faces near between them, "
+                             + $"{riggedChained} of them carrying a chain. This tool cannot "
+                             + "touch any of them: MeshDecimator carries no bone weights, so "
+                             + "it would return the silhouette without the skeleton. They are "
+                             + "listed so that somebody knows what the other half of the job "
+                             + "is:");
+
+            cast.Sort();
+            foreach (string line in cast) sheet.AppendLine(line);
 
             Debug.Log(sheet.ToString());
         }
@@ -194,7 +256,7 @@ namespace TheVeil.Editor
             sheet.AppendLine($"[Lod] nothing below {KeepAbove:0.000} of screen height keeps a "
                              + "hand-made level; nothing is culled");
 
-            int touched = 0, skipped = 0, failed = 0;
+            int touched = 0, skipped = 0, failed = 0, rigged = 0;
             long before = 0, after = 0;
 
             foreach (var prop in props)
@@ -204,6 +266,17 @@ namespace TheVeil.Editor
                 if (Kind(path) != "prefab")
                 {
                     skipped++;
+                    continue;
+                }
+
+                // Said out loud rather than skipped quietly. See Rigged: the decimator
+                // would hand back the right silhouette with no skeleton in it, and that
+                // ships without failing.
+                if (Rigged(prop))
+                {
+                    rigged++;
+                    sheet.AppendLine($"[Lod]   {prop.name}: refused, it is skinned - "
+                                     + "MeshDecimator carries no bone weights");
                     continue;
                 }
 
@@ -229,7 +302,8 @@ namespace TheVeil.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            sheet.AppendLine($"[Lod] {touched} rebuilt, {skipped} left alone, {failed} refused");
+            sheet.AppendLine($"[Lod] {touched} rebuilt, {skipped} left alone, {failed} refused, "
+                             + $"{rigged} skinned and so off limits to this tool");
             sheet.AppendLine($"[Lod] the far levels of those models were {before / 1000f:0.0}k "
                              + $"faces and are now {after / 1000f:0.0}k");
             sheet.AppendLine("[Lod] LOD0 is untouched everywhere - what the player sees up close "
@@ -535,6 +609,9 @@ namespace TheVeil.Editor
                 foreach (var look in runner.Looks)
                     if (look != null) Gather(look.Decor, props);
 
+            // And the cast, which is not dressing and was missed entirely the first time.
+            Gather(runner.Models, props);
+
             EditorSceneManager.CloseScene(scene, false);
             return props;
         }
@@ -554,6 +631,81 @@ namespace TheVeil.Editor
                 foreach (var model in set.Models)
                     if (model != null) props.Add(model);
             }
+        }
+
+        /// <summary>
+        /// The cast's models, which hang off <see cref="VisualLibrary"/> and not off any
+        /// prop set.
+        ///
+        /// <b>Because the first pass of this tool could not see them, and nobody noticed
+        /// for a fortnight.</b> It rebuilt 398 chains and not one of them was a deer, a
+        /// wolf, a wagon or a knight: it gathers from the PropSet fields of every
+        /// BiomeDecor, and the column, the escort, the enemies, the animals and the crows
+        /// are not dressing. <see cref="CastReport"/> then measured them in the frame and
+        /// found the cast worth 300-750k triangles of it, close to half on the coast.
+        ///
+        /// Read by reflection for the same reason the prop sets are: the library is forty
+        /// fields long and growing, and a list of them written out here would be wrong the
+        /// first time one was added. An ActorModel brings its weapon as well as itself,
+        /// because a spear is a mesh in a hand and is in the frame whatever else is.
+        /// </summary>
+        static void Gather(VisualLibrary library, HashSet<GameObject> props)
+        {
+            if (library == null) return;
+
+            foreach (var field in typeof(VisualLibrary).GetFields(BindingFlags.Public
+                                                                  | BindingFlags.Instance))
+            {
+                object held = field.GetValue(library);
+                if (held == null) continue;
+
+                // <b>Every check against null here is a typed one, deliberately.</b> A
+                // field whose asset has gone missing hands back a GameObject that Unity
+                // reports as null through its own operator and that `object held == null`
+                // says is perfectly fine, because that comparison is reference equality on
+                // a wrapper which still exists. The first version of this gathered one of
+                // those and the survey died inside GetComponent.
+                if (held is GameObject one)
+                {
+                    if (one != null) props.Add(one);
+                    continue;
+                }
+
+                if (held is GameObject[] many)
+                {
+                    foreach (var model in many) if (model != null) props.Add(model);
+                    continue;
+                }
+
+                if (held is ActorModel actor) { Gather(actor, props); continue; }
+
+                if (held is ActorModel[] cast)
+                    foreach (var model in cast) Gather(model, props);
+            }
+        }
+
+        /// <summary>One actor: the model it stands up and the weapon it carries.</summary>
+        static void Gather(ActorModel actor, HashSet<GameObject> props)
+        {
+            if (actor.Prefab != null) props.Add(actor.Prefab);
+            if (actor.Weapon != null) props.Add(actor.Weapon);
+        }
+
+        /// <summary>
+        /// Whether a model carries a skinned mesh, which this tool must not touch.
+        ///
+        /// <b>MeshDecimator carries no bone weights and no bindposes.</b> Running a
+        /// skinned character through it would hand back a mesh with the right silhouette
+        /// and no rig, which does not fail loudly: it ships, and the knight stands in the
+        /// field like a statue while his skeleton walks off without him. So the refusal is
+        /// here, in the tool, rather than in a note asking the next person to remember -
+        /// and it is printed as a refusal with its reason, because a model quietly left
+        /// alone reads as a model that did not need the work.
+        /// </summary>
+        static bool Rigged(GameObject prop)
+        {
+            return prop != null
+                   && prop.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length > 0;
         }
 
         static string Kind(string path)

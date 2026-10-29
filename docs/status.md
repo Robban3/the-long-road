@@ -28,7 +28,7 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 14,7× over, skinned meshes 4,0×, the package
+country. Four are burst: visible triangles 14,0× over, skinned meshes 4,0×, the package
 2,2×, draw calls 2,0×. Two are within. Of the rest, the load figure is noise and the frame
 rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
@@ -241,7 +241,7 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast in frame | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 3 088 726 (4-10) | **3 668 215** (4-10-Odd) | 250 000 | over 14,7× |
+| visible triangles | 7 503 276 | 3 088 726 (4-10) | **3 496 474** (4-10-Odd) | 250 000 | over 14,0× |
 | draw calls, fully instanced | 228 | 229 (4-10) | **296** (4-10-Fast) | 150 | over 2,0× |
 | draw calls, a material each | 54 | 39 (100-3) | 54 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
@@ -277,15 +277,39 @@ over, and a different kind of problem from ten times over. Reported as a pair fo
 reason the draw calls are: what is in frame is what a frustum cull leaves, and what is
 standing is what is behind the camera as well.
 
-**The cast has never had the far-LOD pass, because the pass cannot see it.** `FarLods`
-gathers its models by walking the `PropSet` fields of every `BiomeDecor` — the scenery
+**The cast had never had the far-LOD pass, because the pass could not see it.** `FarLods`
+gathered its models by walking the `PropSet` fields of every `BiomeDecor` — the scenery
 sets. The cast's models hang off `VisualLibrary` instead, so all 398 rebuilt chains were
-scenery and not one of them was a deer, a wolf, a wagon or a knight. That is the obvious
-next pass and it is **not** a matter of pointing the existing tool at a second list:
-`MeshDecimator` carries no bone weights and no bindposes, so thinning a skinned character
-with it would strip the rig. What it can safely thin is the cast's unskinned half — the
-wagons, the caches, the trap markers, the weapons — and the skinned half needs either a
-decimator that carries weights or chains bought from the packs.
+scenery and not one of them was a deer, a wolf, a wagon or a knight. It gathers the
+library now too, and refuses out loud anything carrying a `SkinnedMeshRenderer`:
+`MeshDecimator` carries no bone weights and no bindposes, so it would hand back the right
+silhouette with no skeleton in it — which does not fail loudly, it ships.
+
+**What that bought was the three wagons, and it is the column itself.** The set went from
+904 models to 952; 40 of the 48 new ones are skinned and refused, and of the rest the
+three that mattered were `SM_Supply_Wagon_Full`, `SM_Covered_Wagon_Full` and
+`SM_War_Wagon_Full` at 62 948, 67 370 and 68 784 faces **with no chain at all** — drawn
+whole at every range, on the thing the camera is pointed at for the length of the game.
+With chains: the worst frame in the game falls from 3 668 215 triangles to **3 496 474**,
+and the cast's own worst share from 751 066 to **579 325**, which is 23 % of it. Draw calls
+and the skinned count do not move, and would not: a chain changes which mesh a renderer
+draws, not how many renderers there are, and a wagon is not rigged.
+
+**What is left on the cast is 36 skinned characters with no chain at all**, and the packs
+ship nothing to wire up — there is not one LOD mesh in `Stylized_Medieval_Army_Pack`. The
+animals are not the problem the frame breakdown made them look: their chains are already
+well set, reaching 109 to 153 m on a map 256 m across, so distance does drop them. Their
+near levels are startling all the same — `Wolf_URP` is 96 950 faces and `Fox_URP` 55 534,
+against a warship hull at 48 740 — but a chain that works is a chain that works. The one
+chain in the cast that ends past the map is `Tent`, at 1 694 faces, which is nothing.
+
+So the cast's remaining triangles need a decimator that carries bone weights and
+bindposes: a contained change to `MeshDecimator.Weld` and its output, since the welding
+already keeps one vertex per position and the collapse already keeps the survivor's UV.
+**And the skinned-mesh line is a different problem that no decimator touches.** 160 in
+frame against 40 is a count of skinned meshes, not of their triangles, and it comes down
+only by standing fewer of them up. Thirty-one animals a level is the obvious candidate and
+that is a design question, not a tool question.
 
 **The load line is not a measurement and should not be read as one.** Repeated runs over
 the same code put the worst level anywhere from 2,03 s to 4,05 s, on a different level
@@ -593,11 +617,12 @@ so this is not a broken level any more; it is a map that affords fewer distinct
 crossings than it should, which is what the quality gate is measuring. Worth keeping an
 eye on, no longer worth blocking on.
 
-**The wagons are bought, not built.** A wagon pack settles this — see §8 — and the
-hand-built ones are gone with the scripts that made them. `Assets/_Project/Models`
-still holds `Wagon.fbx` and `WagonTreasure.fbx`, and `VisualLibrary` still points at
-them; they stay until the pack's wagons are wired in their place, because deleting
-them first leaves the caravan with nothing to draw.
+**The wagons are bought, not built, and they are wired.** A wagon pack settles this —
+see §8 — and the hand-built ones are gone with the scripts that made them. `Wagon.fbx`
+and `WagonTreasure.fbx` are off disk; `VisualLibrary` points at `SM_Supply_Wagon_Full`,
+`SM_Covered_Wagon_Full` and `SM_War_Wagon_Full`, and `Wagon` itself is null. Those three
+were 62 948, 67 370 and 68 784 faces with no LOD chain at all until the far-LOD pass was
+widened to look at them, which is above.
 
 **The pirate pack has no texture in this project.** Every model in it draws from one
 shared atlas image and that image was never here — the pack arrived as meshes and
@@ -626,9 +651,11 @@ overlay and the camp — are built. What replaced them is the budget, because a 
 cannot be drawn on a phone is not finished however much of it is implemented.
 
 The first two items here were the far LODs and their transition heights. Then Android build
-support, then the texture ceilings, and then the cast in the frame — which closed the
-skinned-mesh line that used to stand at number two on this list. All five are done; §4 has
-what they bought and what they did not.
+support, then the texture ceilings, then the cast in the frame — which closed the
+skinned-mesh line that used to stand at number two on this list — and then the far LODs
+again, over the part of the game the first pass could not see. The three wagons out of the
+wagon pack are built and wired, which was an item here and had gone stale. All six are
+done; §4 has what they bought and what they did not.
 
 1. **A build on a real device, and the frame rate.** The one line no instrument here can
    reach, and the one that says whether 3,67M visible triangles is a problem at all.
@@ -642,26 +669,34 @@ what they bought and what they did not.
    player build — switching the active build target reimports every texture in the
    project, hours each way, and a Windows build would not even carry the Android ceilings
    §4 set, so it would be a load time for different content.
-2. **The far-LOD pass over the cast**, which the first pass could not see. `FarLods`
-   gathers models from the `PropSet` fields of every `BiomeDecor`; the cast hangs off
-   `VisualLibrary`, so none of the 398 rebuilt chains is a deer, a wolf, a wagon or a
-   knight, and the cast is 300–750k triangles of every frame. **This is not a matter of
-   pointing the tool at a second list.** `MeshDecimator` carries no bone weights and no
-   bindposes, so it would strip the rig off anything skinned — which is most of the cast.
-   The pass splits in two: let `FarLods` gather `VisualLibrary` and refuse, out loud, any
-   model carrying a `SkinnedMeshRenderer`, which safely covers the wagons, the caches, the
-   trap markers and the weapons; and then either teach the decimator to carry weights or
-   find out whether the character packs ship chains nobody wired up. Survey first — the
-   per-model face counts of the cast have never been printed, and the 82,9k against
-   `Deer_low_Female_LOD2` in §4's worst frame is the sum over every deer in that frame and
-   not one deer.
-3. **Load time**, which this cannot measure — repeated runs over the same code put the
+2. **A decimator that carries bone weights**, which is what the rest of the cast's
+   triangles wait on. `FarLods` can see `VisualLibrary` now and that bought the three
+   wagons — 199k faces of unchained geometry on the column itself, worth 171 741 triangles
+   off the worst frame in the game. What it cannot touch is the other 36: every soldier,
+   every champion, every knight is skinned and has **no chain at all**, and
+   `MeshDecimator` carries no bone weights and no bindposes, so it refuses them out loud
+   rather than returning a silhouette with no skeleton. The packs ship nothing to wire up
+   instead — not one LOD mesh in `Stylized_Medieval_Army_Pack`. So the work is in the
+   decimator: `Weld` already keeps one vertex per position and the collapse already keeps
+   the survivor's UV, so carrying `boneWeights` through both and copying `bindposes` to
+   the output is a contained change. The animals need nothing: their chains reach 109 to
+   153 m on a map 256 m across and do drop them, however startling `Wolf_URP` at 96 950
+   faces and `Fox_URP` at 55 534 look next to a warship hull at 48 740.
+3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
+   decimator touches. 160 in frame and 189 standing against an allowance of 40 is a count
+   of skinned meshes and not of their triangles, so it comes down only by standing fewer
+   of them up. `Wildlife.Populate` puts thirty-one animals in a level and the column, the
+   escort and whatever is sent against it make up the rest. That is a design question
+   rather than a tool question — how much of the country's life is worth four times a
+   budget line — and like the triangle line it is a question about a ceiling written for a
+   phone nobody has measured.
+4. **Load time**, which this cannot measure — repeated runs over the same code put the
    worst level anywhere from 2,0 s to 4,1 s, on a different level each time. Memory is
    within its line now at 566 MB, and that figure has since become a phone's figure rather
    than a desktop's: the active build target is Android now, so the editor holds the
    textures at Android compression and at the ceilings §4 set. Worth re-running the budget
    report for a number that is both honest and current.
-4. **The texture formats**, which have not been touched at all — but not for the package,
+5. **The texture formats**, which have not been touched at all — but not for the package,
    because the arithmetic says they will not close it either. Every texture is at the
    importer's own choice, which is 4 bits a pixel on the 140 without alpha and 8 on the 81
    with. ASTC 6x6 is 3,56 throughout, which takes the 335,3 MB to about 257; ASTC 8x8 is 2
@@ -675,9 +710,6 @@ what they bought and what they did not.
    measure what resolution costs and has no instrument for what a codec costs. Building
    one is the same trick as the rest of this — `EditorUtility.CompressTexture` in memory,
    read back, square the difference — and it is about an hour.
-5. **Cast the three wagons** out of the wagon pack — a covered wagon for supply, a
-   heavier cart for war, a box or merchant wagon for treasure — and retire
-   `Wagon.fbx` and `WagonTreasure.fbx` once `VisualLibrary` points at the new ones.
 6. **The planning map's frame** — border, compass, title. Cheap, and it is much of
    what makes a picture read as a map.
 7. **iOS.** The module builds an Xcode project here; compiling and signing needs a Mac or
