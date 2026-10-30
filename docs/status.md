@@ -333,23 +333,49 @@ standing to 249, and the instanced draw calls from 296 to 307. Those are the two
 pass was not supposed to touch and the one it was supposed to help is 5 % better, so as a
 trade it is a poor one on the numbers.
 
-**The cause is not established, and the first theory was wrong.** A renderer no LOD level
-lists is drawn at every distance, so an orphan would explain it — but `The Veil > Chain
-Check` reads ownership across every nested group the way `BudgetReport.Pieces` does, and
-with that correction only 9 of 601 prefabs have an unclaimed renderer and none of them is
-a character. The levy's chain has three renderers on every level, the same three it had
-before the pass, so the characters contribute nothing to the rise. What is left is the
-animals, whose hand-made far level may hold fewer renderers than the generated one that
-replaced it — the generated rungs keep one renderer per source renderer where a hand-made
-far level often merges everything into one mesh, which would raise the renderer count at
-distance even as the triangles fall, and would explain the draw calls too. **That is a
-hypothesis and it has not been measured.** The way to settle it is to have the chain check
-print renderers per level, not to reason about it.
+**The cause is three prefabs, and it is measured.** The first theory was wrong: a renderer
+no LOD level lists is drawn at every distance, so an orphan would explain the rise — but
+`The Veil > Chain Check` reads ownership across every nested group the way
+`BudgetReport.Pieces` does, and with that correction 9 of 601 prefabs have an unclaimed
+renderer and none of them is a character. `The Veil > Level Widths` is what settled it. It
+prints every level of every chain in the project that holds a skinned renderer, with the
+renderer count and the skinned count side by side, and run against the pre-pass prefabs out
+of git and then against the current ones it names **the only three bottom rungs in the
+project that got wider**:
 
-So the skinned line is still the one to answer, and it has two possible answers now rather
-than one: merge each generated rung to one renderer per material, which would bring the
-count below where it started, or stand fewer skinned things up. Thirty-one animals a level
-is the obvious candidate for the second, and that is a design question.
+| | skinned at the bottom, before | after |
+|---|---|---|
+| `Fox_URP` | 1 | **3** |
+| `Wolf_URP` | 1 | **3** |
+| `Boar` | 1 | **2** |
+
+Nothing else moved. The 36 characters had no chain at all before, so they drew every
+skinned renderer at every range and now draw the same number at the bottom rung — a saving
+in triangles and none at all in skinning. And the mechanism is in `FarLods.Build` in one
+line: **every generated level is simplified from `levels[0].renderers`**, one thin renderer
+per near renderer, while any hand-made level below `KeepAbove` is stripped. The fox ships
+three renderers at LOD0 and **one** merged renderer at LOD1, which is the pack author
+saying what a fox two hundred metres away is worth. The pass kept that level and then hung
+three wider rungs underneath it. Wolves arrive as an enemy encounter and `Wildlife`
+puts foxes and boar under cover up to a ceiling of 44 animals, so +2 and +1 a head is
+the right size for the 51 the frame count rose by. **The three widths are measured; that
+last arithmetic is not**, and it does not need to be - fixing the widths and re-running the
+cast report is a shorter path to the answer than counting heads.
+
+**And it put six LOD levels in the project with no renderers in them at all**, which is a
+model that draws nothing: `MC_Cavalry_LightCavalry` and `MC_Cavalry_Scout` each hold a
+nested `MC_Knight_01` whose generated LOD1, LOD2 and LOD3 list nothing, so the rider
+vanishes below 0,090 of the screen. There were none before the pass. That is not a budget
+line, it is a bug, and it is the one thing here a screenshot would have found — at the
+right distance, which is not the distance anybody takes screenshots at.
+
+So the fix is one change in the same place as the cause: **build the generated rungs from
+the deepest level that is kept, not from LOD0.** That is what the pack's own far level is
+for; it is already merged, already cheap to simplify, and starting from it would take the
+skinned count below where it stood before any of this rather than above. The nested-prefab
+case has to be fixed with it, because a chain that lists no renderers is worse than no
+chain. Standing fewer skinned things up is still available after that, and is a design
+question rather than a tool one.
 
 **The load line is not a measurement and should not be read as one.** Repeated runs over
 the same code put the worst level anywhere from 2,03 s to 4,05 s, on a different level
@@ -711,25 +737,26 @@ last of them cost something it was not meant to cost, which is item 2 below.
    player build — switching the active build target reimports every texture in the
    project, hours each way, and a Windows build would not even carry the Android ceilings
    §4 set, so it would be a load time for different content.
-2. **Why the cast's far LODs raised the skinned count**, which is the one open question
-   left by the pass and the only item on this list that can be settled with an instrument
-   rather than a decision. The pass took 421 823 triangles off the cast's worst share and
-   182 000 off the worst frame, and it put the skinned count **up** — 160 in frame to 211,
-   189 standing to 249 — and the instanced draw calls from 296 to 307. A chain changes
-   which mesh a renderer draws, not how many renderers there are, so a rise means the
-   rebuilt chains hold more renderers at distance than the hand-made ones they replaced.
-   The orphan theory is dead: `The Veil > Chain Check` counts ownership across every
-   nested group, and with that correction 9 of 601 prefabs have an unclaimed renderer and
-   none of them is a character. The levy has three renderers on every level, before and
-   after. **So it is the animals, probably, and "probably" is why this is an item.** Have
-   the chain check print renderers per level and the answer is one run away; if the cause
-   is what it looks like, the fix is to merge each generated rung to one renderer per
-   material, which would take the skinned count and the draw calls below where they were
-   before any of this.
+2. **Build the generated far rungs from the deepest kept level, not from LOD0** — the one
+   line in `FarLods.Build` that raised the skinned count, now measured rather than
+   suspected. `The Veil > Level Widths` run against the pre-pass prefabs out of git and
+   then against the current ones names the only three bottom rungs in the project that got
+   wider: `Fox_URP` 1 skinned renderer to 3, `Wolf_URP` 1 to 3, `Boar` 1 to 2. Nothing
+   else moved — the 36 characters had no chain at all before, so their bottom rung draws
+   the same number of skinned meshes it always drew. The fox ships three renderers at LOD0
+   and **one merged renderer at LOD1**, which is the pack author saying what a fox at two
+   hundred metres is worth; the pass kept that level and hung three wider rungs under it.
+   Simplifying from the deepest kept level instead is cheaper to compute, truer to what the
+   pack intended, and would take the skinned count and the draw calls **below** where they
+   stood before any of this. **Fix the nested-prefab case in the same pass:**
+   `MC_Cavalry_LightCavalry` and `MC_Cavalry_Scout` each hold a nested `MC_Knight_01` whose
+   generated LOD1-3 list no renderers at all, so the rider vanishes below 0,090 of the
+   screen. Six such levels, none of them there before the pass. A chain that lists nothing
+   is worse than no chain.
 3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
    decimator touches. 211 in frame and 249 standing against an allowance of 40 is a count
    of skinned meshes and not of their triangles, so it comes down only by standing fewer
-   of them up — or by item 2, if the rungs can be merged. `Wildlife.Populate` puts
+   of them up — or by item 2, now known to be worth 51 of them. `Wildlife.Populate` puts
    thirty-one animals in a level and the column, the escort and whatever is sent against
    it make up the rest. That part is a design question rather than a tool question — how
    much of the country's life is worth five times a budget line — and like the triangle

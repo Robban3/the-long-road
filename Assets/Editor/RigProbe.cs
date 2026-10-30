@@ -163,6 +163,94 @@ namespace TheVeil.Editor
             Debug.Log(sheet.ToString());
         }
 
+        /// <summary>
+        /// How many renderers each level of each chain in the cast holds:
+        /// `The Veil &gt; Level Widths`.
+        ///
+        /// <b>The question the far-LOD pass left open.</b> The pass took 421 823 triangles
+        /// off the cast and put the skinned-mesh count up, 160 in frame to 211. A chain
+        /// changes which mesh a renderer draws and not how many renderers there are, so a
+        /// rise can only mean the rebuilt chains hold more renderers at distance than the
+        /// hand-made ones they replaced - and <see cref="FarLods"/> builds every generated
+        /// level from LOD0's renderers, one thin renderer each, while stripping any
+        /// hand-made level below 0.055 of the screen. If a pack's own far level merged the
+        /// model into fewer renderers, that is the trade, in writing.
+        ///
+        /// It counts skinned renderers separately, because that is the budget line: the
+        /// engine skins what it draws, and the count at the bottom of the chain is what a
+        /// figure two hundred metres away costs.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.RigProbe.Widths
+        /// </summary>
+        [MenuItem("The Veil/Level Widths")]
+        public static void Widths()
+        {
+            var sheet = new System.Text.StringBuilder();
+            sheet.AppendLine("[Width] renderers per level, for every prefab in the project "
+                             + "that holds a skinned renderer");
+            sheet.AppendLine("[Width] a level marked gen was built by FarLods from LOD0");
+
+            int chains = 0, widened = 0;
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+
+                if (prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length == 0) continue;
+
+                var groups = prefab.GetComponentsInChildren<LODGroup>(true);
+                if (groups.Length == 0) continue;
+
+                chains++;
+                sheet.AppendLine($"[Width] {prefab.name}");
+
+                foreach (var group in groups)
+                {
+                    var levels = group.GetLODs();
+                    int first = -1, last = -1;
+
+                    for (int lod = 0; lod < levels.Length; lod++)
+                    {
+                        int all = 0, skins = 0, generated = 0;
+
+                        if (levels[lod].renderers != null)
+                            foreach (var renderer in levels[lod].renderers)
+                            {
+                                if (renderer == null) continue;
+
+                                all++;
+                                if (renderer is SkinnedMeshRenderer) skins++;
+                                if (renderer.name.StartsWith("Far LOD ")) generated++;
+                            }
+
+                        if (lod == 0) first = skins;
+                        last = skins;
+
+                        sheet.AppendLine($"[Width]     {group.name,-28} LOD{lod} "
+                                         + $"below {levels[lod].screenRelativeTransitionHeight,6:0.000} "
+                                         + $"{all,3} renderers, {skins,3} skinned"
+                                         + (generated > 0 ? $"  ({generated} gen)" : ""));
+                    }
+
+                    // The one comparison that matters: a chain whose bottom rung skins as
+                    // many meshes as its top rung saves triangles and no skinning at all.
+                    if (levels.Length > 1 && last >= first && first > 0)
+                    {
+                        widened++;
+                        sheet.AppendLine($"[Width]     {group.name,-28} bottom rung skins "
+                                         + $"{last} against {first} at the top - NO SAVING");
+                    }
+                }
+            }
+
+            sheet.AppendLine($"[Width] {chains} skinned prefabs carry a chain; {widened} of "
+                             + "their groups skin as many meshes at the bottom as at the top");
+
+            Debug.Log(sheet.ToString());
+        }
+
         static void Layout(string what, Mesh mesh, StringBuilder sheet)
         {
             foreach (VertexAttribute attribute in System.Enum.GetValues(typeof(VertexAttribute)))
