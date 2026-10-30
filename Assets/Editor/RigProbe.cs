@@ -84,6 +84,85 @@ namespace TheVeil.Editor
             Debug.Log(sheet.ToString());
         }
 
+
+        /// <summary>
+        /// Whether every renderer in a rebuilt prefab belongs to a level of its LOD group:
+        /// `The Veil &gt; Chain Check`.
+        ///
+        /// <b>A renderer that no level lists is drawn at every distance.</b> The engine
+        /// switches levels by drawing the chosen one, and anything outside the group is
+        /// not part of that choice - so an orphan is a mesh the chain cannot put away, and
+        /// a count of skinned meshes that went up after a pass meant to bring it down.
+        /// </summary>
+        [MenuItem("The Veil/Chain Check")]
+        public static void Chains()
+        {
+            var sheet = new System.Text.StringBuilder();
+            sheet.AppendLine("[Chain] renderers each prefab has, and how many its LOD group claims");
+
+            int loose = 0, looked = 0;
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+
+                // <b>Every group in the hierarchy, not just the one on the root.</b> A
+                // prefab may hold another prefab that carries its own chain - the noble
+                // cavalry is a knight on a horse - and BudgetReport resolves ownership by
+                // the deepest group that lists a renderer. A check that reads only the
+                // root's group calls those renderers orphans when they are governed
+                // perfectly well, which is a tool inventing a defect.
+                var groups = prefab.GetComponentsInChildren<LODGroup>(true);
+                if (groups.Length == 0) continue;
+
+                var claimed = new System.Collections.Generic.HashSet<Renderer>();
+
+                foreach (var group in groups)
+                    foreach (var level in group.GetLODs())
+                    {
+                        if (level.renderers == null) continue;
+                        foreach (var renderer in level.renderers)
+                            if (renderer != null) claimed.Add(renderer);
+                    }
+
+                int all = 0, orphans = 0;
+
+                foreach (var renderer in prefab.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (renderer == null || !renderer.gameObject.activeSelf) continue;
+
+                    all++;
+                    if (!claimed.Contains(renderer)) orphans++;
+                }
+
+                looked++;
+
+                if (orphans > 0)
+                {
+                    loose++;
+                    sheet.AppendLine($"[Chain]   {prefab.name,-40} {all,3} renderers, "
+                                     + $"{claimed.Count,3} claimed, {orphans,3} ORPHANED");
+
+                    foreach (var renderer in prefab.GetComponentsInChildren<Renderer>(true))
+                    {
+                        if (renderer == null || !renderer.gameObject.activeSelf) continue;
+                        if (claimed.Contains(renderer)) continue;
+
+                        sheet.AppendLine($"[Chain]       {renderer.name,-36} "
+                                         + $"{renderer.GetType().Name}, parent "
+                                         + $"{(renderer.transform.parent != null ? renderer.transform.parent.name : "-")}");
+                    }
+                }
+            }
+
+            sheet.AppendLine($"[Chain] {looked} prefabs carry a group; {loose} of them have "
+                             + "renderers no level lists");
+
+            Debug.Log(sheet.ToString());
+        }
+
         static void Layout(string what, Mesh mesh, StringBuilder sheet)
         {
             foreach (VertexAttribute attribute in System.Enum.GetValues(typeof(VertexAttribute)))

@@ -28,9 +28,9 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 14,0× over, skinned meshes 4,0×, the package
-2,2×, draw calls 2,0×. Two are within. Of the rest, the load figure is noise and the frame
-rate needs a device, which is the one measurement nothing here can reach. That is §4.
+country. Four are burst: visible triangles 13,3× over, skinned meshes 5,3×, the
+package 2,2×, draw calls 2,0×. Two are within. Of the rest, the load figure is noise and
+the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
 
@@ -241,16 +241,16 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast in frame | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 3 088 726 (4-10) | **3 496 474** (4-10-Odd) | 250 000 | over 14,0× |
-| draw calls, fully instanced | 228 | 229 (4-10) | **296** (4-10-Fast) | 150 | over 2,0× |
-| draw calls, a material each | 54 | 39 (100-3) | 54 (4-10-Fast) | 150 | within |
+| visible triangles | 7 503 276 | 3 088 726 (4-10) | **3 314 525** (4-10-Odd) | 250 000 | over 13,3× |
+| draw calls, fully instanced | 228 | 229 (4-10) | **307** (4-10-Safe) | 150 | over 2,0× |
+| draw calls, a material each | 54 | 39 (100-3) | 58 (5-5-Safe) | 150 | within |
 | memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
-| skinned meshes | not measurable | 0, scenery has none | **160 in frame, 189 standing** | 40 | over 4,0× |
+| skinned meshes | not measurable | 0, scenery has none | **211 in frame, 249 standing** | 40 | over 5,3× |
 | package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
 | frame rate | never measured | — | — | 60 fps | needs a phone |
 
-The skinned figures are off 9-5-Fast and 9-10-Fast; the rest of the right-hand column is
+The skinned figures are off 3-5-Fast and 100-10-Fast; the rest of the right-hand column is
 named in place. A dash means the cast does not change that line - the package and the
 memory are properties of what is on disk, and the load figure is noise either way.
 
@@ -281,9 +281,11 @@ standing is what is behind the camera as well.
 gathered its models by walking the `PropSet` fields of every `BiomeDecor` — the scenery
 sets. The cast's models hang off `VisualLibrary` instead, so all 398 rebuilt chains were
 scenery and not one of them was a deer, a wolf, a wagon or a knight. It gathers the
-library now too, and refuses out loud anything carrying a `SkinnedMeshRenderer`:
-`MeshDecimator` carries no bone weights and no bindposes, so it would hand back the right
-silhouette with no skeleton in it — which does not fail loudly, it ships.
+library now too. It refused everything carrying a `SkinnedMeshRenderer` at first, because
+`MeshDecimator` carried no bone weights and no bindposes and would have handed back the
+right silhouette with no skeleton in it — which does not fail loudly, it ships. The
+decimator carries the rig now, so the refusal is gone and the pass has been over the cast;
+what that bought and what it cost are below.
 
 **What that bought was the three wagons, and it is the column itself.** The set went from
 904 models to 952; 40 of the 48 new ones are skinned and refused, and of the rest the
@@ -295,7 +297,7 @@ and the cast's own worst share from 751 066 to **579 325**, which is 23 % of it.
 and the skinned count do not move, and would not: a chain changes which mesh a renderer
 draws, not how many renderers there are, and a wagon is not rigged.
 
-**What is left on the cast is 36 skinned characters with no chain at all**, and the packs
+**What was left on the cast was 36 skinned characters with no chain at all**, and the packs
 ship nothing to wire up — there is not one LOD mesh in `Stylized_Medieval_Army_Pack`. The
 animals are not the problem the frame breakdown made them look: their chains are already
 well set, reaching 109 to 153 m on a map 256 m across, so distance does drop them. Their
@@ -303,13 +305,51 @@ near levels are startling all the same — `Wolf_URP` is 96 950 faces and `Fox_U
 against a warship hull at 48 740 — but a chain that works is a chain that works. The one
 chain in the cast that ends past the map is `Tent`, at 1 694 faces, which is nothing.
 
-So the cast's remaining triangles need a decimator that carries bone weights and
-bindposes: a contained change to `MeshDecimator.Weld` and its output, since the welding
-already keeps one vertex per position and the collapse already keeps the survivor's UV.
-**And the skinned-mesh line is a different problem that no decimator touches.** 160 in
-frame against 40 is a count of skinned meshes, not of their triangles, and it comes down
-only by standing fewer of them up. Thirty-one animals a level is the obvious candidate and
-that is a design question, not a tool question.
+**The decimator carries the rig now, and the thing that stopped every character drawing
+was a channel with nothing to do with bones.** Bone weights and bindposes were the obvious
+part and they were right on the first try — and then all eighty skinned renderers in the
+frame refused to draw: *"the data for mesh '' does not match the expected mesh data size
+and vertex stride"*. Unity's skinning writes position, normal and tangent together, so a
+skinned mesh with no tangent channel has a stride the backend does not expect and is
+declined, silently. Two more things were learned the same way: a mesh stores its skin in
+either of two shapes — the per-vertex counts and flat run the importer writes, or the
+legacy four-wide `boneWeights` a code-built mesh has — and the simplified mesh has to be
+written at the source's own bone width, not at four. A mesh where every vertex follows one
+bone has no `BlendWeight` channel at all, which is a narrower layout and not a lost rig.
+
+`MeshDecimatorTests` are **the first tests any of the editor tools have had**; the test
+assembly did not reference `TheVeil.Editor` at all, which is why 382 green tests said
+nothing about a decimator that dropped every weight it was given. `The Veil > Rig Probe`
+answers the question the tests could not: it puts the simplified mesh on a real skinned
+renderer, renders it, and counts the share of the frame that is not the clear colour,
+sweeping the budget from 2 000 faces down to 24. It draws the same share at every one of
+them, with no refusals.
+
+**The pass has been over the cast, and the result is mixed in a way worth writing down.**
+438 chains rebuilt, none refused, 37 prefabs changed. The worst frame falls from 3 496 474
+triangles to **3 314 525** and the cast's own worst share from 579 325 to **157 502**, which
+is 73 % off the cast — but the skinned count went **up**, 160 in frame to 211 and 189
+standing to 249, and the instanced draw calls from 296 to 307. Those are the two lines the
+pass was not supposed to touch and the one it was supposed to help is 5 % better, so as a
+trade it is a poor one on the numbers.
+
+**The cause is not established, and the first theory was wrong.** A renderer no LOD level
+lists is drawn at every distance, so an orphan would explain it — but `The Veil > Chain
+Check` reads ownership across every nested group the way `BudgetReport.Pieces` does, and
+with that correction only 9 of 601 prefabs have an unclaimed renderer and none of them is
+a character. The levy's chain has three renderers on every level, the same three it had
+before the pass, so the characters contribute nothing to the rise. What is left is the
+animals, whose hand-made far level may hold fewer renderers than the generated one that
+replaced it — the generated rungs keep one renderer per source renderer where a hand-made
+far level often merges everything into one mesh, which would raise the renderer count at
+distance even as the triangles fall, and would explain the draw calls too. **That is a
+hypothesis and it has not been measured.** The way to settle it is to have the chain check
+print renderers per level, not to reason about it.
+
+So the skinned line is still the one to answer, and it has two possible answers now rather
+than one: merge each generated rung to one renderer per material, which would bring the
+count below where it started, or stand fewer skinned things up. Thirty-one animals a level
+is the obvious candidate for the second, and that is a design question.
 
 **The load line is not a measurement and should not be read as one.** Repeated runs over
 the same code put the worst level anywhere from 2,03 s to 4,05 s, on a different level
@@ -654,11 +694,13 @@ The first two items here were the far LODs and their transition heights. Then An
 support, then the texture ceilings, then the cast in the frame — which closed the
 skinned-mesh line that used to stand at number two on this list — and then the far LODs
 again, over the part of the game the first pass could not see. The three wagons out of the
-wagon pack are built and wired, which was an item here and had gone stale. All six are
-done; §4 has what they bought and what they did not.
+wagon pack are built and wired, which was an item here and had gone stale. Then the
+decimator was taught to carry a rig, which was item two, and the pass has been over the
+cast as well. All seven are done; §4 has what they bought and what they did not, and the
+last of them cost something it was not meant to cost, which is item 2 below.
 
 1. **A build on a real device, and the frame rate.** The one line no instrument here can
-   reach, and the one that says whether 3,67M visible triangles is a problem at all.
+   reach, and the one that says whether 3,31M visible triangles is a problem at all.
    **There is no Android device to hand**, so nothing below waits on it any longer — but
    it stays at the top because it is still the measurement that would tell four burst
    lines whether their ceilings were ever right. The package is at
@@ -669,27 +711,29 @@ done; §4 has what they bought and what they did not.
    player build — switching the active build target reimports every texture in the
    project, hours each way, and a Windows build would not even carry the Android ceilings
    §4 set, so it would be a load time for different content.
-2. **A decimator that carries bone weights**, which is what the rest of the cast's
-   triangles wait on. `FarLods` can see `VisualLibrary` now and that bought the three
-   wagons — 199k faces of unchained geometry on the column itself, worth 171 741 triangles
-   off the worst frame in the game. What it cannot touch is the other 36: every soldier,
-   every champion, every knight is skinned and has **no chain at all**, and
-   `MeshDecimator` carries no bone weights and no bindposes, so it refuses them out loud
-   rather than returning a silhouette with no skeleton. The packs ship nothing to wire up
-   instead — not one LOD mesh in `Stylized_Medieval_Army_Pack`. So the work is in the
-   decimator: `Weld` already keeps one vertex per position and the collapse already keeps
-   the survivor's UV, so carrying `boneWeights` through both and copying `bindposes` to
-   the output is a contained change. The animals need nothing: their chains reach 109 to
-   153 m on a map 256 m across and do drop them, however startling `Wolf_URP` at 96 950
-   faces and `Fox_URP` at 55 534 look next to a warship hull at 48 740.
+2. **Why the cast's far LODs raised the skinned count**, which is the one open question
+   left by the pass and the only item on this list that can be settled with an instrument
+   rather than a decision. The pass took 421 823 triangles off the cast's worst share and
+   182 000 off the worst frame, and it put the skinned count **up** — 160 in frame to 211,
+   189 standing to 249 — and the instanced draw calls from 296 to 307. A chain changes
+   which mesh a renderer draws, not how many renderers there are, so a rise means the
+   rebuilt chains hold more renderers at distance than the hand-made ones they replaced.
+   The orphan theory is dead: `The Veil > Chain Check` counts ownership across every
+   nested group, and with that correction 9 of 601 prefabs have an unclaimed renderer and
+   none of them is a character. The levy has three renderers on every level, before and
+   after. **So it is the animals, probably, and "probably" is why this is an item.** Have
+   the chain check print renderers per level and the answer is one run away; if the cause
+   is what it looks like, the fix is to merge each generated rung to one renderer per
+   material, which would take the skinned count and the draw calls below where they were
+   before any of this.
 3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
-   decimator touches. 160 in frame and 189 standing against an allowance of 40 is a count
+   decimator touches. 211 in frame and 249 standing against an allowance of 40 is a count
    of skinned meshes and not of their triangles, so it comes down only by standing fewer
-   of them up. `Wildlife.Populate` puts thirty-one animals in a level and the column, the
-   escort and whatever is sent against it make up the rest. That is a design question
-   rather than a tool question — how much of the country's life is worth four times a
-   budget line — and like the triangle line it is a question about a ceiling written for a
-   phone nobody has measured.
+   of them up — or by item 2, if the rungs can be merged. `Wildlife.Populate` puts
+   thirty-one animals in a level and the column, the escort and whatever is sent against
+   it make up the rest. That part is a design question rather than a tool question — how
+   much of the country's life is worth five times a budget line — and like the triangle
+   line it is a question about a ceiling written for a phone nobody has measured.
 4. **Load time**, which this cannot measure — repeated runs over the same code put the
    worst level anywhere from 2,0 s to 4,1 s, on a different level each time. Memory is
    within its line now at 566 MB, and that figure has since become a phone's figure rather
