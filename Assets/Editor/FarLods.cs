@@ -40,13 +40,14 @@ namespace TheVeil.Editor
     /// instead. <see cref="CastReport"/> then counted them in the frame and they are
     /// 300-750k triangles of it. The library is gathered now too.
     ///
-    /// <b>And most of what that adds, this tool must refuse.</b> MeshDecimator carries no
-    /// bone weights and no bindposes, so a skinned character run through it comes back
-    /// with the right silhouette and no skeleton - which does not fail loudly, it ships.
-    /// So anything carrying a SkinnedMeshRenderer is refused out loud and the survey
-    /// counts it apart. What the library adds that this can work on is the unskinned half:
-    /// the wagons, the caches, the trap markers, the weapons. The skinned half needs
-    /// either a decimator that carries weights or chains the packs already ship.
+    /// <b>Most of what that adds is skinned, and for a day this tool refused it.</b>
+    /// MeshDecimator dropped the rig: a character run through it came back with the right
+    /// silhouette and no skeleton, which does not fail loudly - it ships. It carries the
+    /// weights, the bindposes and the tangents now, held there by MeshDecimatorTests, and
+    /// the refusal is gone. <see cref="CastLodProof"/> is what settled whether the levels
+    /// are worth having: at the camera's own resting range a soldier is eighty-two pixels
+    /// tall, and a hundred and eighteen faces is indistinguishable from two thousand nine
+    /// hundred.
     ///
     /// Headless: unity run . -- -executeMethod TheVeil.Editor.FarLods.Survey
     ///           unity run . -- -executeMethod TheVeil.Editor.FarLods.Build
@@ -163,11 +164,10 @@ namespace TheVeil.Editor
 
             sheet.AppendLine($"[Lod] and {rigged} of the models are skinned - the cast - "
                              + $"{riggedFaces / 1000f:0.0}k faces near between them, "
-                             + $"{riggedChained} of them carrying a chain. This tool cannot "
-                             + "touch any of them: MeshDecimator carries no bone weights, so "
-                             + "it would return the silhouette without the skeleton. They are "
-                             + "listed so that somebody knows what the other half of the job "
-                             + "is:");
+                             + $"{riggedChained} of them carrying a chain. These were off "
+                             + "limits until the decimator learned to carry a rig; they are "
+                             + "still listed apart, because a chain on something that bends "
+                             + "is a different risk from a chain on a rock:");
 
             cast.Sort();
             foreach (string line in cast) sheet.AppendLine(line);
@@ -214,6 +214,16 @@ namespace TheVeil.Editor
             (0.000f, 80),
         };
 
+        /// <summary>
+        /// The same table, for an instrument that needs to say what this tool would do
+        /// without letting it do it.
+        ///
+        /// See <see cref="CastLodProof"/>: the rungs are written in screen share and were
+        /// calibrated against scenery, and a soldier is a tenth of a tree's size, so what
+        /// they mean for the cast is a question worth asking before the pass is run.
+        /// </summary>
+        internal static (float Below, int Faces)[] Rungs => Thin;
+
         /// <summary>Where a model with no chain of its own has its first level end.</summary>
         // A quarter of the screen. Below that it goes onto the 900-face level, which is
         // the first rung of Thin.
@@ -222,13 +232,13 @@ namespace TheVeil.Editor
         /// <summary>No generated piece is cut below this, however small its share.</summary>
         // Twenty-four faces is a box with a lid. Under that a decimation stops being a
         // simplification of the shape and becomes a different object.
-        const int Least = 24;
+        internal const int Least = 24;
 
         /// <summary>Twice the tangent of half the shipped camera's field of view.</summary>
         // 50 degrees, as the play camera carries it. A group's share of the screen is its
         // world size over its distance divided by this, which is what an LOD threshold is
         // compared against.
-        const float Lens = 0.9326f;
+        internal const float Lens = 0.9326f;
 
         /// <summary>How wide a level is, in metres: 64 tiles at four.</summary>
         const float MapWidth = 256f;
@@ -269,16 +279,11 @@ namespace TheVeil.Editor
                     continue;
                 }
 
-                // Said out loud rather than skipped quietly. See Rigged: the decimator
-                // would hand back the right silhouette with no skeleton in it, and that
-                // ships without failing.
-                if (Rigged(prop))
-                {
-                    rigged++;
-                    sheet.AppendLine($"[Lod]   {prop.name}: refused, it is skinned - "
-                                     + "MeshDecimator carries no bone weights");
-                    continue;
-                }
+                // Counted, not refused. This was a refusal for one day - the decimator
+                // dropped the rig, and a character run through it came back with the right
+                // silhouette and no skeleton. It carries the weights, the bindposes and
+                // the tangents now, and MeshDecimatorTests holds it to that.
+                if (Rigged(prop)) rigged++;
 
                 var group = prop.GetComponent<LODGroup>();
                 int near = Near(prop, group);
@@ -303,7 +308,7 @@ namespace TheVeil.Editor
             AssetDatabase.Refresh();
 
             sheet.AppendLine($"[Lod] {touched} rebuilt, {skipped} left alone, {failed} refused, "
-                             + $"{rigged} skinned and so off limits to this tool");
+                             + $"{rigged} of them skinned");
             sheet.AppendLine($"[Lod] the far levels of those models were {before / 1000f:0.0}k "
                              + $"faces and are now {after / 1000f:0.0}k");
             sheet.AppendLine("[Lod] LOD0 is untouched everywhere - what the player sees up close "
@@ -496,8 +501,11 @@ namespace TheVeil.Editor
                 int faces = Faces(renderer);
                 if (faces <= 0) continue;
 
+                var skin = renderer as SkinnedMeshRenderer;
                 var filter = renderer.GetComponent<MeshFilter>();
-                var source = filter != null ? filter.sharedMesh : null;
+
+                var source = skin != null ? skin.sharedMesh
+                                          : filter != null ? filter.sharedMesh : null;
                 if (source == null) continue;
 
                 int share = Mathf.Max(Least, (int)((long)budget * faces / nearFaces));
@@ -534,9 +542,38 @@ namespace TheVeil.Editor
                 stood.transform.localRotation = renderer.transform.localRotation;
                 stood.transform.localScale = renderer.transform.localScale;
 
-                stood.AddComponent<MeshFilter>().sharedMesh = thin;
+                Renderer paint;
 
-                var paint = stood.AddComponent<MeshRenderer>();
+                if (skin != null)
+                {
+                    // <b>A skinned level stays skinned, and the bones are the originals.</b>
+                    // The mesh carries the weights and the bindposes - MeshDecimator sees
+                    // to that - but a SkinnedMeshRenderer also needs the transforms those
+                    // weights index into, and they live in this prefab's own skeleton.
+                    // Handing over the same array is what makes the far level bend with
+                    // the near one rather than stand still beside it.
+                    var moved = stood.AddComponent<SkinnedMeshRenderer>();
+
+                    moved.sharedMesh = thin;
+                    moved.bones = skin.bones;
+                    moved.rootBone = skin.rootBone;
+                    moved.quality = skin.quality;
+                    moved.updateWhenOffscreen = skin.updateWhenOffscreen;
+
+                    // Copied rather than left to Unity, because a skinned renderer's
+                    // bounds are not computed from the mesh: the bones move it, so the box
+                    // is authored. An empty one culls the level the moment it is drawn,
+                    // which reads exactly like an LOD chain that works.
+                    moved.localBounds = skin.localBounds;
+
+                    paint = moved;
+                }
+                else
+                {
+                    stood.AddComponent<MeshFilter>().sharedMesh = thin;
+                    paint = stood.AddComponent<MeshRenderer>();
+                }
+
                 paint.sharedMaterials = renderer.sharedMaterials;
 
                 made.Add(paint);
@@ -649,7 +686,7 @@ namespace TheVeil.Editor
         /// first time one was added. An ActorModel brings its weapon as well as itself,
         /// because a spear is a mesh in a hand and is in the frame whatever else is.
         /// </summary>
-        static void Gather(VisualLibrary library, HashSet<GameObject> props)
+        internal static void Gather(VisualLibrary library, HashSet<GameObject> props)
         {
             if (library == null) return;
 
@@ -745,7 +782,7 @@ namespace TheVeil.Editor
             return faces;
         }
 
-        static int Faces(Renderer renderer)
+        internal static int Faces(Renderer renderer)
         {
             if (renderer == null) return 0;
 

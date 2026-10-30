@@ -27,6 +27,25 @@ namespace TheVeil.Editor
     /// standing across it, so the outline stays where it is. And a collapse that would
     /// turn a triangle inside out is refused however cheap it looks, because that is what
     /// makes a simplified mesh flicker.
+    ///
+    /// <b>It carries the rig, which it did not until 2026-10-30.</b> A skinned mesh is a
+    /// mesh plus a weight per vertex saying which bones move it and a bindpose per bone
+    /// saying where that bone stood when it was bound. Drop either and the result has the
+    /// right silhouette and no skeleton - and that does not fail loudly, it ships: the
+    /// knight stands in the field like a statue while his bones walk off without him. So
+    /// the weights ride through the weld and the collapses, and the bindposes are copied
+    /// across untouched, because nothing here moves a bone.
+    ///
+    /// That is what shut the cast out of <see cref="FarLods"/>: 36 character prefabs with
+    /// no LOD chain at all, refused by that tool because this one would have wrecked them.
+    ///
+    /// <b>The welding is bone-aware, and that is the one subtle part.</b> Vertices at the
+    /// same position are welded so an edge can be collapsed across a seam the file wrote
+    /// as two points - but two vertices at one position driven by different bones are not
+    /// one point, because the animation is about to pull them apart. Welding those hands
+    /// one side of a shoulder to the other arm. Collapsing across bones afterwards is
+    /// ordinary and fine: the vertex that survives keeps its own weights, the same way it
+    /// keeps its own UV.
     /// </summary>
     public static class MeshDecimator
     {
@@ -50,8 +69,22 @@ namespace TheVeil.Editor
         {
             readonly List<Vector3> _where = new List<Vector3>();
             readonly List<Vector2> _mapped = new List<Vector2>();
+            /// <summary>
+            /// Each welded vertex's own bone weights, as many as it had.
+            ///
+            /// <b>Not a BoneWeight[], which is four bones a vertex whether they are used
+            /// or not.</b> The army pack's characters are authored at two, and a mesh
+            /// written four wide against a renderer expecting two is refused outright -
+            /// "the data for mesh '' does not match the expected mesh data size and vertex
+            /// stride" - with no exception and nothing drawn. So the width is the source's
+            /// own, carried vertex by vertex.
+            /// </summary>
+            readonly List<BoneWeight1[]> _driven = new List<BoneWeight1[]>();
             readonly List<List<int>> _around = new List<List<int>>();
             readonly List<Candidate> _heap = new List<Candidate>();
+
+            /// <summary>Whether the source is skinned, and so whether _driven means anything.</summary>
+            bool _skinned;
 
             readonly Mesh _source;
             readonly int _budget;
@@ -102,14 +135,38 @@ namespace TheVeil.Editor
                 var uvs = _source.uv;
                 bool textured = uvs != null && uvs.Length == points.Length;
 
-                var slot = new Dictionary<Vector3Int, int>(points.Length);
+                // <b>A mesh carries its skin in one of two shapes and this has to read
+                // both.</b> The new one is a count per vertex and a flat run of weights,
+                // which is what the importer writes and what lets a vertex have one bone
+                // instead of four. The old one is a BoneWeight per vertex, four wide with
+                // the unused ones at nought, and it is what any mesh assembled in code
+                // through the `boneWeights` property has - including the one in this
+                // project's own tests, which is how the gap was found rather than shipped.
+                var skin = Skin(points.Length, out int[] starts, out int[] dominant);
+                _skinned = skin != null;
+
+                var slot = new Dictionary<(Vector3Int At, int Bone), int>(points.Length);
                 var index = new int[points.Length];
 
                 for (int i = 0; i < points.Length; i++)
                 {
-                    var key = new Vector3Int(Mathf.RoundToInt(points[i].x / Same),
-                                             Mathf.RoundToInt(points[i].y / Same),
-                                             Mathf.RoundToInt(points[i].z / Same));
+                    var at = new Vector3Int(Mathf.RoundToInt(points[i].x / Same),
+                                            Mathf.RoundToInt(points[i].y / Same),
+                                            Mathf.RoundToInt(points[i].z / Same));
+
+                    // <b>The bone the vertex mostly follows is part of what makes it one
+                    // point.</b> Welding is for the duplicate vertices a file writes at a
+                    // seam so that each side can carry its own normal or UV - those are
+                    // one point. Two vertices at the same position driven by different
+                    // bones are not: they are about to be pulled apart by the animation,
+                    // and merging them hands one side of a shoulder to the other arm.
+                    // Collapsing across bones later is fine and ordinary, because the
+                    // vertex that survives keeps its own weights; it is the silent weld
+                    // that is wrong.
+                    //
+                    // An unskinned mesh has every bone at nought, so this key is the
+                    // position and nothing else and the behaviour is what it was.
+                    var key = (at, _skinned ? dominant[i] : 0);
 
                     if (!slot.TryGetValue(key, out int found))
                     {
@@ -118,6 +175,15 @@ namespace TheVeil.Editor
                         _where.Add(points[i]);
                         _mapped.Add(textured ? uvs[i] : Vector2.zero);
                         _around.Add(new List<int>(6));
+
+                        if (_skinned)
+                        {
+                            int count = starts[i + 1] - starts[i];
+                            var mine = new BoneWeight1[count];
+                            for (int w = 0; w < count; w++) mine[w] = skin[starts[i] + w];
+                            _driven.Add(mine);
+                        }
+                        else _driven.Add(null);
                     }
 
                     index[i] = found;
@@ -145,6 +211,80 @@ namespace TheVeil.Editor
                 _gone = new bool[_where.Count];
                 _stamp = new int[_where.Count];
                 _quadrics = new double[_where.Count * 10];
+            }
+
+
+            /// <summary>
+            /// The source's bone weights, flattened, whichever shape the mesh keeps them
+            /// in - or null when there are none.
+            ///
+            /// <paramref name="starts"/> has one more entry than there are vertices, so a
+            /// vertex's slice is the run between its own start and the next, and the last
+            /// vertex needs no special case. <paramref name="dominant"/> is the bone each
+            /// vertex mostly follows, which is part of what makes two vertices one point
+            /// when they are welded.
+            /// </summary>
+            BoneWeight1[] Skin(int vertices, out int[] starts, out int[] dominant)
+            {
+                starts = null;
+                dominant = null;
+
+                if (vertices <= 0) return null;
+
+                var perVertex = _source.GetBonesPerVertex();
+                var flat = _source.GetAllBoneWeights();
+
+                if (perVertex.Length == vertices && flat.Length > 0)
+                {
+                    starts = new int[vertices + 1];
+                    dominant = new int[vertices];
+
+                    for (int i = 0, running = 0; i < vertices; i++)
+                    {
+                        starts[i] = running;
+                        dominant[i] = perVertex[i] > 0 ? flat[running].boneIndex : 0;
+                        running += perVertex[i];
+                    }
+
+                    starts[vertices] = flat.Length;
+                    return flat.ToArray();
+                }
+
+                // The four-wide shape. The weights at nought are dropped rather than
+                // carried, because carrying them would write every far level four bones
+                // wide when the model is authored at one or two - which is both bigger and
+                // a layout the renderer may not be expecting.
+                var old = _source.boneWeights;
+                if (old == null || old.Length != vertices) return null;
+
+                starts = new int[vertices + 1];
+                dominant = new int[vertices];
+
+                var kept = new List<BoneWeight1>(vertices * 2);
+
+                for (int i = 0; i < vertices; i++)
+                {
+                    starts[i] = kept.Count;
+                    dominant[i] = old[i].boneIndex0;
+
+                    Keep(kept, old[i].boneIndex0, old[i].weight0);
+                    Keep(kept, old[i].boneIndex1, old[i].weight1);
+                    Keep(kept, old[i].boneIndex2, old[i].weight2);
+                    Keep(kept, old[i].boneIndex3, old[i].weight3);
+
+                    // A vertex driven by nothing would sit at the origin while the rest of
+                    // the model walks away, so it is given its first bone outright.
+                    if (kept.Count == starts[i])
+                        kept.Add(new BoneWeight1 { boneIndex = old[i].boneIndex0, weight = 1f });
+                }
+
+                starts[vertices] = kept.Count;
+                return kept.ToArray();
+            }
+
+            static void Keep(List<BoneWeight1> into, int bone, float weight)
+            {
+                if (weight > 0.0001f) into.Add(new BoneWeight1 { boneIndex = bone, weight = weight });
             }
 
             /// <summary>Each vertex given the planes of the triangles it stands in.</summary>
@@ -374,6 +514,7 @@ namespace TheVeil.Editor
 
                 var where = new List<Vector3>();
                 var mapped = new List<Vector2>();
+                var driven = new List<BoneWeight1[]>();
                 var corners = new List<int>(_live * 3);
 
                 for (int t = 0; t < _standing.Length; t++)
@@ -389,6 +530,7 @@ namespace TheVeil.Editor
                             index[v] = where.Count;
                             where.Add(_where[v]);
                             mapped.Add(_mapped[v]);
+                            if (_skinned) driven.Add(_driven[v]);
                         }
 
                         corners.Add(index[v]);
@@ -402,7 +544,61 @@ namespace TheVeil.Editor
                 mesh.SetVertices(where);
                 mesh.SetUVs(0, mapped);
                 mesh.SetTriangles(corners, 0);
+
+                // <b>The rig, before the normals, because a skinned mesh with no bindposes
+                // is not a skinned mesh.</b> Without these two the far level comes back
+                // with the right silhouette and no skeleton - which does not fail loudly,
+                // it ships, and the knight stands in the field like a statue while his
+                // bones walk off without him. The bindposes are the source's unchanged:
+                // they say where each bone was when the mesh was bound, and nothing here
+                // moves a bone.
+                if (_skinned)
+                {
+                    int total = 0;
+                    foreach (var mine in driven) total += mine != null ? mine.Length : 0;
+
+                    var counts = new Unity.Collections.NativeArray<byte>(
+                        driven.Count, Unity.Collections.Allocator.Temp);
+                    var flat = new Unity.Collections.NativeArray<BoneWeight1>(
+                        total, Unity.Collections.Allocator.Temp);
+
+                    try
+                    {
+                        int at = 0;
+
+                        for (int v = 0; v < driven.Count; v++)
+                        {
+                            var mine = driven[v];
+                            counts[v] = (byte)(mine != null ? mine.Length : 0);
+
+                            if (mine == null) continue;
+                            foreach (var one in mine) flat[at++] = one;
+                        }
+
+                        mesh.SetBoneWeights(counts, flat);
+                    }
+                    finally { counts.Dispose(); flat.Dispose(); }
+
+                    mesh.bindposes = _source.bindposes;
+                }
+
                 mesh.RecalculateNormals();
+
+                // <b>Tangents, when the source had them, and this is what stopped every
+                // character in the game from drawing.</b> The weights and the bindposes
+                // were right from the first try; what was missing was a channel that has
+                // nothing to do with the rig. Unity's skinning writes position, normal
+                // *and* tangent into the skinned vertex buffer, so a skinned mesh without
+                // tangents has a stride the backend does not expect, and it refuses the
+                // mesh outright: "the data for mesh '' does not match the expected mesh
+                // data size and vertex stride". Nothing draws, and no exception is thrown.
+                //
+                // Asked of the source rather than always done, so an unskinned prop that
+                // never had tangents does not start carrying them - that would be four
+                // floats a vertex of nothing, on the levels built to be cheap.
+                if (_source.HasVertexAttribute(UnityEngine.Rendering.VertexAttribute.Tangent))
+                    mesh.RecalculateTangents();
+
                 mesh.RecalculateBounds();
 
                 return mesh;
