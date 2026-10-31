@@ -28,8 +28,8 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 13,3× over, skinned meshes 5,3×, the
-package 2,2×, draw calls 2,0×. Two are within. Of the rest, the load figure is noise and
+country. Four are burst: visible triangles 13,5× over, skinned meshes 4,4×, draw calls
+2,5×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
@@ -241,16 +241,16 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast in frame | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 3 088 726 (4-10) | **3 314 525** (4-10-Odd) | 250 000 | over 13,3× |
-| draw calls, fully instanced | 228 | 229 (4-10) | **307** (4-10-Safe) | 150 | over 2,0× |
-| draw calls, a material each | 54 | 39 (100-3) | 58 (5-5-Safe) | 150 | within |
+| visible triangles | 7 503 276 | 3 088 726 (4-10) | **3 381 486** (4-10-Odd) | 250 000 | over 13,5× |
+| draw calls, fully instanced | 228 | 229 (4-10) | **368** (8-10-Fast) | 150 | over 2,5× |
+| draw calls, a material each | 54 | 39 (100-3) | 57 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
-| skinned meshes | not measurable | 0, scenery has none | **211 in frame, 249 standing** | 40 | over 5,3× |
+| skinned meshes | not measurable | 0, scenery has none | **175 in frame, 194 standing** | 40 | over 4,4× |
 | package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
 | frame rate | never measured | — | — | 60 fps | needs a phone |
 
-The skinned figures are off 3-5-Fast and 100-10-Fast; the rest of the right-hand column is
+The skinned figures are off 8-10-Safe and 4-10-Fast; the rest of the right-hand column is
 named in place. A dash means the cast does not change that line - the package and the
 memory are properties of what is on disk, and the load figure is noise either way.
 
@@ -369,13 +369,60 @@ vanishes below 0,090 of the screen. There were none before the pass. That is not
 line, it is a bug, and it is the one thing here a screenshot would have found — at the
 right distance, which is not the distance anybody takes screenshots at.
 
-So the fix is one change in the same place as the cause: **build the generated rungs from
-the deepest level that is kept, not from LOD0.** That is what the pack's own far level is
-for; it is already merged, already cheap to simplify, and starting from it would take the
-skinned count below where it stood before any of this rather than above. The nested-prefab
-case has to be fixed with it, because a chain that lists no renderers is worse than no
-chain. Standing fewer skinned things up is still available after that, and is a design
-question rather than a tool one.
+**The fix was four changes, and three of them are for faults the first one uncovered.** It
+started as one: cut the generated rungs from the cheapest level the model has rather than
+from LOD0. Then `Level Widths` was pointed at every prefab in the project instead of only
+the skinned ones, and it counted **858 levels in 286 groups that list no renderers at
+all**. A level that lists nothing draws nothing, so those models did not get cheaper at
+distance, they vanished - and the count was nought before any of this tool's work. Both
+causes were read out of the prefab files, `renderer: {fileID: 0}` in plain text, and
+neither would have been found by looking at the game, because you have to be looking at the
+right distance.
+
+1. **The rungs are cut from the cheapest level the model has, kept or replaced.** The fox
+   ships three renderers at LOD0 and one merged renderer at LOD1, which is a pack author
+   saying what a fox at two hundred metres is: one silhouette, not three. Cutting from
+   LOD0 kept one thin renderer per near renderer and widened the bottom rung. Because most
+   packs put their cheapest level below `KeepAbove`, where this tool replaces it, the new
+   levels are now built **before** anything is stripped.
+2. **A generated piece whose renderer is the prefab root goes under the root, not beside
+   it.** A root has no parent, `SetParent(null)` made the piece a root object of the
+   preview scene rather than part of the prefab, and `SaveAsPrefabAsset` saves the root's
+   own hierarchy and nothing else - so the piece was dropped on the floor and the level
+   that listed it kept a null. **278 single-object props were in that state.**
+3. **This tool stopped mistaking its own first rung for a hand-made level.** That rung sits
+   at 0,090, which is *above* `KeepAbove`, so on a second run it read as a pack level worth
+   keeping - thirty lines after the cleanup had destroyed its renderers. It was kept empty,
+   and the rung that would have refilled it was skipped because the chain "already had" a
+   level there. **304 groups held exactly one such level, every one at 0,090.** The count
+   of kept levels, not the presence of a group, now decides whether the 900-face rung is
+   built.
+4. **It does not reach into a nested prefab any more.** Deleting a nested model's generated
+   pieces writes a removed-child override and empties that model's own far levels, which is
+   how the light cavalry and the scout lost their riders below 0,090. A nested model that
+   the same run will give a chain to is also left out of the parent's levels entirely -
+   otherwise two groups switch the same renderer on two rules and it draws twice at
+   distance. Which models those are is settled before any prefab is touched, because a
+   `HashSet` has no order and the knight may come up before the cavalry that carries him.
+
+Measured after, with 438 chains rebuilt and none refused: **0 empty levels in the project**,
+the fox and the wolf back to one skinned renderer at the bottom, the cast's own worst share
+down to **118 017** triangles from 579 325 before any pass, and the worst frame to
+**3 381 486** from 3 496 474. The skinned count in frame is 175 against 160 before any pass
+and 211 after the broken one.
+
+**The draw calls went the other way and the reason is worth stating plainly: 296 to 368.**
+Five hundred and eighty-two props that used to draw nothing at distance now draw something,
+and something costs a call. The old figure was not better, it was flattered - a count of
+what the frustum leaves cannot tell a cheap model from an invisible one. The triangle line
+fell anyway, which is the part worth having.
+
+The boar is the one thing not fixed, and it is honest about why: its merged level sat at
+0,010, below `KeepAbove`, and an earlier pass stripped it. The mesh is still in the pack
+but no longer in the prefab, so there is nothing cheap left to cut from and its bottom rung
+stands at two renderers against one before. The rule is right; that prefab's history is
+not. Standing fewer skinned things up is still available, and is a design question rather
+than a tool one.
 
 **The load line is not a measurement and should not be read as one.** Repeated runs over
 the same code put the worst level anywhere from 2,03 s to 4,05 s, on a different level
@@ -722,11 +769,12 @@ skinned-mesh line that used to stand at number two on this list — and then the
 again, over the part of the game the first pass could not see. The three wagons out of the
 wagon pack are built and wired, which was an item here and had gone stale. Then the
 decimator was taught to carry a rig, which was item two, and the pass has been over the
-cast as well. All seven are done; §4 has what they bought and what they did not, and the
-last of them cost something it was not meant to cost, which is item 2 below.
+cast as well - and then four faults in that tool, three of which it had been carrying
+longer than the cast pass and none of which a screenshot would have shown. All eight are
+done; §4 has what they bought, what they cost and what they were hiding.
 
 1. **A build on a real device, and the frame rate.** The one line no instrument here can
-   reach, and the one that says whether 3,31M visible triangles is a problem at all.
+   reach, and the one that says whether 3,38M visible triangles is a problem at all.
    **There is no Android device to hand**, so nothing below waits on it any longer — but
    it stays at the top because it is still the measurement that would tell four burst
    lines whether their ceilings were ever right. The package is at
@@ -737,29 +785,24 @@ last of them cost something it was not meant to cost, which is item 2 below.
    player build — switching the active build target reimports every texture in the
    project, hours each way, and a Windows build would not even carry the Android ceilings
    §4 set, so it would be a load time for different content.
-2. **Build the generated far rungs from the deepest kept level, not from LOD0** — the one
-   line in `FarLods.Build` that raised the skinned count, now measured rather than
-   suspected. `The Veil > Level Widths` run against the pre-pass prefabs out of git and
-   then against the current ones names the only three bottom rungs in the project that got
-   wider: `Fox_URP` 1 skinned renderer to 3, `Wolf_URP` 1 to 3, `Boar` 1 to 2. Nothing
-   else moved — the 36 characters had no chain at all before, so their bottom rung draws
-   the same number of skinned meshes it always drew. The fox ships three renderers at LOD0
-   and **one merged renderer at LOD1**, which is the pack author saying what a fox at two
-   hundred metres is worth; the pass kept that level and hung three wider rungs under it.
-   Simplifying from the deepest kept level instead is cheaper to compute, truer to what the
-   pack intended, and would take the skinned count and the draw calls **below** where they
-   stood before any of this. **Fix the nested-prefab case in the same pass:**
-   `MC_Cavalry_LightCavalry` and `MC_Cavalry_Scout` each hold a nested `MC_Knight_01` whose
-   generated LOD1-3 list no renderers at all, so the rider vanishes below 0,090 of the
-   screen. Six such levels, none of them there before the pass. A chain that lists nothing
-   is worse than no chain.
+2. **The meadow tree's hand-made LOD1, which is 27 % of the worst frame in the game on its
+   own.** With the far-LOD tool's four faults fixed and everything drawing what it should,
+   the frame breakdown is no longer led by anything this tool made:
+   `SM_Env_Tree_Meadow_01_LOD1` is **923 400 triangles across the frame, 27,3 % of it**,
+   and `SM_Env_Tree_Meadow_02_LOD1` another 383 300 at 11,3 %. Two levels, 38,6 % of
+   everything drawn. They survive because `KeepAbove` spares any hand-made level above
+   0,055 of the screen, on the reasoning that a pack's own LOD0 and LOD1 are worth keeping
+   — and that reasoning is simply wrong for a tree whose LOD1 is still a desktop mesh. The
+   question to settle with a measurement rather than a rule: at what screen share does the
+   meadow tree's LOD1 actually earn its triangles against a 900-face rung in its place.
+   `CastLodProof` already renders a model at a given share, so it is an afternoon.
 3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
-   decimator touches. 211 in frame and 249 standing against an allowance of 40 is a count
+   decimator touches. 175 in frame and 194 standing against an allowance of 40 is a count
    of skinned meshes and not of their triangles, so it comes down only by standing fewer
-   of them up — or by item 2, now known to be worth 51 of them. `Wildlife.Populate` puts
+   of them up; the far-LOD tool has given what it has to give here. `Wildlife.Populate` puts
    thirty-one animals in a level and the column, the escort and whatever is sent against
    it make up the rest. That part is a design question rather than a tool question — how
-   much of the country's life is worth five times a budget line — and like the triangle
+   much of the country's life is worth four times a budget line — and like the triangle
    line it is a question about a ceiling written for a phone nobody has measured.
 4. **Load time**, which this cannot measure — repeated runs over the same code put the
    worst level anywhere from 2,0 s to 4,1 s, on a different level each time. Memory is

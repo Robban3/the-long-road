@@ -248,6 +248,49 @@ namespace TheVeil.Editor
             sheet.AppendLine($"[Width] {chains} skinned prefabs carry a chain; {widened} of "
                              + "their groups skin as many meshes at the bottom as at the top");
 
+            // <b>Every prefab, not just the skinned ones, for the one defect that is not a
+            // budget line.</b> A level that lists no renderers draws nothing, so the model
+            // disappears below that threshold rather than getting cheaper. Six of these
+            // were found on nested knights after the cast pass and none existed before it,
+            // which is a thing worth counting over the whole project every time.
+            int empty = 0, blank = 0;
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+
+                foreach (var group in prefab.GetComponentsInChildren<LODGroup>(true))
+                {
+                    var levels = group.GetLODs();
+                    bool any = false;
+
+                    for (int lod = 0; lod < levels.Length; lod++)
+                    {
+                        int all = 0;
+
+                        if (levels[lod].renderers != null)
+                            foreach (var renderer in levels[lod].renderers)
+                                if (renderer != null) all++;
+
+                        if (all > 0) continue;
+
+                        empty++;
+                        any = true;
+
+                        sheet.AppendLine($"[Width] EMPTY {prefab.name} / {group.name} LOD{lod} "
+                                         + $"below {levels[lod].screenRelativeTransitionHeight:0.000}"
+                                         + " draws nothing");
+                    }
+
+                    if (any) blank++;
+                }
+            }
+
+            sheet.AppendLine($"[Width] {empty} levels in {blank} groups list no renderers at "
+                             + "all, over every prefab in the project");
+
             Debug.Log(sheet.ToString());
         }
 

@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &178621610460525089
+--- !u!1 &5070118704585780297
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,8 +8,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 6635403071507014604}
-  - component: {fileID: 6674673460513616298}
+  - component: {fileID: 2189150763105165185}
+  - component: {fileID: 1812649010342732194}
   m_Layer: 0
   m_Name: Far LOD 10
   m_TagString: Untagged
@@ -17,13 +17,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &6635403071507014604
+--- !u!4 &2189150763105165185
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 178621610460525089}
+  m_GameObject: {fileID: 5070118704585780297}
   serializedVersion: 2
   m_LocalRotation: {x: 0.00000014106499, y: 0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -32,13 +32,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1784975357518012601}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!137 &6674673460513616298
+--- !u!137 &1812649010342732194
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 178621610460525089}
+  m_GameObject: {fileID: 5070118704585780297}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -125,10 +125,10 @@ SkinnedMeshRenderer:
   m_BlendShapeWeights: []
   m_RootBone: {fileID: 7773142307547498634}
   m_AABB:
-    m_Center: {x: 0, y: 0.17440146, z: 0.12399663}
-    m_Extent: {x: 0.22526914, y: 0.48025632, z: 0.5258599}
+    m_Center: {x: -0.0007798672, y: 0.17443109, z: 0.12410569}
+    m_Extent: {x: 0.2249148, y: 0.480254, z: 0.52589566}
   m_DirtyAABB: 0
---- !u!1 &918571326613787097
+--- !u!1 &6804222825931979847
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -136,8 +136,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 7095855611258920849}
-  - component: {fileID: 5267622641315555393}
+  - component: {fileID: 527625319611129111}
+  - component: {fileID: 8074981219926288227}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -145,13 +145,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &7095855611258920849
+--- !u!4 &527625319611129111
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 918571326613787097}
+  m_GameObject: {fileID: 6804222825931979847}
   serializedVersion: 2
   m_LocalRotation: {x: 0.00000014106499, y: 0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -160,13 +160,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1784975357518012601}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!137 &5267622641315555393
+--- !u!137 &8074981219926288227
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 918571326613787097}
+  m_GameObject: {fileID: 6804222825931979847}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -253,8 +253,8 @@ SkinnedMeshRenderer:
   m_BlendShapeWeights: []
   m_RootBone: {fileID: 7773142307547498634}
   m_AABB:
-    m_Center: {x: 0, y: 0.17440146, z: 0.12399663}
-    m_Extent: {x: 0.22526914, y: 0.48025632, z: 0.5258599}
+    m_Center: {x: -0.0007798672, y: 0.17443109, z: 0.12410569}
+    m_Extent: {x: 0.2249148, y: 0.480254, z: 0.52589566}
   m_DirtyAABB: 0
 --- !u!1001 &2256084456334067538
 PrefabInstance:
@@ -343,11 +343,11 @@ PrefabInstance:
     - target: {fileID: 4742473837712756890, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       propertyPath: m_LODs.Array.data[2].renderers.Array.data[0].renderer
       value: 
-      objectReference: {fileID: 6674673460513616298}
+      objectReference: {fileID: 1812649010342732194}
     - target: {fileID: 4742473837712756890, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       propertyPath: m_LODs.Array.data[3].renderers.Array.data[0].renderer
       value: 
-      objectReference: {fileID: 5267622641315555393}
+      objectReference: {fileID: 8074981219926288227}
     - target: {fileID: 7715524436082454623, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
@@ -362,10 +362,10 @@ PrefabInstance:
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 6635403071507014604}
+      addedObject: {fileID: 2189150763105165185}
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 7095855611258920849}
+      addedObject: {fileID: 527625319611129111}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       insertIndex: -1

@@ -269,6 +269,26 @@ namespace TheVeil.Editor
             int touched = 0, skipped = 0, failed = 0, rigged = 0;
             long before = 0, after = 0;
 
+            // Which models this run will give a chain to, settled before any of them is
+            // touched. A nested model's renderers are its own business only if a chain is
+            // actually coming for them, and a HashSet has no order, so asking mid-run
+            // would answer differently depending on which prefab came up first. See
+            // Elsewhere.
+            var handled = new HashSet<string>();
+
+            foreach (var prop in props)
+            {
+                string where = AssetDatabase.GetAssetPath(prop);
+
+                if (Kind(where) != "prefab") continue;
+                if (Near(prop, prop.GetComponent<LODGroup>()) <= Worthwhile) continue;
+
+                handled.Add(where);
+            }
+
+            sheet.AppendLine($"[Lod] {handled.Count} of them will be given a chain, so a "
+                             + "nested one of those is left to its own");
+
             foreach (var prop in props)
             {
                 string path = AssetDatabase.GetAssetPath(prop);
@@ -294,7 +314,7 @@ namespace TheVeil.Editor
                     continue;
                 }
 
-                string story = Thinned(path, out int wasFar, out int nowFar);
+                string story = Thinned(path, handled, out int wasFar, out int nowFar);
 
                 if (story == null) { skipped++; continue; }
                 if (story.Length > 0) { failed++; sheet.AppendLine($"[Lod]   {prop.name}: {story}"); continue; }
@@ -323,7 +343,8 @@ namespace TheVeil.Editor
         /// Returns null when there was nothing to do, an empty string on success, and the
         /// trouble otherwise - so the caller can tell "already fine" from "would not".
         /// </summary>
-        static string Thinned(string path, out int wasFar, out int nowFar)
+        static string Thinned(string path, HashSet<string> handled,
+                              out int wasFar, out int nowFar)
         {
             wasFar = 0;
             nowFar = 0;
@@ -338,61 +359,87 @@ namespace TheVeil.Editor
                 // hierarchy rather than the root's own children, because a generated piece
                 // is parented beside the renderer it was simplified from - which is what
                 // lets it copy that renderer's local place exactly.
+                //
+                // <b>Except a piece that belongs to a nested prefab, which is not ours to
+                // delete.</b> Deleting it writes a removed-child override into this
+                // prefab, and the nested model's own LOD group still lists it - so its
+                // far levels end up listing nothing, and a level that lists nothing draws
+                // nothing. That is how the light cavalry and the scout lost their riders
+                // below 0,090 of the screen: six empty levels, measured by Level Widths,
+                // none of them there before this tool ran over the cast.
                 var mine = new List<GameObject>();
 
                 foreach (var piece in root.GetComponentsInChildren<Transform>(true))
-                    if (piece != root.transform
-                        && piece.name.StartsWith(Mark, System.StringComparison.Ordinal))
-                        mine.Add(piece.gameObject);
+                {
+                    if (piece == root.transform) continue;
+                    if (!piece.name.StartsWith(Mark, System.StringComparison.Ordinal)) continue;
+                    if (Theirs(piece.gameObject)) continue;
+
+                    mine.Add(piece.gameObject);
+                }
 
                 foreach (var piece in mine)
                     if (piece != null) Object.DestroyImmediate(piece);
 
+                // Every renderer another model in this run owns, because it arrived here
+                // inside that model. Its own chain covers it; a second chain over the top
+                // of it draws the thing twice at distance and switches it on two rules at
+                // once.
+                var elsewhere = Elsewhere(root, path, handled);
+
                 var group = root.GetComponent<LODGroup>();
 
-                // The renderers that draw the thing when it is close, which is what every
-                // generated level is simplified from. A chain's LOD0, or the whole model
-                // when it has no chain.
+                // The renderers that draw the thing when it is close, which is what the
+                // first kept level holds: a chain's LOD0, or the whole model when it has
+                // no chain.
                 var near = new List<Renderer>();
                 var keep = new List<LOD>();
+                var doomed = new List<Renderer>();
+
+                // Every original level's live renderers, in chain order, so the cheapest
+                // one can be found afterwards whether it is kept or replaced.
+                var rungs = new List<List<Renderer>>();
 
                 if (group != null && group.GetLODs().Length > 0)
                 {
                     var levels = group.GetLODs();
 
                     foreach (var renderer in levels[0].renderers)
-                        if (renderer != null) near.Add(renderer);
+                        if (renderer != null && !elsewhere.Contains(renderer)) near.Add(renderer);
 
                     // Every hand-made level that is still the drawn one while the model is
                     // big enough on screen to deserve it. The rest are switched off: they
                     // are the desktop tail of the chain and ours replaces them.
                     for (int lod = 0; lod < levels.Length; lod++)
                     {
-                        if (lod == 0 || levels[lod].screenRelativeTransitionHeight > KeepAbove)
+                        var trimmed = Without(levels[lod], elsewhere);
+                        rungs.Add(Live(trimmed));
+
+                        if (lod == 0 || trimmed.screenRelativeTransitionHeight > KeepAbove)
                         {
-                            keep.Add(levels[lod]);
+                            // <b>Unless it is one of ours from a previous run, emptied by
+                            // the cleanup above.</b> The first rung this tool adds sits at
+                            // 0,090, which is above KeepAbove, so on a second run it reads
+                            // as a hand-made level worth keeping - and its renderers were
+                            // destroyed thirty lines ago. It was kept, empty, and the rung
+                            // that would have refilled it was skipped because the chain
+                            // "already had" a level there. 304 groups in this project held
+                            // exactly one such level, all of them at 0,090: measured in the
+                            // prefab files, and a level that lists nothing draws nothing.
+                            if (lod > 0 && rungs[lod].Count == 0) continue;
+
+                            keep.Add(trimmed);
                             continue;
                         }
 
-                        if (levels[lod].renderers == null) continue;
-
-                        foreach (var renderer in levels[lod].renderers)
-                        {
-                            if (renderer == null) continue;
-
-                            wasFar += Faces(renderer);
-                            Strip(renderer);
-                        }
+                        doomed.AddRange(rungs[lod]);
                     }
                 }
                 else
                 {
                     foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
-                        if (renderer != null && renderer.gameObject.activeSelf) near.Add(renderer);
-
-                    // A model with no chain draws all of itself at every range, so all of
-                    // it is what the far levels replace.
-                    foreach (var renderer in near) wasFar += Faces(renderer);
+                        if (renderer != null && renderer.gameObject.activeSelf
+                            && !elsewhere.Contains(renderer)) near.Add(renderer);
                 }
 
                 if (near.Count == 0) return "nothing draws it up close";
@@ -401,11 +448,23 @@ namespace TheVeil.Editor
                 foreach (var renderer in near) nearFaces += Faces(renderer);
                 if (nearFaces <= 0) return "its near level has no triangles";
 
-                // A model that arrived with no chain needs a rung above the cheap ones, so
-                // it does not drop from everything to nine hundred faces in one step. One
-                // that has a chain already has that rung, hand-made.
-                int from = keep.Count > 0 ? 1 : 0;
+                // A model that arrived with no chain draws all of itself at every range, so
+                // all of it is what the far levels replace - in the accounting only. Those
+                // renderers are its near level now and nothing strips them; `doomed` is for
+                // levels that are going away, and it has no near level in it.
+                if (group == null || group.GetLODs().Length == 0)
+                    foreach (var renderer in near) wasFar += Faces(renderer);
+                else
+                    foreach (var renderer in doomed) wasFar += Faces(renderer);
 
+                // A model with nothing but a near level needs a rung above the cheap ones,
+                // so it does not drop from everything to nine hundred faces in one step.
+                // One that keeps a hand-made far level already has that rung.
+                //
+                // Counted after the empties are dropped, and that matters: a chain this
+                // tool wrote has one kept level, its near one, and needs all three rungs
+                // back. Asking "does it have a group" instead gave it two and left the
+                // 900-face rung as a hole.
                 if (keep.Count == 0)
                     keep.Add(new LOD
                     {
@@ -414,11 +473,32 @@ namespace TheVeil.Editor
                         renderers = near.ToArray(),
                     });
 
+                int from = keep.Count > 1 ? 1 : 0;
+
                 string name = System.IO.Path.GetFileNameWithoutExtension(path);
+
+                // <b>The cheapest level the model has is what the cheap ones are cut from,
+                // not LOD0 - and cheapest means cheapest, kept or replaced.</b> This was
+                // LOD0 for one pass and it cost the skinned-mesh budget: Level Widths, run
+                // against the prefabs before and after, found the only three bottom rungs
+                // in the project that got wider - Fox_URP 1 skinned renderer to 3, Wolf_URP
+                // 1 to 3, Boar 1 to 2 - because the fox ships three renderers at LOD0 and
+                // one merged renderer at LOD1, and a generated level keeps one renderer per
+                // renderer it was cut from. A pack author merging his own far level is him
+                // saying what a fox at two hundred metres is: one silhouette, not three.
+                //
+                // The boar's merged level sits at 0,010, below KeepAbove, so it is one this
+                // tool replaces - and it is still the right thing to cut from. Which is why
+                // the new levels are built before anything is stripped.
+                var seed = Cheapest(rungs, near);
+
+                int seedFaces = 0;
+                foreach (var renderer in seed) seedFaces += Faces(renderer);
+                if (seedFaces <= 0) { seed = near; seedFaces = nearFaces; }
 
                 for (int rung = from; rung < Thin.Length; rung++)
                 {
-                    var made = Level(near, nearFaces, Thin[rung].Faces,
+                    var made = Level(seed, seedFaces, Thin[rung].Faces,
                                      $"{name}_Far{rung}", $"{Mark}{rung}");
 
                     if (made == null || made.Length == 0) continue;
@@ -432,6 +512,15 @@ namespace TheVeil.Editor
                         renderers = made,
                     });
                 }
+
+                // <b>Now, and not before, the levels this tool replaces let go of their
+                // meshes.</b> The cheap levels are cut from the cheapest one the model has,
+                // and on most packs that is a level we are replacing - so it has to still
+                // be there while they are being cut. A model with no chain of its own has
+                // its whole self in this list, which is the same thing: what it drew at
+                // every range is what the far levels take over.
+                foreach (var renderer in doomed)
+                    if (renderer != null) Strip(renderer);
 
                 // Strictly decreasing, or the group refuses the chain. A hand-made level
                 // kept just above the floor can sit under the first rung we add, and then
@@ -537,10 +626,34 @@ namespace TheVeil.Editor
                 // does. Parenting these to the prefab root and copying world values
                 // instead would be right only while every root sat at the origin at scale
                 // one, which is a thing that is true until it is not.
-                stood.transform.SetParent(renderer.transform.parent, false);
-                stood.transform.localPosition = renderer.transform.localPosition;
-                stood.transform.localRotation = renderer.transform.localRotation;
-                stood.transform.localScale = renderer.transform.localScale;
+                // <b>Unless that renderer is the prefab root, and then under it.</b> A root
+                // has no parent; SetParent(null) makes the piece a root object of the
+                // preview scene rather than part of the prefab, SaveAsPrefabAsset saves the
+                // root's own hierarchy and nothing else, and the piece is dropped on the
+                // floor while the level that lists it keeps a null renderer. That is a model
+                // which draws its full mesh above a quarter of the screen and nothing at all
+                // below 0,090 - it does not get cheaper at distance, it vanishes.
+                //
+                // 278 single-object props in this project were in exactly that state, read
+                // out of the prefab files and not inferred: `renderer: {fileID: 0}` three
+                // times over, at 0,090, 0,035 and 0, which are this tool's own thresholds.
+                // Under the root at identity is the same place the root's own renderer draws.
+                var over = renderer.transform.parent;
+
+                if (over != null)
+                {
+                    stood.transform.SetParent(over, false);
+                    stood.transform.localPosition = renderer.transform.localPosition;
+                    stood.transform.localRotation = renderer.transform.localRotation;
+                    stood.transform.localScale = renderer.transform.localScale;
+                }
+                else
+                {
+                    stood.transform.SetParent(renderer.transform, false);
+                    stood.transform.localPosition = Vector3.zero;
+                    stood.transform.localRotation = Quaternion.identity;
+                    stood.transform.localScale = Vector3.one;
+                }
 
                 Renderer paint;
 
@@ -590,6 +703,100 @@ namespace TheVeil.Editor
         /// Unity will not accept a chain that does not descend, and a refused chain is
         /// silent: the group keeps whatever it had.
         /// </summary>
+        /// <summary>The live renderers of one level, in order.</summary>
+        static List<Renderer> Live(LOD level)
+        {
+            var found = new List<Renderer>();
+            if (level.renderers == null) return found;
+
+            foreach (var renderer in level.renderers)
+                if (renderer != null) found.Add(renderer);
+
+            return found;
+        }
+
+        /// <summary>
+        /// The renderers of the cheapest level the model has, or the near ones when it has
+        /// only the one.
+        ///
+        /// A chain is in descending order of screen share, so the last entry that holds
+        /// anything is the one the engine draws furthest out - and that is the right thing
+        /// to simplify from, whether this tool is keeping that level or replacing it. See
+        /// the note at the call.
+        /// </summary>
+        static List<Renderer> Cheapest(List<List<Renderer>> rungs, List<Renderer> near)
+        {
+            for (int i = rungs.Count - 1; i >= 0; i--)
+                if (rungs[i].Count > 0) return rungs[i];
+
+            return near;
+        }
+
+        /// <summary>
+        /// A level with somebody else's renderers taken out of it.
+        ///
+        /// A hand-made level listing a nested model's renderers is the pack author treating
+        /// the pair as one object. Once that nested model has a chain of its own, two groups
+        /// are switching the same renderer on two rules, and which one wins is not a thing
+        /// to rely on. The nested one is nearer the renderer, so it keeps it.
+        /// </summary>
+        static LOD Without(LOD level, HashSet<Renderer> elsewhere)
+        {
+            if (level.renderers == null || elsewhere.Count == 0) return level;
+
+            var kept = new List<Renderer>();
+
+            foreach (var renderer in level.renderers)
+                if (renderer != null && !elsewhere.Contains(renderer)) kept.Add(renderer);
+
+            level.renderers = kept.ToArray();
+            return level;
+        }
+
+        /// <summary>
+        /// Whether a generated piece arrived inside a nested prefab rather than being added
+        /// to this one.
+        ///
+        /// Part of a prefab instance and not an addition to it means it comes from that
+        /// prefab's own asset, which is where it will be rebuilt. Deleting it here only
+        /// writes a removed-child override and empties that model's own far levels.
+        /// </summary>
+        static bool Theirs(GameObject piece)
+            => PrefabUtility.IsPartOfPrefabInstance(piece)
+               && !PrefabUtility.IsAddedGameObjectOverride(piece);
+
+        /// <summary>
+        /// Every renderer in this prefab that belongs to another model the same run will
+        /// give a chain to.
+        ///
+        /// <b>Decided by what the run will do, not by what the hierarchy looks like now.</b>
+        /// A set is not ordered, so the knight may be thinned before the cavalry that
+        /// carries him or after, and a rule that asks "does this nested model have a group
+        /// yet" would give two different answers for the same project. A nested model that
+        /// nothing in this run will touch is left in - it has no chain coming, so the
+        /// parent's is the only one it will get.
+        /// </summary>
+        static HashSet<Renderer> Elsewhere(GameObject root, string path, HashSet<string> handled)
+        {
+            var theirs = new HashSet<Renderer>();
+            if (handled == null || handled.Count == 0) return theirs;
+
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer == null) continue;
+                if (!PrefabUtility.IsPartOfPrefabInstance(renderer.gameObject)) continue;
+
+                string owner = PrefabUtility
+                    .GetPrefabAssetPathOfNearestInstanceRoot(renderer.gameObject);
+
+                if (string.IsNullOrEmpty(owner)) continue;
+                if (owner == path) continue;
+                if (handled.Contains(owner)) theirs.Add(renderer);
+            }
+
+            return theirs;
+        }
+
         static LOD[] Ordered(List<LOD> chain)
         {
             var done = chain.ToArray();
