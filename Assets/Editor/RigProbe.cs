@@ -294,6 +294,141 @@ namespace TheVeil.Editor
             Debug.Log(sheet.ToString());
         }
 
+        /// <summary>
+        /// What each level of a scenery chain actually costs: `The Veil &gt; Level Costs`.
+        ///
+        /// <b>Written because the heaviest thing in the game is a hand-made LOD1.</b>
+        /// After <see cref="FarLods"/> stopped emptying levels, the top of the frame was
+        /// SM_Env_Tree_Meadow_01_LOD1 at 923 400 triangles, 27,3 per cent of the worst
+        /// frame on its own - and five times what the same tree's LOD0 cost in that frame.
+        /// A level that costs more than the one above it is not a simplification.
+        ///
+        /// It survives because <see cref="FarLods"/> spares any hand-made level above
+        /// 0,055 of the screen, on the reasoning that a pack's own LOD0 and LOD1 are worth
+        /// keeping. That reasoning is a rule standing in for a measurement. This is the
+        /// measurement: faces per level and the threshold each level covers, so the
+        /// question "is this level cheaper than the rung that would replace it" has a
+        /// number rather than an assumption behind it.
+        ///
+        /// <b>Scope, so nobody reads it for more than it says.</b> This counts the asset,
+        /// not the frame. A heavy level costs nothing until something stands in its band,
+        /// and how many stand there is <see cref="BudgetReport"/>'s question, not this
+        /// one. Read the ranking here as what could be expensive, and that report as what
+        /// is.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.RigProbe.Costs
+        /// </summary>
+        [MenuItem("The Veil/Level Costs")]
+        public static void Costs()
+        {
+            // FarLods keeps a hand-made level above this share of the screen and cuts its
+            // own rungs below it, at these face budgets. Both are copied rather than read
+            // because they are private there, so a change to either wants a change here.
+            const float KeepAbove = 0.055f;
+            var rungs = new[] { 900, 250, 80 };
+
+            var sheet = new System.Text.StringBuilder();
+            sheet.AppendLine("[Cost] faces per level, for every prefab that holds a chain "
+                             + "and no skinned renderer");
+            sheet.AppendLine($"[Cost] a hand-made level above {KeepAbove:0.000} of the screen is "
+                             + $"spared; the rungs cut below it cost {rungs[0]}, {rungs[1]} "
+                             + $"and {rungs[2]} faces");
+            sheet.AppendLine("[Cost] this is the asset and not the frame - a heavy level costs "
+                             + "nothing until something stands in its band");
+
+            // Every spared hand-made level, so the end of the sheet can rank them rather
+            // than leave the reading to whoever scrolls furthest.
+            var spared = new System.Collections.Generic.List<(int Faces, float Below, float Share, string Where)>();
+
+            int chains = 0, levelsSeen = 0, heavy = 0, heavyFaces = 0;
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+
+                // The skinned chains have their own sheet in Level Widths, and the cast is
+                // a different argument: an animal's levels are cheap already.
+                if (prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length > 0) continue;
+
+                var groups = prefab.GetComponentsInChildren<LODGroup>(true);
+                if (groups.Length == 0) continue;
+
+                chains++;
+                bool said = false;
+
+                foreach (var group in groups)
+                {
+                    var levels = group.GetLODs();
+                    int above = 0;
+
+                    for (int lod = 0; lod < levels.Length; lod++)
+                    {
+                        int all = 0, faces = 0, generated = 0;
+
+                        if (levels[lod].renderers != null)
+                            foreach (var renderer in levels[lod].renderers)
+                            {
+                                if (renderer == null) continue;
+
+                                all++;
+                                faces += FarLods.Faces(renderer);
+                                if (renderer.name.StartsWith("Far LOD ")) generated++;
+                            }
+
+                        levelsSeen++;
+
+                        bool mine = all > 0 && generated == all;
+                        float below = levels[lod].screenRelativeTransitionHeight;
+
+                        // The comparison that says whether a level is a simplification at
+                        // all. A ratio near one is the same model drawn again.
+                        string drop = above > 0 && lod > 0
+                            ? $"{(float)faces / above,6:0.00}x of the one above"
+                            : "              ";
+
+                        bool fat = !mine && lod > 0 && below > KeepAbove && faces > rungs[0];
+
+                        if (fat)
+                        {
+                            heavy++;
+                            heavyFaces += faces;
+                            spared.Add((faces, below, (float)faces / System.Math.Max(above, 1),
+                                        $"{prefab.name} / {group.name} LOD{lod}"));
+                        }
+
+                        if (!said) { sheet.AppendLine($"[Cost] {prefab.name}"); said = true; }
+
+                        sheet.AppendLine($"[Cost]     {group.name,-26} LOD{lod} "
+                                         + $"below {below,6:0.000} {all,3} renderers "
+                                         + $"{faces,8} faces  {drop}"
+                                         + (mine ? "  gen" : "     ")
+                                         + (fat ? "  SPARED AND HEAVY" : ""));
+
+                        above = faces;
+                    }
+                }
+            }
+
+            spared.Sort((a, b) => b.Faces.CompareTo(a.Faces));
+
+            sheet.AppendLine("[Cost] the heaviest spared hand-made levels, worst first");
+
+            for (int i = 0; i < spared.Count && i < 30; i++)
+                sheet.AppendLine($"[Cost]  {i + 1,3}  {spared[i].Faces,8} faces  "
+                                 + $"below {spared[i].Below:0.000}  "
+                                 + $"{spared[i].Share:0.00}x of the one above  {spared[i].Where}");
+
+            sheet.AppendLine($"[Cost] {chains} unskinned prefabs carry a chain, {levelsSeen} levels "
+                             + $"between them");
+            sheet.AppendLine($"[Cost] {heavy} hand-made levels are spared although they cost more "
+                             + $"than the {rungs[0]}-face rung that would stand there, "
+                             + $"{heavyFaces} faces in all");
+
+            Debug.Log(sheet.ToString());
+        }
+
         static void Layout(string what, Mesh mesh, StringBuilder sheet)
         {
             foreach (VertexAttribute attribute in System.Enum.GetValues(typeof(VertexAttribute)))
