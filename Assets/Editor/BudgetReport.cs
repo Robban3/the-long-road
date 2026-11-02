@@ -106,6 +106,8 @@ namespace TheVeil.Editor
                              + $"skinned <= {WantedSkinned}, memory <= {WantedMegabytes} MB, "
                              + $"load <= {WantedLoad:0.0} s");
 
+            int wasQuality = Phone(sheet, "Budget");
+
             var worst = new Worst();
             var census = new Census();
 
@@ -155,7 +157,72 @@ namespace TheVeil.Editor
             census.Write(sheet);
             Debug.Log(sheet.ToString());
 
+            QualitySettings.SetQualityLevel(wasQuality, true);
             EditorSceneManager.CloseScene(scene, false);
+        }
+
+        /// <summary>
+        /// Set the quality level the game actually ships with on the phone, and say so.
+        ///
+        /// <b>Every triangle figure these reports have ever printed was measured at the
+        /// wrong one.</b> The LOD bias is a multiplier on a model's share of the screen,
+        /// so it decides which level of every chain is drawn - and this project carries
+        /// six quality levels whose biases run from 0,3 to 2,0. The editor sits on Ultra
+        /// at 2,0 because that is the Standalone default; Android's default is Medium at
+        /// 0,7. Measured at 2,0 a tree looks nearly three times taller than the phone will
+        /// ever see it, so it draws a level or two further up its chain, and the report
+        /// comes back with the desktop's frame wearing the phone's budget.
+        ///
+        /// The level is read from the project's own setting rather than named here, because
+        /// a number copied into a tool is a number that goes stale the first time somebody
+        /// changes the real one.
+        /// </summary>
+        internal static int Phone(StringBuilder sheet, string tag)
+        {
+            int was = QualitySettings.GetQualityLevel();
+            int want = -1;
+
+            var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/QualitySettings.asset");
+
+            if (assets != null && assets.Length > 0 && assets[0] != null)
+            {
+                var all = new SerializedObject(assets[0]);
+                var per = all.FindProperty("m_PerPlatformDefaultQuality");
+
+                if (per != null)
+                    for (int i = 0; i < per.arraySize; i++)
+                    {
+                        var pair = per.GetArrayElementAtIndex(i);
+                        var key = pair.FindPropertyRelative("first");
+                        var value = pair.FindPropertyRelative("second");
+
+                        if (key == null || value == null) continue;
+                        if (key.stringValue != "Android") continue;
+
+                        want = value.intValue;
+                        break;
+                    }
+            }
+
+            if (want < 0 || want >= QualitySettings.names.Length)
+            {
+                // Loudly, because a report that quietly measured the wrong thing is how
+                // this whole question went unasked for weeks.
+                sheet.AppendLine($"[{tag}] NO ANDROID DEFAULT QUALITY FOUND - measuring at "
+                                 + $"{QualitySettings.names[was]}, bias "
+                                 + $"{QualitySettings.lodBias:0.00}, which is whatever the "
+                                 + "editor was left on");
+                return was;
+            }
+
+            QualitySettings.SetQualityLevel(want, true);
+
+            sheet.AppendLine($"[{tag}] measured at {QualitySettings.names[want]}, which is "
+                             + $"Android's default quality level, lod bias "
+                             + $"{QualitySettings.lodBias:0.00} (the editor was on "
+                             + $"{QualitySettings.names[was]})");
+
+            return was;
         }
 
         /// <summary>
@@ -650,6 +717,19 @@ namespace TheVeil.Editor
         /// drawn.
         /// </summary>
         internal static void Choose(List<Steps> groups, int[] showing, Vector3 from, float fov)
+            => Choose(groups, showing, null, from, fov);
+
+        /// <summary>
+        /// The same, keeping each group's share of the screen rather than throwing it away.
+        ///
+        /// <b>Because the share is the only thing that says where a rung belongs.</b> The
+        /// level a group draws is a yes-or-no answer to a question with a number behind it,
+        /// and the number is what decides whether a cheaper level in that band would be
+        /// seen. Seventy-nine meadow trees drawing a 12 700-face level says nothing about
+        /// where to cut; seventy-nine shares between 0,138 and 0,371 says exactly where.
+        /// </summary>
+        internal static void Choose(List<Steps> groups, int[] showing, float[] shares,
+                                    Vector3 from, float fov)
         {
             float lens = 2f * Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
             float bias = QualitySettings.lodBias;
@@ -660,6 +740,8 @@ namespace TheVeil.Editor
 
                 float away = Vector3.Distance(from, group.At);
                 float share = away > 0.0001f ? group.Size / (away * lens) * bias : float.MaxValue;
+
+                if (shares != null) shares[i] = share;
 
                 showing[i] = -1;
 
@@ -672,6 +754,122 @@ namespace TheVeil.Editor
                 }
             }
         }
+
+        /// <summary>
+        /// For each mesh drawn in one frame, how tall on screen each copy of it stood.
+        ///
+        /// <b>The question this answers, and the one it does not.</b> Level Costs said the
+        /// meadow tree's LOD1 costs 12 700 faces and covers the screen band from 0,371
+        /// down to 0,138, and the frame said that level is 29,6 per cent of everything
+        /// drawn. Neither says whether a cheap rung put at 0,20 would be seen by anybody,
+        /// because that depends on how the copies are spread inside the band - and a
+        /// level's own thresholds cannot tell you, since they are the same for a tree
+        /// filling a third of the screen and one filling a seventh.
+        ///
+        /// The shares are the biased ones, as the engine compares them, so they can be
+        /// read straight against the thresholds in <see cref="Steps.Until"/>.
+        /// </summary>
+        internal static Dictionary<Mesh, List<float>> Spread(
+            List<Piece> pieces, int[] showing, float[] shares, Plane[] view)
+        {
+            var spread = new Dictionary<Mesh, List<float>>();
+
+            foreach (var piece in pieces)
+            {
+                if (piece.Group >= 0 && showing[piece.Group] != piece.Lod) continue;
+                if (piece.Shape == null) continue;
+                if (!GeometryUtility.TestPlanesAABB(view, piece.Where)) continue;
+
+                if (!spread.TryGetValue(piece.Shape, out var found))
+                    spread[piece.Shape] = found = new List<float>();
+
+                // A piece with no group has no share to record, and leaving it out is how
+                // the first version of this printed a table with nothing in it: the
+                // heaviest models in the phone's frame turned out to be the ones with no
+                // chain at all, and an instrument that only speaks about chains had
+                // nothing to say about them. Marked rather than dropped.
+                found.Add(piece.Group >= 0 ? shares[piece.Group] : Chainless);
+            }
+
+            return spread;
+        }
+
+        /// <summary>
+        /// Where in its band each heavy model's copies actually stood, model by model.
+        ///
+        /// Printed as how many copies cleared a set of candidate thresholds, because that
+        /// is the arithmetic a rung costs: the copies below a threshold are the ones a
+        /// cheaper level would serve, and the ones above it are the ones that would be
+        /// asked to look worse.
+        /// </summary>
+        internal static void Bands(string tag, StringBuilder sheet,
+                                   Dictionary<Mesh, List<float>> spread,
+                                   Dictionary<Mesh, long> frame, int all)
+        {
+            if (spread == null || frame == null || all <= 0) return;
+
+            var marks = new[] { 0.400f, 0.300f, 0.250f, 0.200f, 0.175f, 0.150f, 0.125f, 0.100f };
+
+            var rows = new List<KeyValuePair<Mesh, long>>(frame);
+            rows.Sort((a, b) => b.Value.CompareTo(a.Value));
+
+            sheet.AppendLine($"[{tag}] how tall each copy stood, for the heaviest models in "
+                             + $"that frame (lod bias {QualitySettings.lodBias:0.00})");
+            sheet.AppendLine($"[{tag}] the columns count the copies standing taller than each "
+                             + "share, so a rung put there would serve the rest");
+
+            var header = new StringBuilder($"[{tag}]   {"model",-42} {"copies",6}  {"faces ea",8} ");
+            foreach (float mark in marks) header.Append($" >{mark:0.000}");
+            sheet.AppendLine(header.ToString());
+
+            int bare = 0, bareFaces = 0;
+
+            for (int i = 0; i < rows.Count && i < 12; i++)
+            {
+                var mesh = rows[i].Key;
+                if (mesh == null || !spread.TryGetValue(mesh, out var seen)) continue;
+                if (seen.Count == 0) continue;
+
+                var line = new StringBuilder($"[{tag}]   {mesh.name,-42} {seen.Count,6}  "
+                                             + $"{rows[i].Value / seen.Count,8} ");
+
+                int chained = 0;
+                foreach (float share in seen) if (share > Chainless) chained++;
+
+                if (chained == 0)
+                {
+                    bare++;
+                    bareFaces += (int)rows[i].Value;
+
+                    sheet.AppendLine(line.ToString() + "   no chain, so every copy draws "
+                                     + "this at every distance");
+                    continue;
+                }
+
+                foreach (float mark in marks)
+                {
+                    int over = 0;
+                    foreach (float share in seen) if (share > mark) over++;
+
+                    line.Append($" {over,6}");
+                }
+
+                if (chained < seen.Count)
+                    line.Append($"   ({seen.Count - chained} of them in no chain)");
+
+                sheet.AppendLine(line.ToString());
+            }
+
+            sheet.AppendLine($"[{tag}] {bare} of those twelve hold no chain at all, "
+                             + $"{bareFaces / 1000f:0.0}k triangles, "
+                             + $"{100f * bareFaces / all:0.0}% of the frame");
+        }
+
+        /// <summary>
+        /// The share recorded for a piece that belongs to no LOD group, which is not a
+        /// share at all. Below zero so no threshold can ever be read as cleared.
+        /// </summary>
+        const float Chainless = -1f;
 
         /// <summary>
         /// The same view again, split by model: which mesh owns how many of the triangles

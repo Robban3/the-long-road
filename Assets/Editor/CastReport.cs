@@ -89,10 +89,15 @@ namespace TheVeil.Editor
                              + "scenery-only figures to hold the rest against are "
                              + "3 088 726 triangles and 229 instanced calls");
 
+            // Before anything is counted, because the bias decides which level of
+            // every chain the counting sees.
+            int wasQuality = BudgetReport.Phone(sheet, "Cast");
+
             var worst = new Worst();
 
             int heaviest = 0;
             Dictionary<Mesh, long> worstFrame = null;
+            Dictionary<Mesh, List<float>> worstSpread = null;
             string worstFrameAt = "-";
 
             foreach (int chapter in DifficultyCurve.Dressed)
@@ -113,7 +118,8 @@ namespace TheVeil.Editor
 
                         var seen = Walk(runner, root, map, country, chapter, level, kind, fov,
                                         out int standing, out int castTriangles,
-                                        out int castPieces, out Dictionary<Mesh, long> frame);
+                                        out int castPieces, out Dictionary<Mesh, long> frame,
+                                        out Dictionary<Mesh, List<float>> spread);
 
                         sheet.AppendLine($"[Cast] {chapter}-{level,-2} {kind,-4} "
                                          + $"skinned {seen.Skinned,3} / {standing,3}  "
@@ -127,6 +133,7 @@ namespace TheVeil.Editor
                         {
                             heaviest = seen.Triangles;
                             worstFrame = frame;
+                            worstSpread = spread;
                             worstFrameAt = $"{chapter}-{level}-{kind}";
                         }
 
@@ -139,8 +146,10 @@ namespace TheVeil.Editor
 
             worst.Write(sheet);
             BudgetReport.Frame("Cast", sheet, worstFrame, worstFrameAt, heaviest);
+            BudgetReport.Bands("Cast", sheet, worstSpread, worstFrame, heaviest);
             Debug.Log(sheet.ToString());
 
+            QualitySettings.SetQualityLevel(wasQuality, true);
             EditorSceneManager.CloseScene(scene, false);
         }
 
@@ -156,11 +165,13 @@ namespace TheVeil.Editor
                                       BudgetReport.Standing country,
                                       int chapter, int level, CorridorKind kind, float fov,
                                       out int standing, out int castTriangles,
-                                      out int castPieces, out Dictionary<Mesh, long> frame)
+                                      out int castPieces, out Dictionary<Mesh, long> frame,
+                                      out Dictionary<Mesh, List<float>> spread)
         {
             var peak = new BudgetReport.Seen();
             standing = castTriangles = castPieces = 0;
             frame = null;
+            spread = null;
 
             var corridor = map.CorridorOf(kind);
             var recipe = LevelMaps.Recipe(chapter, level);
@@ -214,6 +225,11 @@ namespace TheVeil.Editor
                     var showing = new int[both.Groups.Count];
                     var castShowing = new int[cast.Groups.Count];
 
+                    // How tall each group stands on screen, kept alongside the level
+                    // it picked. Choose works it out either way; throwing it away is
+                    // what left the question of where a rung belongs unanswerable.
+                    var shares = new float[both.Groups.Count];
+
                     // The middle of the column where there is one, which is what the
                     // camera is aimed at, and the lead wagon on a column of one.
                     var middle = run.Caravan.WagonPosition(
@@ -233,7 +249,7 @@ namespace TheVeil.Editor
                             var from = BudgetReport.Eye(look, ahead, range, pitch);
                             var view = BudgetReport.View(look, ahead, range, pitch, fov, aspect);
 
-                            BudgetReport.Choose(both.Groups, showing, from, fov);
+                            BudgetReport.Choose(both.Groups, showing, shares, from, fov);
                             BudgetReport.Choose(cast.Groups, castShowing, from, fov);
 
                             var seen = BudgetReport.Through(both.Pieces, showing, view);
@@ -251,6 +267,8 @@ namespace TheVeil.Editor
                                 castPieces = mine.Pieces;
 
                                 frame = BudgetReport.Breakdown(both.Pieces, showing, view);
+                                spread = BudgetReport.Spread(both.Pieces, showing,
+                                                             shares, view);
 
                                 peak.Triangles = seen.Triangles;
                             }
