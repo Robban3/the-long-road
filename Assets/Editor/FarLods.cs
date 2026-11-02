@@ -243,8 +243,22 @@ namespace TheVeil.Editor
         /// <summary>How wide a level is, in metres: 64 tiles at four.</summary>
         const float MapWidth = 256f;
 
-        /// <summary>Below this many faces there is nothing to win by thinning.</summary>
-        const int Worthwhile = 600;
+        /// <summary>
+        /// Below this many faces a model is left alone.
+        ///
+        /// <b>It was 600, and that is the wrong question asked of the right number.</b>
+        /// Six hundred asks whether a model is big. What costs a frame is a model's total
+        /// in it, and the heaviest twelve models in the game's worst frame are 238 to 2 127
+        /// faces each standing 40 to 328 deep: 328 copies of a 330-face grass is 108 200
+        /// triangles, which is more than any single tree in that frame. Ten of those twelve
+        /// were gathered by this tool and silently dropped here.
+        ///
+        /// Two hundred, because the cheapest rung is eighty faces and a model under about
+        /// two hundred has no room left to give. The gate cannot see copy counts - that is
+        /// the frame's business and <see cref="CastReport"/>'s - so it is set where a chain
+        /// still has something to cut rather than where a model starts looking large.
+        /// </summary>
+        const int Worthwhile = 200;
 
         /// <summary>The name every generated level carries, so a second run can find it.</summary>
         const string Mark = "Far LOD ";
@@ -268,6 +282,10 @@ namespace TheVeil.Editor
 
             int touched = 0, skipped = 0, failed = 0, rigged = 0;
             long before = 0, after = 0;
+
+            // Every model this run leaves alone for being small, by name, so that absence
+            // from this sheet means it was never gathered and nothing else.
+            var small = new List<string>();
 
             // Which models this run will give a chain to, settled before any of them is
             // touched. A nested model's renderers are its own business only if a chain is
@@ -310,7 +328,13 @@ namespace TheVeil.Editor
 
                 if (near <= Worthwhile)
                 {
+                    // Named, not just counted. This was a bare skipped++ for weeks, and
+                    // "it is not in the sheet" then meant either "never gathered" or
+                    // "gathered and dropped here" with no way to tell which - so a claim
+                    // about the castle went into a commit message half wrong. A silent
+                    // skip is a silent failure wearing a counter.
                     skipped++;
+                    small.Add($"{prop.name} ({near} faces)");
                     continue;
                 }
 
@@ -326,6 +350,13 @@ namespace TheVeil.Editor
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+
+            small.Sort();
+
+            sheet.AppendLine($"[Lod] {small.Count} were left alone for being under "
+                             + $"{Worthwhile} faces:");
+
+            foreach (string one in small) sheet.AppendLine($"[Lod]   small {one}");
 
             sheet.AppendLine($"[Lod] {touched} rebuilt, {skipped} left alone, {failed} refused, "
                              + $"{rigged} of them skinned");
@@ -498,6 +529,14 @@ namespace TheVeil.Editor
 
                 for (int rung = from; rung < Thin.Length; rung++)
                 {
+                    // A rung that is not cheaper than what it is cut from is not a far
+                    // level at all. Level falls back to the source mesh when the budget
+                    // does not bite, so asking a 330-face grass for a 900-face rung stands
+                    // a second renderer up drawing exactly what the one above it draws -
+                    // which was harmless while the gate kept small models out and is not
+                    // harmless now that it lets them in.
+                    if (Thin[rung].Faces >= seedFaces) continue;
+
                     var made = Level(seed, seedFaces, Thin[rung].Faces,
                                      $"{name}_Far{rung}", $"{Mark}{rung}");
 
@@ -861,21 +900,70 @@ namespace TheVeil.Editor
         }
 
         static void Gather(BiomeDecor decor, HashSet<GameObject> props)
+            => Harvest(decor, props, new HashSet<object>(), 0);
+
+        /// <summary>
+        /// Every <see cref="PropSet"/> anywhere inside a decor, however deep.
+        ///
+        /// <b>Because reading only the top level missed the castle.</b> This walked the
+        /// PropSet fields of BiomeDecor itself and stopped there - and BiomeDecor's `Kit`
+        /// is a BuildingKit with thirty prop sets of its own: the walls, the curtain walls,
+        /// the tower bases, shafts and tops, the gates, the turrets. The castle's tower and
+        /// wall are 2 127 and 1 534 faces each and stood 40 and 54 deep in the heaviest
+        /// frame in the game, 167 900 triangles between them, and this tool had never once
+        /// been offered them.
+        ///
+        /// That is the third time here that a tool walked a list the thing it needed was
+        /// not on. So it is a walk over the object graph now rather than over one type's
+        /// fields, and the day somebody nests another kit it needs no edit.
+        ///
+        /// Only the project's own classes are followed. Stepping into a Unity type would
+        /// be a walk through the engine, and a GameObject is the answer rather than
+        /// something to search.
+        /// </summary>
+        static void Harvest(object holder, HashSet<GameObject> props,
+                            HashSet<object> seen, int depth)
         {
-            if (decor == null) return;
+            if (holder == null || depth > 4) return;
+            if (!Ours(holder.GetType())) return;
+            if (!seen.Add(holder)) return;
 
-            foreach (var field in typeof(BiomeDecor).GetFields(BindingFlags.Public
-                                                               | BindingFlags.Instance))
+            foreach (var field in holder.GetType().GetFields(BindingFlags.Public
+                                                             | BindingFlags.Instance))
             {
-                if (field.FieldType != typeof(PropSet)) continue;
+                if (field.FieldType == typeof(PropSet))
+                {
+                    if (!(field.GetValue(holder) is PropSet set)) continue;
+                    if (set.Models == null) continue;
 
-                var set = field.GetValue(decor) as PropSet;
-                if (set == null || set.Models == null) continue;
+                    foreach (var model in set.Models)
+                        if (model != null) props.Add(model);
 
-                foreach (var model in set.Models)
-                    if (model != null) props.Add(model);
+                    continue;
+                }
+
+                var value = field.GetValue(holder);
+                if (value == null) continue;
+
+                // A kit, or a list of them. Strings are enumerable too, which is the one
+                // trap in asking an unknown field whether it can be walked.
+                if (value is string) continue;
+
+                if (value is System.Collections.IEnumerable many)
+                {
+                    foreach (var item in many) Harvest(item, props, seen, depth + 1);
+                    continue;
+                }
+
+                Harvest(value, props, seen, depth + 1);
             }
         }
+
+        /// <summary>Whether a type is one of this project's own, and so worth walking into.</summary>
+        static bool Ours(System.Type type)
+            => type != null && type.IsClass && type != typeof(string)
+               && type.Namespace != null
+               && type.Namespace.StartsWith("TheVeil", System.StringComparison.Ordinal);
 
         /// <summary>
         /// The cast's models, which hang off <see cref="VisualLibrary"/> and not off any
