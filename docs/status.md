@@ -28,8 +28,8 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 13,5× over, skinned meshes 4,4×, draw calls
-2,5×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
+country. Four are burst: visible triangles 7,7× over, skinned meshes 4,4×, draw calls
+2,1×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
@@ -239,11 +239,11 @@ resolved the way the engine resolves them - and `The Veil > Cast Report` does it
 with the column, the squad, the enemies, the animals and the crows standing in the frame,
 because the first of those two builds the country and nothing that walks on it:
 
-| | first measured | scenery, after the far LODs | with the cast in frame | wanted | |
+| | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 3 088 726 (4-10) | **3 381 486** (4-10-Odd) | 250 000 | over 13,5× |
-| draw calls, fully instanced | 228 | 229 (4-10) | **368** (8-10-Fast) | 150 | over 2,5× |
-| draw calls, a material each | 54 | 39 (100-3) | 57 (4-10-Fast) | 150 | within |
+| visible triangles | 7 503 276 | 3 088 726 (4-10) | **1 918 163** (1-10-Safe) | 250 000 | over 7,7× |
+| draw calls, fully instanced | 228 | 229 (4-10) | **309** (8-10-Odd) | 150 | over 2,1× |
+| draw calls, a material each | 54 | 39 (100-3) | 56 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
 | skinned meshes | not measurable | 0, scenery has none | **175 in frame, 194 standing** | 40 | over 4,4× |
@@ -253,6 +253,37 @@ because the first of those two builds the country and nothing that walks on it:
 The skinned figures are off 8-10-Safe and 4-10-Fast; the rest of the right-hand column is
 named in place. A dash means the cast does not change that line - the package and the
 memory are properties of what is on disk, and the load figure is noise either way.
+
+**And until 2026-11-02 the whole right-hand column was the desktop's frame wearing the
+phone's budget.** The LOD bias is a multiplier on how large a share of the screen a model
+is taken to occupy, and that share is what picks the level of every chain that gets drawn.
+This project carries six quality levels whose biases run from 0,3 to 2,0. The editor sits
+on Ultra at 2,0, because that is the Standalone default; Android's default is Medium at
+0,70. Measured at 2,0 a tree looks nearly three times taller than the phone will ever show
+it, so it draws a level or two further up its chain. Visible triangles were 3 381 486 and
+are 1 918 163; the draw calls 368 and are 309. **13,5× over the allowance was 7,7× all
+along.** Both reports now read Android's default out of the project's own setting and
+print which level they measured at, so the number cannot drift back without saying so.
+
+The correction was checked two ways before it was believed, because a budget line that
+improves by a third after a one-line change is exactly the shape of a broken instrument.
+All ninety rows — every dressed level, every road — are equal or lower at the phone's bias
+and not one rose. And the drop lands where the chains are: the forest levels 4-1 and 5-1
+fall 3,3×, which is the meadow trees going down their chains, while 1-10 falls 1,12×.
+That is why the heaviest frame in the game moved from 4-10-Odd to 1-10-Safe.
+
+**Which turned the triangle problem into a different problem.** At 2,0 the frame had one
+dominant item: the meadow tree's hand-made LOD1, 27,3 per cent of it alone. At 0,70 that
+tree is not in the twelve heaviest models at all, and the twelve that are have no single
+one above 5,6 per cent. They are ground cover and pines — 328 copies of a 330-face grass,
+309 of a 322-face grass, four pine variants of 288 to 559 faces standing 154 to 184 deep —
+plus the castle's tower and wall at 2 127 and 1 534 faces. **All twelve hold no LOD chain
+at all**, 927 200 triangles between them, 48,3 per cent of the frame, every copy drawing
+its full mesh at every distance until the frustum lets it go. `FarLods` never sees any of
+them: not one appears in its sheet, as chained or as refused. Ten of the twelve are under
+its `Worthwhile` gate of 600 faces, which asks whether a model is big rather than whether
+its total in the frame is, and the castle is over that gate and still absent — which is
+the third time in this project that a tool walked a list the thing it needed was not on.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a
@@ -785,17 +816,27 @@ done; §4 has what they bought, what they cost and what they were hiding.
    player build — switching the active build target reimports every texture in the
    project, hours each way, and a Windows build would not even carry the Android ceilings
    §4 set, so it would be a load time for different content.
-2. **The meadow tree's hand-made LOD1, which is 27 % of the worst frame in the game on its
-   own.** With the far-LOD tool's four faults fixed and everything drawing what it should,
-   the frame breakdown is no longer led by anything this tool made:
-   `SM_Env_Tree_Meadow_01_LOD1` is **923 400 triangles across the frame, 27,3 % of it**,
-   and `SM_Env_Tree_Meadow_02_LOD1` another 383 300 at 11,3 %. Two levels, 38,6 % of
-   everything drawn. They survive because `KeepAbove` spares any hand-made level above
-   0,055 of the screen, on the reasoning that a pack's own LOD0 and LOD1 are worth keeping
-   — and that reasoning is simply wrong for a tree whose LOD1 is still a desktop mesh. The
-   question to settle with a measurement rather than a rule: at what screen share does the
-   meadow tree's LOD1 actually earn its triangles against a 900-face rung in its place.
-   `CastLodProof` already renders a model at a given share, so it is an afternoon.
+2. **The twelve heaviest models in the phone's worst frame, none of which has an LOD
+   chain.** This item used to read "the meadow tree's hand-made LOD1, 27 % of the frame on
+   its own", and that tree was convicted on a figure measured at the wrong quality level.
+   At the bias the phone actually runs it is not in the twelve heaviest at all. What is:
+   328 copies of a 330-face grass, 309 of a 322-face grass, 296 of a 238-face grass, four
+   pine variants of 288 to 559 faces standing 154 to 184 deep, two mushrooms, a rock pile,
+   and the castle's tower and wall at 2 127 and 1 534 faces. **927 200 triangles, 48,3 %
+   of the frame, and not one of them holds a chain** — every copy draws its full mesh at
+   every distance until the frustum lets it go. `FarLods` never sees any of them: not one
+   appears in its sheet, as chained or as refused.
+
+   So the next thing to find out is not a face budget, it is which list places them.
+   `FarLods` gathers from the `PropSet` fields of every `BiomeDecor`, and ten of the twelve
+   are under its `Worthwhile` gate of 600 faces anyway — a gate that asks whether a model
+   is big instead of whether its total in the frame is, which for 328 copies of 330 faces
+   is the wrong question. The castle is over the gate and still absent, so there is a
+   second list as well. Both are a grep, and the measurement after them is whether a
+   330-face plant can be decimated at all or whether the lever here is standing fewer of
+   them up. `The Veil > Level Costs` and the new share histogram in `Cast Report` are what
+   that comes off.
+
 3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
    decimator touches. 175 in frame and 194 standing against an allowance of 40 is a count
    of skinned meshes and not of their triangles, so it comes down only by standing fewer
