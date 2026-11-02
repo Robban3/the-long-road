@@ -28,7 +28,7 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 7,7× over, skinned meshes 4,4×, draw calls
+country. Four are burst: visible triangles 4,4× over, skinned meshes 4,4×, draw calls
 2,1×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
@@ -241,8 +241,8 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 3 088 726 (4-10) | **1 918 163** (1-10-Safe) | 250 000 | over 7,7× |
-| draw calls, fully instanced | 228 | 229 (4-10) | **309** (8-10-Odd) | 150 | over 2,1× |
+| visible triangles | 7 503 276 | 3 088 726 (4-10) | **1 095 894** (3-1-Odd) | 250 000 | over 4,4× |
+| draw calls, fully instanced | 228 | 229 (4-10) | **319** (4-10-Fast) | 150 | over 2,1× |
 | draw calls, a material each | 54 | 39 (100-3) | 56 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
@@ -260,9 +260,10 @@ is taken to occupy, and that share is what picks the level of every chain that g
 This project carries six quality levels whose biases run from 0,3 to 2,0. The editor sits
 on Ultra at 2,0, because that is the Standalone default; Android's default is Medium at
 0,70. Measured at 2,0 a tree looks nearly three times taller than the phone will ever show
-it, so it draws a level or two further up its chain. Visible triangles were 3 381 486 and
-are 1 918 163; the draw calls 368 and are 309. **13,5× over the allowance was 7,7× all
-along.** Both reports now read Android's default out of the project's own setting and
+it, so it draws a level or two further up its chain. Reading the same game at the shipped
+bias took it from 3 381 486 triangles to 1 918 163 and from 368 draw calls to 309, with
+nothing changed but the setting. **13,5× over the allowance was 7,7× all along**, and
+the pass below then took it to 4,4×. Both reports now read Android's default out of the project's own setting and
 print which level they measured at, so the number cannot drift back without saying so.
 
 The correction was checked two ways before it was believed, because a budget line that
@@ -284,6 +285,37 @@ them: not one appears in its sheet, as chained or as refused. Ten of the twelve 
 its `Worthwhile` gate of 600 faces, which asks whether a model is big rather than whether
 its total in the frame is, and the castle is over that gate and still absent — which is
 the third time in this project that a tool walked a list the thing it needed was not on.
+
+**And that paragraph was half wrong when it was written, which is worth leaving on the
+page.** "`FarLods` never sees any of them: not one appears in its sheet" rested on absence
+from a sheet that did not name skipped models at all — `skipped++` with no name beside it,
+so "not in the sheet" meant either "never gathered" or "gathered and dropped at the gate"
+with no way to tell which. Traced properly they are two different faults. The grass, the
+pines, the mushrooms and the rock piles were gathered all along, out of `BiomeDecor`'s
+`GroundCover` and its like, and fell silently on `Worthwhile = 600` at 238 to 559 faces.
+The castle's tower and wall were never gathered: `BiomeDecor.Kit` is a `BuildingKit` with
+thirty prop sets of its own — the walls, the gates, the tower bases, shafts and tops, the
+turrets — and the gather read only `BiomeDecor`'s own fields. A silent skip is a silent
+failure wearing a counter, and it put a wrong claim in a commit message exactly the way
+the mansion's silent plot search did.
+
+**The fix was four changes and it took the triangle line from 7,7× to 4,4×.** The gather
+walks the object graph now, following this project's own classes, so the next nested kit
+needs no edit: 952 models gathered before and 1 059 after, 107 of them buildings this tool
+had never been offered. `Worthwhile` is 200 rather than 600, because six hundred asks
+whether a model is big and what costs a frame is a model's total in it — 328 copies of a
+330-face grass is 108 200 triangles, more than any single tree in that frame. A rung that
+is not cheaper than what it is cut from is skipped, since `Level` falls back to the source
+mesh when the budget does not bite and would otherwise stand a second renderer up drawing
+exactly what the one above it draws. And a skipped model prints its name.
+
+793 chains rebuilt, none refused, 1 300 generated meshes over 799 prefabs. **Visible
+triangles 1 918 163 to 1 095 894**, instanced draw calls 309 to 319 — the one figure that
+could have gone badly and did not. Checked three ways, because a 43 per cent cut is the
+shape of something having stopped drawing: all ninety rows equal or lower and none risen,
+the sum over them 110,6M to 68,6M; no level anywhere in the project lists no renderers, 0
+in 0 groups; and the skinned chains identical, 57 prefabs, 46 of them saving no skinning
+at the bottom, 175 in frame and 194 standing.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a
@@ -816,26 +848,28 @@ done; §4 has what they bought, what they cost and what they were hiding.
    player build — switching the active build target reimports every texture in the
    project, hours each way, and a Windows build would not even carry the Android ceilings
    §4 set, so it would be a load time for different content.
-2. **The twelve heaviest models in the phone's worst frame, none of which has an LOD
-   chain.** This item used to read "the meadow tree's hand-made LOD1, 27 % of the frame on
-   its own", and that tree was convicted on a figure measured at the wrong quality level.
-   At the bias the phone actually runs it is not in the twelve heaviest at all. What is:
-   328 copies of a 330-face grass, 309 of a 322-face grass, 296 of a 238-face grass, four
-   pine variants of 288 to 559 faces standing 154 to 184 deep, two mushrooms, a rock pile,
-   and the castle's tower and wall at 2 127 and 1 534 faces. **927 200 triangles, 48,3 %
-   of the frame, and not one of them holds a chain** — every copy draws its full mesh at
-   every distance until the frustum lets it go. `FarLods` never sees any of them: not one
-   appears in its sheet, as chained or as refused.
+2. **The reeds, and whether small ground cover should end rather than thin.** The pass in
+   §4 took the triangle line from 7,7× to 4,4× by chaining 793 models instead of 438, and
+   the gate at 200 faces moved the line rather than settling it. The heaviest frame in the
+   game is now 3-1-Odd at 1 095 894 triangles, and its top is exactly what sits just under
+   that gate: **`SM_Plant_Reeds_02` at 168 faces in 1 022 copies and `Reeds_01` at 136 in
+   1 165 — 30,1 % of the frame between them** — then ferns at 126 faces, a small rock at
+   186 and swamp growth at 120.
 
-   So the next thing to find out is not a face budget, it is which list places them.
-   `FarLods` gathers from the `PropSet` fields of every `BiomeDecor`, and ten of the twelve
-   are under its `Worthwhile` gate of 600 faces anyway — a gate that asks whether a model
-   is big instead of whether its total in the frame is, which for 328 copies of 330 faces
-   is the wrong question. The castle is over the gate and still absent, so there is a
-   second list as well. Both are a grep, and the measurement after them is whether a
-   330-face plant can be decimated at all or whether the lever here is standing fewer of
-   them up. `The Veil > Level Costs` and the new share histogram in `Cast Report` are what
-   that comes off.
+   A 136-face reed is a few crossed quads. There is nothing in it for a decimator: the
+   cheapest rung is eighty faces and `Least` is twenty-four, and a reed cut to either stops
+   being a reed before it stops being expensive. So lowering the gate again is the wrong
+   lever. What two thousand reeds want is **a last level that ends** instead of one that
+   runs to the horizon. `Thin`'s last rung sits at 0,000 and never culls, deliberately —
+   a level is 256 m across and the camera may stand 120 m back, so cutting a tree off at
+   two hundred metres would be seen. Nobody sees a single reed at a hundred and fifty.
+
+   That is a visible change to how the country looks, plants fading out at distance, and it
+   is a judgement about looks rather than a measurement. It also wants to apply to small
+   ground cover only and not to trees or buildings, which means the rule needs a way to
+   tell one from the other — face count and copy count together, probably, since 1 022
+   copies of 168 faces is the signature and a lone 168-face prop is not. `Cast Report`'s
+   share histogram now prints copies and faces each for exactly this reason.
 
 3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
    decimator touches. 175 in frame and 194 standing against an allowance of 40 is a count
