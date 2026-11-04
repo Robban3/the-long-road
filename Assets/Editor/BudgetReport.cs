@@ -769,10 +769,11 @@ namespace TheVeil.Editor
         /// The shares are the biased ones, as the engine compares them, so they can be
         /// read straight against the thresholds in <see cref="Steps.Until"/>.
         /// </summary>
-        internal static Dictionary<Mesh, List<float>> Spread(
-            List<Piece> pieces, int[] showing, float[] shares, Plane[] view)
+        internal static Dictionary<Mesh, List<Stood>> Spread(
+            List<Piece> pieces, int[] showing, float[] shares, Plane[] view,
+            Vector3 from, float fov)
         {
-            var spread = new Dictionary<Mesh, List<float>>();
+            var spread = new Dictionary<Mesh, List<Stood>>();
 
             foreach (var piece in pieces)
             {
@@ -781,17 +782,61 @@ namespace TheVeil.Editor
                 if (!GeometryUtility.TestPlanesAABB(view, piece.Where)) continue;
 
                 if (!spread.TryGetValue(piece.Shape, out var found))
-                    spread[piece.Shape] = found = new List<float>();
+                    spread[piece.Shape] = found = new List<Stood>();
 
-                // A piece with no group has no share to record, and leaving it out is how
-                // the first version of this printed a table with nothing in it: the
-                // heaviest models in the phone's frame turned out to be the ones with no
-                // chain at all, and an instrument that only speaks about chains had
-                // nothing to say about them. Marked rather than dropped.
-                found.Add(piece.Group >= 0 ? shares[piece.Group] : Chainless);
+                // <b>A piece with no group still has a height on screen.</b> For a fortnight
+                // this recorded a sentinel for it instead, on the reasoning that a model
+                // with no chain has no share - and that is true of the share the engine
+                // compares, because there is no threshold to compare it to. It is not true
+                // of the thing the number is for. The whole question about ground cover is
+                // how tall a reed stands when there are a thousand of them, and the answer
+                // was being thrown away at this line: the twelve heaviest models in the
+                // phone's frame were all chainless, so the table had a row for each of them
+                // and a number in none.
+                //
+                // Measured the way the engine would if the model had a group: its own world
+                // bounds standing in for the size RecalculateBounds would hand that group.
+                found.Add(new Stood
+                {
+                    Share = piece.Group >= 0 ? shares[piece.Group]
+                                             : Share(piece.Where, from, fov),
+                    Chained = piece.Group >= 0,
+                });
             }
 
             return spread;
+        }
+
+        /// <summary>One drawn copy, as the spread needs to read it.</summary>
+        internal struct Stood
+        {
+            /// <summary>Its height on screen as a fraction, biased as the engine has it.</summary>
+            public float Share;
+
+            /// <summary>Whether that share is one a threshold is actually compared against.</summary>
+            public bool Chained;
+        }
+
+        /// <summary>
+        /// How tall a thing of these world bounds stands on screen, as a fraction of the
+        /// screen's height, from here.
+        ///
+        /// The same arithmetic <see cref="Choose"/> does on a group, with the model's own
+        /// bounds standing in for <see cref="Steps.Size"/> - which is what an LODGroup's
+        /// RecalculateBounds would put there, the widest span of the box its renderers
+        /// fill. So a chainless model's figure can be read straight against the thresholds
+        /// a chain would be given.
+        /// </summary>
+        internal static float Share(Bounds where, Vector3 from, float fov)
+        {
+            float size = Mathf.Max(where.size.x,
+                                   Mathf.Max(where.size.y, where.size.z));
+
+            float away = Vector3.Distance(from, where.center);
+            if (away < 0.0001f) return float.MaxValue;
+
+            float lens = 2f * Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+            return size / (away * lens) * QualitySettings.lodBias;
         }
 
         /// <summary>
@@ -803,12 +848,23 @@ namespace TheVeil.Editor
         /// asked to look worse.
         /// </summary>
         internal static void Bands(string tag, StringBuilder sheet,
-                                   Dictionary<Mesh, List<float>> spread,
+                                   Dictionary<Mesh, List<Stood>> spread,
                                    Dictionary<Mesh, long> frame, int all)
         {
             if (spread == null || frame == null || all <= 0) return;
 
-            var marks = new[] { 0.400f, 0.300f, 0.250f, 0.200f, 0.175f, 0.150f, 0.125f, 0.100f };
+            // <b>The low end is where this table's own subject lives.</b> The first version
+            // stopped at 0,100, which was written for trees: the meadow tree's band runs
+            // from 0,371 to 0,138 and the question was where inside it a rung belongs. The
+            // heaviest models in the phone's frame are a 136-face reed and a 168-face reed
+            // standing a thousand deep, and a reed is a metre tall - at ten metres it is
+            // 0,107 of the screen and at a hundred it is 0,011. Every copy of it sat under
+            // the first column and the table said nothing at all.
+            var marks = new[]
+            {
+                0.300f, 0.200f, 0.150f, 0.100f, 0.070f,
+                0.050f, 0.035f, 0.025f, 0.018f, 0.012f, 0.008f,
+            };
 
             var rows = new List<KeyValuePair<Mesh, long>>(frame);
             rows.Sort((a, b) => b.Value.CompareTo(a.Value));
@@ -834,42 +890,116 @@ namespace TheVeil.Editor
                                              + $"{rows[i].Value / seen.Count,8} ");
 
                 int chained = 0;
-                foreach (float share in seen) if (share > Chainless) chained++;
+                foreach (var stood in seen) if (stood.Chained) chained++;
+
+                foreach (float mark in marks)
+                {
+                    int over = 0;
+                    foreach (var stood in seen) if (stood.Share > mark) over++;
+
+                    line.Append($" {over,6}");
+                }
 
                 if (chained == 0)
                 {
                     bare++;
                     bareFaces += (int)rows[i].Value;
 
-                    sheet.AppendLine(line.ToString() + "   no chain, so every copy draws "
-                                     + "this at every distance");
-                    continue;
+                    line.Append("   no chain, so every one of them draws this");
                 }
-
-                foreach (float mark in marks)
+                else if (chained < seen.Count)
                 {
-                    int over = 0;
-                    foreach (float share in seen) if (share > mark) over++;
-
-                    line.Append($" {over,6}");
-                }
-
-                if (chained < seen.Count)
                     line.Append($"   ({seen.Count - chained} of them in no chain)");
+                }
 
                 sheet.AppendLine(line.ToString());
             }
 
             sheet.AppendLine($"[{tag}] {bare} of those twelve hold no chain at all, "
                              + $"{bareFaces / 1000f:0.0}k triangles, "
-                             + $"{100f * bareFaces / all:0.0}% of the frame");
+                             + $"{100f * bareFaces / all:0.0}% of the frame - for those the "
+                             + "columns are how tall the copies stand, not a threshold any "
+                             + "of them is compared against");
         }
 
         /// <summary>
-        /// The share recorded for a piece that belongs to no LOD group, which is not a
-        /// share at all. Below zero so no threshold can ever be read as cleared.
+        /// What ending small ground cover would take out of this frame, at each share it
+        /// might be ended at.
+        ///
+        /// <b>Because the gate at two hundred faces moved the problem rather than settling
+        /// it.</b> <see cref="FarLods"/> thins a model by handing it a cheaper mesh, and a
+        /// hundred and thirty-six-face reed has nothing to hand over: the cheapest rung the
+        /// tool owns is eighty faces and the floor under a decimation is twenty-four. Two
+        /// reeds are thirty per cent of the heaviest frame in the game between them, in two
+        /// thousand copies. The only lever left on them is to stop drawing them.
+        ///
+        /// That is a judgement about how the country looks, and it is not this instrument's
+        /// to make. What it can do is price every candidate before one is picked, so the
+        /// judgement is made against triangles and metres rather than against a guess - and
+        /// the gate it measures is <see cref="FarLods.Cover"/> itself, read from the tool,
+        /// so the two cannot drift apart.
         /// </summary>
-        const float Chainless = -1f;
+        internal static void Ending(string tag, StringBuilder sheet, List<Piece> pieces,
+                                    int[] showing, Plane[] view, Vector3 from, float fov,
+                                    int all)
+        {
+            if (pieces == null || all <= 0) return;
+
+            var ends = new[] { 0.050f, 0.035f, 0.025f, 0.018f, 0.012f, 0.008f, 0.005f };
+
+            var kinds = new HashSet<Mesh>();
+            int copies = 0;
+            long faces = 0;
+            var went = new long[ends.Length];
+            var gone = new int[ends.Length];
+
+            foreach (var piece in pieces)
+            {
+                if (piece.Group >= 0 && showing[piece.Group] != piece.Lod) continue;
+                if (piece.Shape == null) continue;
+                if (!GeometryUtility.TestPlanesAABB(view, piece.Where)) continue;
+
+                float size = Mathf.Max(piece.Where.size.x,
+                                       Mathf.Max(piece.Where.size.y, piece.Where.size.z));
+
+                if (size > FarLods.Cover) continue;
+
+                kinds.Add(piece.Shape);
+                copies++;
+                faces += piece.Triangles;
+
+                float share = Share(piece.Where, from, fov);
+
+                for (int i = 0; i < ends.Length; i++)
+                    if (share <= ends[i]) { went[i] += piece.Triangles; gone[i]++; }
+            }
+
+            sheet.AppendLine($"[{tag}] ground cover in that frame - anything under "
+                             + $"{FarLods.Cover:0.0} m across, which is the gate that would "
+                             + $"decide it ends: {kinds.Count} models, {copies} copies, "
+                             + $"{faces / 1000f:0.0}k triangles, "
+                             + $"{100f * faces / all:0.0}% of the frame");
+
+            sheet.AppendLine($"[{tag}] what ending it below each share would take out, and "
+                             + "how far a one-metre plant would then be drawn:");
+
+            for (int i = 0; i < ends.Length; i++)
+            {
+                // <b>With the bias in it.</b> A threshold is compared against a share that
+                // has already been multiplied by the quality level's lod bias, so the
+                // distance a threshold actually reaches is the plain arithmetic times that
+                // bias - and on the phone it is 0,70, which is the difference between
+                // reading this table as 214 m and reading it as 150 m. The first version of
+                // this line left it out and every metre it printed was 1,43x too far, which
+                // is precisely the fault this whole report was rewritten to stop making.
+                float reach = QualitySettings.lodBias / (ends[i] * FarLods.Lens);
+
+                sheet.AppendLine($"[{tag}]   below {ends[i]:0.000} ({reach,4:0} m for a 1 m "
+                                 + $"plant): {gone[i],6} of {copies} copies go, "
+                                 + $"{went[i] / 1000f,7:0.0}k triangles, "
+                                 + $"{100f * went[i] / all,5:0.0}% of the frame");
+            }
+        }
 
         /// <summary>
         /// The same view again, split by model: which mesh owns how many of the triangles

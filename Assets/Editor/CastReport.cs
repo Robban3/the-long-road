@@ -97,7 +97,8 @@ namespace TheVeil.Editor
 
             int heaviest = 0;
             Dictionary<Mesh, long> worstFrame = null;
-            Dictionary<Mesh, List<float>> worstSpread = null;
+            Dictionary<Mesh, List<BudgetReport.Stood>> worstSpread = null;
+            string worstEnding = null;
             string worstFrameAt = "-";
 
             foreach (int chapter in DifficultyCurve.Dressed)
@@ -119,7 +120,8 @@ namespace TheVeil.Editor
                         var seen = Walk(runner, root, map, country, chapter, level, kind, fov,
                                         out int standing, out int castTriangles,
                                         out int castPieces, out Dictionary<Mesh, long> frame,
-                                        out Dictionary<Mesh, List<float>> spread);
+                                        out Dictionary<Mesh, List<BudgetReport.Stood>> spread,
+                                        out string ending);
 
                         sheet.AppendLine($"[Cast] {chapter}-{level,-2} {kind,-4} "
                                          + $"skinned {seen.Skinned,3} / {standing,3}  "
@@ -134,6 +136,7 @@ namespace TheVeil.Editor
                             heaviest = seen.Triangles;
                             worstFrame = frame;
                             worstSpread = spread;
+                            worstEnding = ending;
                             worstFrameAt = $"{chapter}-{level}-{kind}";
                         }
 
@@ -147,6 +150,7 @@ namespace TheVeil.Editor
             worst.Write(sheet);
             BudgetReport.Frame("Cast", sheet, worstFrame, worstFrameAt, heaviest);
             BudgetReport.Bands("Cast", sheet, worstSpread, worstFrame, heaviest);
+            if (!string.IsNullOrEmpty(worstEnding)) sheet.Append(worstEnding);
             Debug.Log(sheet.ToString());
 
             QualitySettings.SetQualityLevel(wasQuality, true);
@@ -166,12 +170,14 @@ namespace TheVeil.Editor
                                       int chapter, int level, CorridorKind kind, float fov,
                                       out int standing, out int castTriangles,
                                       out int castPieces, out Dictionary<Mesh, long> frame,
-                                      out Dictionary<Mesh, List<float>> spread)
+                                      out Dictionary<Mesh, List<BudgetReport.Stood>> spread,
+                                      out string ending)
         {
             var peak = new BudgetReport.Seen();
             standing = castTriangles = castPieces = 0;
             frame = null;
             spread = null;
+            ending = null;
 
             var corridor = map.CorridorOf(kind);
             var recipe = LevelMaps.Recipe(chapter, level);
@@ -268,7 +274,19 @@ namespace TheVeil.Editor
 
                                 frame = BudgetReport.Breakdown(both.Pieces, showing, view);
                                 spread = BudgetReport.Spread(both.Pieces, showing,
-                                                             shares, view);
+                                                             shares, view, from, fov);
+
+                                // Priced here rather than at the end, because what it
+                                // prices is this one frame's pieces and they are gone the
+                                // moment the level is torn down. Held as text for the same
+                                // reason the split above is held as a dictionary: only the
+                                // record frame's copy is wanted.
+                                var told = new StringBuilder();
+
+                                BudgetReport.Ending("Cast", told, both.Pieces, showing, view,
+                                                    from, fov, seen.Triangles);
+
+                                ending = told.ToString();
 
                                 peak.Triangles = seen.Triangles;
                             }

@@ -62,7 +62,7 @@ namespace TheVeil.Editor
         [MenuItem("The Veil/Far LOD Survey")]
         public static void Survey()
         {
-            var props = Standing(out string trouble);
+            var props = Standing(out string trouble, out _);
             if (props == null)
             {
                 Debug.LogError(trouble);
@@ -201,11 +201,15 @@ namespace TheVeil.Editor
         /// that has a chain already - because a pack's own LOD0 and LOD1 are hand-made and
         /// worth keeping, and it is only the far end that was written for a desktop.
         ///
-        /// <b>Nothing is ever culled.</b> The last entry's share is nought, so the model
-        /// is drawn at eighty faces out to the horizon rather than vanishing. Cutting
+        /// <b>Nothing standing is ever culled.</b> The last entry's share is nought, so the
+        /// model is drawn at eighty faces out to the horizon rather than vanishing. Cutting
         /// trees off at two hundred metres would be cheaper and it would be seen: a level
         /// is 256 m across and the camera may stand 120 m back, so the far edge of the
         /// country is in frame.
+        ///
+        /// Ground cover is the exception and it has its own rule: see
+        /// <see cref="CoverEnds"/>. A tree that vanishes is a hole in the skyline; a reed
+        /// that vanishes is twelve pixels of ground, and there are two thousand of them.
         /// </summary>
         static readonly (float Below, int Faces)[] Thin =
         {
@@ -260,13 +264,118 @@ namespace TheVeil.Editor
         /// </summary>
         const int Worthwhile = 200;
 
+        /// <summary>
+        /// How wide a thing may be, in metres, and still count as ground cover.
+        ///
+        /// <b>This is the gate on ending a model rather than thinning it, and it is written
+        /// in metres on purpose - the one rule here that is.</b> Every other threshold in
+        /// this file is a share of the screen, because detail should go when a thing is
+        /// small in the frame and that happens at wildly different distances for a tree and
+        /// a mountain. Ending is the opposite question: what may be allowed to vanish is
+        /// about what the thing is, not about how it is being looked at. A reed is a reed at
+        /// any range.
+        ///
+        /// Three metres, which is a plant, a small rock, a tussock - and which is well under
+        /// a wagon, a hut or a horizon piece. It does double duty: a share is a size over a
+        /// distance, so the bigger the model the further off the ending falls, and at three
+        /// metres the ending already lands past the width of the map. Nothing near the top
+        /// of this gate can actually vanish in play, which is the right shape for a rule
+        /// whose failure mode is a bald country.
+        /// </summary>
+        internal const float Cover = 3f;
+
+        /// <summary>
+        /// The share of the screen below which ground cover is not drawn at all.
+        ///
+        /// <b>This is the one threshold in this file that is a judgement and not a
+        /// measurement, so here is everything that was measured before it was picked.</b>
+        ///
+        /// Five thousandths of the screen's height, which on a 2400-pixel phone held
+        /// upright is twelve pixels. At the phone's own lod bias of 0,70 that puts a
+        /// one-metre plant out at 150 m, a two-metre bush at 300 m, and anything near the
+        /// top of <see cref="Cover"/> past the width of the map, where ending it means
+        /// nothing.
+        ///
+        /// What the frame said. The heaviest frame in the game is in the marsh, and 61 per
+        /// cent of it is ground cover: 98 models in 5 699 copies, 671,8k triangles, of
+        /// which two reeds at 136 and 168 faces are 30 per cent on their own. None of it
+        /// can be thinned - the cheapest rung this tool owns is eighty faces and
+        /// <see cref="Least"/> is twenty-four, so a 136-face reed has nothing to hand over.
+        /// Ending it is the only lever left.
+        ///
+        /// What the camera said, and this is the part that decided it. The play camera
+        /// stands between 62 and 120 m back from what it looks at, so ground cover is never
+        /// near it: not one copy in that frame stood taller than 0,018 of the screen, and
+        /// 4 080 of the 5 699 stood below 0,005. The saving is all in the far tail and so
+        /// is the risk - there is no threshold that takes only what cannot be seen.
+        ///
+        /// What the air said. The marsh runs exponential-squared fog at 0,008, which leaves
+        /// 8 per cent of a plant at 200 m and 2 per cent at 250 m, so out there this is very
+        /// nearly free. <b>But the fog is set per chapter and the threshold is baked into
+        /// the prefab</b>, and the clearest chapter is farmland at 0,0007, which hides
+        /// nothing at any range inside the map. So the rule cannot lean on the fog, and it
+        /// is written in pixels instead: twelve of them, at which a reed's own blades are
+        /// under a pixel wide.
+        ///
+        /// It will be seen in clear weather as a far edge where the cover stops. That is
+        /// the trade, it was taken deliberately, and it moves in one place.
+        /// </summary>
+        const float CoverEnds = 0.005f;
+
+        /// <summary>
+        /// The share at which this model ends: twelve pixels, unless twelve pixels would
+        /// fall nearer than the camera can stand back.
+        ///
+        /// <b>Because a share alone ended the grass everywhere.</b> A threshold is a size
+        /// over a distance, so the same twelve pixels are a hundred and ninety metres for a
+        /// reed and forty-six for a three-decimetre tuft of grass - and the play camera
+        /// stands up to 120 m back from what it is looking at, so that tuft stopped being
+        /// drawn before the frame even began. Not a far edge: never drawn at all. The first
+        /// run of this rule did exactly that to <c>SM_Plant_Grass_01</c> and eight others,
+        /// and the sheet reported it as forty-six metres rather than as gone.
+        ///
+        /// So the edge is pushed out to <see cref="CameraOrbit.MaxRange"/> when the share
+        /// would put it nearer. Nothing vanishes closer than the furthest the camera can
+        /// ever be from the thing it is aimed at. It only ever lowers the threshold, so a
+        /// chain's descent is never put at risk by it.
+        /// </summary>
+        static float Edge(float span)
+        {
+            if (span <= 0f) return CoverEnds;
+
+            float floor = span * QualitySettings.lodBias
+                          / (CameraOrbit.MaxRange * Lens);
+
+            return Mathf.Min(CoverEnds, floor);
+        }
+
+        /// <summary>
+        /// How far, in metres, a model of this size is drawn before it ends.
+        ///
+        /// <b>With the bias in it, which is the whole point of the line.</b> The first
+        /// version of this divided size by threshold and lens and stopped, and every
+        /// distance it printed was 1,43x too far - the identical fault, made on the same
+        /// afternoon, as the one in <see cref="BudgetReport.Ending"/> that this project had
+        /// just finished correcting. A threshold is compared against a share that has
+        /// already been multiplied by the quality level's lod bias, so the reach has to
+        /// carry it too. <see cref="BudgetReport.Phone"/> is what puts the editor on the
+        /// phone's quality first, or this reads whatever the desktop happened to be set to.
+        /// </summary>
+        static float Reach(float span)
+        {
+            float edge = Edge(span);
+            if (edge <= 0.00001f) return 9999f;
+
+            return span * QualitySettings.lodBias / (edge * Lens);
+        }
+
         /// <summary>The name every generated level carries, so a second run can find it.</summary>
         const string Mark = "Far LOD ";
 
         [MenuItem("The Veil/Build Far LODs")]
         public static void Build()
         {
-            var props = Standing(out string trouble);
+            var props = Standing(out string trouble, out var cast);
             if (props == null)
             {
                 Debug.LogError(trouble);
@@ -277,11 +386,29 @@ namespace TheVeil.Editor
 
             var sheet = new StringBuilder();
             sheet.AppendLine($"[Lod] building far levels for {props.Count} models");
-            sheet.AppendLine($"[Lod] nothing below {KeepAbove:0.000} of screen height keeps a "
-                             + "hand-made level; nothing is culled");
 
-            int touched = 0, skipped = 0, failed = 0, rigged = 0;
-            long before = 0, after = 0;
+            // <b>On the phone's quality level, and this one is not only for the printing.</b>
+            // The floor under a ground cover edge is a distance - 120 m, the furthest the
+            // camera stands back - and turning a distance into a threshold needs the lod
+            // bias the player will actually run. The editor opens on Ultra, which is a bias
+            // of 2,00 against the phone's 0,70, so a pass run without this writes every
+            // edge 2,9x too near and nothing in the asset says so afterwards. See Edge.
+            int wasQuality = BudgetReport.Phone(sheet, "Lod");
+            sheet.AppendLine($"[Lod] nothing below {KeepAbove:0.000} of screen height keeps a "
+                             + $"hand-made level; nothing is culled except ground cover "
+                             + $"under {Cover:0.0} m across, which ends below "
+                             + $"{CoverEnds:0.000} of screen height and never nearer than "
+                             + $"{CameraOrbit.MaxRange:0} m");
+
+            int touched = 0, skipped = 0, failed = 0, rigged = 0, ended = 0, onlyEdge = 0;
+            long before = 0, after = 0, endedFaces = 0;
+
+            // Every model that leaves here with a far edge instead of a chain running on to
+            // the horizon, and how far it is drawn before it stops. Written out in full
+            // rather than tallied, because this is the one rule in the file that can be
+            // wrong in a way no instrument will catch - a reed that ends too near is
+            // something a person has to see, and a person needs the list to look at.
+            var ends = new List<string>();
 
             // Every model this run leaves alone for being small, by name, so that absence
             // from this sheet means it was never gathered and nothing else.
@@ -299,7 +426,14 @@ namespace TheVeil.Editor
                 string where = AssetDatabase.GetAssetPath(prop);
 
                 if (Kind(where) != "prefab") continue;
-                if (Near(prop, prop.GetComponent<LODGroup>()) <= Worthwhile) continue;
+
+                // Thinned or ended, either way it leaves here with a chain - and that is
+                // the only thing this set is asked about. A reed nested inside a swamp
+                // cluster is the reed's own business now that the reed has an edge of its
+                // own, exactly as a knight inside a cavalry prefab is.
+                bool thin = Near(prop, prop.GetComponent<LODGroup>()) > Worthwhile;
+
+                if (!thin && !Coverable(prop, cast)) continue;
 
                 handled.Add(where);
             }
@@ -328,17 +462,49 @@ namespace TheVeil.Editor
 
                 if (near <= Worthwhile)
                 {
-                    // Named, not just counted. This was a bare skipped++ for weeks, and
-                    // "it is not in the sheet" then meant either "never gathered" or
-                    // "gathered and dropped here" with no way to tell which - so a claim
-                    // about the castle went into a commit message half wrong. A silent
-                    // skip is a silent failure wearing a counter.
+                    float wide = Span(prop);
+
+                    // Too small to thin is not the same as too small to cost anything, and
+                    // for a fortnight this gate treated them as the same thing. A model
+                    // with nothing to hand a decimator can still be handed a far edge.
+                    string why = null;
+
+                    if (Coverable(prop, cast))
+                    {
+                        string note = Ended(path, out float ours, out float reach, out why);
+
+                        if (note != null && note.Length > 0)
+                        {
+                            failed++;
+                            sheet.AppendLine($"[Lod]   {prop.name}: {note}");
+                            continue;
+                        }
+
+                        if (note != null)
+                        {
+                            ended++;
+                            onlyEdge++;
+                            endedFaces += near;
+                            ends.Add($"{prop.name,-38} {near,7} faces, {ours,5:0.0} m across, "
+                                     + $"drawn to {reach,5:0} m and then not at all");
+                            continue;
+                        }
+                    }
+
+                    // Named, not just counted, and with the reason where there is one. This
+                    // was a bare skipped++ for weeks, and "it is not in the sheet" then
+                    // meant either "never gathered" or "gathered and dropped here" with no
+                    // way to tell which - so a claim about the castle went into a commit
+                    // message half wrong. A silent skip is a silent failure wearing a
+                    // counter.
                     skipped++;
-                    small.Add($"{prop.name} ({near} faces)");
+                    small.Add($"{prop.name} ({near} faces, {wide:0.0} m across"
+                              + (why != null ? $", {why}" : "") + ")");
                     continue;
                 }
 
-                string story = Thinned(path, handled, out int wasFar, out int nowFar);
+                string story = Thinned(path, handled, Coverable(prop, cast),
+                                       out int wasFar, out int nowFar, out float span);
 
                 if (story == null) { skipped++; continue; }
                 if (story.Length > 0) { failed++; sheet.AppendLine($"[Lod]   {prop.name}: {story}"); continue; }
@@ -346,6 +512,13 @@ namespace TheVeil.Editor
                 touched++;
                 before += wasFar;
                 after += nowFar;
+
+                if (Coverable(prop, cast))
+                {
+                    ended++;
+                    ends.Add($"{prop.name,-38} {near,7} faces, {span,5:0.0} m across, "
+                             + $"thinned and ended at {Reach(span),5:0} m");
+                }
             }
 
             AssetDatabase.SaveAssets();
@@ -358,12 +531,26 @@ namespace TheVeil.Editor
 
             foreach (string one in small) sheet.AppendLine($"[Lod]   small {one}");
 
-            sheet.AppendLine($"[Lod] {touched} rebuilt, {skipped} left alone, {failed} refused, "
-                             + $"{rigged} of them skinned");
+            ends.Sort();
+
+            sheet.AppendLine($"[Lod] {ended} are ground cover, under {Cover:0.0} m across, so "
+                             + $"they end below {CoverEnds:0.000} of screen height instead of "
+                             + "running on to the horizon:");
+
+            foreach (string one in ends) sheet.AppendLine($"[Lod]   ends {one}");
+
+            sheet.AppendLine($"[Lod] {touched} rebuilt, {onlyEdge} given an edge and nothing "
+                             + $"else, {skipped} left alone, {failed} refused, {rigged} of "
+                             + $"them skinned - and {ended} carry a far edge in all, of which "
+                             + $"{onlyEdge} had no mesh to spare "
+                             + $"({endedFaces / 1000f:0.0}k faces of cover that could not be "
+                             + "thinned at all)");
             sheet.AppendLine($"[Lod] the far levels of those models were {before / 1000f:0.0}k "
                              + $"faces and are now {after / 1000f:0.0}k");
             sheet.AppendLine("[Lod] LOD0 is untouched everywhere - what the player sees up close "
                              + "is the same model it was");
+
+            QualitySettings.SetQualityLevel(wasQuality, true);
 
             Debug.Log(sheet.ToString());
         }
@@ -374,17 +561,23 @@ namespace TheVeil.Editor
         /// Returns null when there was nothing to do, an empty string on success, and the
         /// trouble otherwise - so the caller can tell "already fine" from "would not".
         /// </summary>
-        static string Thinned(string path, HashSet<string> handled,
-                              out int wasFar, out int nowFar)
+        static string Thinned(string path, HashSet<string> handled, bool ending,
+                              out int wasFar, out int nowFar, out float span)
         {
             wasFar = 0;
             nowFar = 0;
+            span = 0f;
 
             var root = PrefabUtility.LoadPrefabContents(path);
             if (root == null) return "the prefab would not open";
 
             try
             {
+                // First, and before a renderer is stripped or a level added, because this
+                // is the model's own size and the point of reading it is to compare it with
+                // what arrived rather than with what this method leaves behind.
+                span = Span(root);
+
                 // Anything a previous run added, taken out first, so running this twice
                 // does not stack three levels on three levels. Searched over the whole
                 // hierarchy rather than the root's own children, because a generated piece
@@ -567,9 +760,153 @@ namespace TheVeil.Editor
                 // would look right in a photograph and be the opposite of the fix.
                 var chain = Ordered(keep);
 
+                // <b>And if it is ground cover, the chain ends rather than running on at
+                // eighty faces for ever.</b> The size gate and the face gate ask different
+                // questions and a model can answer both: a 400-face bush a metre across is
+                // thinned like a tree and ended like a reed. Done after Ordered, since what
+                // it changes is a threshold Ordered put at nought, and checked against the
+                // rung above all the same - this tool has been bitten once by a chain Unity
+                // silently refused.
+                // <b>Decided by the caller, not by the size read here.</b> Whether a thing
+                // may be allowed to vanish is a question about what it is, and this method
+                // can only see how big it is. See Coverable.
+                if (ending && chain.Length > 0)
+                {
+                    int last = chain.Length - 1;
+                    float above = last > 0 ? chain[last - 1].screenRelativeTransitionHeight
+                                           : 1f;
+                    float edge = Edge(span);
+
+                    if (edge < above)
+                        chain[last].screenRelativeTransitionHeight = edge;
+                }
+
                 if (group == null) group = root.AddComponent<LODGroup>();
 
                 group.SetLODs(chain);
+                group.RecalculateBounds();
+
+                PrefabUtility.SaveAsPrefabAsset(root, path);
+                return "";
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        /// <summary>
+        /// Whether a model may be allowed to stop being drawn at all.
+        ///
+        /// <b>Three conditions, and the first one is the one that was nearly missed.</b>
+        /// Size alone very nearly shipped a rule that ends a crow. A crow is thirty
+        /// centimetres across, which puts its edge at forty-five metres - and the crows are
+        /// how the player reads what is waiting down the road, so a crow that stops being
+        /// drawn is not a cheaper frame, it is a lie about the country. A reed and a crow
+        /// are the same size and no measurement of size can tell them apart.
+        ///
+        /// So: it has to be dressing rather than cast, which is a question of which list it
+        /// was read off; it has to be small, which is <see cref="Cover"/>; and it must not
+        /// bend, because a thing with a skeleton in it is an actor whatever list it came
+        /// from and this tool has already learned once what happens when it guesses about
+        /// rigs.
+        /// </summary>
+        static bool Coverable(GameObject prop, HashSet<GameObject> cast)
+        {
+            if (prop == null) return false;
+            if (cast != null && cast.Contains(prop)) return false;
+            if (Rigged(prop)) return false;
+
+            float wide = Span(prop);
+            return wide > 0f && wide <= Cover;
+        }
+
+        /// <summary>
+        /// One small model given a chain whose only job is to end: it draws itself as it
+        /// is, and below <see cref="CoverEnds"/> it draws nothing.
+        ///
+        /// <b>For everything the thinning path cannot help.</b> A model under
+        /// <see cref="Worthwhile"/> faces has nothing to give a decimator, and that gate
+        /// used to mean "left alone" - which on a reed standing a thousand deep in the
+        /// marsh means a sixth of the frame that no instrument could do anything about. It
+        /// is not given a cheaper mesh. It is given a far edge.
+        ///
+        /// Returns null when there was nothing to do, an empty string on success, and the
+        /// trouble otherwise, like <see cref="Thinned"/>.
+        /// </summary>
+        static string Ended(string path, out float span, out float reach, out string why)
+        {
+            span = 0f;
+            reach = 0f;
+            why = null;
+
+            var root = PrefabUtility.LoadPrefabContents(path);
+            if (root == null) return "the prefab would not open";
+
+            try
+            {
+                span = Span(root);
+                if (span <= 0f) { why = "nothing in it has a mesh"; return null; }
+                if (span > Cover) return null;
+
+                reach = Reach(span);
+
+                var live = new List<Renderer>();
+
+                foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+                    if (renderer != null && renderer.gameObject.activeSelf
+                        && Faces(renderer) > 0) live.Add(renderer);
+
+                if (live.Count == 0) { why = "nothing in it is switched on"; return null; }
+
+                var group = root.GetComponent<LODGroup>();
+
+                // <b>A chain somebody else made gets its last threshold lowered and nothing
+                // else.</b> For one pass this refused them outright, on the reasoning that
+                // rewriting another author's chain blind is how a model ends up drawing its
+                // LOD0 for ever - and that is true of rewriting the levels. It is not true
+                // of this: lowering the bottom threshold moves no vertex, touches no
+                // renderer and lists nothing differently. It can only make the chain give
+                // up sooner, and the one way it could break the chain is by not descending,
+                // which is checked here against the level above.
+                //
+                // The refusal cost 25 models, among them the two ground covers that are
+                // 23k triangles of the heaviest frame in the game - small enough that no
+                // decimator can help them and chained well enough that this tool would not
+                // look at them.
+                if (group != null && group.GetLODs().Length > 1)
+                {
+                    var levels = group.GetLODs();
+                    int last = levels.Length - 1;
+                    float edge = Edge(span);
+
+                    if (edge >= levels[last - 1].screenRelativeTransitionHeight)
+                    {
+                        why = $"its chain's last level already begins at "
+                              + $"{levels[last - 1].screenRelativeTransitionHeight:0.000}, "
+                              + "which is under the edge we would give it";
+                        return null;
+                    }
+
+                    levels[last].screenRelativeTransitionHeight = edge;
+
+                    group.SetLODs(levels);
+                    PrefabUtility.SaveAsPrefabAsset(root, path);
+                    return "";
+                }
+
+                if (group == null) group = root.AddComponent<LODGroup>();
+
+                var only = group.GetLODs().Length == 1 ? group.GetLODs()[0]
+                                                       : new LOD { renderers = live.ToArray() };
+
+                only.screenRelativeTransitionHeight = Edge(span);
+                only.fadeTransitionWidth = 0f;
+
+                if (only.renderers == null || only.renderers.Length == 0)
+                    only.renderers = live.ToArray();
+
+                group.SetLODs(new[] { only });
                 group.RecalculateBounds();
 
                 PrefabUtility.SaveAsPrefabAsset(root, path);
@@ -870,9 +1207,10 @@ namespace TheVeil.Editor
         /// added a hand-written list goes quietly stale - which is the same fault as six
         /// instruments each keeping their own copy of the dressed chapters.
         /// </summary>
-        static HashSet<GameObject> Standing(out string trouble)
+        static HashSet<GameObject> Standing(out string trouble, out HashSet<GameObject> cast)
         {
             trouble = null;
+            cast = new HashSet<GameObject>();
 
             var scene = EditorSceneManager.OpenScene(PlayScene, OpenSceneMode.Single);
             var runner = Object.FindAnyObjectByType<LevelRunner>();
@@ -884,6 +1222,14 @@ namespace TheVeil.Editor
                 return null;
             }
 
+            // The cast is kept apart as well as counted in, because one rule here needs to
+            // know where a model came from and not just how big it is. See Cover: ending a
+            // thing because it is small catches a crow, and a crow at thirty centimetres
+            // would stop being drawn at forty-five metres. The crows are how the player
+            // reads what is waiting on the road. A prop set is dressing and the library is
+            // not, and that distinction is the only honest way to tell them apart - a
+            // measurement of size cannot, because a reed and a crow are the same size.
+
             var props = new HashSet<GameObject>();
 
             Gather(runner.Decor, props);
@@ -893,7 +1239,9 @@ namespace TheVeil.Editor
                     if (look != null) Gather(look.Decor, props);
 
             // And the cast, which is not dressing and was missed entirely the first time.
-            Gather(runner.Models, props);
+            Gather(runner.Models, cast);
+
+            foreach (var one in cast) props.Add(one);
 
             EditorSceneManager.CloseScene(scene, false);
             return props;
@@ -1098,6 +1446,67 @@ namespace TheVeil.Editor
                     faces += (int)(shape.GetIndexCount(sub) / 3);
 
             return faces;
+        }
+
+        /// <summary>
+        /// How wide a model is in world metres, counted the way an LODGroup counts itself.
+        ///
+        /// The widest span of the box its meshes fill, which is what RecalculateBounds
+        /// writes into <c>LODGroup.size</c> and therefore what every threshold in a chain
+        /// is measured against. Taken from the meshes rather than from
+        /// <c>Renderer.bounds</c>, because a prefab asset is not in a scene and a
+        /// renderer's world bounds there are whatever they last happened to be.
+        ///
+        /// Read before anything is touched, so the figure is the model as it arrived.
+        /// </summary>
+        static float Span(GameObject prop)
+        {
+            if (prop == null) return 0f;
+
+            var into = prop.transform.worldToLocalMatrix;
+            var box = new Bounds();
+            bool any = false;
+
+            foreach (var renderer in prop.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer == null) continue;
+
+                Mesh shape = null;
+
+                if (renderer is SkinnedMeshRenderer skin) shape = skin.sharedMesh;
+                else
+                {
+                    var filter = renderer.GetComponent<MeshFilter>();
+                    if (filter != null) shape = filter.sharedMesh;
+                }
+
+                if (shape == null) continue;
+
+                var local = into * renderer.transform.localToWorldMatrix;
+                var middle = shape.bounds.center;
+                var reach = shape.bounds.extents;
+
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    var at = middle + new Vector3(
+                        (corner & 1) == 0 ? -reach.x : reach.x,
+                        (corner & 2) == 0 ? -reach.y : reach.y,
+                        (corner & 4) == 0 ? -reach.z : reach.z);
+
+                    var stood = local.MultiplyPoint3x4(at);
+
+                    if (!any) { box = new Bounds(stood, Vector3.zero); any = true; }
+                    else box.Encapsulate(stood);
+                }
+            }
+
+            if (!any) return 0f;
+
+            var scale = prop.transform.lossyScale;
+            float widest = Mathf.Max(Mathf.Abs(scale.x),
+                                     Mathf.Max(Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
+
+            return Mathf.Max(box.size.x, Mathf.Max(box.size.y, box.size.z)) * widest;
         }
 
         /// <summary>A group's size in world metres, which is what its thresholds use.</summary>
