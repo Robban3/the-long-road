@@ -448,13 +448,23 @@ after all, and it is drawn to the horizon now rather than ended at 433 m. The ne
 the right one; the gate had been answering a question about an asset we had already altered. **And it is stable against its own output now, which is what holding the author's tail in
 the chain buys and which was measured rather than asserted:** a rebuild run twice, with
 every chain in the project read out of the prefab files after each pass, ends at the same
-threshold on all 886 of them. The first version of the reading did not manage that. It
+threshold on 885 of the 886. The first version of the reading did not manage that.
+
+The 886th is `SM_Env_Succulent_04` and it is the same model as the one three paragraphs
+down — the one that measures 2,9 m across after this tool has stripped its far level and
+over three metres before. So the cover gate answers differently on the second pass: nought
+on the first, 0,005 on the second, which is a far edge at 433 m where the first pass drew it
+to the horizon. The claim in the commit that put this in says all 886, which was measured
+on the pass before the material rule below and is wrong by one. A span taken over every mesh
+in the prefab is a question about an asset this tool edits; the gate wants the near level's
+own span, which nothing here changes, and that reclassifies every model near three metres —
+so it is a measurement round of its own and not a line to slip in. It
 asked "is any level in this chain ours", which answers "the author's edge is not on disk"
 for every model the tool has ever thinned — so the second run handed the cover back the
 reach the first had just taken off it. Only the end of the chain is what the question is
 about, and the author's own level stands there now.
 
-Four of the 886 do come out with one extra middle rung on a second pass, and the reason is
+Seven of the 886 do come out with one extra middle rung on a second pass, and the reason is
 older than this fix: a rung is cut from the cheapest level the model has, which on the
 first pass is the pack's own tail and on the second is whatever is left after that tail was
 stripped. The edge does not move and nothing is culled differently; the middle band draws
