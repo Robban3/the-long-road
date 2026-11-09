@@ -62,7 +62,7 @@ namespace TheVeil.Editor
         [MenuItem("The Veil/Far LOD Survey")]
         public static void Survey()
         {
-            var props = Standing(out string trouble, out _);
+            var props = Standing(out string trouble, out var library);
             if (props == null)
             {
                 Debug.LogError(trouble);
@@ -70,13 +70,26 @@ namespace TheVeil.Editor
             }
 
             var sheet = new StringBuilder();
+
+            // On the phone's quality level, because every distance on this sheet is a
+            // threshold turned into metres and that arithmetic carries the lod bias. The
+            // editor opens on Ultra at 2,00 against the phone's 0,70, so a survey run
+            // without this reports every chain reaching 1,43x further than it does - and
+            // the reach figure is what decides which chains this sheet calls too long.
+            int wasQuality = BudgetReport.Phone(sheet, "Lod");
+
             sheet.AppendLine($"[Lod] {props.Count} distinct models stand in the scene's sets");
 
-            int prefabs = 0, models = 0, other = 0, chained = 0, bare = 0;
+            int prefabs = 0, models = 0, other = 0, chained = 0, bare = 0, edged = 0, rewritten = 0;
             int rigged = 0, riggedChained = 0;
-            long bareFaces = 0, riggedFaces = 0;
+            long bareFaces = 0, riggedFaces = 0, edgedFaces = 0;
             var worst = new List<string>();
             var cast = new List<string>();
+
+            // The models whose own author already stops drawing them inside the country.
+            // This is the population of the builder's refusal and it is listed in full:
+            // see Given, which is the rule, and the mushrooms, which are why there is one.
+            var given = new List<string>();
 
             foreach (var prop in props)
             {
@@ -89,6 +102,22 @@ namespace TheVeil.Editor
 
                 var group = prop.GetComponent<LODGroup>();
                 int near = Near(prop, group);
+
+                // Where the model's own author stops drawing it altogether. A chain's last
+                // threshold is a cull edge - below it nothing of the model is drawn at all -
+                // and a one-level group is nothing but such an edge. Read for every model
+                // here, because it is the figure the builder now refuses to undo: see Given.
+                var shipped = group != null ? group.GetLODs() : null;
+                int steps = shipped != null ? shipped.Length : 0;
+                float own = steps > 0 ? shipped[steps - 1].screenRelativeTransitionHeight : 0f;
+                float stops = steps > 0 ? Ends(World(prop, group), own) : 9999f;
+
+                // And whether that edge is the author's or this tool's. A chain with a
+                // level of ours in it has had the author's own levels below KeepAbove
+                // stripped out of it on an earlier run, so this sheet cannot say where the
+                // author stopped - only git can. Counted rather than guessed at.
+                bool ours = steps > 0 && Authored(shipped) < 0f;
+                if (ours) rewritten++;
 
                 // Counted apart, because this tool cannot touch them and a number it
                 // cannot act on mixed in with one it can is how a sheet lies by addition.
@@ -111,34 +140,34 @@ namespace TheVeil.Editor
                     string chain = "NO CHAIN";
 
                     if (rungs > 1)
-                    {
-                        var levels = group.GetLODs();
-                        float last = levels[rungs - 1].screenRelativeTransitionHeight;
-                        float reach = last > 0.0001f ? World(prop, group) / (last * Lens) : 9999f;
-
-                        chain = $"{rungs} levels, last reaches {reach,6:0} m"
-                                + (reach > MapWidth ? " <-- PAST THE MAP" : "");
-                    }
+                        chain = $"{rungs} levels, last reaches {stops,6:0} m"
+                                + (stops > MapWidth ? " <-- PAST THE MAP" : "");
 
                     if (near > Worthwhile)
                         cast.Add($"[Lod]   {prop.name,-38} {near,7} faces near, {chain} ({kind})");
                 }
 
-                if (group != null && group.GetLODs().Length > 1)
+                if (steps > 1)
                 {
                     chained++;
 
-                    // How far the chain's last level reaches, in metres, at the shipped
-                    // lens. This is the number that says whether the chain does anything:
-                    // past the map's own width it cannot.
-                    var levels = group.GetLODs();
-                    float last = levels[levels.Length - 1].screenRelativeTransitionHeight;
-                    float reach = last > 0.0001f ? World(prop, group) / (last * Lens) : 9999f;
-
-                    if (reach > MapWidth && near > Worthwhile)
+                    // Past the map's own width the chain cannot do anything: it never gets
+                    // to switch, because nothing in play is ever that far away.
+                    if (stops > MapWidth && near > Worthwhile)
                         worst.Add($"[Lod]   {prop.name,-38} {near,7} faces near, "
-                                  + $"{levels.Length} levels, last reaches {reach,6:0} m "
+                                  + $"{steps} levels, last reaches {stops,6:0} m "
                                   + $"({kind})");
+                }
+                else if (steps == 1)
+                {
+                    // <b>Not a chain, and not an absence either: an ending.</b> This survey
+                    // counted a one-level group as NO CHAIN, which is how fifteen mushrooms
+                    // and two ferns came to have cheap levels hung underneath an edge their
+                    // own author had already drawn. Their faces are kept out of the
+                    // chainless total as well, because a model the pack stops drawing at
+                    // four metres costs nothing at all in a frame watched from sixty.
+                    edged++;
+                    edgedFaces += near;
                 }
                 else
                 {
@@ -148,11 +177,30 @@ namespace TheVeil.Editor
                     if (near > Worthwhile)
                         worst.Add($"[Lod]   {prop.name,-38} {near,7} faces, NO CHAIN ({kind})");
                 }
+
+                if (steps > 0 && !ours && stops <= MapWidth && near > Worthwhile)
+                {
+                    float wide = Span(prop);
+
+                    // <b>Asked of Coverable and not of the width, because a width marked a
+                    // wolf.</b> The first run of this listing printed GROUND COVER against
+                    // the boar, the fox, the two deer and the wolf - all of them 0,9 to
+                    // 1,3 m across, all of them the cast - and an instrument that says that
+                    // is one that would get a rule approved that ends a wolf. The builder
+                    // has always asked which list the model was read off; this asks the same
+                    // question, through the same method.
+                    given.Add($"[Lod]   {prop.name,-38} {near,7} faces, {wide,5:0.0} m "
+                              + $"across, {steps} level(s), its own ends at {own:0.000} - "
+                              + $"{stops,6:0} m"
+                              + (Coverable(prop, library) ? "  <-- GROUND COVER" : ""));
+                }
             }
 
             sheet.AppendLine($"[Lod] {prefabs} prefabs, {models} imported models, {other} other");
             sheet.AppendLine($"[Lod] {chained} carry an LOD chain, {bare} carry none "
-                             + $"({bareFaces / 1000f:0.0}k faces with no chain at all)");
+                             + $"({bareFaces / 1000f:0.0}k faces with no chain at all), and "
+                             + $"{edged} carry a single level, which is an ending and not a "
+                             + $"chain ({edgedFaces / 1000f:0.0}k faces drawn only up close)");
             sheet.AppendLine($"[Lod] a level is {MapWidth:0} m across, so a chain whose last "
                              + "level reaches further than that never switches in play:");
 
@@ -171,6 +219,21 @@ namespace TheVeil.Editor
 
             cast.Sort();
             foreach (string line in cast) sheet.AppendLine(line);
+
+            given.Sort();
+
+            sheet.AppendLine($"[Lod] and {given.Count} of them are already given up on by "
+                             + $"their own author inside the {MapWidth:0} m of a level. Most "
+                             + "of those are trees and the builder goes under them on "
+                             + "purpose, because a tree that vanishes is a hole in the "
+                             + "skyline; the ones marked GROUND COVER are the ones it "
+                             + $"follows. {rewritten} more carry a chain this tool has "
+                             + "already written, and for those the author's own edge is in "
+                             + "git and not on disk, so this list cannot see them:");
+
+            foreach (string line in given) sheet.AppendLine(line);
+
+            QualitySettings.SetQualityLevel(wasQuality, true);
 
             Debug.Log(sheet.ToString());
         }
@@ -209,7 +272,7 @@ namespace TheVeil.Editor
         ///
         /// Ground cover is the exception and it has its own rule: see
         /// <see cref="CoverEnds"/>. A tree that vanishes is a hole in the skyline; a reed
-        /// that vanishes is twelve pixels of ground, and there are two thousand of them.
+        /// that vanishes is seventeen pixels of ground, and there are two thousand of them.
         /// </summary>
         static readonly (float Below, int Faces)[] Thin =
         {
@@ -290,8 +353,15 @@ namespace TheVeil.Editor
         /// <b>This is the one threshold in this file that is a judgement and not a
         /// measurement, so here is everything that was measured before it was picked.</b>
         ///
-        /// Five thousandths of the screen's height, which on a 2400-pixel phone held
-        /// upright is twelve pixels. At the phone's own lod bias of 0,70 that puts a
+        /// Five thousandths of the screen's height. <b>Which is seventeen pixels of a
+        /// 2400-pixel phone held upright and not twelve, and this line said twelve for a
+        /// week.</b> A threshold is compared against a share the lod bias has already
+        /// multiplied, so a level set at 0,005 stops being drawn when the thing itself is
+        /// 0,005 / 0,70 of the screen - the same bias that was missing from two reach
+        /// lines, missing here from the one figure in this file that a person can check by
+        /// looking. The distances below were always right: they carry it.
+        ///
+        /// At the phone's own lod bias of 0,70 that puts a
         /// one-metre plant out at 150 m, a two-metre bush at 300 m, and anything near the
         /// top of <see cref="Cover"/> past the width of the map, where ending it means
         /// nothing.
@@ -323,12 +393,12 @@ namespace TheVeil.Editor
         const float CoverEnds = 0.005f;
 
         /// <summary>
-        /// The share at which this model ends: twelve pixels, unless twelve pixels would
+        /// The share at which this model ends: seventeen pixels, unless that would
         /// fall nearer than the camera can stand back.
         ///
         /// <b>Because a share alone ended the grass everywhere.</b> A threshold is a size
-        /// over a distance, so the same twelve pixels are a hundred and ninety metres for a
-        /// reed and forty-six for a three-decimetre tuft of grass - and the play camera
+        /// over a distance, so the same seventeen pixels are a hundred and ninety metres
+        /// for a reed and forty-six for a three-decimetre tuft of grass - and the play camera
         /// stands up to 120 m back from what it is looking at, so that tuft stopped being
         /// drawn before the frame even began. Not a far edge: never drawn at all. The first
         /// run of this rule did exactly that to <c>SM_Plant_Grass_01</c> and eight others,
@@ -349,24 +419,34 @@ namespace TheVeil.Editor
             return Mathf.Min(CoverEnds, floor);
         }
 
+        /// <summary>How far, in metres, ground cover of this size is drawn before it ends.</summary>
+        static float Reach(float span) => Ends(span, Edge(span));
+
         /// <summary>
-        /// How far, in metres, a model of this size is drawn before it ends.
+        /// How far, in metres, a model of this size is still drawn by a level whose
+        /// threshold is this - the range at which that level gives up.
         ///
-        /// <b>With the bias in it, which is the whole point of the line.</b> The first
-        /// version of this divided size by threshold and lens and stopped, and every
+        /// <b>With the bias in it, which is the whole point of the line, and this file has
+        /// now had the line wrong in three places.</b> The first version of
+        /// <see cref="Reach"/> divided size by threshold and lens and stopped, and every
         /// distance it printed was 1,43x too far - the identical fault, made on the same
         /// afternoon, as the one in <see cref="BudgetReport.Ending"/> that this project had
-        /// just finished correcting. A threshold is compared against a share that has
-        /// already been multiplied by the quality level's lod bias, so the reach has to
-        /// carry it too. <see cref="BudgetReport.Phone"/> is what puts the editor on the
-        /// phone's quality first, or this reads whatever the desktop happened to be set to.
+        /// just finished correcting. <see cref="Survey"/> carried the same mistake for a
+        /// fortnight longer, and it is the survey's reach figure that decides which chains
+        /// are reported as reaching past the map. A threshold is compared against a share
+        /// that has already been multiplied by the quality level's lod bias, so the reach
+        /// has to carry it too.
+        ///
+        /// So there is one function for it now, and both callers put the editor on the
+        /// phone's quality first with <see cref="BudgetReport.Phone"/> - without that this
+        /// reads whatever the desktop happened to be set to, which is Ultra at 2,00 against
+        /// the phone's 0,70.
         /// </summary>
-        static float Reach(float span)
+        static float Ends(float size, float threshold)
         {
-            float edge = Edge(span);
-            if (edge <= 0.00001f) return 9999f;
+            if (threshold <= 0.00001f) return 9999f;
 
-            return span * QualitySettings.lodBias / (edge * Lens);
+            return size * QualitySettings.lodBias / (threshold * Lens);
         }
 
         /// <summary>The name every generated level carries, so a second run can find it.</summary>
@@ -398,7 +478,8 @@ namespace TheVeil.Editor
                              + $"hand-made level; nothing is culled except ground cover "
                              + $"under {Cover:0.0} m across, which ends below "
                              + $"{CoverEnds:0.000} of screen height and never nearer than "
-                             + $"{CameraOrbit.MaxRange:0} m");
+                             + $"{CameraOrbit.MaxRange:0} m - or at its own author's edge "
+                             + "where that is nearer, which is what the mushrooms are");
 
             int touched = 0, skipped = 0, failed = 0, rigged = 0, ended = 0, onlyEdge = 0;
             long before = 0, after = 0, endedFaces = 0;
@@ -413,6 +494,11 @@ namespace TheVeil.Editor
             // Every model this run leaves alone for being small, by name, so that absence
             // from this sheet means it was never gathered and nothing else.
             var small = new List<string>();
+
+            // Where this pass has moved a model's own far edge, both ways, and the second
+            // of these is meant to stay empty. See the note at the call.
+            var further = new List<string>();
+            var nearer = new List<string>();
 
             // Which models this run will give a chain to, settled before any of them is
             // touched. A nested model's renderers are its own business only if a chain is
@@ -503,8 +589,11 @@ namespace TheVeil.Editor
                     continue;
                 }
 
-                string story = Thinned(path, handled, Coverable(prop, cast),
-                                       out int wasFar, out int nowFar, out float span);
+                bool cover = Coverable(prop, cast);
+
+                string story = Thinned(path, handled, cover,
+                                       out int wasFar, out int nowFar, out float span,
+                                       out float authored, out float finished);
 
                 if (story == null) { skipped++; continue; }
                 if (story.Length > 0) { failed++; sheet.AppendLine($"[Lod]   {prop.name}: {story}"); continue; }
@@ -513,11 +602,27 @@ namespace TheVeil.Editor
                 before += wasFar;
                 after += nowFar;
 
-                if (Coverable(prop, cast))
+                // The two things this pass must never do, measured on every model it
+                // rewrites rather than argued about here. Nothing may be drawn further than
+                // its own author drew it - that was the defect, fifteen mushrooms and two
+                // ferns of it - and nothing may be given up on nearer than its author gave
+                // up on it, which would be a hole in the country rather than a saving.
+                // Ground cover is left out of the second list because ending it nearer is
+                // the deliberate rule it is there for: see CoverEnds.
+                if (authored > 0f && finished > authored * 1.01f)
+                    further.Add($"{prop.name,-38} its author drew it to {authored,5:0} m, "
+                                + $"this draws it to {finished,5:0} m"
+                                + (cover ? "  <-- GROUND COVER, PAST ITS OWN EDGE" : ""));
+
+                if (!cover && authored > 0f && finished < authored * 0.99f)
+                    nearer.Add($"{prop.name,-38} its author drew it to {authored,5:0} m, "
+                               + $"this draws it to {finished,5:0} m");
+
+                if (cover)
                 {
                     ended++;
                     ends.Add($"{prop.name,-38} {near,7} faces, {span,5:0.0} m across, "
-                             + $"thinned and ended at {Reach(span),5:0} m");
+                             + $"thinned and ended at {finished,5:0} m");
                 }
             }
 
@@ -534,10 +639,30 @@ namespace TheVeil.Editor
             ends.Sort();
 
             sheet.AppendLine($"[Lod] {ended} are ground cover, under {Cover:0.0} m across, so "
-                             + $"they end below {CoverEnds:0.000} of screen height instead of "
-                             + "running on to the horizon:");
+                             + $"they end instead of running on to the horizon - below "
+                             + $"{CoverEnds:0.000} of screen height, or at their own "
+                             + "author's edge where that is nearer:");
 
             foreach (string one in ends) sheet.AppendLine($"[Lod]   ends {one}");
+
+            further.Sort();
+            nearer.Sort();
+
+            sheet.AppendLine($"[Lod] {further.Count} are drawn further than their own author "
+                             + "drew them, which is this tool's whole purpose on a tree - "
+                             + "the packs cull a pine at 229 m and a birch at 128 m on a map "
+                             + "256 m wide, and a tree that vanishes is a hole in the "
+                             + "skyline. On ground cover it is the defect that put fifteen "
+                             + "mushrooms back into the frame, so any line marked GROUND "
+                             + "COVER here is a fault:");
+
+            foreach (string one in further) sheet.AppendLine($"[Lod]   further {one}");
+
+            sheet.AppendLine($"[Lod] and {nearer.Count} are given up on nearer than their own "
+                             + "author gave up on them, which is a hole in the country and "
+                             + "not a saving - this list is meant to be empty:");
+
+            foreach (string one in nearer) sheet.AppendLine($"[Lod]   nearer {one}");
 
             sheet.AppendLine($"[Lod] {touched} rebuilt, {onlyEdge} given an edge and nothing "
                              + $"else, {skipped} left alone, {failed} refused, {rigged} of "
@@ -562,11 +687,14 @@ namespace TheVeil.Editor
         /// trouble otherwise - so the caller can tell "already fine" from "would not".
         /// </summary>
         static string Thinned(string path, HashSet<string> handled, bool ending,
-                              out int wasFar, out int nowFar, out float span)
+                              out int wasFar, out int nowFar, out float span,
+                              out float authored, out float finished)
         {
             wasFar = 0;
             nowFar = 0;
             span = 0f;
+            authored = 0f;
+            finished = 0f;
 
             var root = PrefabUtility.LoadPrefabContents(path);
             if (root == null) return "the prefab would not open";
@@ -577,6 +705,23 @@ namespace TheVeil.Editor
                 // is the model's own size and the point of reading it is to compare it with
                 // what arrived rather than with what this method leaves behind.
                 span = Span(root);
+
+                // And the edge the model's own author drew, read now for the same reason
+                // and for one more: a level of ours in the chain is what tells this apart
+                // from an edge, and a level of ours is about to be deleted. See Authored.
+                var standing = root.GetComponent<LODGroup>();
+                float own = Authored(standing != null ? standing.GetLODs() : null);
+
+                if (own >= 0f) authored = Ends(span, own);
+
+                // <b>The share below which this tool may not put a level: the author's own
+                // edge, and only where that edge is nearer than this tool's own ending and
+                // the thing is allowed to vanish at all.</b> Nought otherwise - for a tree,
+                // because this project decided deliberately that nothing standing is ever
+                // culled; for cover whose author was more generous than CoverEnds, where our
+                // own rule is the nearer of the two; and for any chain already ours, because
+                // then the author's edge is not on disk to read. See Authored.
+                float given = ending && own > Edge(span) ? own : 0f;
 
                 // Anything a previous run added, taken out first, so running this twice
                 // does not stack three levels on three levels. Searched over the whole
@@ -624,12 +769,36 @@ namespace TheVeil.Editor
                 // one can be found afterwards whether it is kept or replaced.
                 var rungs = new List<List<Renderer>>();
 
+                // <b>And the author's own last level, held aside rather than replaced, so
+                // that the edge it carries is still on the disk after this run.</b>
+                //
+                // This is what makes the rule survive its own output. Everything else here
+                // is destroyed and rebuilt on every pass, so a second run reads a chain of
+                // ours, cannot see where the author stopped - Authored says so rather than
+                // guessing - and would hand the model back the reach the first run had just
+                // taken off it. Holding the author's tail at its own threshold means the
+                // chain always ends on a level this tool did not write, and the second run
+                // reads the same edge as the first.
+                LOD held = default;
+                bool hold = false;
+
                 if (group != null && group.GetLODs().Length > 0)
                 {
                     var levels = group.GetLODs();
 
                     foreach (var renderer in levels[0].renderers)
                         if (renderer != null && !elsewhere.Contains(renderer)) near.Add(renderer);
+
+                    // Which level is the author's tail: the cheapest one that still draws
+                    // anything of its own. Held only when there is an edge to respect and
+                    // the tail is not also the near level - a one-level group is both, and
+                    // then there is nowhere to put a rung at all.
+                    int last = -1;
+
+                    for (int lod = levels.Length - 1; lod >= 0; lod--)
+                        if (Live(Without(levels[lod], elsewhere)).Count > 0) { last = lod; break; }
+
+                    hold = given > 0f && last > 0;
 
                     // Every hand-made level that is still the drawn one while the model is
                     // big enough on screen to deserve it. The rest are switched off: they
@@ -638,6 +807,10 @@ namespace TheVeil.Editor
                     {
                         var trimmed = Without(levels[lod], elsewhere);
                         rungs.Add(Live(trimmed));
+
+                        // Neither kept in place nor stripped: it goes back on the end of the
+                        // chain once the cheap rungs are standing above it.
+                        if (hold && lod == last) { held = trimmed; continue; }
 
                         if (lod == 0 || trimmed.screenRelativeTransitionHeight > KeepAbove)
                         {
@@ -698,6 +871,7 @@ namespace TheVeil.Editor
                     });
 
                 int from = keep.Count > 1 ? 1 : 0;
+                int stood = keep.Count;
 
                 string name = System.IO.Path.GetFileNameWithoutExtension(path);
 
@@ -722,6 +896,30 @@ namespace TheVeil.Editor
 
                 for (int rung = from; rung < Thin.Length; rung++)
                 {
+                    // <b>Never below the author's own edge on ground cover, and this is the
+                    // whole of the mushroom fix.</b> `SM_Env_Mushroom_Small_01` ships one
+                    // level at 0,243, which on a model 1,27 m across is the pack saying
+                    // "not past four metres"; the camera here never stands nearer than 62 m,
+                    // so it was never drawn - until this tool hung a 250-face level and an
+                    // 80-face level underneath that edge and drew it out to a hundred and
+                    // ninety-one. Fifteen mushrooms and two ferns, counted in the batch list
+                    // for 8-10-Odd: seventeen draw calls that were not in that frame before
+                    // this tool ran.
+                    //
+                    // A rung is raised to the edge rather than dropped, so the cheapest mesh
+                    // is still the one drawn out to where the author stopped drawing - the
+                    // fern's own last level is 0,010 and ends it at 198 m, and ours now ends
+                    // it at 198 m with eighty faces instead of the pack's. A rung that
+                    // cannot descend once it has been raised has nowhere to stand at all,
+                    // which is the mushroom: every rung this tool owns is below its edge.
+                    float below = Mathf.Max(Thin[rung].Below, given);
+
+                    // A rung that would land at or under the author's own tail has nothing
+                    // to do: the tail is going back on the end and it draws that band.
+                    if (hold && below <= given) continue;
+
+                    if (below >= keep[keep.Count - 1].screenRelativeTransitionHeight) continue;
+
                     // A rung that is not cheaper than what it is cut from is not a far
                     // level at all. Level falls back to the source mesh when the budget
                     // does not bite, so asking a 330-face grass for a 900-face rung stands
@@ -739,10 +937,102 @@ namespace TheVeil.Editor
 
                     keep.Add(new LOD
                     {
-                        screenRelativeTransitionHeight = Thin[rung].Below,
+                        screenRelativeTransitionHeight = below,
                         fadeTransitionWidth = 0f,
                         renderers = made,
                     });
+                }
+
+                bool built = keep.Count > stood;
+
+                // The author's tail, back on the end of the chain at its own threshold. The
+                // model now stops being drawn exactly where its author stopped drawing it,
+                // with this tool's cheap rungs doing the work above that and the author's
+                // own cheapest mesh - which is usually under eighty faces, and that is why
+                // no rung of ours could beat it - doing the last band.
+                if (hold)
+                {
+                    held.screenRelativeTransitionHeight = given;
+                    held.fadeTransitionWidth = 0f;
+
+                    keep.Add(held);
+
+                    // Counted on both sides of the before-and-after, because it is a far
+                    // level in both and a figure that appears in only one of two columns is
+                    // how a sheet shows a saving that was never made.
+                    foreach (var renderer in Live(held))
+                    {
+                        wasFar += Faces(renderer);
+                        nowFar += Faces(renderer);
+
+                        // And it is not stripped, even if some other level of the author's
+                        // listed the same renderer as well - which packs do. A held level
+                        // whose renderer was destroyed by a different level's strip is a
+                        // level that lists nothing, and this project has already measured
+                        // 858 of those and what they cost.
+                        doomed.Remove(renderer);
+                    }
+                }
+
+                // <b>And if nothing cheap enough could be hung low enough, the author's own
+                // last level stays standing - because the alternative is a hole, and this
+                // tool has already put fifteen of them in the enchanted wood.</b>
+                //
+                // `SM_Env_Mushroom_Small_01` arrived with three levels, 0,243 / 0,055 /
+                // 0,010, the last of them ending it at 95 m. This method stripped the two
+                // under KeepAbove and then generated nothing to replace them, because the
+                // pack's own cheapest level is already under eighty faces and every rung
+                // here is a budget it cannot beat. What was left was one level at 0,243 -
+                // which on a model 1,27 m across is a cull at four metres, and the camera in
+                // this game never stands nearer than sixty-two. Fifteen mushrooms stopped
+                // being drawn at all, in the run that was reported as a win, and no
+                // instrument had a line for it: the triangles fell, which is what a hole
+                // looks like from the budget's side. The next pass then found them bare and
+                // hung cheap rungs underneath, out to 191 m - and that is the seventeen draw
+                // calls the batch list caught. Both halves of that were this tool's doing
+                // and neither was the pack's.
+                //
+                // So the tail goes back on: the cheapest level the author actually shipped,
+                // at nought for anything standing - this project culls none of that - and at
+                // the author's own edge for ground cover, which may vanish but not further
+                // out than its author ever drew it.
+                float lowest = ending ? given : 0f;
+
+                if (own >= 0f
+                    && keep[keep.Count - 1].screenRelativeTransitionHeight > lowest)
+                {
+                    int tail = -1;
+
+                    for (int lod = rungs.Count - 1; lod >= 0; lod--)
+                        if (rungs[lod].Count > 0) { tail = lod; break; }
+
+                    bool strippable = !built && tail > 0 && doomed.Contains(rungs[tail][0]);
+
+                    if (strippable)
+                    {
+                        // Nothing of ours is standing down there, so the author's own
+                        // cheapest level is the best thing there is and it is not stripped.
+                        keep.Add(new LOD
+                        {
+                            screenRelativeTransitionHeight = lowest,
+                            fadeTransitionWidth = 0f,
+                            renderers = rungs[tail].ToArray(),
+                        });
+
+                        foreach (var renderer in rungs[tail])
+                        {
+                            doomed.Remove(renderer);
+                            nowFar += Faces(renderer);
+                        }
+                    }
+                    else
+                    {
+                        // Whatever is cheapest in the chain already runs on down to the
+                        // floor instead, which on a rung of ours is eighty faces.
+                        var low = keep[keep.Count - 1];
+                        low.screenRelativeTransitionHeight = lowest;
+                        keep[keep.Count - 1] = low;
+                    }
                 }
 
                 // <b>Now, and not before, the levels this tool replaces let go of their
@@ -784,6 +1074,13 @@ namespace TheVeil.Editor
                         chain[last].screenRelativeTransitionHeight = edge;
                 }
 
+                // How far the model is drawn when it leaves here, so the caller can hold
+                // this method to the two things it must never do: draw something further
+                // than its author drew it, or give up on something nearer than its author
+                // gave up on it. Both are measured over every model in the run rather than
+                // argued about here. See the two lists in Build.
+                finished = Ends(span, chain[chain.Length - 1].screenRelativeTransitionHeight);
+
                 if (group == null) group = root.AddComponent<LODGroup>();
 
                 group.SetLODs(chain);
@@ -796,6 +1093,71 @@ namespace TheVeil.Editor
             {
                 PrefabUtility.UnloadPrefabContents(root);
             }
+        }
+
+        /// <summary>
+        /// The share below which the model's own author stops drawing it, or -1 when the
+        /// chain on disk is this tool's own work and the author's edge is not in it.
+        ///
+        /// <b>Because a culling pass must not resurrect somebody else's cull, and this one
+        /// did.</b> A chain's last threshold is an edge: below it nothing of the model is
+        /// drawn at all. The packs here use it two ways. The meadow tree's last level sits
+        /// at 0,01, which on an 18 m tree is 1343 m on a map 256 m wide - an edge that never
+        /// arrives, which is the whole reason this tool exists. The enchanted wood's
+        /// mushrooms use the same field to mean the opposite: one level at about 0,2 on
+        /// models under a metre and a half, which is four metres and under, so they were
+        /// never drawn in this game at all until this tool hung cheap levels beneath that
+        /// edge.
+        ///
+        /// <b>Which of those is to be respected is not a question about distance, and the
+        /// first version of this rule got that wrong.</b> It followed the author's edge
+        /// wherever it fell inside <see cref="MapWidth"/>, which is the line the survey
+        /// uses - and the measurement said that line catches the trees: the packs cull a
+        /// pine at 229 m, a birch at 128 m, a dead tree at 247 m, ninety models in all. This
+        /// project has already decided the opposite of that, deliberately and in writing:
+        /// nothing standing is ever culled, because a level is 256 m across and the camera
+        /// may stand 120 m back, so a tree that vanishes is a hole in the skyline the player
+        /// is looking straight at. See <see cref="Thin"/>.
+        ///
+        /// So the author's edge is followed for the one kind of thing this project has
+        /// already said may vanish - ground cover, <see cref="Cover"/> - and nowhere else.
+        /// A reed, a tussock, a mushroom: seventeen pixels of ground, two thousand of them,
+        /// and an author who stopped drawing it at four metres was not wrong about it.
+        ///
+        /// <b>It answers "not on disk" when the chain's last level is one of ours, and that
+        /// is the honest answer rather than the convenient one.</b> A rung of ours at the
+        /// bottom means the author's own levels below <see cref="KeepAbove"/> were stripped
+        /// on an earlier run, so the lowest surviving threshold is not the author's edge -
+        /// it is whatever we left standing above it. Reading that as the edge would cull the
+        /// meadow tree at ninety-seven metres. Our own levels are known by the name every
+        /// generated piece carries: see <see cref="Mark"/>.
+        ///
+        /// <b>Which is why the pass holds the author's tail rather than replacing it, and
+        /// the first version of this read the whole chain instead of the end of it.</b>
+        /// Asking "is any level here ours" answers "not on disk" for every model this tool
+        /// has ever thinned - and then the second run over the same project hands the cover
+        /// back the reach the first run had just taken off it. Measured: a rebuild run twice
+        /// came out differently the second time. The end of the chain is the only part this
+        /// question is about, and the pass leaves the author's own level standing there, so
+        /// the answer is the same on every run after the first.
+        ///
+        /// For the models whose tails were already stripped and nothing left in their place,
+        /// the author's edge is in git and nowhere else, which is why this rule was rolled
+        /// out by restoring those chains first and building again on top of them.
+        /// </summary>
+        static float Authored(LOD[] arrived)
+        {
+            if (arrived == null || arrived.Length == 0) return -1f;
+
+            var last = arrived[arrived.Length - 1];
+            if (last.renderers == null) return -1f;
+
+            foreach (var renderer in last.renderers)
+                if (renderer != null
+                    && renderer.gameObject.name.StartsWith(
+                           Mark, System.StringComparison.Ordinal)) return -1f;
+
+            return last.screenRelativeTransitionHeight;
         }
 
         /// <summary>
@@ -1147,20 +1509,55 @@ namespace TheVeil.Editor
         }
 
         /// <summary>
-        /// The renderers of the cheapest level the model has, or the near ones when it has
-        /// only the one.
+        /// The renderers of the cheapest level the model has that paints itself with what
+        /// the model already draws up close - or the near ones when there is no such level.
         ///
         /// A chain is in descending order of screen share, so the last entry that holds
-        /// anything is the one the engine draws furthest out - and that is the right thing
-        /// to simplify from, whether this tool is keeping that level or replacing it. See
-        /// the note at the call.
+        /// anything is the one the engine draws furthest out, and that is the right thing to
+        /// simplify from whether this tool is keeping that level or replacing it. See the
+        /// note at the call.
+        ///
+        /// <b>Except that it may not bring a material of its own, and that condition cost a
+        /// quarter of a gigabyte to find.</b> A generated level takes the materials of the
+        /// renderer it was cut from - it must, since it keeps that mesh's UVs - and the
+        /// Synty packs paint their own far levels with their own far atlases:
+        /// `Tree_Dead_Trunk_LOD_01` where the near level draws
+        /// `PolygonNature_Tree_TrunkDead_01`. Cutting from those levels put every one of
+        /// those atlases back into every chapter that holds one of those trees. Measured
+        /// with the same report over the same chapters with nothing changed but the assets:
+        /// 90 of the 100 chapters heavier, a mean of +106 MB, chapter 4 a flat +270 MB, and
+        /// the worst chapter 572 MB to 821 MB against a budget of 700. The triangles it
+        /// bought were 27k of scenery.
+        ///
+        /// That trade is the wrong way round, so the cheapest level is now the cheapest one
+        /// whose materials the near level already has. The boar and the fox keep what this
+        /// method was written for - a merged far level painted with the same character
+        /// texture is a subset and passes - and the trees go back to being cut from LOD0.
         /// </summary>
         static List<Renderer> Cheapest(List<List<Renderer>> rungs, List<Renderer> near)
         {
+            var close = Paints(near);
+
             for (int i = rungs.Count - 1; i >= 0; i--)
-                if (rungs[i].Count > 0) return rungs[i];
+                if (rungs[i].Count > 0 && Paints(rungs[i]).IsSubsetOf(close)) return rungs[i];
 
             return near;
+        }
+
+        /// <summary>Every material a set of renderers draws with.</summary>
+        static HashSet<Material> Paints(List<Renderer> renderers)
+        {
+            var found = new HashSet<Material>();
+
+            foreach (var renderer in renderers)
+            {
+                if (renderer == null || renderer.sharedMaterials == null) continue;
+
+                foreach (var paint in renderer.sharedMaterials)
+                    if (paint != null) found.Add(paint);
+            }
+
+            return found;
         }
 
         /// <summary>

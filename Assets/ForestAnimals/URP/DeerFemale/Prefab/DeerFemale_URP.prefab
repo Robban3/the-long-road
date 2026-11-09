@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &1741140589160358338
+--- !u!1 &283148583417842939
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,8 +8,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2535127673714719746}
-  - component: {fileID: 5929483964911377722}
+  - component: {fileID: 7172557018459075454}
+  - component: {fileID: 3201045250157319571}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -17,13 +17,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2535127673714719746
+--- !u!4 &7172557018459075454
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1741140589160358338}
+  m_GameObject: {fileID: 283148583417842939}
   serializedVersion: 2
   m_LocalRotation: {x: 0.000000021855694, y: 0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -32,13 +32,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3664652522795753768}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!137 &5929483964911377722
+--- !u!137 &3201045250157319571
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1741140589160358338}
+  m_GameObject: {fileID: 283148583417842939}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -125,10 +125,10 @@ SkinnedMeshRenderer:
   m_BlendShapeWeights: []
   m_RootBone: {fileID: 4738147526966298907}
   m_AABB:
-    m_Center: {x: -0.0006421581, y: 0.1605724, z: 0.18440163}
-    m_Extent: {x: 0.220296, y: 0.46514398, z: 0.46517438}
+    m_Center: {x: -0.0011146143, y: 0.16080636, z: 0.18471979}
+    m_Extent: {x: 0.2205424, y: 0.46520382, z: 0.46549356}
   m_DirtyAABB: 0
---- !u!1 &6014270567964845675
+--- !u!1 &6675488570519393175
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -136,8 +136,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2274624977493004044}
-  - component: {fileID: 8140381593741366116}
+  - component: {fileID: 1127421163326784415}
+  - component: {fileID: 6686245733056676020}
   m_Layer: 0
   m_Name: Far LOD 10
   m_TagString: Untagged
@@ -145,13 +145,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2274624977493004044
+--- !u!4 &1127421163326784415
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6014270567964845675}
+  m_GameObject: {fileID: 6675488570519393175}
   serializedVersion: 2
   m_LocalRotation: {x: 0.000000021855694, y: 0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -160,13 +160,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3664652522795753768}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!137 &8140381593741366116
+--- !u!137 &6686245733056676020
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6014270567964845675}
+  m_GameObject: {fileID: 6675488570519393175}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -253,8 +253,8 @@ SkinnedMeshRenderer:
   m_BlendShapeWeights: []
   m_RootBone: {fileID: 4738147526966298907}
   m_AABB:
-    m_Center: {x: -0.0006421581, y: 0.1605724, z: 0.18440163}
-    m_Extent: {x: 0.220296, y: 0.46514398, z: 0.46517438}
+    m_Center: {x: -0.0011146143, y: 0.16080636, z: 0.18471979}
+    m_Extent: {x: 0.2205424, y: 0.46520382, z: 0.46549356}
   m_DirtyAABB: 0
 --- !u!1001 &3842080040703985347
 PrefabInstance:
@@ -325,24 +325,8 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 2100000, guid: ef11bd755005c3f469ec2f4672ebacbd, type: 2}
     - target: {fileID: 4742473837712756890, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
-      propertyPath: m_Size
-      value: 1.0187974
-      objectReference: {fileID: 0}
-    - target: {fileID: 4742473837712756890, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
       propertyPath: m_LODs.Array.size
       value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 4742473837712756890, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
-      propertyPath: m_LocalReferencePoint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4742473837712756890, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
-      propertyPath: m_LocalReferencePoint.y
-      value: 0.40705323
-      objectReference: {fileID: 0}
-    - target: {fileID: 4742473837712756890, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
-      propertyPath: m_LocalReferencePoint.z
-      value: -0.056709543
       objectReference: {fileID: 0}
     - target: {fileID: 4742473837712756890, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
       propertyPath: m_LODs.Array.data[2].screenRelativeHeight
@@ -355,21 +339,21 @@ PrefabInstance:
     - target: {fileID: 4742473837712756890, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
       propertyPath: m_LODs.Array.data[2].renderers.Array.data[0].renderer
       value: 
-      objectReference: {fileID: 8140381593741366116}
+      objectReference: {fileID: 6686245733056676020}
     - target: {fileID: 4742473837712756890, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
       propertyPath: m_LODs.Array.data[3].renderers.Array.data[0].renderer
       value: 
-      objectReference: {fileID: 5929483964911377722}
+      objectReference: {fileID: 3201045250157319571}
     m_RemovedComponents:
     - {fileID: -419498519732092942, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2274624977493004044}
+      addedObject: {fileID: 1127421163326784415}
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2535127673714719746}
+      addedObject: {fileID: 7172557018459075454}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: cf2112a668d0014478b6e157631dff4b, type: 3}
       insertIndex: -1

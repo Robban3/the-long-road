@@ -124,7 +124,6 @@ Transform:
   - {fileID: 7560964816444779115}
   - {fileID: 4068062560152674321}
   - {fileID: 7779202813524578172}
-  - {fileID: 443193879585005964}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!205 &9072933449739132351
@@ -135,8 +134,8 @@ LODGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4294323166167129862}
   serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.026193708, y: 0.34088197, z: -0.0008139983}
-  m_Size: 0.73537713
+  m_LocalReferencePoint: {x: -0.026193708, y: 0.34284705, z: -0.0008139983}
+  m_Size: 0.7393073
   m_FadeMode: 0
   m_AnimateCrossFading: 1
   m_LastLODIsBillboard: 0
@@ -149,10 +148,10 @@ LODGroup:
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 7810393119404198311}
-  - screenRelativeHeight: 0.004599721
+  - screenRelativeHeight: 0.007378324
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 2413221657495858989}
+    - renderer: {fileID: 2159421970174439021}
   m_Enabled: 1
 --- !u!64 &672247853
 MeshCollider:
@@ -176,7 +175,7 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5688484103999644428, guid: bccc0543f34768745b40b377dccf49cd, type: 3}
---- !u!1 &4418258021731407257
+--- !u!1 &6493639626993817044
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -184,23 +183,23 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 443193879585005964}
-  - component: {fileID: 347712787314270510}
-  - component: {fileID: 2413221657495858989}
+  - component: {fileID: 7779202813524578172}
+  - component: {fileID: 7053653533318631922}
+  - component: {fileID: 2159421970174439021}
   m_Layer: 0
-  m_Name: Far LOD 20
+  m_Name: SM_Env_Mushroom_Small_05_LOD2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &443193879585005964
+--- !u!4 &7779202813524578172
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4418258021731407257}
+  m_GameObject: {fileID: 6493639626993817044}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -209,21 +208,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 3518244271648867772}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &347712787314270510
+--- !u!33 &7053653533318631922
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4418258021731407257}
-  m_Mesh: {fileID: 4300000, guid: 1322acf5e5b940a47b2d8ec5629a2bab, type: 2}
---- !u!23 &2413221657495858989
+  m_GameObject: {fileID: 6493639626993817044}
+  m_Mesh: {fileID: -4338096340110141008, guid: 7df1f7f2e6bce3e4caebf48172b889e7, type: 3}
+--- !u!23 &2159421970174439021
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4418258021731407257}
+  m_GameObject: {fileID: 6493639626993817044}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -266,37 +265,6 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1 &6493639626993817044
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 7779202813524578172}
-  m_Layer: 0
-  m_Name: SM_Env_Mushroom_Small_05_LOD2
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &7779202813524578172
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6493639626993817044}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 3518244271648867772}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8551629371089925997
 GameObject:
   m_ObjectHideFlags: 0

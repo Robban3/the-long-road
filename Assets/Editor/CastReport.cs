@@ -19,8 +19,11 @@ namespace TheVeil.Editor
     /// and the props - and the column, the escort, the enemies, thirty-one animals and
     /// the crows are not props. They are built by <see cref="RunVisuals"/> from a run,
     /// and a run is what that report does not have. So the three counted lines of §1 are
-    /// all scenery-only figures: 3,09M visible triangles, 229 instanced calls, and a
-    /// skinned-mesh count of nought against an allowance of forty.
+    /// all scenery-only figures: 0,76M visible triangles, 252 instanced calls, and a
+    /// skinned-mesh count of nought against an allowance of forty. <b>Those two numbers
+    /// are a reading and not a constant</b>, which is why the sheet now prints the day
+    /// they were taken - they were 3,09M and 229 when this was written, and the far LOD
+    /// work has moved them four times since.
     ///
     /// A count of nought skinned meshes in a game with a mounted column, a squad and a
     /// herd of deer in it is not a measurement, and the sheet said so in those words -
@@ -87,7 +90,8 @@ namespace TheVeil.Editor
             sheet.AppendLine($"[Cast] want skinned <= {BudgetReport.WantedSkinned}; "
                              + "skinned is reported as in frame / standing, and the "
                              + "scenery-only figures to hold the rest against are "
-                             + "3 088 726 triangles and 229 instanced calls");
+                             + "757 756 triangles and 252 instanced calls, read off "
+                             + "The Veil > Budget Report on 2026-11-09");
 
             // Before anything is counted, because the bias decides which level of
             // every chain the counting sees.

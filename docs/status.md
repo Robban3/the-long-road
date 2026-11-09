@@ -28,8 +28,8 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 3,5× over, skinned meshes 4,4×, draw calls
-2,2×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
+country. Four are burst: visible triangles 3,3× over, skinned meshes 4,2×, draw calls
+2,0×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
@@ -241,12 +241,12 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 3 088 726 (4-10) | **879 122** (9-1-Odd) | 250 000 | over 3,5× |
-| draw calls, fully instanced | 228 | 229 (4-10) | **335** (8-10-Odd) | 150 | over 2,2× |
-| draw calls, a material each | 54 | 39 (100-3) | 56 (4-10-Fast) | 150 | within |
-| memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
+| visible triangles | 7 503 276 | 757 756 (9-1) | **837 427** (9-5-Odd) | 250 000 | over 3,3× |
+| draw calls, fully instanced | 228 | 252 (1-8) | **303** (8-10-Safe) | 150 | over 2,0× |
+| draw calls, a material each | 54 | 47 (4-7) | 56 (4-10-Fast) | 150 | within |
+| memory | 777 MB | **641 MB** (4-6) | — | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
-| skinned meshes | not measurable | 0, scenery has none | **175 in frame, 194 standing** | 40 | over 4,4× |
+| skinned meshes | not measurable | 0, scenery has none | **169 in frame, 191 standing** | 40 | over 4,2× |
 | package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
 | frame rate | never measured | — | — | 60 fps | needs a phone |
 
@@ -322,7 +322,7 @@ at the bottom, 175 in frame and 194 standing.
 3,6×.** A 136-face reed standing 1 165 deep has nothing to hand a decimator — the cheapest
 rung is eighty faces and `Least` is twenty-four — and two reeds were 30 per cent of the
 worst frame in the game. Under three metres across, dressing rather than cast, and not
-bending, a model is no longer drawn below 0,005 of screen height: twelve pixels on a tall
+bending, a model is no longer drawn below 0,005 of screen height: seventeen pixels on a tall
 phone. 399 models carry that edge, 174 of them with no mesh to spare at all. **Visible
 triangles 1 095 894 to 900 408**, and the same three checks: all ninety rows fell and none
 rose, 68 612k to 53 048k in sum; 0 empty levels in 0 groups; the skinned chains untouched.
@@ -337,7 +337,7 @@ nothing at any range inside the map. Size alone very nearly ended a crow, which 
 centimetres and would have stopped being drawn at forty-five metres; a reed and a crow are
 the same size, so the gate asks which list the model was read off rather than how big it
 is. And the first run of the rule did not give the small grass a far edge, it stopped
-drawing it anywhere — a three-decimetre tuft reaches twelve pixels at 46 m, nearer than the
+drawing it anywhere — a three-decimetre tuft reaches seventeen pixels at 46 m, nearer than the
 camera's own stand-off — while the sheet reported that as forty-six metres rather than as
 gone, because the line printing the reach had divided size by threshold and forgotten the
 lod bias. The identical fault, the same afternoon, as the one just corrected in the budget
@@ -384,6 +384,122 @@ calls 335 at the worst row against 345. Over all ninety rows the calls now sum *
 before the ending, 22 361 to 22 343, with 18 rows carrying more rather than 42; triangles
 fell on every row and rose on none, 68 612k to 52 551k. 364 models carry a far edge, 139 of
 them with no mesh to spare, and 35 kept an edge of their own that was already nearer.
+
+**And that account of the seventeen was wrong as well, which took reading the prefabs out
+of git instead of off the disk.** The mushroom was read as a pack ending a mushroom at four
+metres: one level at 0,2433 on a model 1,3 m across. The pack shipped three — 0,2433 /
+0,0546 / 0,0100 — and the last of them drew it to 95 m. The run that lowered the face gate
+to 200 stripped both levels under 0,055, which are the ones this tool replaces, and then
+generated nothing to put in their place: a mushroom's own cheapest level is already under
+the eighty faces the cheapest rung spends, so every rung was skipped for not being cheaper
+than what it replaced. What was left was the near level alone, and a chain with one level
+is a cull. **Fifteen mushrooms stopped being drawn anywhere in the game**, in a pass whose
+sheet reported a win — a hole and a saving are the same measurement from the budget's side,
+and no instrument here had a line for the difference. The ending then found them bare and
+hung rungs underneath out to 191 m, and that is the seventeen draw calls. Both halves were
+this tool's own; the pack had decided 95 m and was never consulted.
+
+So two rules. **Nothing is stripped that nothing replaces:** the author's own cheapest
+level goes back on the end of the chain — at nought for anything standing, which culls
+nothing, and at the author's own edge for ground cover. **And ground cover is never drawn
+further than its author drew it:** 0,0100 on that mushroom is 95 m and that is where it
+ends now, the fern at 198 m rather than 395. Both questions are asked of `Coverable` rather
+than of the width, because the first run of the new listing printed GROUND COVER against
+the wolf, the fox, the boar and the two deer — all of them 0,9 to 1,3 m across, all of them
+the cast, and an instrument that says that is one that would get a rule approved that ends
+a wolf.
+
+**Which way to settle it was itself a measurement, and it went against the first answer.**
+The rule began as "follow the author's edge wherever it falls inside the 256 m of a level",
+that being the line the survey has always drawn — and the packs cull a pine at 229 m, a
+birch at 128 m, a dead tree at 247 m, ninety models of it. This project decided the
+opposite of that deliberately and in writing: nothing standing is ever culled, because the
+camera may stand 120 m back on a map 256 m wide and a tree that vanishes is a hole in the
+skyline. So the author's edge is followed for the one kind of thing this project has
+already said may vanish, and for nothing else. 59 cover models end nearer, none end
+further, and the cast is still drawn past its own authors' edges — they cull a wolf at
+106 m and a fox at 81 m.
+
+**Visible triangles 879 122 to 837 427, 3,5× over to 3,3×, and instanced calls 335 to 312,
+2,2× to 2,1×.** The worst row moved, 9-1-Odd to 9-5-Odd, which is why both figures are
+taken from all ninety rows as well: the calls fell on 86 of the ninety and rose on none,
+22 343 to 21 896, and the triangles fell on 73. 0 levels in 0 groups list no renderers; 386
+tests, none failing; and one skinned chain changed — the boar's, for the better.
+
+Seventeen rows carry more triangles than yesterday's state and one of them, 4-1-Safe,
+carries more than the state before the ending as well: 642,6k then, 621,9k yesterday,
+651,6k now. That row is the only one of the ninety that has gone backwards past where this
+work started, and it is the price of the material rule below — the sum over every rebuilt
+model says the same thing, 625,9k faces of far levels without that rule and 641,2k with it,
+because the cheapest rung this tool spends is eighty faces and several packs' own tails are
+forty. The per-frame split for that row was not taken; the sum was.
+
+The pass now prints both directions of that over every model it rewrites: how far the
+author drew it and how far it leaves it. 80 are drawn further, every one a tree or a
+beast and not one of them marked GROUND COVER, and **0 are given up on nearer than their
+author gave up on them** — which is the list that would have caught the mushrooms a
+fortnight ago.
+
+One model went the other way for a reason worth keeping: `SM_Env_Succulent_04` measured
+2,9 m across on the old assets and over three metres on the pack's own, because the span is
+read off every mesh in the prefab and the pack's far level is wider than its near one — the
+old figure was taken after this tool had stripped that level out. So it is not ground cover
+after all, and it is drawn to the horizon now rather than ended at 433 m. The new reading is
+the right one; the gate had been answering a question about an asset we had already altered. **And it is stable against its own output now, which is what holding the author's tail in
+the chain buys and which was measured rather than asserted:** a rebuild run twice, with
+every chain in the project read out of the prefab files after each pass, ends at the same
+threshold on all 886 of them. The first version of the reading did not manage that. It
+asked "is any level in this chain ours", which answers "the author's edge is not on disk"
+for every model the tool has ever thinned — so the second run handed the cover back the
+reach the first had just taken off it. Only the end of the chain is what the question is
+about, and the author's own level stands there now.
+
+Four of the 886 do come out with one extra middle rung on a second pass, and the reason is
+older than this fix: a rung is cut from the cheapest level the model has, which on the
+first pass is the pack's own tail and on the second is whatever is left after that tail was
+stripped. The edge does not move and nothing is culled differently; the middle band draws
+250 faces where one pass drew 80. Cutting from a level this tool generated itself is not
+the answer — the budgets then collapse to nothing on the third pass — so it wants the face
+count recorded, which is the next thing here that needs a record rather than an inference.
+
+**Cutting from the pack's own tail rather than from LOD0 is worth saying out loud, because
+it is what a rebuild from the authors' chains buys and it shows up in three places.** The
+boar's far levels now skin one mesh instead of two — the only skinned chain in the project
+that changed, and the one `Cheapest` was written for. Five pines, two ground covers and a
+dozen others lost a middle rung entirely, because the pack's own cheapest level is already
+under the 250 faces that rung spends. And the generated meshes now carry the packs' own
+far-LOD materials — `Tree_Dead_Trunk_LOD_01` where the frame used to list
+`PolygonNature_Tree_TrunkDead_01` — since a generated level takes the materials of the
+renderer it was cut from, and the author made those materials for exactly this distance.
+
+**What the hold costs, measured on the one chapter where it cost anything.** Eight of the
+ninety rows carried more triangles than yesterday's state, all of them in chapter 3 and all
+by under one per cent, and the batch list for 3-5-Safe said which model and how many copies:
+`SM_Tree_Dead_02`, 74 of them in that frame, drawing the pack's own 296-face tail where our
+generated 80-face level used to stand — 21 904 triangles against 5 920. That is the price of
+holding the author's level rather than writing our own at the author's threshold, and it is
+paid to keep the edge readable on the next run. The way to have both is to record the
+author's edge in the name of the piece this tool generates, which is the other half of the
+record the paragraph above wants.
+
+**And then the memory line, which no part of this work was aimed at and which it very nearly
+broke.** Cutting a far level from the pack's own tail means taking that renderer's materials
+with it — a generated level must, since it keeps the mesh's UVs — and the Synty packs paint
+their own far levels with their own far atlases: `Tree_Dead_Trunk_LOD_01` where the near
+level draws `PolygonNature_Tree_TrunkDead_01`. So every one of those atlases came back into
+every chapter holding one of those trees. Measured with `The Veil > Budget Report` run twice
+over the same hundred chapters with nothing changed but the assets, the second time with the
+new ones stashed: **90 of the 100 chapters heavier, a mean of +106 MB, chapter 4 a flat
++270 MB, and the worst chapter 572 MB against 821 MB on a budget of 700.** The triangles
+that bought were 27k of scenery. Nothing in the triangle report or the call report says a
+word about it; the line that moved was not the line the work was aimed at.
+
+So a far level may not bring a material the model does not already draw up close. The boar
+and the fox keep what `Cheapest` was written for — a merged far level painted with the same
+character texture is a subset and passes — and the trees go back to being cut from LOD0.
+**Memory 821 MB to 641 MB, inside the budget**, for nine draw calls and the seventeen rows
+above. Both of the remaining ways out are measurable: a cheapest rung under eighty faces, or
+repainting a pack's far mesh with the near material where the UVs allow it.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a
@@ -939,21 +1055,13 @@ done; §4 has what they bought, what they cost and what they were hiding.
    repeated 294 times is the same arithmetic as the reeds and it wants its own answer.
    Lowering `Worthwhile` would not help: there is nothing in 187 faces to cut.
 
-   **And the pack's own near edges, which is the same fault one level up from the one §4
-   just fixed.** The draw calls are measured now rather than guessed: of the 27 batches the
-   ending added to 8-10-Odd, ten were the guard's to take back and **seventeen are still
-   there**. `SM_Env_Mushroom_Small_01` ships a single level at 0,2433, which is the pack
-   drawing it within about four metres and not beyond, and `Thinned` hangs two cheaper
-   rungs underneath that threshold — so it draws to 191 m now. Fifteen mushrooms and two
-   ferns in that one frame.
-
-   The guard does not reach it, and it should not reach it blindly: hanging cheap rungs
-   under a pack's tail is exactly what this tool is for on a tree. The meadow tree's last
-   level sits at 0,01, a reach of 1343 m on a map 256 m wide, and replacing that is the
-   whole point of §4. The difference is whether the pack's own edge already falls *inside*
-   the country — 0,2433 on a 1,3 m mushroom is four metres, and that is a decision, not a
-   desktop tail. A rule written on that distinction is the next thing to measure, and it
-   reaches all 793 thinned models rather than only the cover.
+   **The seventeen batches that were left are fixed and they were never the pack's doing**
+   — see §4. Of the 27 the ending added to 8-10-Odd, ten were the first guard's to take
+   back and seventeen stood until the mushrooms were read out of git rather than off the
+   disk: our own earlier pass had stripped their cheap levels and put nothing in their
+   place, and the ending then drew them past where their author ever had. Both halves were
+   this tool's. What is left on this item is the two models above, which have no chain at
+   all and nothing in 187 faces to cut.
 
 3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
    decimator touches. 175 in frame and 194 standing against an allowance of 40 is a count
