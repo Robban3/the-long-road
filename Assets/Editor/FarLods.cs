@@ -777,7 +777,10 @@ namespace TheVeil.Editor
                                            : 1f;
                     float edge = Edge(span);
 
-                    if (edge < above)
+                    // Only ever sooner. A kept hand-made last level may already end the
+                    // model nearer than this would, and writing the edge in regardless is
+                    // how a culling pass starts drawing things further away - see Ended.
+                    if (edge > chain[last].screenRelativeTransitionHeight && edge < above)
                         chain[last].screenRelativeTransitionHeight = edge;
                 }
 
@@ -879,6 +882,21 @@ namespace TheVeil.Editor
                     var levels = group.GetLODs();
                     int last = levels.Length - 1;
                     float edge = Edge(span);
+                    float had = levels[last].screenRelativeTransitionHeight;
+
+                    // Ours from a previous run, as in the single-level case below.
+                    if (Mathf.Abs(had - edge) < 0.000001f)
+                    {
+                        reach = Reach(span);
+                        return "";
+                    }
+
+                    if (had > edge)
+                    {
+                        why = $"its chain already ends below {had:0.000}, which is nearer "
+                              + "than the edge this would give it";
+                        return null;
+                    }
 
                     if (edge >= levels[last - 1].screenRelativeTransitionHeight)
                     {
@@ -895,12 +913,49 @@ namespace TheVeil.Editor
                     return "";
                 }
 
+                // <b>Never further than it is drawn already, which this got wrong once and
+                // the wrong way round.</b> A threshold is the share below which a level is
+                // not drawn, so a bigger one ends the model sooner. The first version of
+                // this wrote the edge in whatever was there, and
+                // `SM_Env_Undergrowth_Fern_01` ships a one-level group at 0,036 - the pack
+                // ending it at about fifteen metres - which this replaced with 0,0044 and
+                // so drew it out to a hundred and twenty. Twenty-seven models in chapter 8
+                // alone, 249 copies and 12 767 triangles of geometry somebody had
+                // deliberately culled, put back by a pass whose whole purpose was to cull.
+                // Measured in the prefab files before and after, not reasoned about: the
+                // batch list for 8-10-Odd had twenty-seven lines that were not there
+                // before and none missing, and every one of them was a model that drew
+                // nothing in that frame until this tool touched it.
+                float ours = Edge(span);
+                var standing = group != null ? group.GetLODs() : null;
+                bool single = standing != null && standing.Length == 1;
+                float ends = single ? standing[0].screenRelativeTransitionHeight : 0f;
+
+                // <b>Already exactly there is this tool's own work, not somebody else's
+                // edge.</b> Run twice and the second run reads back the threshold the first
+                // one wrote, which is equal to what it would write again - and with a plain
+                // `>=` that reads as "the pack ends it nearer, leave it", so a sheet that
+                // had given 174 models an edge reported 0 the next morning. A pass has to
+                // be able to tell its own output from the thing it was given.
+                if (Mathf.Abs(ends - ours) < 0.000001f)
+                {
+                    reach = Reach(span);
+                    return "";
+                }
+
+                if (ends > ours)
+                {
+                    why = $"it already ends below {ends:0.000}, which is nearer than the "
+                          + "edge this would give it";
+                    return null;
+                }
+
                 if (group == null) group = root.AddComponent<LODGroup>();
 
-                var only = group.GetLODs().Length == 1 ? group.GetLODs()[0]
-                                                       : new LOD { renderers = live.ToArray() };
+                var only = single ? standing[0]
+                                  : new LOD { renderers = live.ToArray() };
 
-                only.screenRelativeTransitionHeight = Edge(span);
+                only.screenRelativeTransitionHeight = ours;
                 only.fadeTransitionWidth = 0f;
 
                 if (only.renderers == null || only.renderers.Length == 0)
