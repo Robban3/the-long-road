@@ -99,6 +99,13 @@ namespace TheVeil.Editor
             Dictionary<Mesh, long> worstFrame = null;
             Dictionary<Mesh, List<BudgetReport.Stood>> worstSpread = null;
             string worstEnding = null;
+
+            // Kept apart from the heaviest frame on purpose: the frame worst by calls is
+            // not the frame worst by triangles, and reading one of them as the other is
+            // how a per-model figure gets compared across two runs that were looking at
+            // different country.
+            int worstCalls = 0;
+            string worstCallsText = null;
             string worstFrameAt = "-";
 
             foreach (int chapter in DifficultyCurve.Dressed)
@@ -121,7 +128,13 @@ namespace TheVeil.Editor
                                         out int standing, out int castTriangles,
                                         out int castPieces, out Dictionary<Mesh, long> frame,
                                         out Dictionary<Mesh, List<BudgetReport.Stood>> spread,
-                                        out string ending);
+                                        out string ending, out string calls);
+
+                        if (seen.Instanced > worstCalls)
+                        {
+                            worstCalls = seen.Instanced;
+                            worstCallsText = calls;
+                        }
 
                         sheet.AppendLine($"[Cast] {chapter}-{level,-2} {kind,-4} "
                                          + $"skinned {seen.Skinned,3} / {standing,3}  "
@@ -151,6 +164,7 @@ namespace TheVeil.Editor
             BudgetReport.Frame("Cast", sheet, worstFrame, worstFrameAt, heaviest);
             BudgetReport.Bands("Cast", sheet, worstSpread, worstFrame, heaviest);
             if (!string.IsNullOrEmpty(worstEnding)) sheet.Append(worstEnding);
+            if (!string.IsNullOrEmpty(worstCallsText)) sheet.Append(worstCallsText);
             Debug.Log(sheet.ToString());
 
             QualitySettings.SetQualityLevel(wasQuality, true);
@@ -171,13 +185,14 @@ namespace TheVeil.Editor
                                       out int standing, out int castTriangles,
                                       out int castPieces, out Dictionary<Mesh, long> frame,
                                       out Dictionary<Mesh, List<BudgetReport.Stood>> spread,
-                                      out string ending)
+                                      out string ending, out string calls)
         {
             var peak = new BudgetReport.Seen();
             standing = castTriangles = castPieces = 0;
             frame = null;
             spread = null;
             ending = null;
+            calls = null;
 
             var corridor = map.CorridorOf(kind);
             var recipe = LevelMaps.Recipe(chapter, level);
@@ -292,7 +307,22 @@ namespace TheVeil.Editor
                             }
 
                             if (seen.Materials > peak.Materials) peak.Materials = seen.Materials;
-                            if (seen.Instanced > peak.Instanced) peak.Instanced = seen.Instanced;
+
+                            if (seen.Instanced > peak.Instanced)
+                            {
+                                peak.Instanced = seen.Instanced;
+
+                                // Taken at the record and not at the end, for the same
+                                // reason the model split is: these pieces belong to a
+                                // level that is torn down as soon as the row is finished.
+                                var told = new StringBuilder();
+
+                                BudgetReport.Batches("Cast", told,
+                                                     $"{chapter}-{level}-{kind}",
+                                                     both.Pieces, showing, view);
+
+                                calls = told.ToString();
+                            }
                             if (seen.Pieces > peak.Pieces) peak.Pieces = seen.Pieces;
 
                             if (seen.Skinned > peak.Skinned) peak.Skinned = seen.Skinned;

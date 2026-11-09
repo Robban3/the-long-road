@@ -923,6 +923,84 @@ namespace TheVeil.Editor
         }
 
         /// <summary>
+        /// Every instanced batch in one frame, one line each: the mesh, the material, how
+        /// many copies ride on it and what they cost.
+        ///
+        /// <b>Because the draw call line was the one figure a pass made worse, and the
+        /// explanation for it was an inference.</b> Ending the ground cover took the
+        /// triangles from 1 095 894 to 900 408 and the instanced calls from 319 to 345, with
+        /// 42 of the ninety rows carrying more - almost all of them in chapter 8 and all by
+        /// 25 to 27. The story that fits is that cover models own their own renderers now,
+        /// so a nested one stops being drawn inside its parent's merged far level and stands
+        /// up its own mesh beside it. A story that fits is not a measurement.
+        ///
+        /// A call is a mesh and a material together, so the only thing that settles it is
+        /// the list of those pairs. Printed sorted by name rather than by weight, because
+        /// what this is for is diffing one run against another: the lines that appear and
+        /// the lines that go are the answer, and a list ordered by cost reshuffles itself
+        /// every time the cost changes.
+        ///
+        /// <see cref="Frame"/> prints the heaviest frame's split by model and this prints a
+        /// different frame - the one worst by calls - which is why it says which.
+        /// </summary>
+        internal static void Batches(string tag, StringBuilder sheet, string where,
+                                     List<Piece> pieces, int[] showing, Plane[] view)
+        {
+            if (pieces == null) return;
+
+            var held = new Dictionary<string, Batch>();
+
+            foreach (var piece in pieces)
+            {
+                if (piece.Group >= 0 && showing[piece.Group] != piece.Lod) continue;
+                if (!GeometryUtility.TestPlanesAABB(view, piece.Where)) continue;
+
+                int paint = piece.Paint != null ? piece.Paint.GetInstanceID() : 0;
+                int shape = piece.Shape != null ? piece.Shape.GetInstanceID() : 0;
+                string key = paint + ":" + shape;
+
+                if (!held.TryGetValue(key, out var batch))
+                    batch = new Batch
+                    {
+                        Shape = piece.Shape != null ? piece.Shape.name : "(no mesh)",
+                        Paint = piece.Paint != null ? piece.Paint.name : "(no material)",
+                    };
+
+                batch.Copies++;
+                batch.Triangles += piece.Triangles;
+                held[key] = batch;
+            }
+
+            var lines = new List<string>();
+            long all = 0;
+
+            foreach (var batch in held.Values)
+            {
+                all += batch.Triangles;
+
+                lines.Add($"[{tag}]   batch {batch.Shape,-46} {batch.Paint,-30} "
+                          + $"copies {batch.Copies,5}  tris {batch.Triangles,8}");
+            }
+
+            lines.Sort();
+
+            sheet.AppendLine($"[{tag}] every instanced call in the frame worst by calls, "
+                             + $"which is {where}: {held.Count} of them over "
+                             + $"{all / 1000f:0.0}k triangles");
+
+            foreach (string line in lines) sheet.AppendLine(line);
+        }
+
+        /// <summary>One instanced call: a mesh and a material, and what rides on it.</summary>
+        struct Batch
+        {
+            public string Shape;
+            public string Paint;
+            public int Copies;
+            public long Triangles;
+        }
+
+        /// <summary>
         /// What ending small ground cover would take out of this frame, at each share it
         /// might be ended at.
         ///
