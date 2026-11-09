@@ -28,8 +28,8 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 3,6× over, skinned meshes 4,4×, draw calls
-2,3×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
+country. Four are burst: visible triangles 3,5× over, skinned meshes 4,4×, draw calls
+2,2×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
@@ -241,8 +241,8 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 3 088 726 (4-10) | **900 408** (9-1-Odd) | 250 000 | over 3,6× |
-| draw calls, fully instanced | 228 | 229 (4-10) | **345** (8-10-Odd) | 150 | over 2,3× |
+| visible triangles | 7 503 276 | 3 088 726 (4-10) | **879 122** (9-1-Odd) | 250 000 | over 3,5× |
+| draw calls, fully instanced | 228 | 229 (4-10) | **335** (8-10-Odd) | 150 | over 2,2× |
 | draw calls, a material each | 54 | 39 (100-3) | 56 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
@@ -351,6 +351,39 @@ drawn inside its parent's merged far level and stands up its own mesh beside it,
 batch each. That is what the pattern points at rather than something measured: settling it
 needs a per-frame split of 8-10-Odd, and the report only ever prints one for the single
 heaviest frame in the game.
+
+**That paragraph is wrong and it is kept because being wrong was the useful part.** The
+split got written — a list of every mesh and material pair in the frame worst by calls,
+printed sorted by name so two runs can be read against each other, and taking the row by
+name because the worst row moves: 4-10-Fast at 319 before the ending and 8-10-Odd at 345
+after, which are two different pieces of country. Taken at the same camera and the same
+second in both states it found 27 lines that were not there before and **none missing** —
+so nothing had split in two, and nothing was standing beside anything. Every one of the 27
+was a model that drew nothing at all in that frame until this tool touched it. The prefabs
+are not nested either: `SM_Env_Undergrowth_Fern_01` is referenced by no other prefab in the
+project.
+
+**What it actually was: the ending drew things further away.** That fern ships a one-level
+group at 0,036, which is the pack ending it at about fifteen metres. The ending wrote
+0,0044 in its place and drew it out to a hundred and twenty. A threshold is the share
+*below* which a level is not drawn, so a bigger one ends the model sooner — and an edge
+written in without looking at what was already there turns a culling pass into its
+opposite. Ten models in that one frame, 249 copies, 12 767 triangles of geometry somebody
+had deliberately culled, put back by the pass that existed to cull it.
+
+An edge is only ever moved sooner now, never later, on both paths. And a threshold already
+equal to the one the tool would write is its own output from a previous run rather than
+somebody else's decision: without that distinction a second run read back its own work as
+"the pack ends it nearer, leave it", and a sheet that had given 174 models an edge reported
+0 the next morning. The guard could not undo the first pass either — the pack's 0,036 was
+gone from the prefab and only in git — so the assets were rebuilt from 0736b90e with the
+guarded tool over them, and the fern carries 0,036 again.
+
+**Visible triangles 879 122 against the 900 408 the unguarded version gave**, instanced
+calls 335 at the worst row against 345. Over all ninety rows the calls now sum *lower* than
+before the ending, 22 361 to 22 343, with 18 rows carrying more rather than 42; triangles
+fell on every row and rose on none, 68 612k to 52 551k. 364 models carry a far edge, 139 of
+them with no mesh to spare, and 35 kept an edge of their own that was already nearer.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a
@@ -872,7 +905,7 @@ longer than the cast pass and none of which a screenshot would have shown. All e
 done; §4 has what they bought, what they cost and what they were hiding.
 
 1. **A build on a real device, and the frame rate.** The one line no instrument here can
-   reach, and the one that says whether 900 408 visible triangles is a problem at all.
+   reach, and the one that says whether 879 122 visible triangles is a problem at all.
    **There is no Android device to hand**, so nothing below waits on it any longer — but
    it stays at the top because it is still the measurement that would tell four burst
    lines whether their ceilings were ever right. The package is at
@@ -884,7 +917,7 @@ done; §4 has what they bought, what they cost and what they were hiding.
    project, hours each way, and a Windows build would not even carry the Android ceilings
    §4 set, so it would be a load time for different content.
 2. **The hundred and twenty metre floor, which is where the cost sits now.** The ending in
-   §4 settled the reeds and moved the heaviest frame from the marsh to 9-1-Odd at 900 408
+   §4 settled the reeds and moved the heaviest frame from the marsh to 9-1-Odd at 879 122
    triangles, and the top of that frame says plainly what the rule left behind. The pebbles
    did get an edge — `SM_Env_Rock_Pebbles_04` and `_02` are 150 faces and half a metre
    across, so the floor put them at exactly 120 m — and they are still 46,0k and 45,8k of
@@ -906,10 +939,21 @@ done; §4 has what they bought, what they cost and what they were hiding.
    repeated 294 times is the same arithmetic as the reeds and it wants its own answer.
    Lowering `Worthwhile` would not help: there is nothing in 187 faces to cut.
 
-   **The draw calls are the other thing §4 left open.** 319 to 345, 42 rows of 90 carrying
-   more, almost all in chapter 8 and all by 25 to 27, and the mechanism is an inference and
-   not a measurement. Settling it needs the per-frame split printed for the worst
-   instanced-call frame and not only for the heaviest one.
+   **And the pack's own near edges, which is the same fault one level up from the one §4
+   just fixed.** The draw calls are measured now rather than guessed: of the 27 batches the
+   ending added to 8-10-Odd, ten were the guard's to take back and **seventeen are still
+   there**. `SM_Env_Mushroom_Small_01` ships a single level at 0,2433, which is the pack
+   drawing it within about four metres and not beyond, and `Thinned` hangs two cheaper
+   rungs underneath that threshold — so it draws to 191 m now. Fifteen mushrooms and two
+   ferns in that one frame.
+
+   The guard does not reach it, and it should not reach it blindly: hanging cheap rungs
+   under a pack's tail is exactly what this tool is for on a tree. The meadow tree's last
+   level sits at 0,01, a reach of 1343 m on a map 256 m wide, and replacing that is the
+   whole point of §4. The difference is whether the pack's own edge already falls *inside*
+   the country — 0,2433 on a 1,3 m mushroom is four metres, and that is a decision, not a
+   desktop tail. A rule written on that distinction is the next thing to measure, and it
+   reaches all 793 thinned models rather than only the cover.
 
 3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
    decimator touches. 175 in frame and 194 standing against an allowance of 40 is a count
