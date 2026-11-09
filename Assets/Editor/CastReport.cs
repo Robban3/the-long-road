@@ -106,6 +106,16 @@ namespace TheVeil.Editor
             // different country.
             int worstCalls = 0;
             string worstCallsText = null;
+
+            // <b>And the rows asked for by name, because the worst row moves.</b> Run this
+            // against the prefabs as they were before the ground cover ending and the frame
+            // worst by calls is 4-10-Fast at 319; run it against them as they are and it is
+            // 8-10-Odd at 345. Diffing one against the other compares two different pieces
+            // of country, which is the fault this report has already made once and caught.
+            // So a row can be named on the command line - `-rows 8-1-Fast,8-10-Odd` - and
+            // its own call list is kept whatever else is worse.
+            var asked = Asked();
+            var byRow = new Dictionary<string, string>();
             string worstFrameAt = "-";
 
             foreach (int chapter in DifficultyCurve.Dressed)
@@ -136,6 +146,9 @@ namespace TheVeil.Editor
                             worstCallsText = calls;
                         }
 
+                        string row = $"{chapter}-{level}-{kind}";
+                        if (asked.Contains(row)) byRow[row] = calls;
+
                         sheet.AppendLine($"[Cast] {chapter}-{level,-2} {kind,-4} "
                                          + $"skinned {seen.Skinned,3} / {standing,3}  "
                                          + $"calls {seen.Materials,4} / {seen.Instanced,4}  "
@@ -165,6 +178,15 @@ namespace TheVeil.Editor
             BudgetReport.Bands("Cast", sheet, worstSpread, worstFrame, heaviest);
             if (!string.IsNullOrEmpty(worstEnding)) sheet.Append(worstEnding);
             if (!string.IsNullOrEmpty(worstCallsText)) sheet.Append(worstCallsText);
+
+            foreach (var pair in byRow)
+            {
+                sheet.AppendLine($"[Cast] and the call list for {pair.Key}, asked for by "
+                                 + "name so it can be read against another run of the same "
+                                 + "row:");
+
+                if (!string.IsNullOrEmpty(pair.Value)) sheet.Append(pair.Value);
+            }
             Debug.Log(sheet.ToString());
 
             QualitySettings.SetQualityLevel(wasQuality, true);
@@ -179,6 +201,31 @@ namespace TheVeil.Editor
         /// every step; moving a few hundred transforms eighty times a second of run and
         /// then looking at them twice would be most of this tool's cost for nothing.
         /// </summary>
+        /// <summary>
+        /// The rows whose call lists were asked for on the command line, as
+        /// <c>-rows 8-1-Fast,8-10-Odd</c>.
+        ///
+        /// Empty when nothing was asked, and then only the frame worst by calls is listed.
+        /// A row is named chapter-level-road, exactly as the per-row lines above print it.
+        /// </summary>
+        static HashSet<string> Asked()
+        {
+            var want = new HashSet<string>();
+            var args = System.Environment.GetCommandLineArgs();
+
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                if (args[i] != "-rows") continue;
+
+                foreach (string one in args[i + 1].Split(','))
+                    if (!string.IsNullOrWhiteSpace(one)) want.Add(one.Trim());
+
+                break;
+            }
+
+            return want;
+        }
+
         static BudgetReport.Seen Walk(LevelRunner runner, GameObject root, LevelMap map,
                                       BudgetReport.Standing country,
                                       int chapter, int level, CorridorKind kind, float fov,
@@ -317,8 +364,16 @@ namespace TheVeil.Editor
                                 // level that is torn down as soon as the row is finished.
                                 var told = new StringBuilder();
 
+                                // The view is named along with the row, because two runs
+                                // search for their own worst view independently and may
+                                // land on different ones - the camera is read at two
+                                // ranges, two aspects and every four seconds of the run.
+                                // If these two lines do not match, the lists below them
+                                // are not of the same frame and must not be diffed.
                                 BudgetReport.Batches("Cast", told,
-                                                     $"{chapter}-{level}-{kind}",
+                                                     $"{chapter}-{level}-{kind} at "
+                                                     + $"{range:0} m, aspect {aspect:0.00}, "
+                                                     + $"{seconds:0} s in",
                                                      both.Pieces, showing, view);
 
                                 calls = told.ToString();
