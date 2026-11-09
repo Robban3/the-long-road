@@ -28,8 +28,8 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 4,4× over, skinned meshes 4,4×, draw calls
-2,1×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
+country. Four are burst: visible triangles 3,6× over, skinned meshes 4,4×, draw calls
+2,3×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
@@ -241,8 +241,8 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 3 088 726 (4-10) | **1 095 894** (3-1-Odd) | 250 000 | over 4,4× |
-| draw calls, fully instanced | 228 | 229 (4-10) | **319** (4-10-Fast) | 150 | over 2,1× |
+| visible triangles | 7 503 276 | 3 088 726 (4-10) | **900 408** (9-1-Odd) | 250 000 | over 3,6× |
+| draw calls, fully instanced | 228 | 229 (4-10) | **345** (8-10-Odd) | 150 | over 2,3× |
 | draw calls, a material each | 54 | 39 (100-3) | 56 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **566 MB** (8-10) | — | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
@@ -263,7 +263,8 @@ on Ultra at 2,0, because that is the Standalone default; Android's default is Me
 it, so it draws a level or two further up its chain. Reading the same game at the shipped
 bias took it from 3 381 486 triangles to 1 918 163 and from 368 draw calls to 309, with
 nothing changed but the setting. **13,5× over the allowance was 7,7× all along**, and
-the pass below then took it to 4,4×. Both reports now read Android's default out of the project's own setting and
+the pass below then took it to 4,4× and the ending after that to 3,6×. Both reports now
+read Android's default out of the project's own setting and
 print which level they measured at, so the number cannot drift back without saying so.
 
 The correction was checked two ways before it was believed, because a budget line that
@@ -316,6 +317,40 @@ shape of something having stopped drawing: all ninety rows equal or lower and no
 the sum over them 110,6M to 68,6M; no level anywhere in the project lists no renderers, 0
 in 0 groups; and the skinned chains identical, 57 prefabs, 46 of them saving no skinning
 at the bottom, 175 in frame and 194 standing.
+
+**Then the thing that gate could not reach: ground cover ends now, and that took 4,4× to
+3,6×.** A 136-face reed standing 1 165 deep has nothing to hand a decimator — the cheapest
+rung is eighty faces and `Least` is twenty-four — and two reeds were 30 per cent of the
+worst frame in the game. Under three metres across, dressing rather than cast, and not
+bending, a model is no longer drawn below 0,005 of screen height: twelve pixels on a tall
+phone. 399 models carry that edge, 174 of them with no mesh to spare at all. **Visible
+triangles 1 095 894 to 900 408**, and the same three checks: all ninety rows fell and none
+rose, 68 612k to 53 048k in sum; 0 empty levels in 0 groups; the skinned chains untouched.
+
+**Three measurements changed the rule before it was written, and the third was a fault.**
+The camera decided the threshold and the fog did not: the camera stands 62 to 120 m back,
+so not one copy in that frame stood taller than 0,018 of the screen and 4 080 of 5 699
+stood below 0,005 — there is no threshold that takes only what cannot be seen. The marsh's
+own fog would have made it free, eating 92 per cent of a plant at 200 m, but fog is set per
+chapter while a threshold is baked into the prefab, and farmland runs 0,0007 and hides
+nothing at any range inside the map. Size alone very nearly ended a crow, which is thirty
+centimetres and would have stopped being drawn at forty-five metres; a reed and a crow are
+the same size, so the gate asks which list the model was read off rather than how big it
+is. And the first run of the rule did not give the small grass a far edge, it stopped
+drawing it anywhere — a three-decimetre tuft reaches twelve pixels at 46 m, nearer than the
+camera's own stand-off — while the sheet reported that as forty-six metres rather than as
+gone, because the line printing the reach had divided size by threshold and forgotten the
+lod bias. The identical fault, the same afternoon, as the one just corrected in the budget
+report. Both carry the bias now, the pass runs on the phone's quality so there is a bias to
+carry, and no edge falls nearer than 120 m.
+
+**The draw calls went the other way and it is not a moved worst frame.** 319 to 345, with
+42 of the 90 rows carrying more — almost all of them in chapter 8 and all by 25 to 27.
+Cover models join the set that owns its own renderers now, so a nested one stops being
+drawn inside its parent's merged far level and stands up its own mesh beside it, one more
+batch each. That is what the pattern points at rather than something measured: settling it
+needs a per-frame split of 8-10-Odd, and the report only ever prints one for the single
+heaviest frame in the game.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a
@@ -837,7 +872,7 @@ longer than the cast pass and none of which a screenshot would have shown. All e
 done; §4 has what they bought, what they cost and what they were hiding.
 
 1. **A build on a real device, and the frame rate.** The one line no instrument here can
-   reach, and the one that says whether 3,38M visible triangles is a problem at all.
+   reach, and the one that says whether 900 408 visible triangles is a problem at all.
    **There is no Android device to hand**, so nothing below waits on it any longer — but
    it stays at the top because it is still the measurement that would tell four burst
    lines whether their ceilings were ever right. The package is at
@@ -848,28 +883,33 @@ done; §4 has what they bought, what they cost and what they were hiding.
    player build — switching the active build target reimports every texture in the
    project, hours each way, and a Windows build would not even carry the Android ceilings
    §4 set, so it would be a load time for different content.
-2. **The reeds, and whether small ground cover should end rather than thin.** The pass in
-   §4 took the triangle line from 7,7× to 4,4× by chaining 793 models instead of 438, and
-   the gate at 200 faces moved the line rather than settling it. The heaviest frame in the
-   game is now 3-1-Odd at 1 095 894 triangles, and its top is exactly what sits just under
-   that gate: **`SM_Plant_Reeds_02` at 168 faces in 1 022 copies and `Reeds_01` at 136 in
-   1 165 — 30,1 % of the frame between them** — then ferns at 126 faces, a small rock at
-   186 and swamp growth at 120.
+2. **The hundred and twenty metre floor, which is where the cost sits now.** The ending in
+   §4 settled the reeds and moved the heaviest frame from the marsh to 9-1-Odd at 900 408
+   triangles, and the top of that frame says plainly what the rule left behind. The pebbles
+   did get an edge — `SM_Env_Rock_Pebbles_04` and `_02` are 150 faces and half a metre
+   across, so the floor put them at exactly 120 m — and they are still 46,0k and 45,8k of
+   the frame, 10,2 % between them, because every copy that counts stands *inside* that
+   floor. Nothing is being wasted beyond it any more. The question is no longer where cover
+   ends but how much of it stands within the only distance the camera ever works at.
 
-   A 136-face reed is a few crossed quads. There is nothing in it for a decimator: the
-   cheapest rung is eighty faces and `Least` is twenty-four, and a reed cut to either stops
-   being a reed before it stops being expensive. So lowering the gate again is the wrong
-   lever. What two thousand reeds want is **a last level that ends** instead of one that
-   runs to the horizon. `Thin`'s last rung sits at 0,000 and never culls, deliberately —
-   a level is 256 m across and the camera may stand 120 m back, so cutting a tree off at
-   two hundred metres would be seen. Nobody sees a single reed at a hundred and fifty.
+   That is a decorator question rather than an LOD one: 294 copies of a pebble patch
+   within 120 m of the camera is a density somebody chose, and no chain can argue with it.
+   Lowering the floor is the other lever and it is the one that shows — 120 m is the
+   furthest the camera stands from what it is aimed at, so anything nearer ends inside the
+   frame the player is reading.
 
-   That is a visible change to how the country looks, plants fading out at distance, and it
-   is a judgement about looks rather than a measurement. It also wants to apply to small
-   ground cover only and not to trees or buildings, which means the rule needs a way to
-   tell one from the other — face count and copy count together, probably, since 1 022
-   copies of 168 faces is the signature and a lone 168-face prop is not. `Cast Report`'s
-   share histogram now prints copies and faces each for exactly this reason.
+   **And two flat patches fall between both gates.** `SM_Env_Lava_Spread_02` at 187 faces
+   and `SM_Gen_Env_Ground_Dirt_01` at 154 are 92,9k of that frame, 10,3 %, and neither has
+   a chain at all: too few faces for the thinning gate at 200 and far too wide for the
+   cover gate at three metres, being 11,0 m and 4,5 m across. The gate was right to refuse
+   them — a hole in the ground is worse than a reed that stops — but a 187-face mesh
+   repeated 294 times is the same arithmetic as the reeds and it wants its own answer.
+   Lowering `Worthwhile` would not help: there is nothing in 187 faces to cut.
+
+   **The draw calls are the other thing §4 left open.** 319 to 345, 42 rows of 90 carrying
+   more, almost all in chapter 8 and all by 25 to 27, and the mechanism is an inference and
+   not a measurement. Settling it needs the per-frame split printed for the worst
+   instanced-call frame and not only for the heaviest one.
 
 3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
    decimator touches. 175 in frame and 194 standing against an allowance of 40 is a count
