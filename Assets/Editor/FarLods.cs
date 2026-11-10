@@ -260,12 +260,31 @@ namespace TheVeil.Editor
         /// The levels this tool adds under everything else: the share each is shown below,
         /// and how many faces it may spend there.
         ///
-        /// Three for a model that arrives with no chain at all, and the last two for one
+        /// Four for a model that arrives with no chain at all, and the last three for one
         /// that has a chain already - because a pack's own LOD0 and LOD1 are hand-made and
         /// worth keeping, and it is only the far end that was written for a desktop.
         ///
+        /// <b>The bottom rung was eighty faces, and eighty was dearer than the thing it
+        /// replaced.</b> A pack's own cheapest level is usually under that - the figure the
+        /// sheet now prints beside every model this pass rewrites, because the choice of
+        /// this number rested on it and it had never been counted - so wherever the
+        /// material rule sends the cut to a near level instead of the pack's own tail, this
+        /// tool was spending more at the horizon than the pack did. Seventeen of the ninety
+        /// measured rows carried more triangles after that rule than before it and one
+        /// carried more than before any of this work began.
+        ///
+        /// So the floor is thirty-two, and eighty is kept as a rung above it rather than
+        /// lowered: 0,035 of the screen is a hundred and twenty pixels of a 2400-pixel
+        /// phone at the phone's own lod bias and 0,012 is forty-one, and a tree may be a
+        /// box at forty-one pixels where at a hundred and twenty it may not. The extra rung
+        /// costs one mesh and one object per model and no draw call at all, because only one
+        /// level of a group is ever drawn. <see cref="Least"/> is twenty-four and it is per
+        /// piece, so a model cut in ten pieces has a bottom rung of two hundred and forty
+        /// faces whatever this table says - 63 of the 763 bottom rungs in the project are in
+        /// that position and the other 700 sat at exactly eighty.
+        ///
         /// <b>Nothing standing is ever culled.</b> The last entry's share is nought, so the
-        /// model is drawn at eighty faces out to the horizon rather than vanishing. Cutting
+        /// model is drawn at thirty-two faces out to the horizon rather than vanishing. Cutting
         /// trees off at two hundred metres would be cheaper and it would be seen: a level
         /// is 256 m across and the camera may stand 120 m back, so the far edge of the
         /// country is in frame.
@@ -278,7 +297,7 @@ namespace TheVeil.Editor
         {
             (0.090f, 900),
             (0.035f, 250),
-            (0.000f, 80),
+            (0.000f, 32),
         };
 
         /// <summary>
@@ -299,6 +318,14 @@ namespace TheVeil.Editor
         /// <summary>No generated piece is cut below this, however small its share.</summary>
         // Twenty-four faces is a box with a lid. Under that a decimation stops being a
         // simplification of the shape and becomes a different object.
+        //
+        // <b>It is per piece, and the bottom rung of Thin is per model, so on anything cut
+        // in more than one piece this is the figure that decides.</b> The covered wagon is
+        // ten renderers, so its bottom rung cannot go under two hundred and forty faces
+        // however low the table goes, and the war wagon is seventeen. Lowering the budget
+        // does nothing at all for those 63 models; it is the 700 single-piece ones it
+        // moves. Merging the pieces is what would move the rest, and merging is what the
+        // material rule forbids across two atlases - see Cheapest.
         internal const int Least = 24;
 
         /// <summary>Twice the tangent of half the shipped camera's field of view.</summary>
@@ -320,10 +347,18 @@ namespace TheVeil.Editor
         /// triangles, which is more than any single tree in that frame. Ten of those twelve
         /// were gathered by this tool and silently dropped here.
         ///
-        /// Two hundred, because the cheapest rung is eighty faces and a model under about
-        /// two hundred has no room left to give. The gate cannot see copy counts - that is
+        /// Two hundred, because the cheapest rung was eighty faces and a model under about
+        /// two hundred had no room left to give. The gate cannot see copy counts - that is
         /// the frame's business and <see cref="CastReport"/>'s - so it is set where a chain
         /// still has something to cut rather than where a model starts looking large.
+        ///
+        /// <b>The floor it was reasoned from is thirty-two now, and this number has not
+        /// been moved to match.</b> At a thirty-two-face floor a 136-face reed does have
+        /// something to hand over, and two of those reeds are 30 per cent of the heaviest
+        /// frame in the game - so the next place to look is here. It is left at two hundred
+        /// until that is measured, because lowering it admits a class of model this tool has
+        /// never touched, and what a decimator does to a 90-face plant is a question no
+        /// number in this file answers.
         /// </summary>
         const int Worthwhile = 200;
 
@@ -500,6 +535,14 @@ namespace TheVeil.Editor
             var further = new List<string>();
             var nearer = new List<string>();
 
+            // What the models' own cheapest levels cost, which is what this tool's bottom
+            // rung has to beat and had never been counted; the models where it does not;
+            // and the rungs that came back too dear to stand. The first is a distribution
+            // and not a list of names, because the number read off it sets the table.
+            var seeds = new List<int>();
+            var dearer = new List<string>();
+            var turned = new List<string>();
+
             // Which models this run will give a chain to, settled before any of them is
             // touched. A nested model's renderers are its own business only if a chain is
             // actually coming for them, and a HashSet has no order, so asking mid-run
@@ -593,7 +636,8 @@ namespace TheVeil.Editor
 
                 string story = Thinned(path, handled, cover,
                                        out int wasFar, out int nowFar, out float span,
-                                       out float authored, out float finished);
+                                       out float authored, out float finished,
+                                       out int had, out int got, out string refused);
 
                 if (story == null) { skipped++; continue; }
                 if (story.Length > 0) { failed++; sheet.AppendLine($"[Lod]   {prop.name}: {story}"); continue; }
@@ -617,6 +661,22 @@ namespace TheVeil.Editor
                 if (!cover && authored > 0f && finished < authored * 0.99f)
                     nearer.Add($"{prop.name,-38} its author drew it to {authored,5:0} m, "
                                + $"this draws it to {finished,5:0} m");
+
+                // The third thing it must not do, and the one that had no list until the
+                // bottom rung was measured: spend more at the horizon than the model's own
+                // author did. Counted on every model, so the number the rung is set from is
+                // a reading and not a recollection.
+                if (had > 0)
+                {
+                    seeds.Add(had);
+
+                    if (got > 0 && got >= had)
+                        dearer.Add($"{prop.name,-38} its own cheapest level is {had,6} "
+                                   + $"faces, the cheapest this builds is {got,6}");
+                }
+
+                if (refused != null)
+                    turned.Add($"{prop.name,-38} {refused}");
 
                 if (cover)
                 {
@@ -664,6 +724,43 @@ namespace TheVeil.Editor
 
             foreach (string one in nearer) sheet.AppendLine($"[Lod]   nearer {one}");
 
+            // What the bottom rung is measured against. The rung is set from this
+            // distribution, so it is printed every run rather than quoted from the run it
+            // was set on - the packs are what they are and this tool's floor has to be
+            // under them.
+            if (seeds.Count > 0)
+            {
+                seeds.Sort();
+
+                int under = 0;
+                foreach (int one in seeds) if (one <= Thin[Thin.Length - 1].Faces) under++;
+
+                sheet.AppendLine($"[Lod] the cheapest level those {seeds.Count} models "
+                                 + $"already had: {seeds[0]} faces at the lowest, "
+                                 + $"{seeds[seeds.Count / 4]} at the first quarter, "
+                                 + $"{seeds[seeds.Count / 2]} in the middle, "
+                                 + $"{seeds[seeds.Count * 3 / 4]} at the third quarter, "
+                                 + $"{seeds[seeds.Count - 1]} at the highest - and "
+                                 + $"{under} of them are at or under the "
+                                 + $"{Thin[Thin.Length - 1].Faces} faces of this tool's "
+                                 + "bottom rung, which is what it cannot beat");
+            }
+
+            dearer.Sort();
+            turned.Sort();
+
+            sheet.AppendLine($"[Lod] {dearer.Count} end up with a cheapest level no cheaper "
+                             + "than the one they arrived with, which is the seventeen rows "
+                             + "that went backwards and is meant to be a short list:");
+
+            foreach (string one in dearer) sheet.AppendLine($"[Lod]   dearer {one}");
+
+            sheet.AppendLine($"[Lod] and {turned.Count} had a rung refused for coming back "
+                             + "within a fifth of the level above it - a budget is a request "
+                             + "and the decimator stops where it runs out of edges:");
+
+            foreach (string one in turned) sheet.AppendLine($"[Lod]   turned {one}");
+
             sheet.AppendLine($"[Lod] {touched} rebuilt, {onlyEdge} given an edge and nothing "
                              + $"else, {skipped} left alone, {failed} refused, {rigged} of "
                              + $"them skinned - and {ended} carry a far edge in all, of which "
@@ -685,16 +782,27 @@ namespace TheVeil.Editor
         ///
         /// Returns null when there was nothing to do, an empty string on success, and the
         /// trouble otherwise - so the caller can tell "already fine" from "would not".
+        ///
+        /// <paramref name="had"/> is what the cheapest level the model already had costs,
+        /// <paramref name="got"/> what the cheapest level this pass built costs, and
+        /// <paramref name="refused"/> the rungs that came back too dear to keep. The three
+        /// of them are the one question this tool got wrong for a month - whether its cheap
+        /// level is actually cheaper than the author's - asked of every model it touches
+        /// instead of reasoned about in a comment.
         /// </summary>
         static string Thinned(string path, HashSet<string> handled, bool ending,
                               out int wasFar, out int nowFar, out float span,
-                              out float authored, out float finished)
+                              out float authored, out float finished,
+                              out int had, out int got, out string refused)
         {
             wasFar = 0;
             nowFar = 0;
             span = 0f;
             authored = 0f;
             finished = 0f;
+            had = 0;
+            got = 0;
+            refused = null;
 
             var root = PrefabUtility.LoadPrefabContents(path);
             if (root == null) return "the prefab would not open";
@@ -894,6 +1002,8 @@ namespace TheVeil.Editor
                 foreach (var renderer in seed) seedFaces += Faces(renderer);
                 if (seedFaces <= 0) { seed = near; seedFaces = nearFaces; }
 
+                had = seedFaces;
+
                 for (int rung = from; rung < Thin.Length; rung++)
                 {
                     // <b>Never below the author's own edge on ground cover, and this is the
@@ -933,7 +1043,44 @@ namespace TheVeil.Editor
 
                     if (made == null || made.Length == 0) continue;
 
-                    foreach (var renderer in made) nowFar += Faces(renderer);
+                    // <b>And what came back is counted, because the budget is a request and
+                    // not a result.</b> The decimator stops when it runs out of edges it may
+                    // collapse, and on some meshes that is nowhere near the budget: every
+                    // one of the covered wagon's three rungs came back at 25 152 faces
+                    // against a source of 25 164, and the fox's eighty-face rung came back
+                    // at exactly the 463 faces of the rung above it. Those are not far
+                    // levels. They are the same model again, stored a second time, drawn at
+                    // the same cost at every distance, and counted as a saving by every
+                    // sheet here because the sheets printed the budget.
+                    //
+                    // A fifth off, or it does not stand. The margin is small on purpose: a
+                    // rung that reaches only a third of its budget is still worth having if
+                    // it halves the band it draws, and it is the near-copies that have to
+                    // go. The objects are destroyed rather than left standing, because a
+                    // renderer under an LODGroup that no level lists is drawn at every
+                    // distance - which is worse than the level it was refused for being.
+                    int spent = 0;
+                    foreach (var renderer in made) spent += Faces(renderer);
+
+                    int above = 0;
+                    foreach (var renderer in Live(keep[keep.Count - 1])) above += Faces(renderer);
+
+                    if (above > 0 && spent * 5 > above * 4)
+                    {
+                        refused = refused == null
+                            ? $"rung {rung} asked {Thin[rung].Faces} and got {spent} "
+                              + $"against {above} above it"
+                            : refused + $"; rung {rung} asked {Thin[rung].Faces} and got "
+                              + $"{spent} against {above} above it";
+
+                        foreach (var renderer in made)
+                            if (renderer != null) Object.DestroyImmediate(renderer.gameObject);
+
+                        continue;
+                    }
+
+                    nowFar += spent;
+                    got = spent;
 
                     keep.Add(new LOD
                     {
@@ -996,10 +1143,21 @@ namespace TheVeil.Editor
                 // at nought for anything standing - this project culls none of that - and at
                 // the author's own edge for ground cover, which may vanish but not further
                 // out than its author ever drew it.
+                //
+                // <b>And it is asked of every model, not only of the ones that arrived with
+                // a chain - which it was until the rung refusals above existed.</b> A model
+                // that arrives bare has its own first level written at 0,25 and its rungs
+                // hung underneath, and the last of those always landed at nought, so this
+                // never had anything to do for it. A refused rung changed that: the covered
+                // wagon's rungs were all refused as copies and its chain then ended at 0,09,
+                // which on a wagon 3,2 m across is a cull at 27 m - and fifteen soldiers,
+                // three wagons, four huts and a tent came out of the same run ending at
+                // 0,012 where they had ended at nought. Twenty-four models culled by a rule
+                // written to save triangles, caught by reading the chains and not the
+                // budget, because the budget shows a cull as a saving.
                 float lowest = ending ? given : 0f;
 
-                if (own >= 0f
-                    && keep[keep.Count - 1].screenRelativeTransitionHeight > lowest)
+                if (keep[keep.Count - 1].screenRelativeTransitionHeight > lowest)
                 {
                     int tail = -1;
 
@@ -1028,7 +1186,9 @@ namespace TheVeil.Editor
                     else
                     {
                         // Whatever is cheapest in the chain already runs on down to the
-                        // floor instead, which on a rung of ours is eighty faces.
+                        // floor instead - a rung of ours at thirty-two faces where one
+                        // stands, and the model's own near level where every rung was
+                        // refused, which is what it drew before this tool existed.
                         var low = keep[keep.Count - 1];
                         low.screenRelativeTransitionHeight = lowest;
                         keep[keep.Count - 1] = low;

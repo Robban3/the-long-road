@@ -28,8 +28,8 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 3,3× over, skinned meshes 4,2×, draw calls
-2,0×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
+country. Four are burst: visible triangles 2,6× over, skinned meshes 4,2×, draw calls
+2,1×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
@@ -241,10 +241,10 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 757 756 (9-1) | **837 427** (9-5-Odd) | 250 000 | over 3,3× |
-| draw calls, fully instanced | 228 | 252 (1-8) | **303** (8-10-Safe) | 150 | over 2,0× |
-| draw calls, a material each | 54 | 47 (4-7) | 56 (4-10-Fast) | 150 | within |
-| memory | 777 MB | **641 MB** (4-6) | — | 700 MB | within |
+| visible triangles | 7 503 276 | 559 818 (9-1) | **653 385** (9-5-Odd) | 250 000 | over 2,6× |
+| draw calls, fully instanced | 228 | 248 (1-8) | **309** (4-10-Fast) | 150 | over 2,1× |
+| draw calls, a material each | 54 | 43 (4-10) | 59 (4-10-Fast) | 150 | within |
+| memory | 777 MB | **640 MB** (4-6) | — | 700 MB | within |
 | level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
 | skinned meshes | not measurable | 0, scenery has none | **169 in frame, 191 standing** | 40 | over 4,2× |
 | package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
@@ -320,7 +320,7 @@ at the bottom, 175 in frame and 194 standing.
 
 **Then the thing that gate could not reach: ground cover ends now, and that took 4,4× to
 3,6×.** A 136-face reed standing 1 165 deep has nothing to hand a decimator — the cheapest
-rung is eighty faces and `Least` is twenty-four — and two reeds were 30 per cent of the
+rung was eighty faces then and `Least` is twenty-four — and two reeds were 30 per cent of the
 worst frame in the game. Under three metres across, dressing rather than cast, and not
 bending, a model is no longer drawn below 0,005 of screen height: seventeen pixels on a tall
 phone. 399 models carry that edge, 174 of them with no mesh to spare at all. **Visible
@@ -432,7 +432,9 @@ carries more than the state before the ending as well: 642,6k then, 621,9k yeste
 work started, and it is the price of the material rule below — the sum over every rebuilt
 model says the same thing, 625,9k faces of far levels without that rule and 641,2k with it,
 because the cheapest rung this tool spends is eighty faces and several packs' own tails are
-forty. The per-frame split for that row was not taken; the sum was.
+forty. The per-frame split for that row was not taken; the sum was. **Those seventeen rows
+are gone and so is that one: the floor below undid all of it, and every one of the ninety
+now carries fewer triangles than it did before any of this began.**
 
 The pass now prints both directions of that over every model it rewrites: how far the
 author drew it and how far it leaves it. 80 are drawn further, every one a tree or a
@@ -508,8 +510,65 @@ So a far level may not bring a material the model does not already draw up close
 and the fox keep what `Cheapest` was written for — a merged far level painted with the same
 character texture is a subset and passes — and the trees go back to being cut from LOD0.
 **Memory 821 MB to 641 MB, inside the budget**, for nine draw calls and the seventeen rows
-above. Both of the remaining ways out are measurable: a cheapest rung under eighty faces, or
-repainting a pack's far mesh with the near material where the UVs allow it.
+above. Both of the remaining ways out were measurable: a cheapest rung under eighty faces,
+which is the next passage and is done, or repainting a pack's far mesh with the near
+material where the UVs allow it, which is not.
+
+**The cheapest rung is thirty-two faces now, and it is the largest single thing this tool
+has done since it was written.** Eighty was not reasoned from anything the project had
+measured; it was picked, and then every other number in the file was reasoned from it —
+`Worthwhile` sits at two hundred because "a model under about two hundred has no room left
+to give" at an eighty-face floor. The pass prints what it is actually measured against now,
+over all 793 models it rebuilds: the cheapest level each one already had is 21 faces at the
+lowest, 416 at the first quarter, 872 in the middle and 2 046 at the third quarter, and
+**5 of the 793 are at or under 32 faces**. Twenty-four is the floor per piece and it does
+not move, which is what decides on anything cut in more than one piece: the covered wagon
+is ten renderers, so its bottom rung cannot go under two hundred and forty faces whatever
+the table says. 700 of the 763 bottom rungs in the project were single-piece and sat at
+exactly eighty.
+
+**Scenery triangles 757 756 to 559 818, 3,0× over to 2,2×. With the cast in the frame
+837 427 to 653 385, 3,3× to 2,6×, and instanced calls 312 to 309.** Over all ninety rows
+the triangles fell on every one and rose on none, 50 454k to 39 383k; the calls fell on 87
+and rose on 3, by one each, 21 896 to 21 626. Against the state before the ending began the
+triangles are lower on all ninety, 68 612k to 39 383k, and only one row carries more calls.
+Memory 641 MB to 640, load 126 to 116 hundredths, the skinned chains byte-identical, 386
+tests with none failing. The far levels of the rebuilt models were 641,2k faces and are
+477,1k. `SM_Env_GroundCover_03_Far2_0` was 5,9 per cent of the heaviest frame in the game
+and is no longer in its top seven.
+
+**A rung is refused now if what came back is not a fifth cheaper than the level above it,
+and that is a second fault this found rather than a tidying.** The budget is a request: the
+decimator stops where it runs out of edges it may collapse, and every one of the covered
+wagon's three rungs came back at 25 152 faces against a source of 25 164, while the fox's
+eighty-face rung came back at exactly the 463 faces of the rung above it. Those were not
+far levels — they were the same model stored a second time, drawn at the same cost at every
+distance, and counted as a saving by every sheet here, because the sheets printed the
+budget and not the result. 122 rungs are refused on that test and 35 chains are a level
+shorter for it.
+
+**And the first version of that refusal culled twenty-four models, which the budget
+reported as a win.** A refused rung leaves the chain ending at the rung above it: the
+wagon's chain ended at 0,09, which on a wagon 3,2 m across is a cull at 27 m, and fifteen
+soldiers, three wagons, four huts and a tent came out of that run ending at 0,012 where
+they had ended at nought. The guard against exactly this was already in the file and it was
+asked only of models that arrived with a chain of their own — a bare model's rungs had
+always landed at nought on their own, so it had never had anything to do. It is asked of
+every model now. **It was caught by reading the 886 chain ends out of the prefabs and
+comparing them with the shipped ones, not by any of the four reports**, because a cull and
+a saving are the same measurement from the budget's side: that run showed 650 309 triangles
+and looked like the better of the two. All 886 now end exactly where the shipped state ends
+them, none nearer and none further.
+
+**An extra rung was measured and thrown away, and the line it moved was the other one.**
+The first design kept eighty as a rung at 0,012 and put thirty-two underneath it, so that
+nothing lost its silhouette in the band from a hundred and twenty pixels down to
+forty-one. It cost 14 per cent more draw calls — **on all ninety rows, every one of them**
+— because two levels of one model in one frame are two instanced batches where one was
+enough, and it bought 13 per cent fewer triangles. Calls are the worse line of the two
+here, so the rung went and thirty-two runs the whole band below 0,035. That is a judgement
+about how a tree at a hundred and twenty pixels may look, taken against a measurement, and
+it is the one thing in this passage a photograph could still overturn.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a
@@ -723,10 +782,11 @@ of the screen and not a distance, deliberately: a tree and a mountain range both
 their detail while they are large in frame and they are large at wildly different
 distances, so a rule in metres either strips the mountain or spares the tree. Nothing
 below 5,5 % of screen height keeps a hand-made level. Under that, this tool's own levels
-take over at 250 faces and then 80, and a model that arrived with no chain gets a 900-face
+take over at 250 faces and then 80 — thirty-two since the floor was measured, which is
+later in this section — and a model that arrived with no chain gets a 900-face
 rung above those so it does not fall from everything to nine hundred in one step.
-**Nothing is culled** — the last level's share is nought, so a tree is drawn at eighty
-faces to the horizon rather than vanishing, which on a 256 m map with the camera 120 m
+**Nothing is culled** — the last level's share is nought, so a tree is drawn at the floor
+out to the horizon rather than vanishing, which on a 256 m map with the camera 120 m
 back would be seen. **LOD0 is untouched everywhere.** The budget is split between a
 model's renderers in proportion to what they already cost, so a tree spends it on its
 trunk and a little on its branches rather than halving both.
