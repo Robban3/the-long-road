@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &3757109599224033816
+--- !u!1 &3706612136212955238
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,76 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 4568972099867453602}
-  - component: {fileID: 8733078101749899219}
-  m_Layer: 0
-  m_Name: SM_Env_Wildflowers_01
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &4568972099867453602
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3757109599224033816}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 4311161470972628767}
-  - {fileID: 5114212764607291491}
-  - {fileID: 1193047027881902566}
-  - {fileID: 1063306684098772302}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &8733078101749899219
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3757109599224033816}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0.28387812, z: 0.052380204}
-  m_Size: 0.74105614
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.39732513
-    fadeTransitionWidth: 0.1
-    renderers:
-    - renderer: {fileID: 2315511325934681115}
-  - screenRelativeHeight: 0.0794188
-    fadeTransitionWidth: 0.1
-    renderers:
-    - renderer: {fileID: 2309880613251582699}
-  - screenRelativeHeight: 0.035
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 510670162569962863}
-  - screenRelativeHeight: 0.0052238298
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 3985497998431930066}
-  m_Enabled: 1
---- !u!1 &3876419358974895040
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1063306684098772302}
-  - component: {fileID: 4780548524681706343}
-  - component: {fileID: 510670162569962863}
+  - component: {fileID: 3661464378055844123}
+  - component: {fileID: 7801512436746720484}
+  - component: {fileID: 3234973009092221297}
   m_Layer: 0
   m_Name: Far LOD 10
   m_TagString: Untagged
@@ -85,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1063306684098772302
+--- !u!4 &3661464378055844123
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3876419358974895040}
+  m_GameObject: {fileID: 3706612136212955238}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -100,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 4568972099867453602}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &4780548524681706343
+--- !u!33 &7801512436746720484
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3876419358974895040}
+  m_GameObject: {fileID: 3706612136212955238}
   m_Mesh: {fileID: 4300000, guid: b132be0d7759ea643ab857f5e81ea1fc, type: 2}
---- !u!23 &510670162569962863
+--- !u!23 &3234973009092221297
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3876419358974895040}
+  m_GameObject: {fileID: 3706612136212955238}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -157,6 +90,73 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &3757109599224033816
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4568972099867453602}
+  - component: {fileID: 8733078101749899219}
+  m_Layer: 0
+  m_Name: SM_Env_Wildflowers_01
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4568972099867453602
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3757109599224033816}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 4311161470972628767}
+  - {fileID: 5114212764607291491}
+  - {fileID: 1193047027881902566}
+  - {fileID: 3661464378055844123}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &8733078101749899219
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3757109599224033816}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0, y: 0.28387812, z: 0.052380204}
+  m_Size: 0.74105614
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.39732513
+    fadeTransitionWidth: 0.1
+    renderers:
+    - renderer: {fileID: 2315511325934681115}
+  - screenRelativeHeight: 0.0794188
+    fadeTransitionWidth: 0.1
+    renderers:
+    - renderer: {fileID: 2309880613251582699}
+  - screenRelativeHeight: 0.035
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 3234973009092221297}
+  - screenRelativeHeight: 0.0052238298
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 3985497998431930066}
+  m_Enabled: 1
 --- !u!1 &5468929494252593706
 GameObject:
   m_ObjectHideFlags: 0

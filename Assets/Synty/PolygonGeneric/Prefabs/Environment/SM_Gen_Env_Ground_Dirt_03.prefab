@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &4601012232773987259
+--- !u!1 &1637703626600066269
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3514537913471902946}
-  - component: {fileID: 7329083330489317579}
-  - component: {fileID: 4244168706226972409}
+  - component: {fileID: 8146745329775559224}
+  - component: {fileID: 1472912940697402259}
+  - component: {fileID: 1023412723400617487}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3514537913471902946
+--- !u!4 &8146745329775559224
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4601012232773987259}
+  m_GameObject: {fileID: 1637703626600066269}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 8082358113927854324}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &7329083330489317579
+--- !u!33 &1472912940697402259
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4601012232773987259}
+  m_GameObject: {fileID: 1637703626600066269}
   m_Mesh: {fileID: 4300000, guid: 023ab03a55714284a9d9e5411b8da12c, type: 2}
---- !u!23 &4244168706226972409
+--- !u!23 &1023412723400617487
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4601012232773987259}
+  m_GameObject: {fileID: 1637703626600066269}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -102,7 +102,7 @@ GameObject:
   - component: {fileID: 5153690776477464401}
   - component: {fileID: 6944939016147272603}
   - component: {fileID: 2242198791789316454}
-  - component: {fileID: 3901100370139750847}
+  - component: {fileID: 1478143592110946200}
   m_Layer: 0
   m_Name: SM_Gen_Env_Ground_Dirt_03
   m_TagString: Untagged
@@ -123,7 +123,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 3514537913471902946}
+  - {fileID: 8146745329775559224}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &5153690776477464401
@@ -205,7 +205,7 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -4275138184223381194, guid: 97036b22bba62f74eb7b2c342d28b701, type: 3}
---- !u!205 &3901100370139750847
+--- !u!205 &1478143592110946200
 LODGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -226,5 +226,5 @@ LODGroup:
   - screenRelativeHeight: 0
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 4244168706226972409}
+    - renderer: {fileID: 1023412723400617487}
   m_Enabled: 1

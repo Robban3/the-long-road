@@ -28,7 +28,7 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 2,6× over, skinned meshes 4,2×, draw calls
+country. Four are burst: visible triangles 2,5× over, skinned meshes 4,2×, draw calls
 2,1×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
@@ -241,11 +241,11 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 559 818 (9-1) | **653 385** (9-5-Odd) | 250 000 | over 2,6× |
-| draw calls, fully instanced | 228 | 248 (1-8) | **309** (4-10-Fast) | 150 | over 2,1× |
-| draw calls, a material each | 54 | 43 (4-10) | 59 (4-10-Fast) | 150 | within |
-| memory | 777 MB | **640 MB** (4-6) | — | 700 MB | within |
-| level load | 2,52 s | noisy, 2,0–4,1 s | — | 2,0 s | not measurable here |
+| visible triangles | 7 503 276 | 507 109 (4-7) | **614 412** (4-1-Safe) | 250 000 | over 2,5× |
+| draw calls, fully instanced | 228 | 248 (1-8) | **310** (4-10-Fast) | 150 | over 2,1× |
+| draw calls, a material each | 54 | 42 (4-10) | 58 (4-10-Fast) | 150 | within |
+| memory | 777 MB | **637 MB** (4-6) | — | 700 MB | within |
+| level load | 2,52 s | 1,94–2,06 s worst of 100 | — | 2,0 s | sitting on the line |
 | skinned meshes | not measurable | 0, scenery has none | **169 in frame, 191 standing** | 40 | over 4,2× |
 | package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
 | frame rate | never measured | — | — | 60 fps | needs a phone |
@@ -305,7 +305,9 @@ walks the object graph now, following this project's own classes, so the next ne
 needs no edit: 952 models gathered before and 1 059 after, 107 of them buildings this tool
 had never been offered. `Worthwhile` is 200 rather than 600, because six hundred asks
 whether a model is big and what costs a frame is a model's total in it — 328 copies of a
-330-face grass is 108 200 triangles, more than any single tree in that frame. A rung that
+330-face grass is 108 200 triangles, more than any single tree in that frame. (Forty since
+the floor was measured; two hundred was the same mistake one step smaller, and the passage
+on the floor below says what it was hiding.) A rung that
 is not cheaper than what it is cut from is skipped, since `Level` falls back to the source
 mesh when the budget does not bite and would otherwise stand a second renderer up drawing
 exactly what the one above it draws. And a skipped model prints its name.
@@ -569,6 +571,47 @@ enough, and it bought 13 per cent fewer triangles. Calls are the worse line of t
 here, so the rung went and thirty-two runs the whole band below 0,035. That is a judgement
 about how a tree at a hundred and twenty pixels may look, taken against a measurement, and
 it is the one thing in this passage a photograph could still overturn.
+
+**Then the gate, which was the last number in the file that had been reasoned from eighty
+rather than measured.** `Worthwhile` is forty now and it is arithmetic: the floor is
+thirty-two and a rung is refused unless it comes back a fifth cheaper than the level above
+it, so under forty faces no rung this tool owns can stand at all, and above forty the
+outcome decides model by model instead of one round number deciding for every model at
+once. That is the whole reason the gate was ever set high — it was standing in for a check
+on the result that did not exist until the passage above.
+
+**What two hundred was hiding is the uncomfortable part: the heaviest single line of the
+heaviest frame in the game was behind it.** `SM_Env_Lava_Spread_02` at 187 faces drew 82,7k
+triangles there, 12,7 per cent of that frame on its own, with `SM_Gen_Env_Ground_Dirt_01`
+at 154 faces and `SM_Env_GroundCover_02` at 168 two more of the top five. Both reeds — the
+136 and 168 faces that `CoverEnds` says cannot be thinned, in 5 699 copies — are thinned as
+well as ended now. 65 models sat between forty and two hundred with something to give, and
+a per-item threshold cannot see a population: this was the same mistake as the six hundred
+it replaced, made one step smaller.
+
+**Scenery triangles 559 818 to 507 109, 2,2× over to 2,0×, and the worst scenery frame
+moved from 9-1 to 4-7. With the cast 653 385 to 614 412, 2,6× to 2,5×.** Instanced calls
+248 unchanged in the scenery and 309 to 310 with the cast. Over all ninety rows the
+triangles fell on every one and rose on none, 39 383k to 31 980k; the calls rose on 9 rows
+by one to four each and fell on 21, 21 626 to 21 603. Memory 640 MB to 637. 982 chains
+rebuilt against 793, 60 models left alone for being under forty faces against 125, 122
+rungs refused, the `dearer` and `nearer` lists both empty, 0 empty levels in 0 groups, the
+skinned chains still byte-identical to the shipped ones, 386 tests with none failing. All
+886 chains that existed before end exactly where they did, and the 53 chains that are new
+all end at nought — nothing in the project is culled that was not culled before.
+
+**And it costs something no line of the budget has a row for, which is why this is written
+down rather than left in the commit.** The levels stand up 8,5 per cent more objects:
+1 946 874 pieces over the hundred levels against 2 112 803, worst single level +4 726 on
+3-6, because a chain on a model standing three hundred deep is three hundred more
+GameObjects. The load figure moved with it — 76,8 s to 84,7 s summed over the hundred,
+slower on 76 of them — and the worst-of-100 reading the sheet prints is now 1,94 s and
+2,06 s on two runs over identical assets, sitting on a 2,0 s line it had been well under.
+The triangle line is the burst one and this was the trade, but **the object count is a CPU
+cost on a phone and nothing here measures that**: it is the first thing to look at when a
+device is finally in hand, along with the two meadow trees' hand-made LOD1 levels, which
+are 59 per cent of the heaviest frame now that everything around them is cheaper and which
+this tool deliberately never touches.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a
@@ -1124,6 +1167,11 @@ done; §4 has what they bought, what they cost and what they were hiding.
    them — a hole in the ground is worse than a reed that stops — but a 187-face mesh
    repeated 294 times is the same arithmetic as the reeds and it wants its own answer.
    Lowering `Worthwhile` would not help: there is nothing in 187 faces to cut.
+   **That last sentence was wrong and the gate at forty settled it: both of them carry a
+   two-level chain now, 187 faces to 32 and 154 to 31, and the level this frame was read
+   off fell from 559,8k triangles to 354,9k.** There were 32 faces in 187 to cut. The
+   inference was made from the same table the gate was set from, which is how a number
+   that was never measured defends itself.
 
    **The seventeen batches that were left are fixed and they were never the pack's doing**
    — see §4. Of the 27 the ending added to 8-10-Odd, ten were the first guard's to take

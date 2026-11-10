@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &150947150984739912
+--- !u!1 &1634155320183651696
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1191190833220292011}
-  - component: {fileID: 2970511418562962998}
-  - component: {fileID: 4587241773461523229}
+  - component: {fileID: 5864514820215549197}
+  - component: {fileID: 3881120187349458441}
+  - component: {fileID: 1667051638118110989}
   m_Layer: 0
   m_Name: Far LOD 10
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1191190833220292011
+--- !u!4 &5864514820215549197
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 150947150984739912}
+  m_GameObject: {fileID: 1634155320183651696}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 5060685798595569963}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &2970511418562962998
+--- !u!33 &3881120187349458441
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 150947150984739912}
+  m_GameObject: {fileID: 1634155320183651696}
   m_Mesh: {fileID: 4300000, guid: 7f75390274cfb2349b465c1fa52e8947, type: 2}
---- !u!23 &4587241773461523229
+--- !u!23 &1667051638118110989
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 150947150984739912}
+  m_GameObject: {fileID: 1634155320183651696}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -212,7 +212,7 @@ Transform:
   m_Children:
   - {fileID: 6894035100073441836}
   - {fileID: 1757862900961797666}
-  - {fileID: 1191190833220292011}
+  - {fileID: 5864514820215549197}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!205 &27361632655613530
@@ -236,7 +236,7 @@ LODGroup:
   - screenRelativeHeight: 0.035
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 4587241773461523229}
+    - renderer: {fileID: 1667051638118110989}
   - screenRelativeHeight: 0.01
     fadeTransitionWidth: 0
     renderers:

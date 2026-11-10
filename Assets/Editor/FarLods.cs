@@ -352,15 +352,23 @@ namespace TheVeil.Editor
         /// the frame's business and <see cref="CastReport"/>'s - so it is set where a chain
         /// still has something to cut rather than where a model starts looking large.
         ///
-        /// <b>The floor it was reasoned from is thirty-two now, and this number has not
-        /// been moved to match.</b> At a thirty-two-face floor a 136-face reed does have
-        /// something to hand over, and two of those reeds are 30 per cent of the heaviest
-        /// frame in the game - so the next place to look is here. It is left at two hundred
-        /// until that is measured, because lowering it admits a class of model this tool has
-        /// never touched, and what a decimator does to a 90-face plant is a question no
-        /// number in this file answers.
+        /// <b>Forty, and it is arithmetic now rather than a judgement.</b> The floor is
+        /// thirty-two faces and a rung is refused unless it comes back a fifth cheaper than
+        /// the level above it, so under forty faces no rung this tool owns can stand at all
+        /// - and above forty the outcome decides, model by model, instead of one round
+        /// number deciding for every model at once. That is the whole reason this gate was
+        /// ever set high: it was standing in for a check on the result that did not exist.
+        ///
+        /// What two hundred was hiding is the uncomfortable part. 65 models sat between the
+        /// two figures with something to give, and **the heaviest single line of the
+        /// heaviest frame in the game was one of them**: `SM_Env_Lava_Spread_02` at 187
+        /// faces drew 82,7k triangles there, 12,7 per cent of that frame on its own, with
+        /// `SM_Gen_Env_Ground_Dirt_01` at 154 faces and `SM_Env_GroundCover_02` at 168 two
+        /// more of the top five. A per-item threshold cannot see a population, and this one
+        /// was keeping the three best cuts in the game out of the pass by the same mistake
+        /// as the six hundred it replaced.
         /// </summary>
-        const int Worthwhile = 200;
+        const int Worthwhile = 40;
 
         /// <summary>
         /// How wide a thing may be, in metres, and still count as ground cover.
@@ -404,9 +412,15 @@ namespace TheVeil.Editor
         /// What the frame said. The heaviest frame in the game is in the marsh, and 61 per
         /// cent of it is ground cover: 98 models in 5 699 copies, 671,8k triangles, of
         /// which two reeds at 136 and 168 faces are 30 per cent on their own. None of it
-        /// can be thinned - the cheapest rung this tool owns is eighty faces and
-        /// <see cref="Least"/> is twenty-four, so a 136-face reed has nothing to hand over.
-        /// Ending it is the only lever left.
+        /// could be thinned when this was written - the cheapest rung this tool owned was
+        /// eighty faces and <see cref="Least"/> is twenty-four, so a 136-face reed had
+        /// nothing to hand over, and ending it was the only lever left.
+        ///
+        /// <b>Both of those reeds are thinned as well as ended now</b>, at a thirty-two
+        /// face floor and a gate at forty: 136 faces to 32 above the edge and nothing below
+        /// it. The ending is still the larger half of the two - what is drawn past 150 m is
+        /// most of what there is of them - but "it cannot be thinned" was a statement about
+        /// a number in this file and not about the reed.
         ///
         /// What the camera said, and this is the part that decided it. The play camera
         /// stands between 62 and 120 m back from what it looks at, so ground cover is never
