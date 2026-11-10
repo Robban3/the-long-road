@@ -325,7 +325,7 @@ namespace TheVeil.Editor
             // own rungs below it, at these face budgets. Both are copied rather than read
             // because they are private there, so a change to either wants a change here.
             const float KeepAbove = 0.055f;
-            var rungs = new[] { 900, 250, 80 };
+            var rungs = new[] { 900, 250, 32 };
 
             var sheet = new System.Text.StringBuilder();
             sheet.AppendLine("[Cost] faces per level, for every prefab that holds a chain "

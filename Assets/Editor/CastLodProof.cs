@@ -275,6 +275,294 @@ namespace TheVeil.Editor
             return made;
         }
 
+        /// <summary>
+        /// The same question asked of the two trees that are now most of the worst frame
+        /// in the game: `The Veil &gt; Scenery LOD Proof`.
+        ///
+        /// <b>Because this one cannot be settled by counting either.</b>
+        /// `SM_Env_Tree_Meadow_01` carries a hand-made LOD1 of 12 700 faces which draws
+        /// below 0,138 of the screen, and `SM_Env_Tree_Meadow_02` one of 6 464 below
+        /// 0,125. The camera stands 62 to 120 m back, so a 14 m tree is between 0,09 and
+        /// 0,31 of screen height for the whole of normal play - which is to say those two
+        /// levels are what the game actually draws, and in the heaviest frame in the game
+        /// they are 59 per cent of it over 42 copies.
+        ///
+        /// <see cref="FarLods"/> spares them because they are hand-made and above
+        /// <c>KeepAbove</c>. Taking them at a quarter of the screen instead - the share at
+        /// which that tool already decides a model with no chain may drop to nine hundred
+        /// faces - would cut most of those 42 copies by fourteen times. Whether nine
+        /// hundred faces at that size is a tree or a stick is for somebody to look at, so
+        /// this writes the pictures: the level as it is drawn today beside the candidates,
+        /// at the pixel size the phone would give them.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.CastLodProof.Scenery
+        /// </summary>
+        [MenuItem("The Veil/Scenery LOD Proof")]
+        public static void Scenery()
+        {
+            System.IO.Directory.CreateDirectory(ProofDir);
+
+            var sheet = new StringBuilder();
+            sheet.AppendLine("[Proof] what the spared hand-made level draws today and what "
+                             + "this tool's rungs would draw in its place");
+            sheet.AppendLine($"[Proof] lens {Fov:0} degrees, a {ScreenHigh} pixel screen, "
+                             + $"pictures blown up {Magnify}x so they can be seen");
+
+            // At the phone's own lod bias, because which level the engine would pick is
+            // the whole reason a picture is taken at a distance at all - and the editor
+            // opens on Ultra at 2,00 against Android's 0,70.
+            int wasQuality = BudgetReport.Phone(sheet, "Proof");
+
+            int written = 0;
+
+            // <b>At the heights the dressing actually stands them at, which is not the
+            // prefab's own.</b> `TerrainDecorator` fits every tree to PineHeight times a
+            // jitter between 0,55 and 1,7, so a meadow tree in the country is anywhere
+            // from 4,7 m to 14,5 m tall and its share of the screen varies threefold with
+            // it. Photographing the prefab at its authored 14,9 m was the second wrong
+            // answer this instrument gave: a middling copy is already on this tool's own
+            // rung at every range the camera can stand, and only the tall ones draw the
+            // hand-made level at all.
+            foreach (float tall in new[] { TerrainDecorator.PineHeight,
+                                           TerrainDecorator.PineHeight
+                                           * TerrainDecorator.TreeJitterHigh })
+            {
+                foreach (string path in Scenes)
+                {
+                    var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                    if (prefab == null)
+                    {
+                        sheet.AppendLine($"[Proof] {path}: not there");
+                        continue;
+                    }
+
+                    written += Standing(prefab, tall, sheet);
+                }
+            }
+
+            sheet.AppendLine($"[Proof] {written} pictures in {ProofDir}");
+
+            QualitySettings.SetQualityLevel(wasQuality, true);
+
+            Debug.Log(sheet.ToString());
+        }
+
+        /// <summary>The scenery this is shown for: the two trees and nothing else.</summary>
+        static readonly string[] Scenes =
+        {
+            "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Tree_Meadow_01.prefab",
+            "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Tree_Meadow_02.prefab",
+        };
+
+        /// <summary>
+        /// One scenery model: its own levels as the engine would pick them, then the
+        /// candidates for the band this tool would take over.
+        ///
+        /// <b>One level at a time, which a chained prefab does not do on its own.</b>
+        /// An <c>LODGroup</c> leaves every level's renderers enabled and chooses one when
+        /// it draws; a prefab stood up in a scene and photographed by a camera of our own
+        /// draws all of them at once, one inside the other. So every renderer outside the
+        /// level being judged is switched off first - the same fact that made a count of
+        /// skinned meshes read three times too high twice before.
+        /// </summary>
+        static int Standing(GameObject prefab, float stand, StringBuilder sheet)
+        {
+            var reading = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            if (reading == null) return 0;
+
+            int written = 0;
+
+            try
+            {
+                ModelScaling.Fit(reading, stand);
+
+                float tall = Height(reading);
+                var group = reading.GetComponent<LODGroup>();
+
+                if (group == null || tall <= 0.001f)
+                {
+                    sheet.AppendLine($"[Proof] {prefab.name}: no chain to read");
+                    return 0;
+                }
+
+                var levels = group.GetLODs();
+
+                // <b>The engine picks a level on the widest axis, not on the height, and
+                // the first version of this asked the height.</b> A meadow tree is 15 m
+                // tall and 21 m across, so the two answers are half an octave apart - and
+                // the sheet confidently photographed LOD2 of the second tree where the
+                // frame listing in `CastReport`, which is the engine's own choice, says
+                // LOD1 is what draws at that range. Checked against that known answer
+                // before any picture was looked at. The height is still what decides how
+                // many pixels the thing covers, so both are read and each is used for its
+                // own question.
+                float wide = Spread(reading);
+
+                sheet.AppendLine($"[Proof] {prefab.name} stood at {tall:0.00} m tall, "
+                                 + $"{wide:0.00} m across its widest axis, "
+                                 + $"{levels.Length} levels");
+
+                // Where the camera can actually be, and the distance a quarter of the
+                // screen falls at - the three distances the judgement is about.
+                float quarter = wide * QualitySettings.lodBias / (0.25f * FarLods.Lens);
+
+                var ranges = new List<float> { CameraOrbit.DefaultRange };
+                if (quarter > CameraOrbit.DefaultRange && quarter < CameraOrbit.MaxRange)
+                    ranges.Add(quarter);
+                ranges.Add(CameraOrbit.MaxRange);
+
+                for (int lod = 0; lod < levels.Length; lod++)
+                {
+                    int faces = Isolated(reading, levels, lod);
+                    if (faces <= 0) continue;
+
+                    float below = levels[lod].screenRelativeTransitionHeight;
+
+                    foreach (float range in ranges)
+                    {
+                        // Only where that level is the one the engine would pick, so no
+                        // picture here is of something the player never sees.
+                        float share = wide * QualitySettings.lodBias
+                                      / (range * FarLods.Lens);
+
+                        float over = lod > 0
+                            ? levels[lod - 1].screenRelativeTransitionHeight : 1f;
+
+                        if (share > over || share <= below) continue;
+
+                        string at = $"{prefab.name}-LOD{lod}-{faces}f-{range:0}m";
+                        if (Shoot(reading, tall, range, at, faces, sheet)) written++;
+                    }
+                }
+
+                // And the candidates, cut from the level the tool would cut from, shown at
+                // the same distances. 900 is the first rung; 2500 is the obvious thing to
+                // reach for if 900 will not do, and asking the question without an answer
+                // to compare against is how a picture gets judged against nothing.
+                foreach (int budget in new[] { 2500, 900 })
+                {
+                    foreach (float range in ranges)
+                    {
+                        if (range < quarter - 0.5f) continue;
+
+                        var copy = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                        if (copy == null) continue;
+
+                        try
+                        {
+                            ModelScaling.Fit(copy, stand);
+
+                            var chain = copy.GetComponent<LODGroup>();
+                            var theirs = chain != null ? chain.GetLODs() : null;
+                            if (theirs == null || theirs.Length == 0) continue;
+
+                            int from = Isolated(copy, theirs, 0);
+                            if (from <= 0) continue;
+
+                            var live = new List<Renderer>();
+                            foreach (var renderer in copy.GetComponentsInChildren<Renderer>(true))
+                                if (renderer != null && renderer.enabled
+                                    && renderer.gameObject.activeInHierarchy)
+                                    live.Add(renderer);
+
+                            // A control picture of the same isolated level before anything
+                            // is cut, because the first run of this wrote two empty skies
+                            // and an empty sky does not say whether the budget drew
+                            // nothing or the instrument pointed at nothing.
+                            if (budget == 2500)
+                            {
+                                string whole = $"{prefab.name}-cutfrom-{from}f-{range:0}m";
+                                if (Shoot(copy, tall, range, whole, from, sheet)) written++;
+                            }
+
+                            int made = Thin(live, from, budget);
+
+                            var box = new Bounds(copy.transform.position, Vector3.zero);
+                            foreach (var renderer in live)
+                                if (renderer != null) box.Encapsulate(renderer.bounds);
+
+                            sheet.AppendLine($"[Proof]   cut {live.Count} renderer(s) from "
+                                             + $"{from} faces to {made}, bounds {box.size.x:0.0}"
+                                             + $" x {box.size.y:0.0} x {box.size.z:0.0} m");
+
+                            string at = $"{prefab.name}-rung{budget}-{made}f-{range:0}m";
+                            if (Shoot(copy, tall, range, at, made, sheet)) written++;
+                        }
+                        finally { Object.DestroyImmediate(copy); }
+                    }
+                }
+            }
+            finally { Object.DestroyImmediate(reading); }
+
+            return written;
+        }
+
+        /// <summary>
+        /// Everything but one level switched off, and that level's face count returned.
+        ///
+        /// <b>The renderer is switched off, not its object, and the group is switched off
+        /// before either - between them they wrote five empty skies.</b> This pack hangs a
+        /// tree's LOD0 renderers under the object that carries its LOD1 one, so
+        /// deactivating the LOD1 object took LOD0's down the hierarchy with it. And an
+        /// <c>LODGroup</c> owns the <c>enabled</c> flag of every renderer it lists: it
+        /// turns the level it has chosen on and the rest off, so an instrument that sets
+        /// those flags itself is overruled by the thing it is trying to photograph. The
+        /// group is disabled first, and only then does a renderer's own flag mean
+        /// anything. A control picture of the same level with nothing cut is what told
+        /// "the budget drew nothing" from "the instrument pointed at nothing" - without
+        /// it the reading would have been that nine hundred faces is a blank sky.
+        /// </summary>
+        static int Isolated(GameObject stood, LOD[] levels, int lod)
+        {
+            foreach (var group in stood.GetComponentsInChildren<LODGroup>(true))
+                if (group != null) group.enabled = false;
+
+            var wanted = new HashSet<Renderer>();
+
+            if (levels[lod].renderers != null)
+                foreach (var renderer in levels[lod].renderers)
+                    if (renderer != null) wanted.Add(renderer);
+
+            int faces = 0;
+
+            foreach (var renderer in stood.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer == null) continue;
+
+                bool keep = wanted.Contains(renderer);
+                renderer.enabled = keep;
+
+                if (keep) faces += FarLods.Faces(renderer);
+            }
+
+            return faces;
+        }
+
+        /// <summary>
+        /// The widest axis of everything it has, which is the size an LOD group compares
+        /// against its thresholds.
+        /// </summary>
+        static float Spread(GameObject stood)
+        {
+            bool any = false;
+            var box = new Bounds();
+
+            foreach (var renderer in stood.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer == null || !renderer.enabled
+                    || !renderer.gameObject.activeInHierarchy) continue;
+
+                if (!any) { box = renderer.bounds; any = true; }
+                else box.Encapsulate(renderer.bounds);
+            }
+
+            if (!any) return 0f;
+
+            var size = box.size;
+            return Mathf.Max(size.x, Mathf.Max(size.y, size.z));
+        }
+
         /// <summary>How tall the thing is, over every renderer it has.</summary>
         static float Height(GameObject stood)
         {
@@ -283,7 +571,8 @@ namespace TheVeil.Editor
 
             foreach (var renderer in stood.GetComponentsInChildren<Renderer>(true))
             {
-                if (renderer == null || !renderer.gameObject.activeSelf) continue;
+                if (renderer == null || !renderer.enabled
+                    || !renderer.gameObject.activeInHierarchy) continue;
 
                 if (!any) { box = renderer.bounds; any = true; }
                 else box.Encapsulate(renderer.bounds);
@@ -312,7 +601,8 @@ namespace TheVeil.Editor
 
             foreach (var renderer in stood.GetComponentsInChildren<Renderer>(true))
             {
-                if (renderer == null || !renderer.gameObject.activeSelf) continue;
+                if (renderer == null || !renderer.enabled
+                    || !renderer.gameObject.activeInHierarchy) continue;
                 if (!any) { box = renderer.bounds; any = true; }
                 else box.Encapsulate(renderer.bounds);
             }
