@@ -64,13 +64,20 @@ namespace TheVeil.Editor
             "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Tree_Meadow_01.prefab",
             "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Tree_Meadow_02.prefab",
 
-            // The turned and late variants are their own prefabs with their own names, so
-            // they need their own blades - the first build boarded the two above and left
+            // The turned variant is its own prefab with its own name, so it needs its own
+            // blades - the first build boarded the two above and left
             // `SM_Env_Tree_Meadow_01_Turned` standing in the shape rule's list, which is
             // how this was noticed rather than assumed.
+            //
+            // <b>`SM_Env_Tree_Meadow_02_Turned` and `_Late` were in this list and are not
+            // any more, because nothing in the game points at them.</b> They came back
+            // "clean" from the check that no boarded tree was left in the shape rule's
+            // list - clean because the pass had never touched them, and it had never
+            // touched them because the dressing never asks for them. Two atlases baked for
+            // two trees that are never drawn. Absence from a sheet is evidence only when
+            // the sheet would have named the thing, and the positive check - blades in the
+            // prefab, blades at the end of the chain - is what caught it.
             "Assets/_Project/Prefabs/Plains/SM_Env_Tree_Meadow_01_Turned.prefab",
-            "Assets/_Project/Prefabs/Plains/SM_Env_Tree_Meadow_02_Turned.prefab",
-            "Assets/_Project/Prefabs/Plains/SM_Env_Tree_Meadow_02_Late.prefab",
 
             // And the enchanted wood's own, which the shape rule had already named: both
             // large trees lose their whole outline at the first rung, and the portal tree

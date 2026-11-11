@@ -699,8 +699,17 @@ bake: the first two attempts came back with red speckles down the shaded side, t
 ones when the light moved, which was the editor's scene leaking into the picture. `FarLods`
 hangs the blades where the shape rule would otherwise have pushed the cheap level — the
 author's mesh above four hundred pixels, the picture below — and builds no rungs at all for
-a model that has them. Nine trees: both meadow trees, three variants, both large trees, the
-trunk and the portal tree.
+a model that has them. **Seven trees: both meadow trees, the turned variant of the first,
+both large trees, the trunk and the portal tree.**
+
+That seven was nine in the commit that added it, and the correction is worth keeping. The
+check written for it was "no boarded tree is left in the shape rule's list", and
+`SM_Env_Tree_Meadow_02_Turned` and `_Late` passed it - because the pass had never touched
+them, and it had never touched them because nothing in the game points at either. Two
+atlases baked for two trees that are never drawn. The sheet would not have named them, so
+their absence from it said nothing at all; what caught it was asking the other way round -
+are the blades in the prefab, and are they at the end of its chain - which for those two
+came back no and no. Both are deleted and both are out of the bake list.
 
 **Scenery triangles 576 002 to 563 951, instanced calls 252 unchanged, memory 637 MB to
 646 for the nine atlases.** Over the ninety rows the calls fall on 28 and rise on none, and
