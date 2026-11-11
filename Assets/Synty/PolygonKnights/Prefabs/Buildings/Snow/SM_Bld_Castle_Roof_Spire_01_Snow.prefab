@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3334978}
   - component: {fileID: 2372260}
   - component: {fileID: 64760705391818496}
-  - component: {fileID: 5931325426715765246}
+  - component: {fileID: 1664193131136708320}
   m_Layer: 0
   m_Name: SM_Bld_Castle_Roof_Spire_01_Snow
   m_TagString: Untagged
@@ -33,7 +33,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 8514226136996258285}
+  - {fileID: 6926424181414597525}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &3334978
@@ -115,7 +115,7 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 43652672829468384, guid: 9860e2a9c18c2174bb7eaa5b7f46b39e, type: 2}
---- !u!205 &5931325426715765246
+--- !u!205 &1664193131136708320
 LODGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -129,16 +129,16 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.25
+  - screenRelativeHeight: 0.035
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 2372260}
   - screenRelativeHeight: 0
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 5960028330758183106}
+    - renderer: {fileID: 8265028108043619006}
   m_Enabled: 1
---- !u!1 &643869543101401702
+--- !u!1 &5101144776588487823
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -146,9 +146,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 8514226136996258285}
-  - component: {fileID: 4774375011088616786}
-  - component: {fileID: 5960028330758183106}
+  - component: {fileID: 6926424181414597525}
+  - component: {fileID: 8214236332543762376}
+  - component: {fileID: 8265028108043619006}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -156,13 +156,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &8514226136996258285
+--- !u!4 &6926424181414597525
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 643869543101401702}
+  m_GameObject: {fileID: 5101144776588487823}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -171,21 +171,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 460206}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &4774375011088616786
+--- !u!33 &8214236332543762376
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 643869543101401702}
+  m_GameObject: {fileID: 5101144776588487823}
   m_Mesh: {fileID: 4300000, guid: aaa0f571261ff4041a476e7365ef21e8, type: 2}
---- !u!23 &5960028330758183106
+--- !u!23 &8265028108043619006
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 643869543101401702}
+  m_GameObject: {fileID: 5101144776588487823}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1

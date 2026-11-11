@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &17315703334294864
+--- !u!1 &230222307363576098
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 8730519379766787456}
-  - component: {fileID: 8312628049088402501}
-  - component: {fileID: 3318114271226471077}
+  - component: {fileID: 4481905968509446287}
+  - component: {fileID: 9063267099111061563}
+  - component: {fileID: 7136406514828469780}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &8730519379766787456
+--- !u!4 &4481905968509446287
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 17315703334294864}
+  m_GameObject: {fileID: 230222307363576098}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 7972964232538897099}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8312628049088402501
+--- !u!33 &9063267099111061563
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 17315703334294864}
+  m_GameObject: {fileID: 230222307363576098}
   m_Mesh: {fileID: 4300000, guid: ff30ace08f0c4814d908d55e505df995, type: 2}
---- !u!23 &3318114271226471077
+--- !u!23 &7136406514828469780
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 17315703334294864}
+  m_GameObject: {fileID: 230222307363576098}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -102,7 +102,7 @@ GameObject:
   - component: {fileID: 34103237359779208}
   - component: {fileID: 8621776287159445895}
   - component: {fileID: 2914886181039100018}
-  - component: {fileID: 312141580763528694}
+  - component: {fileID: 4013005642110175928}
   m_Layer: 0
   m_Name: SM_Env_Rock_Cliff_10_Scorched
   m_TagString: Untagged
@@ -123,7 +123,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 8730519379766787456}
+  - {fileID: 4481905968509446287}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &34103237359779208
@@ -205,7 +205,7 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -5310663942434821465, guid: 2c8f7d88bdea73245a52f281192989de, type: 3}
---- !u!205 &312141580763528694
+--- !u!205 &4013005642110175928
 LODGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -219,12 +219,12 @@ LODGroup:
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
   m_LODs:
-  - screenRelativeHeight: 0.25
+  - screenRelativeHeight: 0.035
     fadeTransitionWidth: 0
     renderers:
     - renderer: {fileID: 8621776287159445895}
   - screenRelativeHeight: 0
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 3318114271226471077}
+    - renderer: {fileID: 7136406514828469780}
   m_Enabled: 1

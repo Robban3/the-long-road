@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &7732500629040507311
+--- !u!1 &801932572707654359
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1476855019130473994}
-  - component: {fileID: 2430388937664528533}
-  - component: {fileID: 5596288664421163842}
+  - component: {fileID: 2247505102941972335}
+  - component: {fileID: 4058582279048926843}
+  - component: {fileID: 4624536735140388957}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1476855019130473994
+--- !u!4 &2247505102941972335
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7732500629040507311}
+  m_GameObject: {fileID: 801932572707654359}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 7365269660898911874}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &2430388937664528533
+--- !u!33 &4058582279048926843
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7732500629040507311}
+  m_GameObject: {fileID: 801932572707654359}
   m_Mesh: {fileID: 4300000, guid: bcdc12ae9d6d90e4bbe8acfdee34ba5e, type: 2}
---- !u!23 &5596288664421163842
+--- !u!23 &4624536735140388957
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7732500629040507311}
+  m_GameObject: {fileID: 801932572707654359}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -102,7 +102,7 @@ GameObject:
   - component: {fileID: 5879847536773589287}
   - component: {fileID: 8538153536297934317}
   - component: {fileID: 3696723481599872980}
-  - component: {fileID: 7633547387136694034}
+  - component: {fileID: 3153890741552371204}
   m_Layer: 0
   m_Name: SM_Env_Rocks_Spikey_04
   m_TagString: Untagged
@@ -123,7 +123,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1476855019130473994}
+  - {fileID: 2247505102941972335}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &5879847536773589287
@@ -205,7 +205,7 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -8618811080133108775, guid: 50c53a1714a422f44809064cf466b2a9, type: 3}
---- !u!205 &7633547387136694034
+--- !u!205 &3153890741552371204
 LODGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -226,5 +226,5 @@ LODGroup:
   - screenRelativeHeight: 0.005
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 5596288664421163842}
+    - renderer: {fileID: 4624536735140388957}
   m_Enabled: 1

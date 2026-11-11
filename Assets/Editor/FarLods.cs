@@ -315,6 +315,54 @@ namespace TheVeil.Editor
         // the first rung of Thin.
         const float BareFirst = 0.25f;
 
+        /// <summary>
+        /// How much of its own outline a generated level must keep, where it is big enough
+        /// to have one.
+        ///
+        /// <b>This is the second judgement in this file and it is anchored on four
+        /// photographs, which are in the sheet `The Veil &gt; Scenery LOD Proof` writes.</b>
+        /// A meadow tree cut to 900 faces keeps 0,55 and is a torn canopy with no trunk
+        /// under it; cut to 2 500 it keeps 0,73 and is a good canopy with no trunk under
+        /// it. The second tree gives 0,50 and 0,68 for the same two budgets and looks the
+        /// same way. Everything that has been photographed here and judged unacceptable
+        /// lies at or under 0,73, so the line is drawn just above it. Nothing has been
+        /// photographed between 0,75 and 0,95, so that stretch is an assumption and the
+        /// instrument to settle it already exists.
+        ///
+        /// The reason a tree cannot be cut at all is worth writing where the number is: a
+        /// canopy is a few thousand separate leaf cards with no shared edges, so there is
+        /// no edge in it a decimator may collapse. The only collapsible edges in the mesh
+        /// are the trunk's. Asked for any budget at all it therefore eats the trunk,
+        /// perfectly, down to splinters, and leaves every leaf where it was. The faces come
+        /// down exactly as asked and the tree leaves. No count in this project can see that
+        /// and <see cref="Silhouette"/> is what was written to.
+        /// </summary>
+        const float Shapely = 0.80f;
+
+        /// <summary>
+        /// How tall the model must be, in pixels, before the shape of a level matters.
+        ///
+        /// <b>Four hundred of a 2400-pixel phone, which is a sixth of the screen, and the
+        /// number is where it is because of what the other settings cost.</b> At 150 the
+        /// rule refused 126 models - house rooms, battlements, a bone pile - and took the
+        /// project from 507 109 visible triangles to 3 609 857, fourteen times the
+        /// allowance, because a refused rung means the model draws its near level over the
+        /// whole of the visible range. Those refusals were not wrong about the outline: a
+        /// house cut to 900 faces does lose a third of a band. They were wrong about
+        /// whether anybody can see it, and the band measure is harsh on exactly the thin
+        /// features - a chimney, a railing, a spire - whose loss a person would not notice
+        /// at a hundred and eighty pixels.
+        ///
+        /// So the rule is kept for what the eye rests on and nothing else. A meadow tree is
+        /// 494 pixels tall at the camera's resting range and the thing this was written
+        /// for; a house room is 185 and is left alone. The figure is the lesser of two: the
+        /// band's top - the threshold of the level above, over the lod bias, times the
+        /// screen - and the biggest the model can ever be, which is its own size at
+        /// <see cref="CameraOrbit.DefaultRange"/>. A model that is never large is never
+        /// judged on a sight nobody will have.
+        /// </summary>
+        const int Seen = 400;
+
         /// <summary>No generated piece is cut below this, however small its share.</summary>
         // Twenty-four faces is a box with a lid. Under that a decimation stops being a
         // simplification of the shape and becomes a different object.
@@ -557,6 +605,12 @@ namespace TheVeil.Editor
             var dearer = new List<string>();
             var turned = new List<string>();
 
+            // And what each rebuilt model keeps of its own outline, which is the one thing
+            // about a far level that a triangle count cannot say and a person had to be
+            // shown a picture of. See Silhouette.
+            var shapes = new List<(int Rung, int High, float Kept)>();
+            var lost = new List<(float Kept, string Line)>();
+
             // Which models this run will give a chain to, settled before any of them is
             // touched. A nested model's renderers are its own business only if a chain is
             // actually coming for them, and a HashSet has no order, so asking mid-run
@@ -651,7 +705,8 @@ namespace TheVeil.Editor
                 string story = Thinned(path, handled, cover,
                                        out int wasFar, out int nowFar, out float span,
                                        out float authored, out float finished,
-                                       out int had, out int got, out string refused);
+                                       out int had, out int got, out string refused,
+                                       out string shape);
 
                 if (story == null) { skipped++; continue; }
                 if (story.Length > 0) { failed++; sheet.AppendLine($"[Lod]   {prop.name}: {story}"); continue; }
@@ -691,6 +746,28 @@ namespace TheVeil.Editor
 
                 if (refused != null)
                     turned.Add($"{prop.name,-38} {refused}");
+
+                // What the counting cannot see: how much of the model's own outline its
+                // cheapest generated level still fills. Gathered for every model and
+                // ranked, because the number that decides what to do about it has to come
+                // off this distribution and not off an opinion.
+                if (shape != null)
+                    foreach (string one in shape.Split(';'))
+                    {
+                        var part = one.Split(':');
+                        if (part.Length != 3) continue;
+
+                        int rung = int.Parse(part[0]);
+                        int high = int.Parse(part[1]);
+                        float kept = float.Parse(part[2],
+                            System.Globalization.CultureInfo.InvariantCulture);
+
+                        shapes.Add((rung, high, kept));
+
+                        lost.Add((kept, $"{prop.name,-38} rung {rung} keeps {kept:0.00} of "
+                                        + $"its outline where the model is {high,4} pixels "
+                                        + $"tall and below, {had} faces cut to {got}"));
+                    }
 
                 if (cover)
                 {
@@ -775,6 +852,48 @@ namespace TheVeil.Editor
 
             foreach (string one in turned) sheet.AppendLine($"[Lod]   turned {one}");
 
+            if (shapes.Count > 0)
+            {
+                sheet.AppendLine($"[Lod] what those {shapes.Count} generated levels keep of "
+                                 + "the outline they were cut from, worst of four "
+                                 + "directions, by rung and by how big the model is where "
+                                 + "that rung starts drawing:");
+
+                // Split by rung and by whether the band is one a person can see a shape
+                // in at all. A hundred and fifty pixels is where a trunk is about two
+                // pixels wide on a 2400-pixel phone; under that an outline is a smudge
+                // and this measurement is not the right question.
+                foreach (int rung in new[] { 0, 1, 2 })
+                    foreach (bool near in new[] { true, false })
+                    {
+                        var band = new List<float>();
+
+                        foreach (var one in shapes)
+                            if (one.Rung == rung && one.High >= 150 == near) band.Add(one.Kept);
+
+                        if (band.Count == 0) continue;
+
+                        band.Sort();
+
+                        sheet.AppendLine($"[Lod]   rung {rung}, "
+                                         + (near ? "drawn above 150 px" : "below 150 px ")
+                                         + $" {band.Count,4} levels: {band[0]:0.00} lowest, "
+                                         + $"{band[band.Count / 10]:0.00} tenth, "
+                                         + $"{band[band.Count / 4]:0.00} quarter, "
+                                         + $"{band[band.Count / 2]:0.00} middle, "
+                                         + $"{band[band.Count - 1]:0.00} best");
+                    }
+
+                lost.Sort((a, b) => a.Kept.CompareTo(b.Kept));
+
+                sheet.AppendLine("[Lod] the forty that lose most of it - a model here is "
+                                 + "one the counting calls a saving and a photograph calls "
+                                 + "a hole:");
+
+                for (int i = 0; i < lost.Count && i < 40; i++)
+                    sheet.AppendLine($"[Lod]   shape {lost[i].Line}");
+            }
+
             sheet.AppendLine($"[Lod] {touched} rebuilt, {onlyEdge} given an edge and nothing "
                              + $"else, {skipped} left alone, {failed} refused, {rigged} of "
                              + $"them skinned - and {ended} carry a far edge in all, of which "
@@ -807,7 +926,8 @@ namespace TheVeil.Editor
         static string Thinned(string path, HashSet<string> handled, bool ending,
                               out int wasFar, out int nowFar, out float span,
                               out float authored, out float finished,
-                              out int had, out int got, out string refused)
+                              out int had, out int got, out string refused,
+                              out string shape)
         {
             wasFar = 0;
             nowFar = 0;
@@ -817,6 +937,7 @@ namespace TheVeil.Editor
             had = 0;
             got = 0;
             refused = null;
+            shape = null;
 
             var root = PrefabUtility.LoadPrefabContents(path);
             if (root == null) return "the prefab would not open";
@@ -1018,6 +1139,15 @@ namespace TheVeil.Editor
 
                 had = seedFaces;
 
+                // Where the first rung's band begins, read off the chain before this loop
+                // has changed anything in it. <b>Read afresh each time round, it cascades;
+                // read once, it is simply the truth about where this tool's work starts.</b>
+                // The meadow tree's own LOD1 sits at 0,138, so the first rung under it is
+                // drawn while the tree is 474 pixels tall and not the 309 the table's band
+                // would suggest - and judging it by the table left the two models this whole
+                // rule was written for out of it.
+                float ceiling = keep[keep.Count - 1].screenRelativeTransitionHeight;
+
                 for (int rung = from; rung < Thin.Length; rung++)
                 {
                     // <b>Never below the author's own edge on ground cover, and this is the
@@ -1087,10 +1217,98 @@ namespace TheVeil.Editor
                             : refused + $"; rung {rung} asked {Thin[rung].Faces} and got "
                               + $"{spent} against {above} above it";
 
-                        foreach (var renderer in made)
-                            if (renderer != null) Object.DestroyImmediate(renderer.gameObject);
-
+                        Turned(keep, made, below);
                         continue;
+                    }
+
+                    // <b>And whether what came back is still the same shape, which no
+                    // count in this file can answer.</b> The faces came down exactly as
+                    // asked on the meadow trees and what the game drew past ninety-five
+                    // metres was a handful of leaves with no tree behind them - see
+                    // Silhouette, which is the photograph turned into a number. Measured
+                    // on every rung and printed; what the pass does about it is the sheet
+                    // writer's business until the distribution says where the line is.
+                    // Recorded with the band it draws in, in pixels of a 2400-pixel phone,
+                    // because a shape that is lost matters exactly as much as the thing is
+                    // big when it is lost. The band's top is the threshold of the level
+                    // above, and a threshold is compared against a share the lod bias has
+                    // already multiplied - so the geometric share is the threshold over
+                    // the bias, and the pixels are that times the screen.
+                    float outline = Silhouette.Kept(made, seed, root.transform);
+
+                    // <b>The band this rung was designed for, not the one it happens to
+                    // have been given - and that distinction is worth 2,8 million
+                    // triangles.</b> Read off the chain, a refusal makes the next rung's
+                    // band start wherever the refused one would have ended, which is higher
+                    // up; the next rung is then judged as though it were drawn at that size
+                    // and refused in turn, and the one under it after that. The first run
+                    // of this rule took the project from 507 109 visible triangles to
+                    // 3 318 385 by that cascade, every one of the ninety rows worse, because
+                    // models came out of it with no cheap levels at all. The table's own
+                    // bands do not move when a rung is refused, so each rung answers for
+                    // itself: 857 pixels for the first, 309 for the second, 120 for the
+                    // last - which is under Seen, so the floor always stands.
+                    float over = rung == from ? ceiling : Thin[rung - 1].Below;
+                    int band = Mathf.RoundToInt(over / Mathf.Max(0.01f, QualitySettings.lodBias)
+                                                * 2400f);
+
+                    // <b>And no bigger than the thing ever gets, which is the camera's
+                    // doing and not the chain's.</b> A band's top says how large a model
+                    // would be if something stood at the near end of it; whether anything
+                    // ever does is a question about the model's own size and where the
+                    // camera rests. A mushroom 1,3 m across is 38 pixels tall at 62 m and
+                    // can never be more, so judging the shape of its 250-face rung as
+                    // though it were 309 pixels tall refused it on a sight nobody will
+                    // ever have - and refusing rungs on that reading cost 14,6 times the
+                    // triangle allowance, against 2,0 with no rule at all.
+                    int closest = Mathf.RoundToInt(span * QualitySettings.lodBias
+                                                   / (CameraOrbit.DefaultRange * Lens) * 2400f);
+
+                    int high = Mathf.Min(band, closest);
+
+                    // Written in the invariant culture, because it is read back in it. The
+                    // first run of this formatted "0,026" on a Swedish editor and parsed it
+                    // as twenty-six, so every outline in the sheet was a thousand times
+                    // itself and the distribution read as nonsense that still sorted.
+                    shape = (shape == null ? "" : shape + ";")
+                            + string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                                            "{0}:{1}:{2:0.000}", rung, high, outline);
+
+                    // <b>Pushed down rather than thrown away, and that is the difference
+                    // between a rule that costs 1,3 per cent and one that costs
+                    // 4,7 times.</b> What the shape measurement says is not "this level is
+                    // worthless" - it is "this level may not be drawn while the thing is
+                    // big". So the level above it is brought down to the share at which
+                    // the model is Seen pixels tall and no further: the author's own mesh
+                    // draws the near part of the band, where the loss would be seen, and
+                    // this tool's cheap level draws the rest of it, where it would not.
+                    // Refusing the whole band instead put the meadow tree's 12 700-face
+                    // level in front of the camera for the entire visible range and took
+                    // the project to 2 388 595 visible triangles against 507 109.
+                    //
+                    // A threshold is a share of the screen, so the share at which anything
+                    // is Seen pixels tall is the same number for every model: the pixels
+                    // over the screen, times the lod bias.
+                    if (high >= Seen && outline < Shapely)
+                    {
+                        float capped = Seen / 2400f * QualitySettings.lodBias;
+
+                        refused = (refused == null ? "" : refused + "; ")
+                                  + $"rung {rung} keeps {outline:0.00} of the outline where "
+                                  + $"the model is {high} pixels tall, so it starts at "
+                                  + $"{Seen} instead";
+
+                        // Unless the whole of its band is above that line, in which case
+                        // there is nothing left for it to draw and it goes.
+                        if (below >= capped) { Turned(keep, made, below); continue; }
+
+                        var over2 = keep[keep.Count - 1];
+
+                        if (over2.screenRelativeTransitionHeight > capped)
+                        {
+                            over2.screenRelativeTransitionHeight = capped;
+                            keep[keep.Count - 1] = over2;
+                        }
                     }
 
                     nowFar += spent;
@@ -1534,6 +1752,40 @@ namespace TheVeil.Editor
 
             Object.DestroyImmediate(renderer);
             if (filter != null) Object.DestroyImmediate(filter);
+        }
+
+        /// <summary>
+        /// A rung that will not stand: its pieces destroyed, and its band handed upwards.
+        ///
+        /// <b>Upwards, and that is the whole of it.</b> Dropping a rung out of the chain
+        /// does not give its band back to the level above - the engine takes the next
+        /// threshold down, so the band falls to the rung *under* the refused one. A
+        /// 250-face level refused for losing the shape of a tree was replaced by a 32-face
+        /// level in the same band, which has less shape still, and the sheet reported a
+        /// rule that refuses levels making every one of the ninety rows cheaper. A rule
+        /// whose cost comes out negative is a rule doing the opposite of what it says.
+        ///
+        /// So the level above is lowered to where the refused one would have started. It
+        /// draws that band itself, which is what "this band is not fit to be cheapened"
+        /// means, and the triangles it costs are the price of the rule rather than a
+        /// saving to report.
+        ///
+        /// The objects are destroyed rather than left standing, because a renderer under
+        /// an LODGroup that no level lists is drawn at every distance - which is worse than
+        /// the level it was refused for being.
+        /// </summary>
+        static void Turned(List<LOD> keep, Renderer[] made, float below)
+        {
+            foreach (var renderer in made)
+                if (renderer != null) Object.DestroyImmediate(renderer.gameObject);
+
+            var over = keep[keep.Count - 1];
+
+            if (over.screenRelativeTransitionHeight > below)
+            {
+                over.screenRelativeTransitionHeight = below;
+                keep[keep.Count - 1] = over;
+            }
         }
 
         /// <summary>

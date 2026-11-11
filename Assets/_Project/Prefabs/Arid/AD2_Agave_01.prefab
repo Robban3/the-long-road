@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &6417696138208813791
+--- !u!1 &1908321895039363398
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 911423847937118621}
-  - component: {fileID: 8084327541440629267}
-  - component: {fileID: 5177456331036488709}
+  - component: {fileID: 1876064278479234525}
+  - component: {fileID: 4176196039790082954}
+  - component: {fileID: 3043148273411540140}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &911423847937118621
+--- !u!4 &1876064278479234525
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6417696138208813791}
+  m_GameObject: {fileID: 1908321895039363398}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 6928168187297033194}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8084327541440629267
+--- !u!33 &4176196039790082954
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6417696138208813791}
+  m_GameObject: {fileID: 1908321895039363398}
   m_Mesh: {fileID: 4300000, guid: 3dab5fc2e831d0b4dbaf55e8c28d8d8a, type: 2}
---- !u!23 &5177456331036488709
+--- !u!23 &3043148273411540140
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6417696138208813791}
+  m_GameObject: {fileID: 1908321895039363398}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -102,7 +102,7 @@ GameObject:
   - component: {fileID: 6928168187297033194}
   - component: {fileID: 5099804211925475661}
   - component: {fileID: 7337067102520088515}
-  - component: {fileID: 8159375530669850921}
+  - component: {fileID: 1437477917488840849}
   m_Layer: 0
   m_Name: AD2_Agave_01
   m_TagString: Untagged
@@ -123,7 +123,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 911423847937118621}
+  - {fileID: 1876064278479234525}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &5099804211925475661
@@ -184,7 +184,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!205 &8159375530669850921
+--- !u!205 &1437477917488840849
 LODGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -205,5 +205,5 @@ LODGroup:
   - screenRelativeHeight: 0.005
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 5177456331036488709}
+    - renderer: {fileID: 3043148273411540140}
   m_Enabled: 1

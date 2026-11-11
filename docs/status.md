@@ -28,7 +28,7 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 2,5× over, skinned meshes 4,2×, draw calls
+country. Four are burst: visible triangles 2,6× over, skinned meshes 4,2×, draw calls
 2,1×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
@@ -241,11 +241,11 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 507 109 (4-7) | **614 412** (4-1-Safe) | 250 000 | over 2,5× |
-| draw calls, fully instanced | 228 | 248 (1-8) | **310** (4-10-Fast) | 150 | over 2,1× |
+| visible triangles | 7 503 276 | 576 002 (4-7) | **656 743** (4-1-Safe) | 250 000 | over 2,6× |
+| draw calls, fully instanced | 228 | 252 (1-8) | **311** (4-10-Fast) | 150 | over 2,1× |
 | draw calls, a material each | 54 | 42 (4-10) | 58 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **637 MB** (4-6) | — | 700 MB | within |
-| level load | 2,52 s | 1,94–2,06 s worst of 100 | — | 2,0 s | sitting on the line |
+| level load | 2,52 s | 1,58 s worst of 100 | — | 2,0 s | within, and it wanders |
 | skinned meshes | not measurable | 0, scenery has none | **169 in frame, 191 standing** | 40 | over 4,2× |
 | package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
 | frame rate | never measured | — | — | 60 fps | needs a phone |
@@ -612,6 +612,65 @@ cost on a phone and nothing here measures that**: it is the first thing to look 
 device is finally in hand, along with the two meadow trees' hand-made LOD1 levels, which
 are 59 per cent of the heaviest frame now that everything around them is cheaper and which
 this tool deliberately never touches.
+
+**Then the meadow trees, and the answer was the opposite of the one the budget pointed
+at.** Those two levels are 12 700 and 6 464 faces over 42 copies, and the plan was to take
+the band below a quarter of the screen off them — this tool already spends nine hundred
+faces there on a model that arrived with no chain at all. `Level Costs` gave the
+population: 57 spared hand-made levels over 338 742 faces, the ones that matter being those
+drawn while the model is small enough for a cheap level to stand in.
+
+**The photograph said no, and then it said something worse.** Nine hundred faces cut from
+that tree is not a tree: no trunk, a torn canopy, loose leaves. And the same picture taken
+of what the game already draws — this tool's own 250-face rung, which every meadow tree
+past about 95 m and every middling copy at every range the camera can stand is on — is a
+handful of leaves floating where a tree should be. The cause is in the asset: a Synty
+canopy is a few thousand separate leaf cards with no shared edges, so there is no edge in
+it a decimator may collapse. **The only collapsible edges in the mesh are the trunk's**, so
+asked for any budget at all it eats the trunk, perfectly, and leaves every leaf where it
+was. The faces came down exactly as asked. The tree left. Every budget line here counts
+what is drawn and none of them can see that.
+
+So `Silhouette` is the missing measurement: the model's outline rasterised from four level
+directions onto a 64-pixel grid, split into four bands of height, and the worst band's
+overlap is the answer. Bands because a trunk is a tenth of a tree's outline by area and all
+of it by meaning — comparing whole outlines scored a trunkless crown 0,88. It is checked
+against shapes whose answer is known (a box against itself, a crown with no trunk, a cloud
+of fragments) in `SilhouetteTests`, and calibrated against the photographs themselves:
+0,55 is the torn canopy, 0,73 the good canopy with no trunk under it. The line is 0,80,
+just above everything that has been photographed here and judged bad, and nothing has been
+photographed between 0,75 and 0,95 — that stretch is an assumption with an instrument
+already written to settle it.
+
+**Three settings of that rule were measured and two of them were catastrophes, which is the
+part worth keeping.** Refusing a failing rung outright, judged by the chain as it stood:
+3 318 385 visible triangles, thirteen times the allowance, because a refusal makes the next
+rung's band start higher, which refuses that one too, and models came out with no cheap
+levels at all. Refusing it judged by the table's own bands: still 2 388 595, because a
+refused rung hands its band to the rung *below* it and the model then draws its near level
+over the whole visible range — and worse, a rule that refuses levels was reported as making
+every one of the ninety rows *cheaper*, which is the shape of a rule doing the opposite of
+what it says. **A rule whose cost comes out negative is a bug, not a bargain.**
+
+What ships is neither: a level that fails is **pushed down, not thrown away**. The level
+above it comes down to the share at which the model is 400 pixels tall and no further, so
+the author's own mesh draws the near part of the band where the loss would be seen and this
+tool's cheap level draws the rest. 16 models are pushed down — both meadow trees, the two
+large trees, three shipwrecks, the warship hull, the portal tree, three wildflower patches.
+**Scenery triangles 507 109 to 576 002, 2,0× over to 2,3×, instanced calls 248 to 252,
+memory 637 MB unchanged.** With the cast 614 412 to 656 743. Over the ninety rows the
+triangles rise 10,5 per cent and the calls 216. All 907 chains end exactly where they did,
+the skinned chains are byte-identical, 0 empty levels, 391 tests with none failing.
+
+**And it does not fix the trees, which has to be said plainly.** The rule keeps the cheap
+level out of the near part of the band; below 400 pixels the tree still draws leaves with
+no trunk, and 400 pixels is 77 m while the camera stands between 62 and 120. There is no
+setting of this that makes a leaf-card tree look right at the range it is seen and keeps
+the triangle budget: protecting the whole of the visible range costs 4,7×, measured. The
+real remedy is a different far representation — a baked billboard at distance, which is the
+standard answer for trees and is its own piece of work with its own pipeline. Until then
+this is a tool that knows what it cannot do and says so, which is better than a sheet
+reporting a saving for a tree that has left.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a

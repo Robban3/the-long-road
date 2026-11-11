@@ -472,8 +472,36 @@ namespace TheVeil.Editor
                             // nothing or the instrument pointed at nothing.
                             if (budget == 2500)
                             {
-                                string whole = $"{prefab.name}-cutfrom-{from}f-{range:0}m";
-                                if (Shoot(copy, tall, range, whole, from, sheet)) written++;
+                                string shot = $"{prefab.name}-cutfrom-{from}f-{range:0}m";
+                                if (Shoot(copy, tall, range, shot, from, sheet)) written++;
+                            }
+
+                            // <b>A second copy, kept whole, to measure the cut one
+                            // against.</b> Thin replaces the meshes on the renderers it is
+                            // given, so by the time there is something to compare, the
+                            // thing to compare it with is gone. Both stand at the origin
+                            // and are fitted to the same height, so one root's local space
+                            // is the other's and the outline may be read in either.
+                            var before = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                            var whole = new List<Renderer>();
+
+                            if (before != null)
+                            {
+                                ModelScaling.Fit(before, stand);
+
+                                var mine = before.GetComponent<LODGroup>();
+                                var those = mine != null ? mine.GetLODs() : null;
+
+                                if (those != null && those.Length > 0)
+                                {
+                                    Isolated(before, those, 0);
+
+                                    foreach (var renderer in
+                                             before.GetComponentsInChildren<Renderer>(true))
+                                        if (renderer != null && renderer.enabled
+                                            && renderer.gameObject.activeInHierarchy)
+                                            whole.Add(renderer);
+                                }
                             }
 
                             int made = Thin(live, from, budget);
@@ -482,9 +510,23 @@ namespace TheVeil.Editor
                             foreach (var renderer in live)
                                 if (renderer != null) box.Encapsulate(renderer.bounds);
 
+                            // <b>The number beside the picture, so the rule that is set
+                            // from the number can be checked against the thing a person
+                            // actually looked at.</b> This is the only place in the project
+                            // where a silhouette figure and a photograph of the same cut
+                            // are produced by the same run - which makes it the calibration
+                            // for the threshold in `FarLods`, and the place to come back to
+                            // when somebody doubts it.
+                            float outline = whole.Count > 0
+                                ? Silhouette.Kept(live, whole, copy.transform) : 1f;
+
+                            if (before != null) Object.DestroyImmediate(before);
+
                             sheet.AppendLine($"[Proof]   cut {live.Count} renderer(s) from "
-                                             + $"{from} faces to {made}, bounds {box.size.x:0.0}"
-                                             + $" x {box.size.y:0.0} x {box.size.z:0.0} m");
+                                             + $"{from} faces to {made}, keeping "
+                                             + $"{outline:0.00} of the outline, bounds "
+                                             + $"{box.size.x:0.0} x {box.size.y:0.0} x "
+                                             + $"{box.size.z:0.0} m");
 
                             string at = $"{prefab.name}-rung{budget}-{made}f-{range:0}m";
                             if (Shoot(copy, tall, range, at, made, sheet)) written++;
