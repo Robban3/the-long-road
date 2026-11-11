@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &5530750207525716451
+--- !u!1 &2452622956267906334
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2765990986533223560}
-  - component: {fileID: 8744361211211338464}
-  - component: {fileID: 1555830485517881171}
+  - component: {fileID: 2454563319310437203}
+  - component: {fileID: 8065861032915173609}
+  - component: {fileID: 5386616429182199874}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2765990986533223560
+--- !u!4 &2454563319310437203
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5530750207525716451}
+  m_GameObject: {fileID: 2452622956267906334}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 8049864195733750255}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8744361211211338464
+--- !u!33 &8065861032915173609
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5530750207525716451}
+  m_GameObject: {fileID: 2452622956267906334}
   m_Mesh: {fileID: 4300000, guid: a8798d1a80e05f94dadf2e220bfadc8f, type: 2}
---- !u!23 &1555830485517881171
+--- !u!23 &5386616429182199874
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5530750207525716451}
+  m_GameObject: {fileID: 2452622956267906334}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -101,7 +101,7 @@ GameObject:
   - component: {fileID: 8049864195733750255}
   - component: {fileID: 6348113135221050954}
   - component: {fileID: 9222791540496628352}
-  - component: {fileID: 6749194371230363865}
+  - component: {fileID: 240299668693947472}
   m_Layer: 0
   m_Name: SM_Prop_Camp_Bucket_02
   m_TagString: Untagged
@@ -122,7 +122,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2765990986533223560}
+  - {fileID: 2454563319310437203}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &6348113135221050954
@@ -182,7 +182,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!205 &6749194371230363865
+--- !u!205 &240299668693947472
 LODGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -203,5 +203,5 @@ LODGroup:
   - screenRelativeHeight: 0.0018254804
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 1555830485517881171}
+    - renderer: {fileID: 5386616429182199874}
   m_Enabled: 1

@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &2100448822641879382
+--- !u!1 &1960609844343202019
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 7199138586269608568}
-  - component: {fileID: 7258077283401250125}
-  - component: {fileID: 3885998241214251424}
+  - component: {fileID: 407514358327284583}
+  - component: {fileID: 7538906342908576872}
+  - component: {fileID: 9177300534294939025}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &7199138586269608568
+--- !u!4 &407514358327284583
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2100448822641879382}
+  m_GameObject: {fileID: 1960609844343202019}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 4518753930360921349}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &7258077283401250125
+--- !u!33 &7538906342908576872
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2100448822641879382}
+  m_GameObject: {fileID: 1960609844343202019}
   m_Mesh: {fileID: 4300000, guid: c88b3258fbb827543b47f660228616b1, type: 2}
---- !u!23 &3885998241214251424
+--- !u!23 &9177300534294939025
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2100448822641879382}
+  m_GameObject: {fileID: 1960609844343202019}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -123,7 +123,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7199138586269608568}
+  - {fileID: 407514358327284583}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &655851364535964320
@@ -226,5 +226,5 @@ LODGroup:
   - screenRelativeHeight: 0
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 3885998241214251424}
+    - renderer: {fileID: 9177300534294939025}
   m_Enabled: 1

@@ -363,6 +363,31 @@ namespace TheVeil.Editor
         /// </summary>
         const int Seen = 400;
 
+        /// <summary>
+        /// How big a model may be, in pixels, and still be drawn as baked blades.
+        ///
+        /// <b>Eight hundred and fifty, and it is a different number from
+        /// <see cref="Seen"/> on purpose.</b> They answer different questions. Seen asks
+        /// how big a thing has to be before the shape of a cheap mesh level matters, and
+        /// the answer came from a house at 185 pixels that keeps 0,67 of its outline and
+        /// looks perfectly well. This asks how big a flat blade may be drawn before it
+        /// reads as flat, and the answer came from a photograph: the meadow tree's blades
+        /// at 858 pixels, turned forty-five degrees so the cross is seen corner-on with
+        /// two of its four edge-on, still read as a tree. Faint seams where the blades
+        /// cross, and nothing else.
+        ///
+        /// Tying the two together would mean one of them is set by the other's evidence.
+        /// At 400 the blades would leave the band from 400 to 1 272 pixels to a 12 700-face
+        /// hand-made level, which is 59 per cent of the heaviest frame in the game; at 850
+        /// the shape rule would stop judging everything between 400 and 850 and let the
+        /// confetti back in. Two questions, two numbers, two pictures.
+        ///
+        /// Nothing has been photographed above 858. LOD0 takes over at 1 272 on these
+        /// trees, so the band between is the blades' and has not been looked at - the
+        /// cheapest thing to settle when somebody wants it settled.
+        /// </summary>
+        const int Boarded = 850;
+
         /// <summary>No generated piece is cut below this, however small its share.</summary>
         // Twenty-four faces is a box with a lid. Under that a decimation stops being a
         // simplification of the shape and becomes a different object.
@@ -1156,15 +1181,29 @@ namespace TheVeil.Editor
 
                 if (board.Mesh != null && board.Paint != null)
                 {
-                    float capped = Seen / 2400f * QualitySettings.lodBias;
+                    // <b>Set, not capped, and the difference is the whole of the near
+                    // band.</b> This lowered a kept level that ended too late and left
+                    // alone one that ended too early, which reads as a safeguard and is
+                    // half a rule: the meadow tree's own LOD1 ends at 0,138, so the blades
+                    // took over at 0,138 and the 12 700-face level kept the band from
+                    // there up to 0,371 - the 59 per cent of the heaviest frame this was
+                    // written to take. The rule is an equals sign. The author's mesh above
+                    // eight hundred and fifty pixels, the blades below, wherever the
+                    // author happened to put the threshold.
+                    //
+                    // Held under the level above it so the chain stays strictly
+                    // decreasing, because a group whose thresholds are out of order is
+                    // refused whole and the model then draws LOD0 for ever - which would
+                    // photograph as a perfect tree and be the opposite of this.
+                    float roof = keep.Count > 1
+                        ? keep[keep.Count - 2].screenRelativeTransitionHeight : 1f;
+
+                    float capped = Mathf.Min(Boarded / 2400f * QualitySettings.lodBias,
+                                             roof * 0.9f);
 
                     var low = keep[keep.Count - 1];
-
-                    if (low.screenRelativeTransitionHeight > capped)
-                    {
-                        low.screenRelativeTransitionHeight = capped;
-                        keep[keep.Count - 1] = low;
-                    }
+                    low.screenRelativeTransitionHeight = capped;
+                    keep[keep.Count - 1] = low;
 
                     var blades = Hung(root, board, name);
 

@@ -28,7 +28,7 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 2,6× over, skinned meshes 4,2×, draw calls
+country. Four are burst: visible triangles 2,0× over, skinned meshes 4,2×, draw calls
 2,1×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
@@ -241,9 +241,9 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 563 951 (4-7) | **656 743** (4-1-Safe) | 250 000 | over 2,6× |
-| draw calls, fully instanced | 228 | 252 (1-8) | **311** (4-10-Fast) | 150 | over 2,1× |
-| draw calls, a material each | 54 | 45 (4-10) | 58 (4-10-Fast) | 150 | within |
+| visible triangles | 7 503 276 | 429 926 (8-3) | **487 515** (8-5-Safe) | 250 000 | over 2,0× |
+| draw calls, fully instanced | 228 | 252 (1-8) | **308** (8-10-Safe) | 150 | over 2,1× |
+| draw calls, a material each | 54 | 44 (4-10) | 58 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **646 MB** (4-6) | — | 700 MB | within |
 | level load | 2,52 s | 1,54–3,77 s worst of 100 | — | 2,0 s | it wanders, see §4 |
 | skinned meshes | not measurable | 0, scenery has none | **169 in frame, 191 standing** | 40 | over 4,2× |
@@ -712,13 +712,47 @@ are the blades in the prefab, and are they at the end of its chain - which for t
 came back no and no. Both are deleted and both are out of the bake list.
 
 **Scenery triangles 576 002 to 563 951, instanced calls 252 unchanged, memory 637 MB to
-646 for the nine atlases.** Over the ninety rows the calls fall on 28 and rise on none, and
-the triangles fall 138k in sum. All 907 chains end where they did, the skinned chains are
-byte-identical, 0 empty levels, 391 tests with none failing. The gain is small and that is
-the honest shape of it: below four hundred pixels the cheap level was already cheap, so what
-the billboard buys there is not triangles but a tree instead of leaves in the air. The
-12 700-face band above four hundred pixels is untouched, and taking it would mean trusting a
-flat blade at half the screen's height - a photograph away, not a measurement away.
+646 for the atlases.** Over the ninety rows the calls fall on 28 and rise on none, and
+the triangles fall 138k in sum. The gain was small and that was the honest shape of it at
+first: below four hundred pixels the cheap level was already cheap, so what the billboard
+bought there was not triangles but a tree instead of leaves in the air.
+
+**Then the band above it was taken, and that is where the triangles were.** The question
+was how big a flat blade may be drawn before it reads as flat, which no measurement
+answers, so the proof took the picture: the blades at 858 pixels, turned forty-five degrees
+so the cross is seen corner-on with two of its four edge-on - the blade's worst angle and
+not its best, which is the whole point of taking it that way. It reads as a tree. Faint
+seams where the blades cross, nothing else. So the blades take everything below eight
+hundred and fifty pixels and the author's own mesh keeps what is above.
+
+That is a second number, `Boarded`, and it is deliberately not `Seen`. They answer
+different questions and each has its own photograph behind it: 400 pixels is where the
+shape of a cheap *mesh* level starts to matter, from a house at 185 pixels that keeps 0,67
+of its outline and looks perfectly well; 850 is how big a flat *blade* may be, from the
+tree at 858 corner-on. Tying them together would set one from the other's evidence.
+
+**And the rule was written as a cap when it meant an equals sign, which cost the whole
+near band until the chain was read.** It lowered a kept level that ended too late and left
+alone one that ended too early - and the meadow tree's own LOD1 ends at 0,138, so the
+blades took over at 0,138 and the 12 700-face level kept everything above it. The chain
+said `0,371 / 0,138 / 0` where the rule claimed 0,248. It is set now, held under the level
+above so the chain stays strictly decreasing, and the chain reads `0,371 / 0,248 / 0`.
+
+**Scenery triangles 563 951 to 429 926, 2,3× over to 1,7×. With the cast 656 743 to
+487 515, 2,6× to 2,0×** - and the worst frame moved twice, 4-7 to 8-3 in the scenery and
+4-1-Safe to 8-5-Safe with the cast. Over the ninety rows the triangles fall on 31 and rise
+on none, 35 216k to 30 183k, and the calls fall on 28 and rise on none. Memory unchanged at
+646 MB, 907 chains ending exactly where they did, skinned chains byte-identical, 0 empty
+levels, 391 tests with none failing. **The heaviest frame in the game has no single model
+over 8 per cent of it any more**, which is the first time that has been true: it was 36 per
+cent a week ago, and a frame with no peak in it is the shape that says the next win is
+somewhere else.
+
+The cost that is real and worth watching: the editor's own time to stand a hundred levels
+up went from 97 s to 155 s when the blades came in, on *fewer* objects, and stayed there.
+That is a new material and a 1024-pixel texture per tree. The worst-of-100 reading the
+sheet prints is unusable - 8,17 s and 4,09 s on byte-identical assets - but the sum moved
+and did not move back.
 
 **The load line wandered badly through all of this and is worth distrusting in writing.**
 Readings of 1,54, 1,58, 1,70, 1,93, 2,06, 2,71, 3,22 and 3,77 seconds, twice on byte-identical

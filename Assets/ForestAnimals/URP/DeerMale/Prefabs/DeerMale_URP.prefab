@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &2051819542511778688
+--- !u!1 &8043289900984386420
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,8 +8,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 7975866954612562701}
-  - component: {fileID: 7882577137720077939}
+  - component: {fileID: 7079753743307896123}
+  - component: {fileID: 7249557028184446129}
   m_Layer: 0
   m_Name: Far LOD 10
   m_TagString: Untagged
@@ -17,13 +17,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &7975866954612562701
+--- !u!4 &7079753743307896123
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2051819542511778688}
+  m_GameObject: {fileID: 8043289900984386420}
   serializedVersion: 2
   m_LocalRotation: {x: 0.00000014106499, y: 0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -32,13 +32,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1784975357518012601}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!137 &7882577137720077939
+--- !u!137 &7249557028184446129
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2051819542511778688}
+  m_GameObject: {fileID: 8043289900984386420}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -128,7 +128,7 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.00007635355, y: 0.1748081, z: 0.12422314}
     m_Extent: {x: 0.22562867, y: 0.4803543, z: 0.5257964}
   m_DirtyAABB: 0
---- !u!1 &3535546548910440646
+--- !u!1 &8307545063673611591
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -136,8 +136,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 8022823663838685234}
-  - component: {fileID: 2725439350938172586}
+  - component: {fileID: 7187368669614211619}
+  - component: {fileID: 2876372220468133388}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -145,13 +145,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &8022823663838685234
+--- !u!4 &7187368669614211619
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3535546548910440646}
+  m_GameObject: {fileID: 8307545063673611591}
   serializedVersion: 2
   m_LocalRotation: {x: 0.00000014106499, y: 0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
@@ -160,13 +160,13 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1784975357518012601}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!137 &2725439350938172586
+--- !u!137 &2876372220468133388
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3535546548910440646}
+  m_GameObject: {fileID: 8307545063673611591}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -327,11 +327,11 @@ PrefabInstance:
     - target: {fileID: 4742473837712756890, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       propertyPath: m_LODs.Array.data[2].renderers.Array.data[0].renderer
       value: 
-      objectReference: {fileID: 7882577137720077939}
+      objectReference: {fileID: 7249557028184446129}
     - target: {fileID: 4742473837712756890, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       propertyPath: m_LODs.Array.data[3].renderers.Array.data[0].renderer
       value: 
-      objectReference: {fileID: 2725439350938172586}
+      objectReference: {fileID: 2876372220468133388}
     - target: {fileID: 7715524436082454623, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
@@ -346,10 +346,10 @@ PrefabInstance:
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 7975866954612562701}
+      addedObject: {fileID: 7079753743307896123}
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 8022823663838685234}
+      addedObject: {fileID: 7187368669614211619}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 4a787708c43e6ef458cd613252d0cc17, type: 3}
       insertIndex: -1

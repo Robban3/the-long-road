@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &1676120069331835167
+--- !u!1 &744958289707334263
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 313209795337972695}
-  - component: {fileID: 4520429002558658899}
-  - component: {fileID: 39954362380953042}
+  - component: {fileID: 8167641943391042164}
+  - component: {fileID: 7958886976993445234}
+  - component: {fileID: 2636730445689579106}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &313209795337972695
+--- !u!4 &8167641943391042164
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1676120069331835167}
+  m_GameObject: {fileID: 744958289707334263}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 4177359811985186703}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &4520429002558658899
+--- !u!33 &7958886976993445234
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1676120069331835167}
+  m_GameObject: {fileID: 744958289707334263}
   m_Mesh: {fileID: 4300000, guid: 4be2374cba083254c88efc79d1ab0106, type: 2}
---- !u!23 &39954362380953042
+--- !u!23 &2636730445689579106
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1676120069331835167}
+  m_GameObject: {fileID: 744958289707334263}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -101,7 +101,7 @@ GameObject:
   - component: {fileID: 4177359811985186703}
   - component: {fileID: 1033344154208407594}
   - component: {fileID: 3004985350708880608}
-  - component: {fileID: 7092739801778834566}
+  - component: {fileID: 2740485845815970029}
   m_Layer: 0
   m_Name: SM_Gen_Env_Twig_03
   m_TagString: Untagged
@@ -122,7 +122,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 313209795337972695}
+  - {fileID: 8167641943391042164}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &1033344154208407594
@@ -182,7 +182,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!205 &7092739801778834566
+--- !u!205 &2740485845815970029
 LODGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -203,5 +203,5 @@ LODGroup:
   - screenRelativeHeight: 0.005
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 39954362380953042}
+    - renderer: {fileID: 2636730445689579106}
   m_Enabled: 1

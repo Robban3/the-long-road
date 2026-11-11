@@ -461,6 +461,57 @@ namespace TheVeil.Editor
                     }
                 }
 
+                // <b>And the blades at every range, including the ones they are not drawn
+                // at.</b> Everything else here is photographed only where the engine would
+                // pick it, on the principle that a picture of something nobody sees is a
+                // question nobody is asked. The blades are the exception, and on purpose:
+                // the band above them is 59 per cent of the heaviest frame in the game and
+                // whether they could take it is a question about how a flat thing looks at
+                // six hundred pixels. No measurement answers that. A picture of the blade
+                // at the range the author's own mesh draws today is the whole of the
+                // evidence, so it is taken and labelled as the hypothetical it is.
+                for (int lod = 0; lod < levels.Length; lod++)
+                {
+                    bool mine = false;
+
+                    if (levels[lod].renderers != null)
+                        foreach (var renderer in levels[lod].renderers)
+                            if (renderer != null
+                                && renderer.gameObject.name.StartsWith("Far LOD Board"))
+                                mine = true;
+
+                    if (!mine) continue;
+
+                    int faces = Isolated(reading, levels, lod);
+                    if (faces <= 0) continue;
+
+                    foreach (float range in ranges)
+                    {
+                        // <b>Straight on and then turned forty-five degrees, because
+                        // straight on is the blade's best angle and photographing a thing
+                        // at its best angle is how a picture lies.</b> Four blades in a
+                        // cross are seen corner-on half the time, with two of them edge-on
+                        // and showing nothing. If the cross reads as a tree there it reads
+                        // everywhere; if it reads as two boards it does so at exactly the
+                        // moment the camera swings, which is most of this game.
+                        foreach (float turn in new[] { 0f, 45f })
+                        {
+                            reading.transform.rotation = Quaternion.Euler(0f, turn, 0f);
+
+                            // The height is in the name as well now: the dressing stands
+                            // these at two sizes and both wrote to one file, so the second
+                            // quietly replaced the first and the sheet named two pictures
+                            // that were one.
+                            string at = $"{prefab.name}-BOARD-{faces}f-{tall:0}m-"
+                                        + $"{range:0}m-{turn:0}deg";
+
+                            if (Shoot(reading, tall, range, at, faces, sheet)) written++;
+                        }
+
+                        reading.transform.rotation = Quaternion.identity;
+                    }
+                }
+
                 // And the candidates, cut from the level the tool would cut from, shown at
                 // the same distances. 900 is the first rung; 2500 is the obvious thing to
                 // reach for if 900 will not do, and asking the question without an answer
