@@ -364,10 +364,20 @@ namespace TheVeil.Editor
         }
 
         /// <summary>The scenery this is shown for: the two trees and nothing else.</summary>
+        /// <b>And four that are not trees, because the line is set at 0,80 and nothing
+        /// between 0,75 and 0,95 had ever been photographed.</b> A house room, a rock, a
+        /// barrel-sided cart and a bush: solid things whose cheap levels keep most of
+        /// their outline, which is the half of the scale the trees say nothing about. The
+        /// number is printed beside each picture, so whichever of them lands in that
+        /// stretch is the calibration for the top of the rule.
         static readonly string[] Scenes =
         {
             "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Tree_Meadow_01.prefab",
             "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Tree_Meadow_02.prefab",
+            "Assets/Synty/PolygonKnights/Prefabs/Buildings/SM_Bld_House_Room_01.prefab",
+            "Assets/Synty/PolygonPirates/Prefabs/Environments/SM_Env_Rock_Large_01.prefab",
+            "Assets/Synty/PolygonPirates/Prefabs/Props/SM_Prop_Barrel_01.prefab",
+            "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Bush_01.prefab",
         };
 
         /// <summary>
@@ -455,7 +465,7 @@ namespace TheVeil.Editor
                 // the same distances. 900 is the first rung; 2500 is the obvious thing to
                 // reach for if 900 will not do, and asking the question without an answer
                 // to compare against is how a picture gets judged against nothing.
-                foreach (int budget in new[] { 2500, 900 })
+                foreach (int budget in new[] { 2500, 1800, 1300, 900 })
                 {
                     foreach (float range in ranges)
                     {

@@ -241,11 +241,11 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 576 002 (4-7) | **656 743** (4-1-Safe) | 250 000 | over 2,6× |
+| visible triangles | 7 503 276 | 563 951 (4-7) | **656 743** (4-1-Safe) | 250 000 | over 2,6× |
 | draw calls, fully instanced | 228 | 252 (1-8) | **311** (4-10-Fast) | 150 | over 2,1× |
-| draw calls, a material each | 54 | 42 (4-10) | 58 (4-10-Fast) | 150 | within |
-| memory | 777 MB | **637 MB** (4-6) | — | 700 MB | within |
-| level load | 2,52 s | 1,58 s worst of 100 | — | 2,0 s | within, and it wanders |
+| draw calls, a material each | 54 | 45 (4-10) | 58 (4-10-Fast) | 150 | within |
+| memory | 777 MB | **646 MB** (4-6) | — | 700 MB | within |
+| level load | 2,52 s | 1,54–3,77 s worst of 100 | — | 2,0 s | it wanders, see §4 |
 | skinned meshes | not measurable | 0, scenery has none | **169 in frame, 191 standing** | 40 | over 4,2× |
 | package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
 | frame rate | never measured | — | — | 60 fps | needs a phone |
@@ -671,6 +671,50 @@ real remedy is a different far representation — a baked billboard at distance,
 standard answer for trees and is its own piece of work with its own pipeline. Until then
 this is a tool that knows what it cannot do and says so, which is better than a sheet
 reporting a saving for a tree that has left.
+
+**Then the count behind the photograph, which settles what the mesh route can and cannot
+do.** `The Veil > Mesh Shells` reports a mesh in pieces that touch after welding by
+position, and checks itself against a cube first: one shell, twelve faces, nought per cent
+loose. `SM_Env_Tree_Meadow_01`'s LOD0 is **22 162 faces in 9 890 pieces, 9 885 of them a
+quad or less — 19 770 faces, 89,2 per cent of the mesh that no decimator can touch**,
+because an edge needs two triangles sharing it. The largest piece is 2 040 faces and that
+is the trunk. Meadow_02 is 79,3 per cent; the branch renderers are nought. Two ways of
+spending the budget on that were tried and photographed: proportional gives the trunk
+eighty-six faces, half-and-half gives it 395, and both are a canopy with slivers under it.
+Outline 0,55 against 0,56 — nothing. Both reverted.
+
+**And the covered wagon, which is the same symptom from the opposite cause.** It is nought
+per cent loose on all ten renderers, and the decimator's own account says why it comes back
+at 14 254 faces against a budget of eighty: **26 055 collapses refused as flips**. It is not
+short of edges, it is 369 separate planks, and collapsing a box turns a side face ninety
+degrees. Allowing degenerate triangles through the flip guard was tried and moved it to
+14 226, which is noise, so that is reverted too. Hard-surface boxes want a different answer
+from leaf cards and neither is a decimator's.
+
+**The billboards are in.** `The Veil > Bake Tree Billboards` stands a tree up, lights it
+with a lamp of its own that turns with the camera, renders four sides orthographically into
+one 1024-pixel atlas and writes four one-sided blades in a cross — eight triangles carrying
+the tree's own silhouette. The ambient and the sky reflection are pinned flat during the
+bake: the first two attempts came back with red speckles down the shaded side, then blue
+ones when the light moved, which was the editor's scene leaking into the picture. `FarLods`
+hangs the blades where the shape rule would otherwise have pushed the cheap level — the
+author's mesh above four hundred pixels, the picture below — and builds no rungs at all for
+a model that has them. Nine trees: both meadow trees, three variants, both large trees, the
+trunk and the portal tree.
+
+**Scenery triangles 576 002 to 563 951, instanced calls 252 unchanged, memory 637 MB to
+646 for the nine atlases.** Over the ninety rows the calls fall on 28 and rise on none, and
+the triangles fall 138k in sum. All 907 chains end where they did, the skinned chains are
+byte-identical, 0 empty levels, 391 tests with none failing. The gain is small and that is
+the honest shape of it: below four hundred pixels the cheap level was already cheap, so what
+the billboard buys there is not triangles but a tree instead of leaves in the air. The
+12 700-face band above four hundred pixels is untouched, and taking it would mean trusting a
+flat blade at half the screen's height - a photograph away, not a measurement away.
+
+**The load line wandered badly through all of this and is worth distrusting in writing.**
+Readings of 1,54, 1,58, 1,70, 1,93, 2,06, 2,71, 3,22 and 3,77 seconds, twice on byte-identical
+assets at 1,93 and 3,22. It is the editor's own time to stand a level up, it moves with
+whatever else the machine is doing, and no conclusion in this section rests on it.
 
 **The three counted lines above were scenery-only figures until 2026-10-29, and the
 skinned one was a nought in a game with a mounted column in it.** `BudgetReport` stands a

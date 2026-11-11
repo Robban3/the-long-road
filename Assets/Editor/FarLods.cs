@@ -1131,6 +1131,8 @@ namespace TheVeil.Editor
                 // The boar's merged level sits at 0,010, below KeepAbove, so it is one this
                 // tool replaces - and it is still the right thing to cut from. Which is why
                 // the new levels are built before anything is stripped.
+                bool boarded = false;
+
                 var seed = Cheapest(rungs, near);
 
                 int seedFaces = 0;
@@ -1138,6 +1140,50 @@ namespace TheVeil.Editor
                 if (seedFaces <= 0) { seed = near; seedFaces = nearFaces; }
 
                 had = seedFaces;
+
+                // <b>And if this model has been baked into a billboard, that is the whole
+                // of its far chain and none of the rungs below are built.</b> The measure
+                // that sent the trees here is in Silhouette and the count that explains it
+                // is in `The Veil > Mesh Shells`: 89 per cent of a meadow tree is loose
+                // leaf cards, there is no edge in them to collapse, so every budget this
+                // tool can offer is spent eating the trunk. Four flat blades carrying a
+                // photograph of the tree are eight triangles and keep its outline exactly,
+                // because the outline is its own.
+                //
+                // Hung where the shape rule would otherwise have pushed the cheap level:
+                // the author's own mesh above four hundred pixels, the picture below it.
+                var board = Board(name);
+
+                if (board.Mesh != null && board.Paint != null)
+                {
+                    float capped = Seen / 2400f * QualitySettings.lodBias;
+
+                    var low = keep[keep.Count - 1];
+
+                    if (low.screenRelativeTransitionHeight > capped)
+                    {
+                        low.screenRelativeTransitionHeight = capped;
+                        keep[keep.Count - 1] = low;
+                    }
+
+                    var blades = Hung(root, board, name);
+
+                    if (blades != null)
+                    {
+                        keep.Add(new LOD
+                        {
+                            screenRelativeTransitionHeight = ending ? given : 0f,
+                            fadeTransitionWidth = 0f,
+                            renderers = new[] { blades },
+                        });
+
+                        nowFar += Faces(blades);
+                        got = Faces(blades);
+                        shape = "board";
+
+                        boarded = true;
+                    }
+                }
 
                 // Where the first rung's band begins, read off the chain before this loop
                 // has changed anything in it. <b>Read afresh each time round, it cascades;
@@ -1148,7 +1194,7 @@ namespace TheVeil.Editor
                 // rule was written for out of it.
                 float ceiling = keep[keep.Count - 1].screenRelativeTransitionHeight;
 
-                for (int rung = from; rung < Thin.Length; rung++)
+                for (int rung = boarded ? Thin.Length : from; rung < Thin.Length; rung++)
                 {
                     // <b>Never below the author's own edge on ground cover, and this is the
                     // whole of the mushroom fix.</b> `SM_Env_Mushroom_Small_01` ships one
@@ -1752,6 +1798,41 @@ namespace TheVeil.Editor
 
             Object.DestroyImmediate(renderer);
             if (filter != null) Object.DestroyImmediate(filter);
+        }
+
+        /// <summary>Where the baked blades for a model live, if they have been baked.</summary>
+        const string Boards = "Assets/_Project/Models/Billboards";
+
+        /// <summary>The blades and their paint, or nothing where none were baked.</summary>
+        static (Mesh Mesh, Material Paint) Board(string name)
+        {
+            string stem = $"{Boards}/{name}_Board";
+
+            return (AssetDatabase.LoadAssetAtPath<Mesh>($"{stem}.asset"),
+                    AssetDatabase.LoadAssetAtPath<Material>($"{stem}.mat"));
+        }
+
+        /// <summary>
+        /// The blades stood up under the model's own root, at its own origin.
+        ///
+        /// Under the root and at identity, because the blades were baked around the
+        /// model's bounds in the model's own space - the same reason a generated level is
+        /// parented beside the renderer it was cut from. Marked like every other piece
+        /// this tool adds, so the next run can tell its own work from the author's.
+        /// </summary>
+        static Renderer Hung(GameObject root, (Mesh Mesh, Material Paint) board, string name)
+        {
+            var stood = new GameObject($"{Mark}Board");
+            stood.transform.SetParent(root.transform, false);
+
+            var filter = stood.AddComponent<MeshFilter>();
+            filter.sharedMesh = board.Mesh;
+
+            var drawn = stood.AddComponent<MeshRenderer>();
+            drawn.sharedMaterial = board.Paint;
+            drawn.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+            return drawn;
         }
 
         /// <summary>

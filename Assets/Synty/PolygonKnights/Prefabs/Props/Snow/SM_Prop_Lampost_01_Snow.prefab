@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 2334932}
   - component: {fileID: 9519466}
   - component: {fileID: 64382036041614260}
-  - component: {fileID: 2825984256759616165}
+  - component: {fileID: 8046342362173264876}
   m_Layer: 0
   m_Name: SM_Prop_Lampost_01_Snow
   m_TagString: Untagged
@@ -34,8 +34,8 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6855801369719392190}
-  - {fileID: 3746867615389955440}
+  - {fileID: 3573968653825466594}
+  - {fileID: 1146324419806149863}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &3331722
@@ -139,7 +139,7 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 43227530005366986, guid: d560f0f651ed3334fbc2a99f82b096c0, type: 2}
---- !u!205 &2825984256759616165
+--- !u!205 &8046342362173264876
 LODGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -160,13 +160,13 @@ LODGroup:
   - screenRelativeHeight: 0.035
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 7420347982333057914}
+    - renderer: {fileID: 1587339066965957802}
   - screenRelativeHeight: 0
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 8507815509734981286}
+    - renderer: {fileID: 366486618646610018}
   m_Enabled: 1
---- !u!1 &204959968032882697
+--- !u!1 &234992588520743788
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -174,23 +174,23 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 6855801369719392190}
-  - component: {fileID: 8001058178500160293}
-  - component: {fileID: 7420347982333057914}
+  - component: {fileID: 1146324419806149863}
+  - component: {fileID: 7698289332448851177}
+  - component: {fileID: 366486618646610018}
   m_Layer: 0
-  m_Name: Far LOD 10
+  m_Name: Far LOD 20
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &6855801369719392190
+--- !u!4 &1146324419806149863
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 204959968032882697}
+  m_GameObject: {fileID: 234992588520743788}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -199,21 +199,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 420258}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8001058178500160293
+--- !u!33 &7698289332448851177
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 204959968032882697}
-  m_Mesh: {fileID: 4300000, guid: 668eb83427c964c4eaf1c4a38f561fbc, type: 2}
---- !u!23 &7420347982333057914
+  m_GameObject: {fileID: 234992588520743788}
+  m_Mesh: {fileID: 4300000, guid: 8c7a7762ad1bb3d43954a47fe8b9a80e, type: 2}
+--- !u!23 &366486618646610018
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 204959968032882697}
+  m_GameObject: {fileID: 234992588520743788}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -256,7 +256,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1 &8706049307847471300
+--- !u!1 &6806705561514774024
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -264,23 +264,23 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3746867615389955440}
-  - component: {fileID: 8884583256578601051}
-  - component: {fileID: 8507815509734981286}
+  - component: {fileID: 3573968653825466594}
+  - component: {fileID: 9046270526819515754}
+  - component: {fileID: 1587339066965957802}
   m_Layer: 0
-  m_Name: Far LOD 20
+  m_Name: Far LOD 10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3746867615389955440
+--- !u!4 &3573968653825466594
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8706049307847471300}
+  m_GameObject: {fileID: 6806705561514774024}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -289,21 +289,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 420258}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8884583256578601051
+--- !u!33 &9046270526819515754
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8706049307847471300}
-  m_Mesh: {fileID: 4300000, guid: 8c7a7762ad1bb3d43954a47fe8b9a80e, type: 2}
---- !u!23 &8507815509734981286
+  m_GameObject: {fileID: 6806705561514774024}
+  m_Mesh: {fileID: 4300000, guid: 668eb83427c964c4eaf1c4a38f561fbc, type: 2}
+--- !u!23 &1587339066965957802
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8706049307847471300}
+  m_GameObject: {fileID: 6806705561514774024}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1

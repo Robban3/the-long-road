@@ -619,6 +619,15 @@ namespace TheVeil.Editor
                     if (filter == null || filter.sharedMesh == null) continue;
 
                     Count(filter.sharedMesh, $"{prefab.name} / {renderer.name}", sheet);
+
+                    // <b>And what the decimator says it did to it.</b> The covered wagon
+                    // comes back from an eighty-face budget at 25 152 faces against a
+                    // source of 25 164 and nobody knows why; it is nought per cent loose
+                    // cards, so it is not the tree's fault. The tool's own account of the
+                    // run is the only thing in the project that can say whether it ran out
+                    // of edges, refused every collapse as a flip, or never started.
+                    MeshDecimator.Simplify(filter.sharedMesh, 80, out string story);
+                    sheet.AppendLine($"[Shell]     asked for 80: {story}");
                 }
             }
 
