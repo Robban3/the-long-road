@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -547,6 +548,141 @@ namespace TheVeil.Editor
                 Object.DestroyImmediate(eye);
                 Object.DestroyImmediate(stood);
             }
+        }
+
+        /// <summary>
+        /// What a mesh is actually made of, in pieces that touch: `The Veil &gt; Mesh Shells`.
+        ///
+        /// <b>Because the decimator's failure on a tree is a fact about the asset and
+        /// nobody had counted it.</b> `MeshDecimator` works by collapsing edges, and an
+        /// edge can only be collapsed if the triangles around it share it. A Synty canopy
+        /// is a few thousand separate leaf cards - two triangles each, touching nothing -
+        /// so there is no edge in them to collapse at all, and the only collapsible edges
+        /// in the mesh are the trunk's. Asked for any budget the tool therefore eats the
+        /// trunk and leaves every leaf where it was. That was read off photographs; this
+        /// is the same thing as a number, and it says whether dropping whole cards could
+        /// ever reach a budget.
+        ///
+        /// Welded by position first, the way the decimator welds, because a shell written
+        /// as two halves at a seam is one shell to it.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.RigProbe.Shells
+        /// </summary>
+        [MenuItem("The Veil/Mesh Shells")]
+        public static void Shells()
+        {
+            // The two trees this started with, a bush and a fern for the same canopy
+            // question at another size, and a cube - whose answer is known, which is how
+            // this sheet is checked before anything is read off it.
+            string[] looked =
+            {
+                "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Tree_Meadow_01.prefab",
+                "Assets/Synty/PolygonNatureBiomes/PNB_Meadow_Forest/Prefabs/SM_Env_Tree_Meadow_02.prefab",
+                "Assets/3DreaMax Studio/003_MDVL_WagonsCartsCarriages_Vol_1/Prefabs/Covered_Wagon/SM_Covered_Wagon_Full.prefab",
+            };
+
+            var sheet = new StringBuilder();
+            sheet.AppendLine("[Shell] what each mesh is made of, in pieces that touch after "
+                             + "welding by position");
+            sheet.AppendLine("[Shell] an edge can only be collapsed if two triangles share "
+                             + "it, so faces in two-triangle shells are faces no decimator "
+                             + "can simplify - it can only delete them whole");
+
+            var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+
+            try
+            {
+                var mesh = box.GetComponent<MeshFilter>().sharedMesh;
+                Count(mesh, "a cube, whose answer is known", sheet);
+            }
+            finally { Object.DestroyImmediate(box); }
+
+            foreach (string path in looked)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                if (prefab == null)
+                {
+                    sheet.AppendLine($"[Shell] {path}: not there");
+                    continue;
+                }
+
+                var group = prefab.GetComponent<LODGroup>();
+                var levels = group != null ? group.GetLODs() : null;
+                if (levels == null || levels.Length == 0) continue;
+
+                foreach (var renderer in levels[0].renderers)
+                {
+                    if (renderer == null) continue;
+
+                    var filter = renderer.GetComponent<MeshFilter>();
+                    if (filter == null || filter.sharedMesh == null) continue;
+
+                    Count(filter.sharedMesh, $"{prefab.name} / {renderer.name}", sheet);
+                }
+            }
+
+            Debug.Log(sheet.ToString());
+        }
+
+        /// <summary>One mesh's shells, counted and ranked.</summary>
+        static void Count(Mesh mesh, string what, StringBuilder sheet)
+        {
+            const float Same = 0.0001f;
+
+            var points = mesh.vertices;
+            var corners = mesh.triangles;
+
+            // Welded by position, so a seam written as two vertices is one point.
+            var slot = new Dictionary<Vector3Int, int>(points.Length);
+            var index = new int[points.Length];
+
+            for (int i = 0; i < points.Length; i++)
+            {
+                var at = new Vector3Int(Mathf.RoundToInt(points[i].x / Same),
+                                        Mathf.RoundToInt(points[i].y / Same),
+                                        Mathf.RoundToInt(points[i].z / Same));
+
+                if (!slot.TryGetValue(at, out int found)) { found = slot.Count; slot[at] = found; }
+                index[i] = found;
+            }
+
+            // Union-find over the welded points, joined by every triangle.
+            var owner = new int[slot.Count];
+            for (int i = 0; i < owner.Length; i++) owner[i] = i;
+
+            int Root(int i) { while (owner[i] != i) { owner[i] = owner[owner[i]]; i = owner[i]; } return i; }
+            void Join(int a, int b) { a = Root(a); b = Root(b); if (a != b) owner[a] = b; }
+
+            for (int t = 0; t + 2 < corners.Length; t += 3)
+            {
+                Join(index[corners[t]], index[corners[t + 1]]);
+                Join(index[corners[t + 1]], index[corners[t + 2]]);
+            }
+
+            var size = new Dictionary<int, int>();
+
+            for (int t = 0; t + 2 < corners.Length; t += 3)
+            {
+                int root = Root(index[corners[t]]);
+                size.TryGetValue(root, out int had);
+                size[root] = had + 1;
+            }
+
+            int faces = corners.Length / 3;
+            int tiny = 0, tinyFaces = 0, biggest = 0;
+
+            foreach (var one in size)
+            {
+                if (one.Value <= 2) { tiny++; tinyFaces += one.Value; }
+                if (one.Value > biggest) biggest = one.Value;
+            }
+
+            sheet.AppendLine($"[Shell] {what,-52} {faces,7} faces in {size.Count,6} shells; "
+                             + $"largest {biggest,7} faces; {tiny,6} shells of two triangles "
+                             + $"or fewer, {tinyFaces,7} faces "
+                             + $"({(faces > 0 ? 100f * tinyFaces / faces : 0f),5:0.0}% of the "
+                             + "mesh a decimator can only delete whole)");
         }
     }
 }

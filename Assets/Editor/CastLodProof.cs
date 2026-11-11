@@ -245,6 +245,18 @@ namespace TheVeil.Editor
         /// happens to look similar.
         /// </summary>
         static int Thin(List<Renderer> renderers, int nearFaces, int budget)
+            => Thin(renderers, nearFaces, budget, null);
+
+        /// <summary>
+        /// The same, with the decimator's own account of what it did written down.
+        ///
+        /// <b>It was being thrown away, and it is the only thing that says why.</b>
+        /// `MeshDecimator` reports what it collapsed, what it refused as a flip, and now
+        /// how many loose cards it dropped - which is the difference between "the budget
+        /// was met" and "the budget was met by eating the trunk".
+        /// </summary>
+        static int Thin(List<Renderer> renderers, int nearFaces, int budget,
+                        StringBuilder sheet)
         {
             int made = 0;
 
@@ -263,8 +275,11 @@ namespace TheVeil.Editor
                                           : filter != null ? filter.sharedMesh : null;
                 if (source == null) continue;
 
-                var thin = MeshDecimator.Simplify(source, share, out _);
+                var thin = MeshDecimator.Simplify(source, share, out string story);
                 if (thin == null) continue;
+
+                sheet?.AppendLine($"[Proof]     {renderer.name,-44} {faces,6} faces asked "
+                                  + $"for {share,5}: {story}");
 
                 if (skin != null) skin.sharedMesh = thin;
                 else filter.sharedMesh = thin;
@@ -504,7 +519,7 @@ namespace TheVeil.Editor
                                 }
                             }
 
-                            int made = Thin(live, from, budget);
+                            int made = Thin(live, from, budget, sheet);
 
                             var box = new Bounds(copy.transform.position, Vector3.zero);
                             foreach (var renderer in live)
