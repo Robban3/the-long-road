@@ -111,6 +111,11 @@ namespace TheVeil.Editor
             int worstCalls = 0;
             string worstCallsText = null;
 
+            // And the same for the skinned line, kept apart for the same reason: the frame
+            // with the most skinned figures in it is not the frame with the most triangles.
+            int worstSkinned = 0;
+            string worstSkinnedText = null;
+
             // <b>And the rows asked for by name, because the worst row moves.</b> Run this
             // against the prefabs as they were before the ground cover ending and the frame
             // worst by calls is 4-10-Fast at 319; run it against them as they are and it is
@@ -142,7 +147,14 @@ namespace TheVeil.Editor
                                         out int standing, out int castTriangles,
                                         out int castPieces, out Dictionary<Mesh, long> frame,
                                         out Dictionary<Mesh, List<BudgetReport.Stood>> spread,
-                                        out string ending, out string calls);
+                                        out string ending, out string calls,
+                                        out string census);
+
+                        if (seen.Skinned > worstSkinned)
+                        {
+                            worstSkinned = seen.Skinned;
+                            worstSkinnedText = census;
+                        }
 
                         if (seen.Instanced > worstCalls)
                         {
@@ -180,6 +192,7 @@ namespace TheVeil.Editor
             worst.Write(sheet);
             BudgetReport.Frame("Cast", sheet, worstFrame, worstFrameAt, heaviest);
             BudgetReport.Bands("Cast", sheet, worstSpread, worstFrame, heaviest);
+            if (!string.IsNullOrEmpty(worstSkinnedText)) sheet.Append(worstSkinnedText);
             if (!string.IsNullOrEmpty(worstEnding)) sheet.Append(worstEnding);
             if (!string.IsNullOrEmpty(worstCallsText)) sheet.Append(worstCallsText);
 
@@ -236,7 +249,7 @@ namespace TheVeil.Editor
                                       out int standing, out int castTriangles,
                                       out int castPieces, out Dictionary<Mesh, long> frame,
                                       out Dictionary<Mesh, List<BudgetReport.Stood>> spread,
-                                      out string ending, out string calls)
+                                      out string ending, out string calls, out string census)
         {
             var peak = new BudgetReport.Seen();
             standing = castTriangles = castPieces = 0;
@@ -244,6 +257,7 @@ namespace TheVeil.Editor
             spread = null;
             ending = null;
             calls = null;
+            census = null;
 
             var corridor = map.CorridorOf(kind);
             var recipe = LevelMaps.Recipe(chapter, level);
@@ -384,7 +398,17 @@ namespace TheVeil.Editor
                             }
                             if (seen.Pieces > peak.Pieces) peak.Pieces = seen.Pieces;
 
-                            if (seen.Skinned > peak.Skinned) peak.Skinned = seen.Skinned;
+                            if (seen.Skinned > peak.Skinned)
+                            {
+                                peak.Skinned = seen.Skinned;
+
+                                // Taken at the record, like the model split and the call
+                                // list, because these pieces belong to a level that is
+                                // torn down when the row ends.
+                                census = Census($"{chapter}-{level}-{kind} at {range:0} m, "
+                                                + $"aspect {aspect:0.00}, {seconds:0} s in",
+                                                both, showing, view, from);
+                            }
                         }
                     }
 
@@ -428,6 +452,83 @@ namespace TheVeil.Editor
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// Who the skinned meshes in one frame are: by mesh, by rung, and by distance.
+        ///
+        /// <b>Because "169 against 40" names no suspect.</b> The line comes down two ways
+        /// and only two: stand fewer of them up, or draw something that is not skinned
+        /// where a skinned one is drawn now. Which of those is worth doing depends on
+        /// whether the count is forty figures each carrying four renderers or a hundred
+        /// and sixty figures each carrying one, and on whether they are at the camera's
+        /// nose or out at the edge of the country - and nothing in this project could say
+        /// which until this list existed.
+        ///
+        /// A chain's rung is printed as <c>lod/rungs</c>, and "-" for a renderer that has
+        /// no chain at all. The distance is to the near edge of the renderer's bounds,
+        /// which is a skinned figure's animation-sized box and so is a metre or two
+        /// generous - it is read as a band and not as a measurement.
+        /// </summary>
+        static string Census(string where, BudgetReport.Standing both, int[] showing,
+                             Plane[] view, Vector3 from)
+        {
+            var rows = new Dictionary<string, Row>();
+            int all = 0, chained = 0, bottom = 0;
+
+            foreach (var piece in both.Pieces)
+            {
+                if (piece.Group >= 0 && showing[piece.Group] != piece.Lod) continue;
+                if (!piece.Skinned) continue;
+                if (!GeometryUtility.TestPlanesAABB(view, piece.Where)) continue;
+
+                int rungs = piece.Group >= 0 ? both.Groups[piece.Group].Until.Length : 0;
+                float away = Mathf.Sqrt(piece.Where.SqrDistance(from));
+
+                all++;
+                if (rungs > 0) chained++;
+                if (rungs > 0 && piece.Lod == rungs - 1) bottom++;
+
+                string name = piece.Shape != null ? piece.Shape.name : "(no mesh)";
+                string key = $"{name}|{piece.Lod}|{rungs}";
+
+                if (!rows.TryGetValue(key, out var row))
+                    row = new Row { Name = name, Lod = piece.Lod, Rungs = rungs,
+                                    Near = float.MaxValue, Far = 0f };
+
+                row.Count++;
+                row.Triangles = piece.Triangles;
+                if (away < row.Near) row.Near = away;
+                if (away > row.Far) row.Far = away;
+
+                rows[key] = row;
+            }
+
+            var sheet = new StringBuilder();
+
+            sheet.AppendLine($"[Cast] the skinned meshes in frame, one by one, on {where}:");
+            sheet.AppendLine($"[Cast]   {all} in frame, {chained} of them in a chain, "
+                             + $"{bottom} of those on the chain's last rung");
+
+            var sorted = new List<Row>(rows.Values);
+            sorted.Sort((a, b) => b.Count != a.Count ? b.Count - a.Count
+                                                     : string.Compare(a.Name, b.Name,
+                                                                      System.StringComparison.Ordinal));
+
+            foreach (var row in sorted)
+                sheet.AppendLine($"[Cast]   {row.Count,3} x {row.Name,-44} "
+                                 + $"rung {(row.Rungs > 0 ? $"{row.Lod}/{row.Rungs}" : "-"),-5} "
+                                 + $"{row.Triangles,6} faces each  "
+                                 + $"{row.Near,5:0} - {row.Far,5:0} m");
+
+            return sheet.ToString();
+        }
+
+        struct Row
+        {
+            public string Name;
+            public int Lod, Rungs, Count, Triangles;
+            public float Near, Far;
         }
 
         /// <summary>The worst reading in the game on each line, and where it was taken.</summary>

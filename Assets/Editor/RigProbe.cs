@@ -693,5 +693,246 @@ namespace TheVeil.Editor
                              + $"({(faces > 0 ? 100f * tinyFaces / faces : 0f),5:0.0}% of the "
                              + "mesh a decimator can only delete whole)");
         }
+
+        /// <summary>
+        /// What pose the cast prefabs stand in on disk, near rung and far rung both:
+        /// `The Veil &gt; Rest Poses`.
+        ///
+        /// <b>Because a frozen pose is only worth having if the pose is worth freezing.</b>
+        /// The far rungs of the cast carry SkinnedMeshRenderers holding two dozen faces
+        /// each, and the way to take them off the skinned-mesh line is to bake them in a
+        /// pose and hang a plain MeshRenderer instead. That is only safe if the pose on
+        /// disk is a pose, and most rigs are authored with the arms straight out.
+        ///
+        /// <b>Read the width in metres, not the ratio.</b> The first version of this
+        /// printed widest-horizontal over height and called anything over 0,8 arms out -
+        /// which flagged every deer, wolf, fox, fish and shark in the project, because a
+        /// quadruped is as long as it is tall and always was. The ratio measures boxiness.
+        /// What catches a rig standing in a cross is the absolute width of a thing about
+        /// 1,9 m tall: half a metre is a figure, a metre and a half is a cross.
+        ///
+        /// <b>And the far rung is measured as well as the near one</b>, because a mesh
+        /// decimated to two dozen faces may have lost the arms that made the pose a
+        /// problem - an assumption this tool made in a comment for one run before it was
+        /// asked to measure it.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.RigProbe.Poses
+        /// </summary>
+        [MenuItem("The Veil/Rest Poses")]
+        public static void Poses()
+        {
+            var sheet = new StringBuilder();
+            sheet.AppendLine("[Pose] every prefab with a skinned renderer, baked in the pose "
+                             + "it is saved in, box measured");
+            sheet.AppendLine("[Pose] near is the chain's top rung, far is its last; width in "
+                             + "metres is the reading, and about 0,5 m on a 1,9 m figure is a "
+                             + "figure standing");
+
+            int seen = 0;
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+                if (prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length == 0) continue;
+
+                var stood = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                if (stood == null) continue;
+
+                try
+                {
+                    var near = new List<SkinnedMeshRenderer>();
+                    var far = new List<SkinnedMeshRenderer>();
+
+                    foreach (var skin in stood.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                        if (!skin.name.StartsWith("Far LOD ")) near.Add(skin);
+
+                    // The chain's own last rung, asked of the group rather than guessed
+                    // from the name: a model may carry generated pieces that no level
+                    // lists any more, and those are not what gets drawn.
+                    foreach (var group in stood.GetComponentsInChildren<LODGroup>(true))
+                    {
+                        var levels = group.GetLODs();
+                        if (levels.Length == 0) continue;
+
+                        var last = levels[levels.Length - 1];
+                        if (last.renderers == null) continue;
+
+                        foreach (var renderer in last.renderers)
+                            if (renderer is SkinnedMeshRenderer skin && skin.sharedMesh != null)
+                                far.Add(skin);
+                    }
+
+                    if (!Box(near, out var nearBox, out int nearFaces)) continue;
+
+                    seen++;
+
+                    bool hasFar = Box(far, out var farBox, out int farFaces);
+
+                    sheet.AppendLine($"[Pose] {prefab.name,-40} "
+                                     + $"near {near.Count,2} skinned {nearFaces,6} faces "
+                                     + $"{Mathf.Max(nearBox.size.x, nearBox.size.z),5:0.00} wide "
+                                     + $"{nearBox.size.y,5:0.00} tall   "
+                                     + (hasFar
+                                        ? $"far {far.Count,2} skinned {farFaces,6} faces "
+                                          + $"{Mathf.Max(farBox.size.x, farBox.size.z),5:0.00} wide "
+                                          + $"{farBox.size.y,5:0.00} tall"
+                                        : "far  - no skinned last rung"));
+                }
+                finally { Object.DestroyImmediate(stood); }
+            }
+
+            sheet.AppendLine($"[Pose] {seen} prefabs baked");
+
+            Debug.Log(sheet.ToString());
+        }
+
+        /// <summary>
+        /// The world box of a set of skinned renderers baked in the pose they stand in,
+        /// and the faces they hold between them.
+        /// </summary>
+        static bool Box(List<SkinnedMeshRenderer> skins, out Bounds box, out int faces)
+        {
+            box = new Bounds();
+            faces = 0;
+
+            bool any = false;
+
+            foreach (var skin in skins)
+            {
+                if (skin.sharedMesh == null) continue;
+
+                var baked = new Mesh();
+
+                try
+                {
+                    // <b>Baked with the scale, and then turned and not moved.</b> BakeMesh
+                    // with useScale applies the renderer world scale itself, so putting
+                    // the result through the transform as well multiplies by it twice -
+                    // which is how this tool first reported a deer whose far rung was a
+                    // box one centimetre across. Baking without the scale and
+                    // transforming is not the fix either: these packs are imported at a
+                    // hundredth on an ancestor and the figure came out at 0,01 m both
+                    // ways. Rotation alone is what is left, and it is all the box needs:
+                    // the extents are wanted on the world axes and the position is not
+                    // wanted at all.
+                    skin.BakeMesh(baked, true);
+                    if (baked.vertexCount == 0) continue;
+
+                    faces += baked.triangles.Length / 3;
+
+                    var local = baked.bounds;
+
+                    foreach (var corner in Corners(local))
+                    {
+                        var at = skin.transform.rotation * corner;
+
+                        if (!any) { box = new Bounds(at, Vector3.zero); any = true; }
+                        else box.Encapsulate(at);
+                    }
+                }
+                finally { Object.DestroyImmediate(baked); }
+            }
+
+            return any;
+        }
+
+        /// <summary>The eight corners of a box, which Bounds does not hand out.</summary>
+        static Vector3[] Corners(Bounds box)
+        {
+            var low = box.min;
+            var high = box.max;
+
+            return new[]
+            {
+                new Vector3(low.x, low.y, low.z), new Vector3(high.x, low.y, low.z),
+                new Vector3(low.x, high.y, low.z), new Vector3(high.x, high.y, low.z),
+                new Vector3(low.x, low.y, high.z), new Vector3(high.x, low.y, high.z),
+                new Vector3(low.x, high.y, high.z), new Vector3(high.x, high.y, high.z),
+            };
+        }
+
+        /// <summary>
+        /// Whether a generated far rung's skinning survived the decimator:
+        /// `The Veil &gt; Rung Weights`.
+        ///
+        /// <b>Written because Rest Poses printed a deer's far rung as a box one centimetre
+        /// across.</b> A skinned renderer's bounds are copied from the near one by the pass
+        /// that builds it, so a rung whose vertices all collapse onto one bone's origin
+        /// reports a deer-sized box to every count in the project and draws a dot. Nothing
+        /// that reads bounds can see that, and nothing that reads the mesh un-posed can
+        /// either: the mesh asset is the right shape, and it is the weights that are
+        /// wrong.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.RigProbe.Weights
+        /// </summary>
+        [MenuItem("The Veil/Rung Weights")]
+        public static void Weights()
+        {
+            var sheet = new StringBuilder();
+            sheet.AppendLine("[Weight] every generated skinned far rung: the mesh un-posed, "
+                             + "the mesh baked in the rest pose, and what it is bound to");
+
+            int seen = 0, collapsed = 0;
+
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null) continue;
+                if (prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true).Length == 0) continue;
+
+                var stood = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                if (stood == null) continue;
+
+                try
+                {
+                    foreach (var skin in stood.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                    {
+                        if (!skin.name.StartsWith("Far LOD ")) continue;
+
+                        var mesh = skin.sharedMesh;
+                        if (mesh == null) continue;
+
+                        seen++;
+
+                        var baked = new Mesh();
+                        Vector3 bakedSize;
+
+                        try
+                        {
+                            skin.BakeMesh(baked, true);
+                            bakedSize = baked.vertexCount > 0 ? baked.bounds.size : Vector3.zero;
+                        }
+                        finally { Object.DestroyImmediate(baked); }
+
+                        var weights = mesh.GetAllBoneWeights();
+                        float heaviest = 0f;
+
+                        for (int i = 0; i < weights.Length; i++)
+                            if (weights[i].weight > heaviest) heaviest = weights[i].weight;
+
+                        bool bad = bakedSize.magnitude < 0.05f * mesh.bounds.size.magnitude;
+                        if (bad) collapsed++;
+
+                        sheet.AppendLine($"[Weight] {prefab.name,-34} {skin.name,-14} "
+                                         + $"mesh {mesh.bounds.size.magnitude,6:0.00} m  "
+                                         + $"baked {bakedSize.magnitude,6:0.00} m  "
+                                         + $"{mesh.bindposes.Length,3} bindposes  "
+                                         + $"{weights.Length,5} weights, heaviest "
+                                         + $"{heaviest,4:0.00}  "
+                                         + $"{skin.bones.Length,3} bones"
+                                         + (bad ? "   COLLAPSED" : ""));
+                    }
+                }
+                finally { Object.DestroyImmediate(stood); }
+            }
+
+            sheet.AppendLine($"[Weight] {seen} generated skinned far rungs, {collapsed} of "
+                             + "them collapsing when posed");
+
+            Debug.Log(sheet.ToString());
+        }
     }
 }

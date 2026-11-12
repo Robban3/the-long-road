@@ -28,8 +28,11 @@ judged.
 calls a design requirement had never been measured once. Six of its seven lines have
 numbers now — the package, which took a build pipeline the project did not have, and the
 skinned-mesh count, which took a report that puts the cast in the frame and not just the
-country. Four are burst: visible triangles 2,0× over, skinned meshes 4,2×, draw calls
-2,1×, the package 2,2×. Two are within. Of the rest, the load figure is noise and
+country. Three are burst: visible triangles 2,1× over, draw calls 2,1×, the package 2,2×.
+Three are within, and the skinned-mesh line joined them on 2026-11-12: it stood at 4,2×
+over until the cast report was asked who the hundred and sixty-nine were and answered that
+a hundred and fifty-three of them were two dozen faces apiece, three hundred metres out,
+being skinned for nothing. Of the rest, the load figure is noise and
 the frame rate needs a device, which is the one measurement nothing here can reach. That is §4.
 
 ---
@@ -241,12 +244,12 @@ because the first of those two builds the country and nothing that walks on it:
 
 | | first measured | scenery, after the far LODs | with the cast, at the phone's quality | wanted | |
 |---|---|---|---|---|---|
-| visible triangles | 7 503 276 | 429 926 (8-3) | **487 515** (8-5-Safe) | 250 000 | over 2,0× |
-| draw calls, fully instanced | 228 | 252 (1-8) | **308** (8-10-Safe) | 150 | over 2,1× |
-| draw calls, a material each | 54 | 44 (4-10) | 58 (4-10-Fast) | 150 | within |
+| visible triangles | 7 503 276 | 432 914 (8-3) | **513 743** (8-5-Safe) | 250 000 | over 2,1× |
+| draw calls, fully instanced | 228 | 252 (1-8) | **310** (8-10-Safe) | 150 | over 2,1× |
+| draw calls, a material each | 54 | 44 (4-10) | 61 (4-10-Fast) | 150 | within |
 | memory | 777 MB | **646 MB** (4-6) | — | 700 MB | within |
 | level load | 2,52 s | 1,54–3,77 s worst of 100 | — | 2,0 s | it wanders, see §4 |
-| skinned meshes | not measurable | 0, scenery has none | **169 in frame, 191 standing** | 40 | over 4,2× |
+| skinned meshes | not measurable | 13, the tents and the light rays | **37 in frame, 33 standing** | 40 | within |
 | package size | 386,7 MB | **325,1 MB** (texture ceilings) | — | 150 MB | over 2,2× |
 | frame rate | never measured | — | — | 60 fps | needs a phone |
 
@@ -1261,6 +1264,122 @@ in §8 is meant to end.
 
 **Neither phone can be built for.** Only Windows Standalone support is installed.
 
+### The skinned-mesh line, and what it took to find out who was on it
+
+**The line stood at 4,2× over and nothing in the project could name a single culprit.**
+169 skinned meshes in the worst frame against an allowance of 40, and the note beside it
+said the only way down was to stand fewer things up — a design question, not a tool one.
+That note was wrong, and what showed it was wrong was a list. `Cast Report` now prints,
+for the frame with the most skinned meshes in it, every one of them by mesh, by rung and
+by distance. The answer came back in one line: **153 of the 169 were on their chain's last
+rung, carrying between 23 and 46 faces each, standing between 74 and 390 metres out.**
+
+Our own far-LOD pass had put them there. The decimator took a man-at-arms from 3 474 faces
+to 24 and left him a `SkinnedMeshRenderer`, and the budget counts renderers rather than
+triangles. A skinning dispatch for two dozen faces is the most expensive triangle in the
+game.
+
+**So the last rung stopped being skinned.** `The Veil > Bake Cast Poses` stands each model
+up, gives it the Animator and controller `RunVisuals` would give it, walks it for 1,4
+seconds, and bakes the rung the chain already draws into a plain mesh on a plain
+`MeshRenderer`. Nothing about the geometry changes. The figure stops moving its legs at
+the range where it is forty pixels tall and twenty-four faces wide, and in exchange it
+stops being skinned — and starts instancing, which a skinned renderer never does.
+
+**58 renderers on 24 models, and the line went to 37 in frame and 33 standing.** Both
+within 40, from 169 and 191.
+
+It runs **after** `FarLods.Build`, which is what builds the rungs it bakes, and running it
+twice is a no-op: the second run finds nothing skinned on a last rung.
+
+**The pose could not come from the file, and that was measured rather than assumed.**
+`The Veil > Rest Poses` was written to ask it. Every human in the army pack stands **1,56 m
+wide on a 1,91 m figure** on disk, which is a rig in a cross, and the cross survives the
+decimator: a man-at-arms' last rung is still 1,15 m across at 96 faces. Freezing the file's
+own pose would have put a hundred and fifty crucified soldiers in the middle distance.
+
+That tool got its own first answer wrong in a way worth keeping: it printed
+widest-over-tall and called anything over 0,8 arms out, which flagged every deer, wolf,
+fox, fish and shark in the project. **A quadruped is as long as it is tall and always
+was.** The ratio measures boxiness. What catches a rig standing in a cross is the absolute
+width of a thing about 1,9 m tall.
+
+**And an animator that binds nothing looks exactly like one that worked**, so every baked
+mesh is compared against the mesh it came from, vertex by vertex, and a rung the pose did
+not move is left skinned and named. 12 are: the longbow and the crossbow, bound rigidly to
+a hand bone and so impossible to pose, and every nested horse in the cavalry prefabs,
+whose rider's controller does not drive it.
+
+**Three attempts to settle which space `BakeMesh` returns by argument all failed, and the
+third one shipped.** The flag is documented as "use the renderer's scale"; the army
+characters stand at one and the forest animals are imported at a hundredth with their
+meshes authored a hundred times over. Comparing the baked mesh against the mesh it came
+from does not catch the error either, because in mesh space the two are the same size and
+the mistake is in what the transform does afterwards. **A deer's last rung drew one pixel
+at sixty-two metres where it had drawn forty-three**, and the only thing that caught it
+was a picture. The bake now rehearses the whole swap on a throwaway object beside the
+renderer — same parent, same local place — and reads the world box the engine would draw;
+a bake that lands outside an eighth to one and a half of the model is thrown away.
+
+### The silhouette measurement was blind to the entire cast
+
+**`Silhouette` read a skinned renderer's `sharedMesh` and put it through the renderer's own
+transform**, which is the one thing a skinned mesh's vertices are not placed by. For its
+whole life it has therefore returned nought for every model in the cast. It did no harm
+only because the rule that reads it is consulted for rungs that start above 400 pixels and
+the cast's rungs do not — the moment a new rule read it everywhere, it refused the whole
+army. Skinned renderers are now snapshotted in the pose they stand in before anything is
+rasterised, which is the space the rest of it expects.
+
+**That one fix changed the cast's chains on its own.** The deer's 32-face rung, which had
+been coming out of the decimator as a blob **two centimetres across** where the rung above
+it is 1,20 m, is now refused by the cost rule that was already there. The scenery paid
+almost nothing for it: 429 926 visible triangles to **432 914**, under one per cent.
+
+### A hole guard was written, measured, and taken out again
+
+The obvious next move was to refuse any rung that keeps almost none of its outline. It was
+written and it was wrong twice, and both are worth keeping because both look right.
+
+1. **Read off the worst band, it refused 270 models.** `Silhouette.Kept` returns the worst
+   quarter-height band on purpose: a figure that loses its feet keeps nothing in its bottom
+   quarter and scores nought, and that is the rule working. It cannot answer "is there
+   anything left at all". The measurement now returns both numbers.
+2. **Read off the whole outline, it cost 39 432 595 triangles.** A refused rung hands its
+   band to the level above, and for a wildflower patch that level is the author's own mesh
+   drawn from the player's face to the horizon. Two patches became **98,9 % of the worst
+   frame in the game**. A patch of loose flower cards is the canopy problem again: no
+   shared edges to collapse, so every budget leaves a shape that keeps almost none of its
+   outline, and the honest answer for it is a billboard and not a decimation.
+3. **Restricted to handing back only to another of our own rungs, it cost 59 %** — 683 569
+   triangles against 429 926, for 39 refusals that are mostly shanty buildings whose
+   32-face rung keeps between 1 and 10 per cent of itself.
+
+All three were reverted. What they leave behind is a measured list of models whose cheapest
+level is a hole — the shanty presets and rooms, the rickety docks and tower, three desert
+props — and the number it would cost to refuse them. The coverage figure is printed beside
+the band figure in the pass's own sheet now, so the list can be read without running
+anything new.
+
+### What is still skinned, and the one thing still broken
+
+The 37 left in the worst frame are: 7 tents, which are `SkinnedMeshRenderer`s with **no
+bones and no bindposes at all** and have no business being skinned; 12 eyeballs
+(`Eye_Glass` and `Eye_low.002`, 396 faces each) with no chain, drawn at up to 384 m; 6
+horses with no chain at 2 182 faces each; 6 crossbows; and 6 light rays. Every one of them
+is a model that never got a chain, rather than a model whose chain is wrong.
+
+**The deer's cheap level is still a hole, and it was a hole before any of this.** The
+decimator refuses 5 000 collapses on that mesh as flips and cannot get below 2 256 faces
+from 12 626; what the pass does get is 370 faces that keep **0,05 of the outline**, and the
+picture at 62 m is four specks. Before this work it was 46 faces at one pixel, so it is
+less wrong and not right. It needs the decimator looked at, or a billboard, and neither is
+this change.
+
+**And the scenery's own skinned count went from 0 to 13 on this rebuild** — the tents and
+the light rays, which stand in built levels now where the old chains did not draw them.
+Thirteen against forty is not a problem, but it is a change this work has not traced.
+
 ---
 
 ## 5. What to do next, in order
@@ -1326,15 +1445,15 @@ done; §4 has what they bought, what they cost and what they were hiding.
    place, and the ending then drew them past where their author ever had. Both halves were
    this tool's. What is left on this item is the two models above, which have no chain at
    all and nothing in 187 faces to cut.
-
-3. **Fewer skinned things standing**, which is the skinned-mesh line and which no
-   decimator touches. 175 in frame and 194 standing against an allowance of 40 is a count
-   of skinned meshes and not of their triangles, so it comes down only by standing fewer
-   of them up; the far-LOD tool has given what it has to give here. `Wildlife.Populate` puts
-   thirty-one animals in a level and the column, the escort and whatever is sent against
-   it make up the rest. That part is a design question rather than a tool question — how
-   much of the country's life is worth four times a budget line — and like the triangle
-   line it is a question about a ceiling written for a phone nobody has measured.
+3. **The models with no chain at all**, which is what is left of the skinned-mesh line and
+   is no longer the design question this item used to be. That line is within its
+   allowance now at 37 in frame and 33 standing — see §4 — and it came down by a tool and
+   not by standing fewer things up, which is what this item said was impossible. What is
+   left on it is seven tents that are skinned with no bones in them, twelve eyeballs at
+   396 faces each drawn at 384 m, and six horses at 2 182 faces, none of which has a far
+   LOD chain of any kind. They are a morning's work and they would take the line to about
+   twelve. The deer's own cheap level is the other half of it and is a decimator problem,
+   also in §4.
 4. **Load time**, which this cannot measure — repeated runs over the same code put the
    worst level anywhere from 2,0 s to 4,1 s, on a different level each time. Memory is
    within its line now at 566 MB, and that figure has since become a phone's figure rather

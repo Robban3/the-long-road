@@ -780,17 +780,25 @@ namespace TheVeil.Editor
                     foreach (string one in shape.Split(';'))
                     {
                         var part = one.Split(':');
-                        if (part.Length != 3) continue;
+                        if (part.Length != 4) continue;
 
                         int rung = int.Parse(part[0]);
                         int high = int.Parse(part[1]);
                         float kept = float.Parse(part[2],
                             System.Globalization.CultureInfo.InvariantCulture);
 
+                        // The whole outline beside the worst band of it. The band is what
+                        // the shape rule reads; this one says whether there is anything
+                        // left at all, which is a different question and was not asked
+                        // until a deer turned out to have been a two-centimetre blob.
+                        float all = float.Parse(part[3],
+                            System.Globalization.CultureInfo.InvariantCulture);
+
                         shapes.Add((rung, high, kept));
 
-                        lost.Add((kept, $"{prop.name,-38} rung {rung} keeps {kept:0.00} of "
-                                        + $"its outline where the model is {high,4} pixels "
+                        lost.Add((all, $"{prop.name,-38} rung {rung} keeps {kept:0.00} of "
+                                        + $"its outline in its worst band and {all:0.00} of "
+                                        + $"it in all, where the model is {high,4} pixels "
                                         + $"tall and below, {had} faces cut to {got}"));
                     }
 
@@ -1319,7 +1327,7 @@ namespace TheVeil.Editor
                     // above, and a threshold is compared against a share the lod bias has
                     // already multiplied - so the geometric share is the threshold over
                     // the bias, and the pixels are that times the screen.
-                    float outline = Silhouette.Kept(made, seed, root.transform);
+                    float outline = Silhouette.Kept(made, seed, root.transform, out float covered);
 
                     // <b>The band this rung was designed for, not the one it happens to
                     // have been given - and that distinction is worth 2,8 million
@@ -1357,7 +1365,7 @@ namespace TheVeil.Editor
                     // itself and the distribution read as nonsense that still sorted.
                     shape = (shape == null ? "" : shape + ";")
                             + string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                                            "{0}:{1}:{2:0.000}", rung, high, outline);
+                                            "{0}:{1}:{2:0.000}:{3:0.000}", rung, high, outline, covered);
 
                     // <b>Pushed down rather than thrown away, and that is the difference
                     // between a rule that costs 1,3 per cent and one that costs

@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &2080935129899490864
+--- !u!1 &9148149794456464175
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3590711546414975954}
-  - component: {fileID: 2104657992177572098}
-  - component: {fileID: 7675398524560937747}
+  - component: {fileID: 7279974367996160901}
+  - component: {fileID: 4250884487320785416}
+  - component: {fileID: 2267087048025661376}
   m_Layer: 0
   m_Name: Far LOD 20
   m_TagString: Untagged
@@ -18,13 +18,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3590711546414975954
+--- !u!4 &7279974367996160901
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2080935129899490864}
+  m_GameObject: {fileID: 9148149794456464175}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -33,21 +33,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 87091105781123874}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &2104657992177572098
+--- !u!33 &4250884487320785416
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2080935129899490864}
+  m_GameObject: {fileID: 9148149794456464175}
   m_Mesh: {fileID: 4300000, guid: 18f1d6d00f394ca4992658e99b940cbf, type: 2}
---- !u!23 &7675398524560937747
+--- !u!23 &2267087048025661376
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2080935129899490864}
+  m_GameObject: {fileID: 9148149794456464175}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -159,7 +159,7 @@ PrefabInstance:
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: 5790f71e5fe759846a1f0ac174e64e47, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 3590711546414975954}
+      addedObject: {fileID: 7279974367996160901}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 5790f71e5fe759846a1f0ac174e64e47, type: 3}
       insertIndex: -1
@@ -221,7 +221,7 @@ LODGroup:
   - screenRelativeHeight: 0.005
     fadeTransitionWidth: 0
     renderers:
-    - renderer: {fileID: 7675398524560937747}
+    - renderer: {fileID: 2267087048025661376}
   m_Enabled: 1
 --- !u!23 &1260519964212850765 stripped
 MeshRenderer:

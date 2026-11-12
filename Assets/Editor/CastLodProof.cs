@@ -72,6 +72,8 @@ namespace TheVeil.Editor
         static readonly string[] Shown =
         {
             "MC_Levy_01",
+            "MC_ManAtArms_01",
+            "DeerFemale_URP",
             "MC_Knight_01",
             "MC_Cavalry_NobleCavalry",
             "TheVeil_Champion_00_Forest",
@@ -889,5 +891,85 @@ namespace TheVeil.Editor
             big.Apply();
             return big;
         }
+
+        /// <summary>
+        /// What the cast's frozen last rung actually draws: `The Veil &gt; Frozen Rung Proof`.
+        ///
+        /// <b>Because `Cast LOD Proof` photographs a fresh decimation and not the chain on
+        /// disk.</b> That tool answers "what would a rung look like" and it was the wrong
+        /// question here: <see cref="CastPoses"/> replaces the last rung's skinned
+        /// renderers with plain ones holding the same mesh baked in a walk, and what has to
+        /// be seen is the rung the prefab now carries - in the place it carries it, at the
+        /// size the engine draws it. A mesh baked in the wrong space would land at the
+        /// origin or at a hundred times its size, and no count in this project reads a
+        /// renderer's mesh position: they all read its bounds, and a MeshRenderer's bounds
+        /// come from whatever the mesh says.
+        ///
+        /// Headless: unity run . -- -executeMethod TheVeil.Editor.CastLodProof.Frozen
+        /// </summary>
+        [MenuItem("The Veil/Frozen Rung Proof")]
+        public static void Frozen()
+        {
+            System.IO.Directory.CreateDirectory(ProofDir);
+
+            var sheet = new StringBuilder();
+            sheet.AppendLine("[Proof] the cast's chains as they stand on disk, level by "
+                             + "level, with the last rung frozen and un-skinned");
+            sheet.AppendLine($"[Proof] lens {Fov:0} degrees, a {ScreenHigh} pixel screen, "
+                             + $"pictures blown up {Magnify}x so they can be seen");
+
+            int wasQuality = BudgetReport.Phone(sheet, "Proof");
+
+            int written = 0;
+
+            foreach (string path in Frozens)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                if (prefab == null)
+                {
+                    sheet.AppendLine($"[Proof] {path}: not there");
+                    continue;
+                }
+
+                var measured = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                if (measured == null) continue;
+
+                float tall = Height(measured);
+                Object.DestroyImmediate(measured);
+
+                if (tall <= 0.001f)
+                {
+                    sheet.AppendLine($"[Proof] {prefab.name}: nothing to measure");
+                    continue;
+                }
+
+                // Its own height and not a fitted one: a figure is the size its file says
+                // it is, and the dressing does not stretch the cast the way it stretches
+                // the trees.
+                written += Standing(prefab, tall, sheet);
+            }
+
+            sheet.AppendLine($"[Proof] {written} pictures in {ProofDir}");
+
+            QualitySettings.SetQualityLevel(wasQuality, true);
+
+            Debug.Log(sheet.ToString());
+        }
+
+        /// <summary>
+        /// The models photographed: the two commonest figures in the worst frame and the
+        /// commonest animal.
+        /// </summary>
+        // Chosen off the Cast Report census rather than by taste: a man-at-arms stands
+        // twelve times in the worst frame carrying three renderers each, a levy nine times
+        // carrying two, and seventeen deer stand in it at between seventy-four and three
+        // hundred and fifty-seven metres - the nearest frozen rung in the game.
+        static readonly string[] Frozens =
+        {
+            "Assets/Stylized_Medieval_Army_Pack/Prefabs - Characters/MC_ManAtArms_01.prefab",
+            "Assets/Stylized_Medieval_Army_Pack/Prefabs - Characters/MC_Levy_07.prefab",
+            "Assets/ForestAnimals/URP/DeerFemale/Prefab/DeerFemale_URP.prefab",
+        };
     }
 }

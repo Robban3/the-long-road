@@ -96,6 +96,55 @@ namespace TheVeil.Editor
         {
             if (cut == null || whole == null || root == null) return 1f;
 
+            // <b>Skinned renderers are snapshotted first, because their meshes are not
+            // where their meshes are.</b> A skinned mesh's vertices live in a space the
+            // bones undo, so putting them through the renderer's own transform - which is
+            // what everything below does - draws the model anywhere but where it is
+            // drawn. For a year that meant this measurement returned nought for every
+            // model in the cast, and it did no harm only because the rule that read it is
+            // consulted for rungs that start large and the cast's rungs do not. The
+            // moment a rule read it everywhere, it refused the whole army. Baked, the
+            // vertices come back in the renderer's own space, which is exactly the space
+            // the rest of this expects.
+            return Kept(cut, whole, root, out _);
+        }
+
+        /// <summary>
+        /// The worst band, and beside it the share of the whole outline that survives.
+        ///
+        /// <b>Two numbers because they answer two questions and one of them cannot stand
+        /// in for the other.</b> The worst band says whether a shape is good enough to be
+        /// drawn large: a figure that loses its feet keeps nothing in its bottom quarter
+        /// and scores nought, and that is the rule working. It therefore cannot be used to
+        /// ask whether a level is there at all, which is a different and blunter question
+        /// - and asking it with the band number refused two hundred and seventy models in
+        /// this project, nearly all of them good ones. The share over all the bands
+        /// together is what answers that: a man-at-arms missing his feet keeps most of
+        /// himself, and a deer the decimator pulled into a two-centimetre blob keeps
+        /// none of himself.
+        /// </summary>
+        public static float Kept(IList<Renderer> cut, IList<Renderer> whole, Transform root,
+                                 out float covered)
+        {
+            covered = 1f;
+
+            if (cut == null || whole == null || root == null) return 1f;
+
+            Snapshot(cut);
+            Snapshot(whole);
+
+            try
+            {
+                return Worst(cut, whole, root, out covered);
+            }
+            finally { Release(); }
+        }
+
+        static float Worst(IList<Renderer> cut, IList<Renderer> whole, Transform root,
+                           out float covered)
+        {
+            covered = 1f;
+
             var frame = Framed(whole, root);
             if (frame.size.magnitude <= 0.0001f) return 1f;
 
@@ -109,6 +158,16 @@ namespace TheVeil.Editor
                 int all = 0;
                 foreach (bool on in theirs) if (on) all++;
                 if (all == 0) continue;
+
+                // The whole outline at once, taken per view and the worst view kept - the
+                // same shape of reading as the band below, asked of everything together.
+                int held = 0;
+
+                for (int i = 0; i < theirs.Length; i++)
+                    if (theirs[i] && mine[i]) held++;
+
+                float over = (float)held / all;
+                if (over < covered) covered = over;
 
                 for (int band = 0; band < Bands; band++)
                 {
@@ -271,11 +330,52 @@ namespace TheVeil.Editor
         {
             if (renderer == null) return null;
 
+            if (_baked.TryGetValue(renderer, out var snapped)) return snapped;
+
             if (renderer is SkinnedMeshRenderer skin) return skin.sharedMesh;
 
             var filter = renderer.GetComponent<MeshFilter>();
             return filter != null ? filter.sharedMesh : null;
         }
+
+        /// <summary>
+        /// The skinned renderers of a set, snapshotted in the pose they stand in.
+        ///
+        /// Kept for the length of one measurement and thrown away after it. Taken once
+        /// rather than inside <see cref="Mesh"/>, which is asked for the same renderer
+        /// nine times over - four views of the cut, four of the whole, and the frame.
+        /// </summary>
+        static void Snapshot(IList<Renderer> set)
+        {
+            if (set == null) return;
+
+            foreach (var renderer in set)
+            {
+                if (!(renderer is SkinnedMeshRenderer skin)) continue;
+                if (skin.sharedMesh == null || _baked.ContainsKey(renderer)) continue;
+
+                var baked = new UnityEngine.Mesh();
+
+                // Without the scale, because every reading below puts the vertices
+                // through the renderer's own transform and that carries it.
+                skin.BakeMesh(baked, false);
+
+                if (baked.vertexCount == 0) { Object.DestroyImmediate(baked); continue; }
+
+                _baked[renderer] = baked;
+            }
+        }
+
+        static void Release()
+        {
+            foreach (var baked in _baked.Values)
+                if (baked != null) Object.DestroyImmediate(baked);
+
+            _baked.Clear();
+        }
+
+        /// <summary>The snapshots of one measurement, by the renderer they were taken of.</summary>
+        static readonly Dictionary<Renderer, Mesh> _baked = new Dictionary<Renderer, Mesh>();
 
         /// <summary>Named so the class doc can point at where it is checked.</summary>
         internal const string Tests = "SilhouetteTests";
